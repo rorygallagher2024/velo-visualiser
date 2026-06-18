@@ -56,6 +56,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnBars: Button
     private lateinit var btnBloom: Button
     private lateinit var btnStarscape: Button
+    private lateinit var btnRawScope: Button
     private lateinit var btnBurnin: Button
     private lateinit var statusText: TextView
     private lateinit var prefs: SharedPreferences
@@ -142,6 +143,7 @@ class MainActivity : AppCompatActivity() {
         btnBars = findViewById(R.id.btn_bars)
         btnBloom = findViewById(R.id.btn_bloom)
         btnStarscape = findViewById(R.id.btn_starscape)
+        btnRawScope = findViewById(R.id.btn_rawscope)
         btnBurnin = findViewById(R.id.btn_burnin)
         statusText = findViewById(R.id.status_text)
         tabBtnVisuals = findViewById(R.id.tab_btn_visuals)
@@ -267,6 +269,9 @@ class MainActivity : AppCompatActivity() {
         }
         btnStarscape.setOnClickListener {
             glView.selectScene(8); updateVisualizerSelection()
+        }
+        btnRawScope.setOnClickListener {
+            glView.selectScene(9); updateVisualizerSelection()
         }
 
         // Burn-in protection toggle (persisted, default on).
@@ -462,6 +467,7 @@ class MainActivity : AppCompatActivity() {
         btnBars.isSelected = glView.sceneIndex == 6
         btnBloom.isSelected = glView.sceneIndex == 7
         btnStarscape.isSelected = glView.sceneIndex == 8
+        btnRawScope.isSelected = glView.sceneIndex == 9
     }
 
     private fun updateStatus() {

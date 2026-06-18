@@ -17,6 +17,7 @@
     <string name="vis_bars">Spectrum Bars</string>
     <string name="vis_bloom">Spectral Bloom</string>
     <string name="vis_starscape">Starscape</string>
+    <string name="vis_rawscope">Raw Oscilloscope</string>
     <string name="display_label">Display</string>
     <string name="burnin_on">Burn-in Protection: On</string>
     <string name="burnin_off">Burn-in Protection: Off</string>
