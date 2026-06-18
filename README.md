@@ -52,10 +52,6 @@ While the app's calculation is near-instant, total physical time to change a lig
 * **Environmental Mic:** Bypasses Android's background noise cancellation. *Requires `RECORD_AUDIO` permission.*
 * **System Audio:** Captures internal audio playback. *Requires `MediaProjection` screen-capture permission per session.*
 
-### Android 17 Local Network Protections (API 37)
-Because Velo targets **API 37**, it is subject to strict Local Network Protections. To reach the Hue Bridge, Velo requires the **Local Network** runtime permission (`ACCESS_LOCAL_NETWORK` / `NEARBY_WIFI_DEVICES`). 
-* If denied, Android will silently drop outbound packets to your `192.168.x.x` subnet. The app will not crash, but discovery will fail, resulting in 5000ms "ghost" timeouts.
-
 ---
 
 ## Smart Lighting (Philips Hue Sync)
