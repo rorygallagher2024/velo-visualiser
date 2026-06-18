@@ -1,6 +1,6 @@
-# Oscillux
+# Velo Visualiser
 
-Oscillux is a professional-grade Android audio visualizer engineered around one obsession: **latency**. 
+Velo Visualiser is a professional-grade Android audio visualizer engineered around one obsession: **latency**. 
 
 A bare-metal C++/Oboe audio engine and custom OpenGL ES 3.1 shaders bypass standard Android bottlenecks to deliver sub-10 ms audio-to-pixel response, while driving Philips Hue lights and device haptics in real-time.
 
@@ -33,11 +33,9 @@ Any unauthorized commercial distribution will result in immediate DMCA takedown 
 
 ## Why Oscillux is Fast (The Architecture)
 
-Many visualizers suffer from inherent 100ms+ delays due to their reliance on high-level Java APIs like `AudioFlinger` or `android.media.audiofx.Visualizer`. Oscillux eliminates these bottlenecks by operating almost entirely at the operating system's hardware floor.
+Latency is Velo's reason to exist. 
 
-1. **Direct-to-Metal Audio (AAudio/Oboe):** The app completely bypasses the Android system mixer (`AudioFlinger`). Using Oboe in `LowLatency · Exclusive · Unprocessed` mode, the C++ engine reads raw PCM float data directly from the ALSA hardware driver.
-2. **Zero Garbage Collection (GC) Stutters:** Audio processing, FFT analysis (KissFFT), and IoT networking execute entirely within a native C++ loop using a lock-free, single-producer/single-consumer (SPSC) ring buffer. Because there are no Java memory allocations during the render loop, the Dalvik/ART Garbage Collector never pauses the visualizer.
-3. **Direct-to-Radio IoT Networking:** For smart lighting, the DTLS payload encryption and UDP socket transmission execute inside the native C++ loop. The packet hits the phone's Wi-Fi radio immediately after the FFT calculation, bypassing standard Java networking delays.
+Most "music + lights" apps drive Hue over the **legacy REST API**, which is rate-limited to ~10 commands/second and lands hundreds of milliseconds after the beat — visibly late. Velo Visualiser instead streams over the **Hue Entertainment API**: a **DTLS-PSK encrypted UDP** channel (port 2100) pushing the binary *HueStream v2* protocol at ~50 Hz, fire-and-forget. That's the bridge's dedicated low-latency path.
 
 ### End-to-End Latency Estimates
 

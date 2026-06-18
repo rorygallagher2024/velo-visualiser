@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Oscillux</string>
+    <string name="app_name">Velo Visualiser</string>
 
     <!-- Options menu -->
     <string name="menu_title">Settings</string>
@@ -31,8 +31,12 @@
     <string name="glow_off">Glow (Bloom): Off</string>
     <string name="haptics_on">Vibrate on Beat: On</string>
     <string name="haptics_off">Vibrate on Beat: Off</string>
+    <string name="beat_sens_label">Beat Sensitivity</string>
+    <string name="beat_sens_low">Low</string>
+    <string name="beat_sens_standard">Standard</string>
+    <string name="beat_sens_high">High</string>
     <string name="status_idle">Oboe Engine: starting…</string>
-    <string name="version_fmt">Oscillux v%1$s</string>
+    <string name="version_fmt">Velo v%1$s</string>
 
     <!-- Settings tabs -->
     <string name="tab_visualizers">Visualizers</string>
@@ -66,10 +70,10 @@
     <string name="screenshare_continue">Continue</string>
 
     <!-- Splash -->
-    <string name="splash_tagline">ultra-low-latency audio visualizer</string>
+    <string name="splash_tagline">V I S U A L I S E R</string>
 
     <!-- First-boot overlay -->
-    <string name="welcome_title">Welcome to Oscillux</string>
+    <string name="welcome_title">Welcome to Velo</string>
     <string name="hint_swipe_sides">◀  Swipe left / right to change visuals  ▶</string>
     <string name="hint_swipe_up">▲  Swipe up for settings</string>
     <string name="understood">Understood</string>
