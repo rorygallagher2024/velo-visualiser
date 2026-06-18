@@ -4,13 +4,13 @@ Oscillux is a professional-grade Android audio visualizer engineered around one 
 
 A bare-metal C++/Oboe audio engine and custom OpenGL ES 3.1 shaders deliver **sub-10 ms audio-to-pixel** response at 120 Hz+.
 
-That same low-latency philosophy is also able to drive **Philips Hue** lights in real time.
+That same low-latency philosophy also drives **Philips Hue** lights in real time.
 
 ## Features
 
 - **13 audio-reactive visualizers** — waveforms, spectra, particle/compute fluids, a scrolling spectrogram, and more (swipe or pick from the menu).
 - **Sub-10 ms audio-to-pixel latency** via a lock-free native audio path, rendered at the panel's full 120 Hz+.
-- **Real-time Philips Hue light sync** over the **Hue Entertainment streaming API** (local DTLS/UDP) — roughly an order of magnitude faster than the usual REST-based music apps. See [Latency — the whole point](#latency--the-whole-point).
+- **Real-time Philips Hue light sync** over the **Hue Entertainment streaming API** (local DTLS/UDP). See [Latency — the whole point](#latency--the-whole-point).
 - **HDR bloom** post-processing for real luminous glow (toggle).
 - **Vibrate-on-beat haptics** (toggle).
 - **Two audio sources** — raw *unprocessed* microphone, or internal/system audio (Spotify, YouTube) via screen-capture.
