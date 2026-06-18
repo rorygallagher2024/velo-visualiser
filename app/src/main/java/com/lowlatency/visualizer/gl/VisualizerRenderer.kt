@@ -45,7 +45,10 @@ class VisualizerRenderer : GLSurfaceView.Renderer {
         BarSpectrumScene(),        // 6
         SpectralBloomScene(),      // 7
         StarscapeScene(),          // 8
-        RawScopeScene()            // 9
+        RawScopeScene(),           // 9
+        SpectrogramScene(),        // 10
+        BeatFireworksScene(),      // 11
+        PhyllotaxisScene()         // 12
     )
     private var current = 0
     private var target = 0

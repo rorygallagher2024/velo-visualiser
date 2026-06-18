@@ -57,6 +57,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnBloom: Button
     private lateinit var btnStarscape: Button
     private lateinit var btnRawScope: Button
+    private lateinit var btnSpectrogram: Button
+    private lateinit var btnFireworks: Button
+    private lateinit var btnPhyllotaxis: Button
     private lateinit var btnBurnin: Button
     private lateinit var btnGlow: Button
     private lateinit var statusText: TextView
@@ -145,6 +148,9 @@ class MainActivity : AppCompatActivity() {
         btnBloom = findViewById(R.id.btn_bloom)
         btnStarscape = findViewById(R.id.btn_starscape)
         btnRawScope = findViewById(R.id.btn_rawscope)
+        btnSpectrogram = findViewById(R.id.btn_spectrogram)
+        btnFireworks = findViewById(R.id.btn_fireworks)
+        btnPhyllotaxis = findViewById(R.id.btn_phyllotaxis)
         btnBurnin = findViewById(R.id.btn_burnin)
         btnGlow = findViewById(R.id.btn_glow)
         statusText = findViewById(R.id.status_text)
@@ -274,6 +280,15 @@ class MainActivity : AppCompatActivity() {
         }
         btnRawScope.setOnClickListener {
             glView.selectScene(9); updateVisualizerSelection()
+        }
+        btnSpectrogram.setOnClickListener {
+            glView.selectScene(10); updateVisualizerSelection()
+        }
+        btnFireworks.setOnClickListener {
+            glView.selectScene(11); updateVisualizerSelection()
+        }
+        btnPhyllotaxis.setOnClickListener {
+            glView.selectScene(12); updateVisualizerSelection()
         }
 
         // Burn-in protection toggle (persisted, default on).
@@ -486,6 +501,9 @@ class MainActivity : AppCompatActivity() {
         btnBloom.isSelected = glView.sceneIndex == 7
         btnStarscape.isSelected = glView.sceneIndex == 8
         btnRawScope.isSelected = glView.sceneIndex == 9
+        btnSpectrogram.isSelected = glView.sceneIndex == 10
+        btnFireworks.isSelected = glView.sceneIndex == 11
+        btnPhyllotaxis.isSelected = glView.sceneIndex == 12
     }
 
     private fun updateStatus() {

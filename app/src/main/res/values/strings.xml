@@ -18,6 +18,9 @@
     <string name="vis_bloom">Spectral Bloom</string>
     <string name="vis_starscape">Starscape</string>
     <string name="vis_rawscope">Raw Oscilloscope</string>
+    <string name="vis_spectrogram">Spectrogram</string>
+    <string name="vis_fireworks">Beat Fireworks</string>
+    <string name="vis_phyllotaxis">Phyllotaxis Bloom</string>
     <string name="display_label">Display</string>
     <string name="burnin_on">Burn-in Protection: On</string>
     <string name="burnin_off">Burn-in Protection: Off</string>
