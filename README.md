@@ -4,6 +4,10 @@ Oscillux is a professional-grade Android audio visualizer engineered around one 
 
 A bare-metal C++/Oboe audio engine and custom OpenGL ES 3.1 shaders bypass standard Android bottlenecks to deliver sub-10 ms audio-to-pixel response, while driving Philips Hue lights and device haptics in real-time.
 
+## Demo
+
+[![Oscillux Demo](https://img.youtube.com/vi/NZ0ZSBPTFWk/maxresdefault.jpg)](https://youtu.be/NZ0ZSBPTFWk)
+
 ## Features
 
 - **13 audio-reactive visualizers** — Waveforms, spectra, particle fluids, scrolling spectrograms, and more.
