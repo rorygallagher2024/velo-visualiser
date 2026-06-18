@@ -16,27 +16,19 @@ Any unauthorized commercial distribution will result in immediate DMCA takedown 
 
 ## Core Capabilities & Architecture
 
-
-* **Bare-Metal Audio Engine (C++ / Oboe):** 
-  * Direct memory access to the device microphone.
-  * Bypasses Android's Automatic Gain Control (AGC) for raw, unprocessed transient detection.
-  * Sub-10ms round-trip audio latency.
-  * Real-time Fast Fourier Transform (FFT) frequency binning.
-* **Hardware-Accelerated Graphics:** 
-  * Written entirely in OpenGL ES 3.1.
-  * Continuous 60fps+ rendering at full native display resolution.
-  * Seamless state-machine handling to swap between complex vertex and fragment shaders without frame drops or memory leaks.
+## Core Architecture
+* **Bare-Metal Audio (C++ / Oboe):** Direct microphone access, bypassing Android's AGC for sub-10ms latency and real-time FFT frequency binning.
+* **Hardware-Accelerated Graphics:** 60fps+ OpenGL ES 3.1 rendering with seamless state-machine transitions between shaders.
 ---
 
 ## The Visualizer Suite
+Five distinct, mathematically driven visualizers responsive to live audio:
 
-The application features 5 distinct, mathematically driven visualizers.
-
-### 1. Pro Oscilloscope
-### 2. Pro Tunnel
-### 3. Volumetric Laser Array
-### 4. Topographic Bass Matrix
-### 5. Circular Spectrum Analyzer
+1. Pro Oscilloscope
+2. Pro Tunnel
+3. Volumetric Laser Array
+4. Topographic Bass Matrix
+5. Circular Spectrum Analyzer
 ---
 
 ## Installation & Setup
