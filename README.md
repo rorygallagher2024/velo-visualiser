@@ -1,6 +1,6 @@
 # Oscillux Audio Visualizer
 
-A professional-grade, high-performance, zero-latency audio visualizer for Android, targeting **sub-10 ms audio-to-pixel latency** for the most reactive visuals on even at 120hz+. Built with a bare-metal C++ audio engine and custom OpenGL ES 3.1 shaders.
+A professional-grade, high-performance, zero-latency audio visualizer for Android, targeting **sub-10 ms audio-to-pixel latency** for the most reactive visuals even at 120hz+. Built with a bare-metal C++ audio engine and custom OpenGL ES 3.1 shaders.
 
 ## ⚠️ Proprietary & Source-Available License
 **This is NOT an Open Source project.** The source code is provided for educational, review, and personal compilation purposes only.
