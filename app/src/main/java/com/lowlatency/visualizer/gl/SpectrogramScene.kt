@@ -1,6 +1,7 @@
 package com.lowlatency.visualizer.gl
 
 import android.opengl.GLES20
+import android.opengl.GLES30
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
@@ -89,8 +90,8 @@ class SpectrogramScene : GlScene {
         val zero = ByteBuffer.allocateDirect(COLS * BINS * 4)
             .order(ByteOrder.nativeOrder()).asFloatBuffer()
         GLES20.glTexImage2D(
-            GLES20.GL_TEXTURE_2D, 0, GLES20.GL_LUMINANCE,
-            COLS, BINS, 0, GLES20.GL_LUMINANCE, GLES20.GL_FLOAT, zero
+            GLES20.GL_TEXTURE_2D, 0, GLES30.GL_R32F,
+            COLS, BINS, 0, GLES30.GL_RED, GLES20.GL_FLOAT, zero
         )
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0)
     }
@@ -111,7 +112,7 @@ class SpectrogramScene : GlScene {
         // Write the newest spectrum as a 1-wide column at writeCol.
         GLES20.glTexSubImage2D(
             GLES20.GL_TEXTURE_2D, 0, writeCol, 0, 1, BINS,
-            GLES20.GL_LUMINANCE, GLES20.GL_FLOAT, column
+            GLES30.GL_RED, GLES20.GL_FLOAT, column
         )
         writeCol = (writeCol + 1) % COLS
 

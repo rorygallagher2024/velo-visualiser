@@ -95,10 +95,20 @@ class MainActivity : AppCompatActivity() {
     private val requestPermissions = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { grants ->
+        // 1. Handle Microphone (existing logic)
         if (grants[Manifest.permission.RECORD_AUDIO] == true) {
             startMicrophone()
         } else {
             Toast.makeText(this, "Microphone permission required.", Toast.LENGTH_LONG).show()
+        }
+
+        // 2. Log Network Status for debugging
+        if (Build.VERSION.SDK_INT >= 36) {
+            if (grants["android.permission.ACCESS_LOCAL_NETWORK"] == true) {
+                Log.d(TAG, "Android 17 Local Network permission GRANTED.")
+            } else {
+                Log.e(TAG, "Android 17 Local Network permission DENIED. Hue will timeout.")
+            }
         }
     }
 
@@ -661,12 +671,18 @@ class MainActivity : AppCompatActivity() {
             }
             .show()
     }
-
     private fun buildPermissionList(): Array<String> {
         val perms = mutableListOf(Manifest.permission.RECORD_AUDIO)
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             perms += Manifest.permission.POST_NOTIFICATIONS
+            perms += Manifest.permission.NEARBY_WIFI_DEVICES // Fallback for Android 13-16
         }
+        if (Build.VERSION.SDK_INT >= 36) {
+            // Android 17+ strict requirement
+            perms += "android.permission.ACCESS_LOCAL_NETWORK"
+        }
+
         return perms.toTypedArray()
     }
 
