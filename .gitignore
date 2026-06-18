@@ -1,0 +1,51 @@
+# Built application files
+*.apk
+*.aar
+*.ap_
+*.aab
+
+# Files for the ART/Dalvik VM
+*.dex
+
+# Java class files
+*.class
+
+# Generated files
+bin/
+gen/
+out/
+
+# Gradle files
+.gradle/
+build/
+
+# Local configuration file (sdk path, etc)
+local.properties
+
+# Android Studio / IntelliJ
+*.iml
+.idea/
+*.ipr
+*.iws
+captures/
+.navigation/
+freeline/
+freeline_project_description.json
+
+# NDK / native build
+.externalNativeBuild/
+.cxx/
+obj/
+
+# Keystore / signing
+*.jks
+*.keystore
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Keep the Gradle wrapper (gradlew, gradle/wrapper/*) under version control.

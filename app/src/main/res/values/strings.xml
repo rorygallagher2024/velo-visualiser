@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Low-Latency Visualizer</string>
+
+    <!-- Options menu -->
+    <string name="menu_title">Settings</string>
+    <string name="source_label">Audio Source</string>
+    <string name="source_mic">Microphone</string>
+    <string name="source_internal">Internal Audio</string>
+    <string name="visualizer_label">Visualizer</string>
+    <string name="vis_oscilloscope">Hardware Oscilloscope</string>
+    <string name="vis_tunnel">Deep Tunnel</string>
+    <string name="vis_fluid">Fluid Dynamics</string>
+    <string name="vis_laser">Volumetric Laser Array</string>
+    <string name="vis_topographic">Topographic Bass Matrix</string>
+    <string name="vis_circular">Circular Spectrum</string>
+    <string name="display_label">Display</string>
+    <string name="burnin_on">Burn-in Protection: On</string>
+    <string name="burnin_off">Burn-in Protection: Off</string>
+    <string name="status_idle">Oboe Engine: starting…</string>
+
+    <!-- First-boot overlay -->
+    <string name="welcome_title">Low-Latency Visualizer</string>
+    <string name="hint_swipe_sides">◀  Swipe left / right to change visuals  ▶</string>
+    <string name="hint_swipe_up">▲  Swipe up for settings</string>
+    <string name="understood">Understood</string>
+</resources>

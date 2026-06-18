@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base application theme. -->
+    <style name="Theme.LowLatencyVisualizer" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowBackground">@color/scope_background</item>
+        <item name="android:statusBarColor">@color/scope_background</item>
+        <item name="android:navigationBarColor">@color/scope_background</item>
+    </style>
+
+    <!-- Immersive fullscreen variant for the visualizer surface. -->
+    <style name="Theme.LowLatencyVisualizer.Fullscreen" parent="Theme.LowLatencyVisualizer">
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+    </style>
+</resources>

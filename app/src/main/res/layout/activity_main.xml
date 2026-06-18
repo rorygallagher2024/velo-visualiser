@@ -1,0 +1,273 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Layer order (bottom -> top):
+    1. VisualizerSurfaceView  - the OpenGL canvas (always rendering)
+    2. scrim                  - dim + tap-to-dismiss when the menu is open
+    3. options_sheet          - translucent settings panel (slides up)
+    4. first_boot_overlay     - one-time welcome / controls hint
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <com.lowlatency.visualizer.VisualizerSurfaceView
+        android:id="@+id/gl_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <!-- Tap-outside / dim scrim (hidden until the menu opens) -->
+    <View
+        android:id="@+id/scrim"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/scrim"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone" />
+
+    <!-- Options sheet: lower portion of the canvas -->
+    <LinearLayout
+        android:id="@+id/options_sheet"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:background="@drawable/sheet_background"
+        android:orientation="vertical"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:paddingTop="12dp"
+        android:paddingBottom="28dp"
+        android:clickable="true"
+        android:focusable="true">
+
+        <!-- Drag handle -->
+        <View
+            android:layout_width="40dp"
+            android:layout_height="4dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginBottom="16dp"
+            android:background="@color/text_dim" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/source_label"
+            android:textColor="@color/text_dim"
+            android:textSize="12sp"
+            android:letterSpacing="0.1"
+            android:textAllCaps="true"
+            android:layout_marginBottom="8dp" />
+
+        <!-- Audio source segmented toggle -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="20dp">
+
+            <Button
+                android:id="@+id/seg_mic"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="6dp"
+                android:background="@drawable/segment_button_bg"
+                android:text="@string/source_mic"
+                android:textColor="@color/text_primary"
+                android:textAllCaps="false"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/seg_internal"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:background="@drawable/segment_button_bg"
+                android:text="@string/source_internal"
+                android:textColor="@color/text_primary"
+                android:textAllCaps="false"
+                android:stateListAnimator="@null" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/visualizer_label"
+            android:textColor="@color/text_dim"
+            android:textSize="12sp"
+            android:letterSpacing="0.1"
+            android:textAllCaps="true"
+            android:layout_marginBottom="8dp" />
+
+        <!-- Visualizer selector (stacked so full labels fit) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginBottom="20dp">
+
+            <Button
+                android:id="@+id/btn_oscilloscope"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_oscilloscope"
+                android:textColor="@color/text_primary"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_tunnel"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_tunnel"
+                android:textColor="@color/text_primary"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_fluid"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_fluid"
+                android:textColor="@color/text_primary"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_laser"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_laser"
+                android:textColor="@color/text_primary"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_topographic"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_topographic"
+                android:textColor="@color/text_primary"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_circular"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_circular"
+                android:textColor="@color/text_primary"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/display_label"
+            android:textColor="@color/text_dim"
+            android:textSize="12sp"
+            android:letterSpacing="0.1"
+            android:textAllCaps="true"
+            android:layout_marginBottom="8dp" />
+
+        <!-- OLED burn-in protection toggle -->
+        <Button
+            android:id="@+id/btn_burnin"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:layout_marginBottom="20dp"
+            android:background="@drawable/pill_button_bg"
+            android:text="@string/burnin_on"
+            android:textColor="@color/text_primary"
+            android:textAllCaps="false"
+            android:textSize="13sp"
+            android:stateListAnimator="@null" />
+
+        <!-- Status indicator -->
+        <TextView
+            android:id="@+id/status_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:text="@string/status_idle"
+            android:textColor="@color/text_dim"
+            android:textSize="11sp" />
+    </LinearLayout>
+
+    <!-- First-boot welcome / controls hint -->
+    <FrameLayout
+        android:id="@+id/first_boot_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/first_boot_scrim"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:paddingStart="32dp"
+            android:paddingEnd="32dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/welcome_title"
+                android:textColor="@color/text_primary"
+                android:textSize="24sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="48dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/hint_swipe_sides"
+                android:textColor="@color/text_primary"
+                android:textSize="16sp"
+                android:layout_marginBottom="20dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/hint_swipe_up"
+                android:textColor="@color/text_primary"
+                android:textSize="16sp"
+                android:layout_marginBottom="48dp" />
+
+            <Button
+                android:id="@+id/btn_understood"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:minWidth="160dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/understood"
+                android:textColor="@color/text_primary"
+                android:textAllCaps="false"
+                android:stateListAnimator="@null" />
+        </LinearLayout>
+    </FrameLayout>
+
+</FrameLayout>

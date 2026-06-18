@@ -1,0 +1,72 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+}
+
+android {
+    namespace 'com.lowlatency.visualizer'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId "com.lowlatency.visualizer"
+        minSdk 29            // AudioPlaybackCapture (MediaProjection audio) requires API 29
+        targetSdk 36         // Android 16 — forward-compatible target
+        versionCode 1
+        versionName "1.0"
+
+        // --- NDK / native build ---
+        ndk {
+            // Strictly ARM. No x86/x86_64 emulator binaries are produced.
+            abiFilters "arm64-v8a"
+        }
+
+        externalNativeBuild {
+            cmake {
+                // Optimize aggressively; the audio path is latency-critical.
+                cppFlags "-std=c++17 -fno-exceptions -fno-rtti -O3"
+                // c++_static embeds the C++ runtime into our .so so we don't
+                // ship libc++_shared.so — avoids the second 16 KB alignment warning.
+                arguments "-DANDROID_STL=c++_static"
+            }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path "src/main/cpp/CMakeLists.txt"
+            version "3.22.1"
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        debug {
+            // Keep native debug symbols for profiling latency.
+            jniDebuggable true
+        }
+    }
+
+    // Oboe is consumed via CMake FetchContent, so no AAR prefab is needed.
+    buildFeatures {
+        prefab false
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core-ktx:1.13.1'
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'androidx.activity:activity-ktx:1.9.0'
+    // Window manager helpers for foldable posture / display features (future-proofing).
+    implementation 'androidx.window:window:1.3.0'
+}

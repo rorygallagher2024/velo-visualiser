@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="scope_background">#FF000000</color>
+    <color name="scope_line">#FF26FF8C</color>
+    <color name="ic_launcher_background">#FF000000</color>
+
+    <!-- UI overlay palette -->
+    <color name="accent">#FF26FF8C</color>
+    <color name="sheet_fill">#CC101418</color>
+    <color name="sheet_stroke">#33FFFFFF</color>
+    <color name="segment_idle">#22FFFFFF</color>
+    <color name="scrim">#66000000</color>
+    <color name="first_boot_scrim">#E6000000</color>
+    <color name="text_primary">#FFFFFFFF</color>
+    <color name="text_dim">#80FFFFFF</color>
+</resources>
