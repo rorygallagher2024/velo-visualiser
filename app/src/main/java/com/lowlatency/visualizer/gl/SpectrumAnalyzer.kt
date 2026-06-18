@@ -4,6 +4,7 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.floor
 import kotlin.math.log10
+import kotlin.math.log2
 import kotlin.math.pow
 import kotlin.math.sin
 import kotlin.math.sqrt
@@ -25,6 +26,12 @@ class SpectrumAnalyzer(val bins: Int = 128, private val fftSize: Int = 1024) {
     }
     private val re = FloatArray(fftSize)
     private val im = FloatArray(fftSize)
+
+    // Amplitude correction: undo the FFT's ~N/2 gain and the Hann window's 0.5
+    // coherent gain so a full-scale tone reads ~0 dBFS, independent of FFT size
+    // and of how loud the source is. Without this the raw magnitudes carry a
+    // fixed ~+48 dB offset and any normal-level (e.g. internal) audio pegs.
+    private val ampNorm = 4f / fftSize
 
     /** Smoothed, normalized magnitudes [0,1], one per log-spaced bin. */
     val magnitudes = FloatArray(bins)
@@ -63,9 +70,15 @@ class SpectrumAnalyzer(val bins: Int = 128, private val fftSize: Int = 1024) {
                 magInterp((posLo + posHi) * 0.5, half)
             }
 
-            // dB normalization == the "logarithmic scale" so lows don't dominate.
-            val db = 20f * log10(avg + 1e-6f)
-            val target = ((db + 70f) / 60f).coerceIn(0f, 1f)
+            // Normalize to a dBFS-like scale, then apply a spectral tilt that
+            // boosts +TILT dB/octave above the reference bin (and cuts below it).
+            // Music energy slopes ~-3 dB/oct, so without this the low bars
+            // dominate and saturate; the tilt flattens that so the bars read
+            // evenly across the spectrum.
+            val centerBin = logSpan.pow((b + 0.5) / bins)
+            val tilt = TILT_DB_PER_OCT * log2((centerBin / TILT_REF_BIN).toFloat())
+            val db = 20f * log10(avg * ampNorm + 1e-9f) + tilt
+            val target = ((db - FLOOR_DB) / (CEIL_DB - FLOOR_DB)).coerceIn(0f, 1f)
 
             val cur = magnitudes[b]
             val coeff = if (target > cur) 0.6f else 0.2f   // fast attack, slow decay
@@ -127,5 +140,21 @@ class SpectrumAnalyzer(val bins: Int = 128, private val fftSize: Int = 1024) {
         }
     }
 
-    companion object { private const val PEAK_FALL = 0.4f }
+    companion object {
+        private const val PEAK_FALL = 0.4f
+
+        // Level mapping (dBFS-like, after ampNorm). Wide enough to show both the
+        // very quiet UNPROCESSED mic and louder internal audio without pegging.
+        // FLOOR is the sensitivity knob: lower = quiet sources (the mic) read
+        // hotter. CEIL is the anti-peg guard for loud internal audio — leave it
+        // put when adjusting sensitivity so internal doesn't start saturating.
+        private const val FLOOR_DB = -88f
+        private const val CEIL_DB = -12f
+
+        // Spectral-tilt compensation for music's ~-3 dB/oct slope. Reference bin
+        // ~= 1 kHz at 48 kHz / 1024-pt FFT (46.9 Hz/bin); below it lows are cut,
+        // above it highs are lifted, so the spectrum reads evenly.
+        private const val TILT_DB_PER_OCT = 3f
+        private const val TILT_REF_BIN = 20.0
+    }
 }
