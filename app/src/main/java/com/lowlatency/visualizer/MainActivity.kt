@@ -747,12 +747,20 @@ class MainActivity : AppCompatActivity() {
      * Unlock HDR output and keep the panel awake. COLOR_MODE_HDR asks the
      * compositor to treat this window as HDR; on non-HDR panels it is ignored.
      */
+    @Suppress("DEPRECATION")   // windowManager.defaultDisplay is the pre-R fallback only
     private fun configureHdrWindow() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             window.colorMode = ActivityInfo.COLOR_MODE_HDR
             Log.i(TAG, "Requested HDR color mode.")
         }
+        // Report whether the panel is actually HDR-capable. If not, the >1.0
+        // output simply clamps to white (SDR) — the bloom/punch still work, just
+        // without the extra-nit boost. Lets us confirm HDR is genuinely engaging.
+        val d = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) display else windowManager.defaultDisplay
+        val isHdr = d?.isHdr == true
+        val types = d?.hdrCapabilities?.supportedHdrTypes?.joinToString() ?: "none"
+        Log.i(TAG, "Display HDR capable=$isHdr (types: $types)")
     }
 
     /** Choose the display mode with the highest refresh rate at native resolution. */

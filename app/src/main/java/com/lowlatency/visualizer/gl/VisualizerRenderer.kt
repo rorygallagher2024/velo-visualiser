@@ -3,6 +3,7 @@ package com.lowlatency.visualizer.gl
 import android.opengl.GLES20
 import android.opengl.GLSurfaceView
 import android.util.Log
+import com.lowlatency.visualizer.BeatDetector
 import com.lowlatency.visualizer.NativeBridge
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
@@ -22,6 +23,7 @@ class VisualizerRenderer : GLSurfaceView.Renderer {
         const val DEFAULT_SCENE = 9       // Raw Oscilloscope — shown on startup
         private const val POINTS = 1024
         private const val TRANSITION_SEC = 0.45f   // total fade duration
+        private const val PUNCH_FALL = 3.5f        // HDR beat-punch decay rate (~0.3 s)
 
         // OLED burn-in idle gate (deliberately gentle — the UNPROCESSED mic is
         // quiet, so the threshold sits just above its noise floor and the delay
@@ -79,7 +81,13 @@ class VisualizerRenderer : GLSurfaceView.Renderer {
     // before — no FBO, no extra passes, zero overhead.
     @Volatile var bloomEnabled = true
     private val post = PostProcessor()
-    private val bloomIntensity = 1.0f
+
+    // Beat-driven HDR "punch": on each kick it spikes the bloom/streak/exposure
+    // so highlights flash to peak luminance (extra nits on HDR, clean white on
+    // SDR), then decays. Respects the user's Beat Sensitivity preset + source.
+    private val hdrBeat = BeatDetector()
+    private var hdrPunch = 0f
+    private var lastFrameSec = 0f
 
     // Burn-in idle gate state (u_burnInProtectAlpha, folded into `dim`).
     // Toggleable from the settings menu; set on the UI thread, read on GL thread.
@@ -134,6 +142,13 @@ class VisualizerRenderer : GLSurfaceView.Renderer {
         pcmBeatSink?.invoke(pcm)
 
         val t = nowSec()
+        val dt = (t - lastFrameSec).coerceIn(0f, 0.1f)
+        lastFrameSec = t
+
+        // HDR beat-punch envelope (spikes on a kick, decays smoothly).
+        if (hdrBeat.update(pcm)) hdrPunch = 1f
+        else hdrPunch = (hdrPunch - dt * PUNCH_FALL).coerceAtLeast(0f)
+
         // u_burnInProtectAlpha is folded into `dim` so it dims every scene's
         // final color uniformly (incl. any static baseline) with no extra plumbing.
         // NB: updateTransition may swap `current`, so resolve the scene afterward.
@@ -157,7 +172,12 @@ class VisualizerRenderer : GLSurfaceView.Renderer {
 
         scene.draw(pcm, bands, t, dim)
 
-        if (usePost) post.bloomToScreen(bloomIntensity)   // bright → blur → composite to screen
+        if (usePost) {
+            // Bloom carries the punch; scene exposure lifts only gently.
+            val bloomI = 1.0f + hdrPunch * 2.0f
+            val exposure = 1.0f + hdrPunch * 0.3f
+            post.bloomToScreen(bloomI, exposure)   // bright → blur → composite
+        }
     }
 
     /**
