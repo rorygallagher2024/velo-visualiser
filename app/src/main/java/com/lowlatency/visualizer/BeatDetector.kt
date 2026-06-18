@@ -56,7 +56,8 @@ class BeatDetector(
         lastNs = now
         fluxAvg += (flux - fluxAvg) * (dt / fluxTauSec).coerceIn(0f, 1f)
 
-        val threshold = fluxAvg * fluxFactor + fluxFloor
+        // Source-aware user sensitivity preset scales the threshold.
+        val threshold = (fluxAvg * fluxFactor + fluxFloor) * BeatSettings.thresholdScale()
         val isBeat = bass > bassFloor &&
             flux > threshold &&
             (now - lastBeatNs) > minGapMs * 1_000_000L

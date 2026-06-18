@@ -68,6 +68,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnBurnin: Button
     private lateinit var btnGlow: Button
     private lateinit var btnHaptics: Button
+    private lateinit var btnSensLow: Button
+    private lateinit var btnSensStandard: Button
+    private lateinit var btnSensHigh: Button
     private lateinit var hapticController: HapticController
     private lateinit var statusText: TextView
     private lateinit var prefs: SharedPreferences
@@ -184,6 +187,9 @@ class MainActivity : AppCompatActivity() {
         btnBurnin = findViewById(R.id.btn_burnin)
         btnGlow = findViewById(R.id.btn_glow)
         btnHaptics = findViewById(R.id.btn_haptics)
+        btnSensLow = findViewById(R.id.btn_sens_low)
+        btnSensStandard = findViewById(R.id.btn_sens_standard)
+        btnSensHigh = findViewById(R.id.btn_sens_high)
         statusText = findViewById(R.id.status_text)
         tabBtnVisuals = findViewById(R.id.tab_btn_visuals)
         tabBtnLighting = findViewById(R.id.tab_btn_lighting)
@@ -205,9 +211,15 @@ class MainActivity : AppCompatActivity() {
         "?"
     }
 
-    /** Show the ASCII Oscillux logo on startup, then fade it out. */
+    /** Show the ASCII "VELO" logo on startup, then fade it out. */
     private fun wireSplash() {
-        splashLogo.text = "▁▂▃▄▅▆▇█▇▆▅▄▃▂▁\n\nO S C I L L U X"
+        splashLogo.text = listOf(
+            "█   █ █████ █      ███ ",
+            "█   █ █     █     █   █",
+            "█   █ ████  █     █   █",
+            " █ █  █     █     █   █",
+            "  █   █████ █████  ███ ",
+        ).joinToString("\n")
         splashOverlay.postDelayed({
             splashOverlay.animate().alpha(0f).setDuration(SPLASH_FADE_MS)
                 .withEndAction { splashOverlay.visibility = View.GONE }.start()
@@ -390,6 +402,26 @@ class MainActivity : AppCompatActivity() {
             btnHaptics.alpha = 0.4f
             updateHapticsButton(false)
         }
+
+        // Beat sensitivity presets (persisted). Drives every BeatDetector
+        // (fireworks, haptics, starscape flashes), mapped per audio source.
+        BeatSettings.preset = BeatSettings.Sensitivity.fromKey(prefs.getString(KEY_BEAT_SENS, null))
+        updateBeatSensSelection()
+        btnSensLow.setOnClickListener { setBeatSensitivity(BeatSettings.Sensitivity.LOW) }
+        btnSensStandard.setOnClickListener { setBeatSensitivity(BeatSettings.Sensitivity.STANDARD) }
+        btnSensHigh.setOnClickListener { setBeatSensitivity(BeatSettings.Sensitivity.HIGH) }
+    }
+
+    private fun setBeatSensitivity(s: BeatSettings.Sensitivity) {
+        BeatSettings.preset = s
+        prefs.edit().putString(KEY_BEAT_SENS, s.key).apply()
+        updateBeatSensSelection()
+    }
+
+    private fun updateBeatSensSelection() {
+        btnSensLow.isSelected = BeatSettings.preset == BeatSettings.Sensitivity.LOW
+        btnSensStandard.isSelected = BeatSettings.preset == BeatSettings.Sensitivity.STANDARD
+        btnSensHigh.isSelected = BeatSettings.preset == BeatSettings.Sensitivity.HIGH
     }
 
     private fun updateBurnInButton(enabled: Boolean) {
@@ -601,6 +633,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateStatus() {
+        // Beat detection is hotter on internal audio — tell the shared sensitivity.
+        BeatSettings.systemAudio = systemAudioMode
+
         // Beat-haptics are mic-only (system-audio capture is buffered → off-beat).
         // Gate the controller and grey the toggle when on internal audio.
         if (::hapticController.isInitialized) {
@@ -768,6 +803,7 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_BURNIN = "burn_in_enabled"
         private const val KEY_GLOW = "bloom_enabled"
         private const val KEY_HAPTICS = "haptics_enabled"
+        private const val KEY_BEAT_SENS = "beat_sensitivity"
         private const val KEY_SCREENSHARE_RATIONALE = "screenshare_rationale_shown"
         private const val SWIPE_DOWN_VELOCITY = 1200f
         private const val SPLASH_HOLD_MS = 3300L

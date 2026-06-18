@@ -1,6 +1,6 @@
-# Oscillux
+# Velo Visualiser
 
-Oscillux is a professional-grade Android audio visualizer engineered around one obsession: **latency**. 
+Velo Visualiser is a professional-grade Android audio visualizer engineered around one obsession: **latency**. 
 
 A bare-metal C++/Oboe audio engine and custom OpenGL ES 3.1 shaders deliver **sub-10 ms audio-to-pixel** response at 120 Hz+.
 
@@ -31,9 +31,9 @@ Any unauthorized commercial distribution will result in immediate DMCA takedown 
 
 ## Latency — the whole point
 
-Latency is Oscillux's reason to exist. 
+Latency is Velo's reason to exist. 
 
-Most "music + lights" apps drive Hue over the **legacy REST API**, which is rate-limited to ~10 commands/second and lands hundreds of milliseconds after the beat — visibly late. Oscillux instead streams over the **Hue Entertainment API**: a **DTLS-PSK encrypted UDP** channel (port 2100) pushing the binary *HueStream v2* protocol at ~50 Hz, fire-and-forget. That's the bridge's dedicated low-latency path.
+Most "music + lights" apps drive Hue over the **legacy REST API**, which is rate-limited to ~10 commands/second and lands hundreds of milliseconds after the beat — visibly late. Velo Visualiser instead streams over the **Hue Entertainment API**: a **DTLS-PSK encrypted UDP** channel (port 2100) pushing the binary *HueStream v2* protocol at ~50 Hz, fire-and-forget. That's the bridge's dedicated low-latency path.
 
 **Audio → pixel (on-device):** **sub-10 ms.** Oboe runs the mic in `LowLatency · Exclusive · Unprocessed` mode straight into a lock-free ring buffer; the GL thread pulls the freshest window every vsync — no locks, no allocations, no extra buffering.
 
