@@ -62,6 +62,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnSpectrogram: Button
     private lateinit var btnFireworks: Button
     private lateinit var btnPhyllotaxis: Button
+    private lateinit var btnElectricIris: Button
+    private lateinit var btnMandala: Button
+    private lateinit var btnAudioWeb: Button
     private lateinit var btnBurnin: Button
     private lateinit var btnGlow: Button
     private lateinit var btnHaptics: Button
@@ -92,10 +95,20 @@ class MainActivity : AppCompatActivity() {
     private val requestPermissions = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { grants ->
+        // 1. Handle Microphone (existing logic)
         if (grants[Manifest.permission.RECORD_AUDIO] == true) {
             startMicrophone()
         } else {
             Toast.makeText(this, "Microphone permission required.", Toast.LENGTH_LONG).show()
+        }
+
+        // 2. Log Network Status for debugging
+        if (Build.VERSION.SDK_INT >= 36) {
+            if (grants["android.permission.ACCESS_LOCAL_NETWORK"] == true) {
+                Log.d(TAG, "Android 17 Local Network permission GRANTED.")
+            } else {
+                Log.e(TAG, "Android 17 Local Network permission DENIED. Hue will timeout.")
+            }
         }
     }
 
@@ -165,6 +178,9 @@ class MainActivity : AppCompatActivity() {
         btnSpectrogram = findViewById(R.id.btn_spectrogram)
         btnFireworks = findViewById(R.id.btn_fireworks)
         btnPhyllotaxis = findViewById(R.id.btn_phyllotaxis)
+        btnElectricIris = findViewById(R.id.btn_electric_iris)
+        btnMandala = findViewById(R.id.btn_mandala)
+        btnAudioWeb = findViewById(R.id.btn_audio_web)
         btnBurnin = findViewById(R.id.btn_burnin)
         btnGlow = findViewById(R.id.btn_glow)
         btnHaptics = findViewById(R.id.btn_haptics)
@@ -320,6 +336,15 @@ class MainActivity : AppCompatActivity() {
         }
         btnPhyllotaxis.setOnClickListener {
             glView.selectScene(12); updateVisualizerSelection()
+        }
+        btnElectricIris.setOnClickListener {
+            glView.selectScene(13); updateVisualizerSelection()
+        }
+        btnMandala.setOnClickListener {
+            glView.selectScene(14); updateVisualizerSelection()
+        }
+        btnAudioWeb.setOnClickListener {
+            glView.selectScene(15); updateVisualizerSelection()
         }
 
         // Burn-in protection toggle (persisted, default on).
@@ -570,6 +595,9 @@ class MainActivity : AppCompatActivity() {
         btnSpectrogram.isSelected = glView.sceneIndex == 10
         btnFireworks.isSelected = glView.sceneIndex == 11
         btnPhyllotaxis.isSelected = glView.sceneIndex == 12
+        btnElectricIris.isSelected = glView.sceneIndex == 13
+        btnMandala.isSelected = glView.sceneIndex == 14
+        btnAudioWeb.isSelected = glView.sceneIndex == 15
     }
 
     private fun updateStatus() {
@@ -643,12 +671,18 @@ class MainActivity : AppCompatActivity() {
             }
             .show()
     }
-
     private fun buildPermissionList(): Array<String> {
         val perms = mutableListOf(Manifest.permission.RECORD_AUDIO)
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             perms += Manifest.permission.POST_NOTIFICATIONS
+            perms += Manifest.permission.NEARBY_WIFI_DEVICES // Fallback for Android 13-16
         }
+        if (Build.VERSION.SDK_INT >= 36) {
+            // Android 17+ strict requirement
+            perms += "android.permission.ACCESS_LOCAL_NETWORK"
+        }
+
         return perms.toTypedArray()
     }
 

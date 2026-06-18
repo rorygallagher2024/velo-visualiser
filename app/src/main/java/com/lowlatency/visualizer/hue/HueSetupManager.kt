@@ -240,6 +240,39 @@ class HueSetupManager(context: Context) {
         }
     }
 
+    /**
+     * Synchronous (blocking) version of [setStreamActive] for use during app
+     * shutdown (onDestroy/onStop). Returns true on success.
+     */
+    fun setStreamActiveSync(creds: HueCredentials, areaId: String, active: Boolean): Boolean {
+        return try {
+            val body = JSONObject()
+                .put("action", if (active) "start" else "stop")
+                .toString().toRequestBody(JSON)
+            val req = Request.Builder()
+                .url("https://${creds.bridgeIp}/clip/v2/resource/entertainment_configuration/$areaId")
+                .header("hue-application-key", creds.username)
+                .put(body)
+                .build()
+            http.newCall(req).execute().use { it.isSuccessful }
+        } catch (t: Throwable) {
+            Log.w(TAG, "setStreamActiveSync($active) failed: ${t.message}")
+            false
+        }
+    }
+
+    /**
+     * Release HTTP client resources. Call on app destruction.
+     */
+    fun shutdown() {
+        try {
+            http.dispatcher.executorService.shutdown()
+            http.connectionPool.evictAll()
+        } catch (t: Throwable) {
+            Log.w(TAG, "shutdown failed: ${t.message}")
+        }
+    }
+
     // --------------------------------------------------------------- internals
 
     private fun buildLanTrustingClient(): OkHttpClient {

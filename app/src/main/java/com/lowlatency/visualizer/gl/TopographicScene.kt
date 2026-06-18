@@ -1,6 +1,7 @@
 package com.lowlatency.visualizer.gl
 
 import android.opengl.GLES20
+import android.opengl.GLES30
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
@@ -164,8 +165,8 @@ class TopographicScene : GlScene {
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_NEAREST)
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_NEAREST)
         GLES20.glTexImage2D(
-            GLES20.GL_TEXTURE_2D, 0, GLES20.GL_LUMINANCE,
-            BINS, 1, 0, GLES20.GL_LUMINANCE, GLES20.GL_FLOAT, null
+            GLES20.GL_TEXTURE_2D, 0, GLES30.GL_R32F,
+            BINS, 1, 0, GLES30.GL_RED, GLES20.GL_FLOAT, null
         )
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0)
     }
@@ -189,7 +190,7 @@ class TopographicScene : GlScene {
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, specTex)
         GLES20.glTexSubImage2D(
             GLES20.GL_TEXTURE_2D, 0, 0, 0, BINS, 1,
-            GLES20.GL_LUMINANCE, GLES20.GL_FLOAT, specUpload
+            GLES30.GL_RED, GLES20.GL_FLOAT, specUpload
         )
         GLES20.glUniform1i(uSpectrum, 0)
         GLES20.glUniform1f(uTime, timeSec)
