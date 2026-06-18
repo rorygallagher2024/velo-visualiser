@@ -1,6 +1,7 @@
 package com.lowlatency.visualizer.gl
 
 import android.opengl.GLES20
+import com.lowlatency.visualizer.BeatDetector
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
@@ -27,14 +28,19 @@ class StarscapeScene : GlScene {
         private const val STARS = 1800
         private const val BASE_SPEED = 0.06f      // depth units / second
         private const val BASS_BOOST = 0.28f      // extra speed at full bass
+        private const val FLASH_FALL = 3.0f       // beat-flash fade rate (~0.33 s)
+
+        private const val FLASH_FRACTION = 0.35f  // share of stars that burst on a beat
 
         private const val VERTEX_SHADER = """#version 300 es
             layout(location = 0) in vec3 aStar;   // xy = direction (-1..1), z = depth seed (0..1)
             uniform float u_travel;
             uniform float u_aspect;
+            uniform float u_flash;                 // 0..1 beat-flash envelope
             uniform vec3  u_bands;                 // x=low, y=mid, z=high
             out float v_bright;
             out float v_seed;
+            out float v_sel;                       // per-star random selector 0..1
 
             void main() {
                 float z = fract(aStar.z + u_travel);          // 0 far .. 1 near
@@ -45,13 +51,17 @@ class StarscapeScene : GlScene {
 
                 gl_Position = vec4(p, 0.0, 1.0);
 
+                v_seed = aStar.x * 43.0 + aStar.y * 71.0;
+                v_sel = fract(sin(v_seed * 12.9898) * 43758.5453);
+                float flashStar = step(v_sel, ${FLASH_FRACTION});
+
                 float size = mix(0.6, 3.2, z) * (1.0 + u_bands.x * 2.0);
+                size *= 1.0 + u_flash * flashStar * 2.2;       // selected stars swell on the beat
                 gl_PointSize = size;
 
                 // Fade in at the horizon, out at the edge, so the wrap is hidden.
                 float fade = smoothstep(0.0, 0.05, z) * (1.0 - smoothstep(0.92, 1.0, z));
                 v_bright = z * z * fade;
-                v_seed = aStar.x * 43.0 + aStar.y * 71.0;
             }
         """
 
@@ -59,10 +69,15 @@ class StarscapeScene : GlScene {
             precision highp float;
             uniform float u_time;
             uniform float u_dim;
+            uniform float u_flash;
+            uniform float u_flashHue;
             uniform vec3  u_bands;
             in float v_bright;
             in float v_seed;
+            in float v_sel;
             out vec4 fragColor;
+
+            vec3 palette(float t) { return 0.5 + 0.5 * cos(6.28318 * (t + vec3(0.0, 0.33, 0.67))); }
 
             void main() {
                 vec2 c = gl_PointCoord * 2.0 - 1.0;
@@ -77,6 +92,12 @@ class StarscapeScene : GlScene {
                 vec3 tint = mix(vec3(0.6, 0.75, 1.0), vec3(1.0, 0.95, 0.85), fract(v_seed));
                 vec3 col = tint * v_bright * glow * twinkle;
                 col *= 1.0 + u_bands.x * 2.0;                  // HDR on the beat
+
+                // Beat flash: ~35% of stars burst bright + vivid colour (per-beat
+                // hue), fading with u_flash. HDR (>1) so the bloom makes them pop.
+                float flashStar = step(v_sel, ${FLASH_FRACTION});
+                vec3 flashCol = palette(u_flashHue + v_sel);
+                col += flashStar * u_flash * flashCol * glow * (0.6 + v_bright * 3.0);
 
                 fragColor = vec4(col * u_dim, 1.0);
             }
@@ -93,11 +114,17 @@ class StarscapeScene : GlScene {
     private var uTime = 0
     private var uDim = 0
     private var uBands = 0
+    private var uFlash = 0
+    private var uFlashHue = 0
 
     private var vbo = 0
     private var aspect = 1f
     private var travel = 0f
     private var lastTime = -1f
+
+    private val beat = BeatDetector()
+    private var flash = 0f       // beat-flash envelope, decays each frame
+    private var flashHue = 0f    // cycles per beat for varied flash colours
 
     override fun onCreated() {
         program = ShaderUtil.buildProgram(VERTEX_SHADER, FRAGMENT_SHADER)
@@ -107,6 +134,8 @@ class StarscapeScene : GlScene {
         uTime = GLES20.glGetUniformLocation(program, "u_time")
         uDim = GLES20.glGetUniformLocation(program, "u_dim")
         uBands = GLES20.glGetUniformLocation(program, "u_bands")
+        uFlash = GLES20.glGetUniformLocation(program, "u_flash")
+        uFlashHue = GLES20.glGetUniformLocation(program, "u_flashHue")
 
         // Random directions + depth seeds. xy in [-1,1] is the radial direction
         // from screen centre; z is the star's starting depth.
@@ -139,6 +168,14 @@ class StarscapeScene : GlScene {
         // Accumulate flight distance — bass accelerates the warp.
         travel = (travel + (BASE_SPEED + bands[0] * BASS_BOOST) * dt) % 1f
 
+        // Beat → flash a subset of stars bright + coloured; cycle hue per beat.
+        if (beat.update(pcm)) {
+            flash = 1f
+            flashHue = (flashHue + 0.37f) % 1f
+        } else {
+            flash = (flash - dt * FLASH_FALL).coerceAtLeast(0f)
+        }
+
         GLES20.glEnable(GLES20.GL_BLEND)
         GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE)   // additive glow
 
@@ -148,6 +185,8 @@ class StarscapeScene : GlScene {
         GLES20.glUniform1f(uTime, timeSec)
         GLES20.glUniform1f(uDim, dim)
         GLES20.glUniform3f(uBands, bands[0], bands[1], bands[2])
+        GLES20.glUniform1f(uFlash, flash)
+        GLES20.glUniform1f(uFlashHue, flashHue)
 
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, vbo)
         GLES20.glEnableVertexAttribArray(aStar)

@@ -19,6 +19,7 @@ class VisualizerRenderer : GLSurfaceView.Renderer {
 
     companion object {
         private const val TAG = "VisualizerRenderer"
+        const val DEFAULT_SCENE = 9       // Raw Oscilloscope — shown on startup
         private const val POINTS = 1024
         private const val TRANSITION_SEC = 0.45f   // total fade duration
 
@@ -45,10 +46,13 @@ class VisualizerRenderer : GLSurfaceView.Renderer {
         BarSpectrumScene(),        // 6
         SpectralBloomScene(),      // 7
         StarscapeScene(),          // 8
-        RawScopeScene()            // 9
+        RawScopeScene(),           // 9
+        SpectrogramScene(),        // 10
+        BeatFireworksScene(),      // 11
+        PhyllotaxisScene()         // 12
     )
-    private var current = 0
-    private var target = 0
+    private var current = DEFAULT_SCENE
+    private var target = DEFAULT_SCENE
 
     private var surfaceW = 1
     private var surfaceH = 1
@@ -61,6 +65,11 @@ class VisualizerRenderer : GLSurfaceView.Renderer {
     // Optional per-frame audio tap (e.g. the Hue light controller). Called on the
     // GL thread with [low, mid, high]; must be allocation-free / non-blocking.
     @Volatile var bandsSink: ((Float, Float, Float) -> Unit)? = null
+
+    // Optional per-frame raw-PCM tap for beat/onset detection (haptics). Gets the
+    // reused PCM array — read it synchronously, don't retain it. Separate from the
+    // FFT bands so beat detection never affects the visuals' tuning.
+    @Volatile var pcmBeatSink: ((FloatArray) -> Unit)? = null
 
     // HDR bloom post-processing. When off (or for a scene that opts out via
     // bypassPostProcessing), the scene draws straight to the screen exactly as
@@ -118,6 +127,8 @@ class VisualizerRenderer : GLSurfaceView.Renderer {
 
         // Forward the bands to any tap (Hue light sync) — cheap, non-blocking.
         bandsSink?.invoke(bands[0], bands[1], bands[2])
+        // Forward raw PCM to the beat tap (haptics) for bass-onset detection.
+        pcmBeatSink?.invoke(pcm)
 
         val t = nowSec()
         // u_burnInProtectAlpha is folded into `dim` so it dims every scene's
