@@ -49,7 +49,8 @@ class VisualizerRenderer : GLSurfaceView.Renderer {
         RawScopeScene(),           // 9
         SpectrogramScene(),        // 10
         BeatFireworksScene(),      // 11
-        PhyllotaxisScene()         // 12
+        PhyllotaxisScene(),        // 12
+        ElectricIrisScene()         // 13
     )
     private var current = DEFAULT_SCENE
     private var target = DEFAULT_SCENE

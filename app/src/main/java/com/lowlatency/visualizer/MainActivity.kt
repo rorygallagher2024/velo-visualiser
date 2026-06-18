@@ -62,6 +62,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnSpectrogram: Button
     private lateinit var btnFireworks: Button
     private lateinit var btnPhyllotaxis: Button
+    private lateinit var btnElectricIris: Button
     private lateinit var btnBurnin: Button
     private lateinit var btnGlow: Button
     private lateinit var btnHaptics: Button
@@ -165,6 +166,7 @@ class MainActivity : AppCompatActivity() {
         btnSpectrogram = findViewById(R.id.btn_spectrogram)
         btnFireworks = findViewById(R.id.btn_fireworks)
         btnPhyllotaxis = findViewById(R.id.btn_phyllotaxis)
+        btnElectricIris = findViewById(R.id.btn_electric_iris)
         btnBurnin = findViewById(R.id.btn_burnin)
         btnGlow = findViewById(R.id.btn_glow)
         btnHaptics = findViewById(R.id.btn_haptics)
@@ -320,6 +322,9 @@ class MainActivity : AppCompatActivity() {
         }
         btnPhyllotaxis.setOnClickListener {
             glView.selectScene(12); updateVisualizerSelection()
+        }
+        btnElectricIris.setOnClickListener {
+            glView.selectScene(13); updateVisualizerSelection()
         }
 
         // Burn-in protection toggle (persisted, default on).
@@ -570,6 +575,7 @@ class MainActivity : AppCompatActivity() {
         btnSpectrogram.isSelected = glView.sceneIndex == 10
         btnFireworks.isSelected = glView.sceneIndex == 11
         btnPhyllotaxis.isSelected = glView.sceneIndex == 12
+        btnElectricIris.isSelected = glView.sceneIndex == 13
     }
 
     private fun updateStatus() {
