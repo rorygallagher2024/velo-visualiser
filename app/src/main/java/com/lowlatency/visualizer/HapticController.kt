@@ -61,20 +61,19 @@ class HapticController(context: Context) {
 
     private val beat = BeatDetector(debugName = "haptics")
 
-    /**
-     * Internal/system audio arrives much hotter than the unprocessed mic, so the
-     * same detection over-fires. Raise the threshold for internal audio only.
-     */
-    fun setSystemAudio(internal: Boolean) {
-        beat.thresholdScale = if (internal) INTERNAL_THRESHOLD_SCALE else 1f
-    }
+    // Beat-haptics are gated to the mic. System-audio capture is buffered, so its
+    // PCM lags what the user hears — the buzz lands off-beat. (Same reason Hue
+    // sync is mic-only.) Visuals are unaffected.
+    @Volatile private var systemAudio = false
+
+    fun setSystemAudio(internal: Boolean) { systemAudio = internal }
 
     /** Called on the GL thread with the latest raw PCM window. */
     fun onPcm(pcm: FloatArray) {
-        // Keep the detector warm even when disabled so re-enabling doesn't fire
-        // a spurious pulse from a cold baseline.
+        // Keep the detector warm even when idle so re-enabling doesn't fire a
+        // spurious pulse from a cold baseline.
         val isBeat = beat.update(pcm)
-        if (!enabled) return
+        if (!enabled || systemAudio) return
         val v = vibrator ?: return
         if (isBeat) pulse(v, 0.9f)
     }
@@ -107,6 +106,5 @@ class HapticController(context: Context) {
         private const val TAG = "HapticController"
         private const val MIN_MS = 20L
         private const val MAX_MS = 70L
-        private const val INTERNAL_THRESHOLD_SCALE = 3.0f   // internal audio is much hotter
     }
 }

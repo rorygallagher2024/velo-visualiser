@@ -573,8 +573,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateStatus() {
-        // Haptics over-fire on the much hotter internal audio — desensitise there.
-        if (::hapticController.isInitialized) hapticController.setSystemAudio(systemAudioMode)
+        // Beat-haptics are mic-only (system-audio capture is buffered → off-beat).
+        // Gate the controller and grey the toggle when on internal audio.
+        if (::hapticController.isInitialized) {
+            hapticController.setSystemAudio(systemAudioMode)
+            val available = hapticController.isSupported && !systemAudioMode
+            btnHaptics.isEnabled = available
+            btnHaptics.alpha = if (available) 1f else 0.4f
+        }
 
         val rate = NativeBridge.nativeGetSampleRate()
         val version = getString(R.string.version_fmt, appVersionName())

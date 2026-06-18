@@ -1,6 +1,10 @@
 # Oscillux
 
-Oscillux is a professional-grade Android audio visualizer engineered around one obsession: **latency**. A bare-metal C++/Oboe audio engine and custom OpenGL ES 3.1 shaders deliver **sub-10 ms audio-to-pixel** response at 120 Hz+, and that same low-latency philosophy drives **Philips Hue** lights in real time.
+Oscillux is a professional-grade Android audio visualizer engineered around one obsession: **latency**. 
+
+A bare-metal C++/Oboe audio engine and custom OpenGL ES 3.1 shaders deliver **sub-10 ms audio-to-pixel** response at 120 Hz+.
+
+That same low-latency philosophy is also able to drive **Philips Hue** lights in real time.
 
 ## Features
 
@@ -9,7 +13,7 @@ Oscillux is a professional-grade Android audio visualizer engineered around one 
 - **Real-time Philips Hue light sync** over the **Hue Entertainment streaming API** (local DTLS/UDP) — roughly an order of magnitude faster than the usual REST-based music apps. See [Latency — the whole point](#latency--the-whole-point).
 - **HDR bloom** post-processing for real luminous glow (toggle).
 - **Vibrate-on-beat haptics** (toggle).
-- **Two audio sources** — raw *unprocessed* microphone, or internal/system audio (Spotify, YouTube, games) via screen-capture.
+- **Two audio sources** — raw *unprocessed* microphone, or internal/system audio (Spotify, YouTube) via screen-capture.
 - **HDR output** (FP16 surface) on capable panels.
 - **OLED burn-in protection** and **foldable / resizable** support — the render loop survives folds without recreating.
 
@@ -27,7 +31,9 @@ Any unauthorized commercial distribution will result in immediate DMCA takedown 
 
 ## Latency — the whole point
 
-Latency is Oscillux's reason to exist. Most "music + lights" apps drive Hue over the **legacy REST API**, which is rate-limited to ~10 commands/second and lands hundreds of milliseconds after the beat — visibly late. Oscillux instead streams over the **Hue Entertainment API**: a **DTLS-PSK encrypted UDP** channel (port 2100) pushing the binary *HueStream v2* protocol at ~50 Hz, fire-and-forget. That's the bridge's dedicated low-latency path.
+Latency is Oscillux's reason to exist. 
+
+Most "music + lights" apps drive Hue over the **legacy REST API**, which is rate-limited to ~10 commands/second and lands hundreds of milliseconds after the beat — visibly late. Oscillux instead streams over the **Hue Entertainment API**: a **DTLS-PSK encrypted UDP** channel (port 2100) pushing the binary *HueStream v2* protocol at ~50 Hz, fire-and-forget. That's the bridge's dedicated low-latency path.
 
 **Audio → pixel (on-device):** **sub-10 ms.** Oboe runs the mic in `LowLatency · Exclusive · Unprocessed` mode straight into a lock-free ring buffer; the GL thread pulls the freshest window every vsync — no locks, no allocations, no extra buffering.
 
@@ -110,18 +116,9 @@ A live **connection indicator** shows the current state (Disconnected / Searchin
 
 ## Haptics — Vibrate on Beat
 
-An optional setting (**Display → Vibrate on Beat**, off by default) fires a short vibration pulse on each detected bass transient, with pulse strength and length scaled to the beat energy (on devices with amplitude control). Beat detection runs on the render thread; pulses are throttled (~120 ms minimum gap) so they punctuate rather than buzz. Hidden/disabled automatically on devices without a vibrator.
+An optional setting (**Display → Vibrate on Beat**, off by default) fires a short vibration pulse on each detected bass transient, with pulse strength and length scaled to the beat energy (on devices with amplitude control). Detection is **bass-onset** (spectral flux on the low band of the raw PCM), so it tracks kicks within a busy mix rather than firing on overall level. Pulses are throttled (~120 ms minimum gap). Hidden/disabled automatically on devices without a vibrator.
 
----
-
-## Startup
-
-A brief ASCII-style **Oscillux** splash (a monospace waveform + wordmark over black) shows on launch and fades after a few seconds. A one-time first-run overlay then explains the swipe gestures.
-
----
-
-### Foldable & Desktop Support
-The application features seamless window resizing. The UI and render loop are not destroyed upon folding/unfolding the device. The viewport automatically recalculates its extents so the waveform and shaders maintain proper aspect ratio compliance without stretching.
+Like Hue sync, haptics are **microphone-only**: system-audio capture is buffered, so its PCM lags what you hear and the buzz lands off-beat. The toggle greys out on the Internal Audio source.
 
 ---
 
