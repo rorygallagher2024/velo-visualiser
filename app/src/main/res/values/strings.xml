@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Low-Latency Visualizer</string>
+    <string name="app_name">Oscillux</string>
 
     <!-- Options menu -->
     <string name="menu_title">Settings</string>
@@ -26,6 +26,8 @@
     <string name="burnin_off">Burn-in Protection: Off</string>
     <string name="glow_on">Glow (Bloom): On</string>
     <string name="glow_off">Glow (Bloom): Off</string>
+    <string name="haptics_on">Vibrate on Beat: On</string>
+    <string name="haptics_off">Vibrate on Beat: Off</string>
     <string name="status_idle">Oboe Engine: starting…</string>
 
     <!-- Settings tabs -->
@@ -38,7 +40,8 @@
     <string name="hue_reconnect">Reconnect / Refresh Areas</string>
     <string name="hue_sync_on">Light Sync: On</string>
     <string name="hue_sync_off">Light Sync: Off</string>
-    <string name="hue_local_note">Works over your local Wi-Fi only — your phone and Hue Bridge must be on the same network. No Hue cloud account is used.</string>
+    <string name="hue_local_note">Works over your local Wi-Fi only — your phone and Hue Bridge must be on the same network. No Hue cloud account is used. Light sync uses the Microphone source.</string>
+    <string name="hue_mic_only">Light sync works with the Microphone source. Switch the audio source to Microphone.</string>
     <string name="hue_status_idle">Tap “Connect Hue Bridge” to begin.</string>
     <string name="hue_status_searching">Searching for a Hue Bridge on your network…</string>
     <string name="hue_status_press_button">Press the button on your Hue Bridge… %1$d s</string>
@@ -58,8 +61,11 @@
     <string name="screenshare_message">To visualize sound from other apps (music, video, games), Android routes their audio through its screen-capture API — so the system will ask for screen-recording permission.\n\nThis app only reads the audio that\'s playing. It never records, saves, or transmits your screen.</string>
     <string name="screenshare_continue">Continue</string>
 
+    <!-- Splash -->
+    <string name="splash_tagline">ultra-low-latency audio visualizer</string>
+
     <!-- First-boot overlay -->
-    <string name="welcome_title">Low-Latency Visualizer</string>
+    <string name="welcome_title">Welcome to Oscillux</string>
     <string name="hint_swipe_sides">◀  Swipe left / right to change visuals  ▶</string>
     <string name="hint_swipe_up">▲  Swipe up for settings</string>
     <string name="understood">Understood</string>

@@ -45,6 +45,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var scrim: View
     private lateinit var optionsSheet: View
     private lateinit var firstBootOverlay: View
+    private lateinit var splashOverlay: View
+    private lateinit var splashLogo: TextView
     private lateinit var segMic: Button
     private lateinit var segInternal: Button
     private lateinit var btnOscilloscope: Button
@@ -62,6 +64,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnPhyllotaxis: Button
     private lateinit var btnBurnin: Button
     private lateinit var btnGlow: Button
+    private lateinit var btnHaptics: Button
+    private lateinit var hapticController: HapticController
     private lateinit var statusText: TextView
     private lateinit var prefs: SharedPreferences
 
@@ -107,6 +111,13 @@ class MainActivity : AppCompatActivity() {
                 AudioCaptureService.newIntent(this, result.resultCode, data)
             )
             systemAudioMode = true
+            // Light sync is mic-only; stop it when moving to internal audio.
+            if (::hueController.isInitialized && hueController.isEnabled) {
+                hueController.disable()
+                updateHueSyncButton(false)
+                updateHueConn(HueConn.PAIRED)
+                hueStatus.setText(R.string.hue_mic_only)
+            }
         } else {
             Toast.makeText(this, "System-audio capture denied.", Toast.LENGTH_SHORT).show()
             systemAudioMode = false
@@ -122,6 +133,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         bindViews()
+        wireSplash()
         wireGestures()
         wireTabs()
         wireMenuControls()
@@ -136,6 +148,8 @@ class MainActivity : AppCompatActivity() {
         scrim = findViewById(R.id.scrim)
         optionsSheet = findViewById(R.id.options_sheet)
         firstBootOverlay = findViewById(R.id.first_boot_overlay)
+        splashOverlay = findViewById(R.id.splash_overlay)
+        splashLogo = findViewById(R.id.splash_logo)
         segMic = findViewById(R.id.seg_mic)
         segInternal = findViewById(R.id.seg_internal)
         btnOscilloscope = findViewById(R.id.btn_oscilloscope)
@@ -153,6 +167,7 @@ class MainActivity : AppCompatActivity() {
         btnPhyllotaxis = findViewById(R.id.btn_phyllotaxis)
         btnBurnin = findViewById(R.id.btn_burnin)
         btnGlow = findViewById(R.id.btn_glow)
+        btnHaptics = findViewById(R.id.btn_haptics)
         statusText = findViewById(R.id.status_text)
         tabBtnVisuals = findViewById(R.id.tab_btn_visuals)
         tabBtnLighting = findViewById(R.id.tab_btn_lighting)
@@ -165,6 +180,15 @@ class MainActivity : AppCompatActivity() {
         hueConn = findViewById(R.id.hue_conn)
         prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         optionsSheet.visibility = View.GONE
+    }
+
+    /** Show the ASCII Oscillux logo on startup, then fade it out. */
+    private fun wireSplash() {
+        splashLogo.text = "▁▂▃▄▅▆▇█▇▆▅▄▃▂▁\n\nO S C I L L U X"
+        splashOverlay.postDelayed({
+            splashOverlay.animate().alpha(0f).setDuration(SPLASH_FADE_MS)
+                .withEndAction { splashOverlay.visibility = View.GONE }.start()
+        }, SPLASH_HOLD_MS)
     }
 
     // ----- Gestures: swipe-up opens the menu, swipe-down / tap-outside closes -----
@@ -312,6 +336,25 @@ class MainActivity : AppCompatActivity() {
             prefs.edit().putBoolean(KEY_GLOW, enabled).apply()
             updateGlowButton(enabled)
         }
+
+        // Vibrate-on-beat haptics (persisted, default off). Disabled if the
+        // device has no vibrator. Created here, before wireHue() wires the sink.
+        hapticController = HapticController(this)
+        if (hapticController.isSupported) {
+            val haptics = prefs.getBoolean(KEY_HAPTICS, false)
+            hapticController.enabled = haptics
+            updateHapticsButton(haptics)
+            btnHaptics.setOnClickListener {
+                val enabled = !hapticController.enabled
+                hapticController.enabled = enabled
+                prefs.edit().putBoolean(KEY_HAPTICS, enabled).apply()
+                updateHapticsButton(enabled)
+            }
+        } else {
+            btnHaptics.isEnabled = false
+            btnHaptics.alpha = 0.4f
+            updateHapticsButton(false)
+        }
     }
 
     private fun updateBurnInButton(enabled: Boolean) {
@@ -324,14 +367,23 @@ class MainActivity : AppCompatActivity() {
         btnGlow.setText(if (enabled) R.string.glow_on else R.string.glow_off)
     }
 
+    private fun updateHapticsButton(enabled: Boolean) {
+        btnHaptics.isSelected = enabled
+        btnHaptics.setText(if (enabled) R.string.haptics_on else R.string.haptics_off)
+    }
+
     // ----- Smart lighting (Philips Hue) -----
 
     private fun wireHue() {
         hueController = HueLightController(this)
         hueStore = HueCredentialStore(this)
 
-        // Feed audio bands to the light pipeline every render frame (GL thread).
-        glView.bandsSink = { low, mid, high -> hueController.onBands(low, mid, high) }
+        // Feed audio bands to the light + haptic pipelines every render frame
+        // (GL thread). Both taps are cheap and non-blocking.
+        glView.bandsSink = { low, mid, high ->
+            hueController.onBands(low, mid, high)
+            hapticController.onBands(low, mid, high)
+        }
 
         btnHueConnect.setOnClickListener { onHueConnectClicked() }
         btnHueSync.setOnClickListener { onHueSyncToggle() }
@@ -440,6 +492,12 @@ class MainActivity : AppCompatActivity() {
             updateHueSyncButton(false)
             updateHueConn(HueConn.PAIRED)
             hueStatus.text = getString(R.string.hue_sync_off)
+            return
+        }
+        // Light sync is currently microphone-only: internal (system) audio drives
+        // the C++ 3-band FFT into saturation, which washes the lights to white.
+        if (systemAudioMode) {
+            hueStatus.setText(R.string.hue_mic_only)
             return
         }
         val area = selectedArea ?: run {
@@ -644,6 +702,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         if (::hueController.isInitialized) hueController.disable()
+        if (::hapticController.isInitialized) hapticController.release()
         NativeBridge.nativeStop()
         super.onDestroy()
     }
@@ -654,7 +713,10 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_FIRST_BOOT_DONE = "first_boot_done"
         private const val KEY_BURNIN = "burn_in_enabled"
         private const val KEY_GLOW = "bloom_enabled"
+        private const val KEY_HAPTICS = "haptics_enabled"
         private const val KEY_SCREENSHARE_RATIONALE = "screenshare_rationale_shown"
         private const val SWIPE_DOWN_VELOCITY = 1200f
+        private const val SPLASH_HOLD_MS = 3300L
+        private const val SPLASH_FADE_MS = 700L
     }
 }
