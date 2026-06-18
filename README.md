@@ -90,7 +90,7 @@ Open in Android Studio (Meerkat 2024.3.1 or higher), or run:
 
     ./gradlew :app:assembleDebug
 
-* **Android SDK:** `targetSdk 36` (Ready for Android 16 / Baklava)
+* **Android SDK:** `targetSdk 37` (Android 17 / Cinnamon Bun)
 * **NDK:** Version 28+
 * **CMake:** 3.22.1
 

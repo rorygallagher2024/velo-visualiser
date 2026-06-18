@@ -48,6 +48,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnLaser: Button
     private lateinit var btnTopographic: Button
     private lateinit var btnCircular: Button
+    private lateinit var btnBars: Button
+    private lateinit var btnBloom: Button
+    private lateinit var btnStarscape: Button
     private lateinit var btnBurnin: Button
     private lateinit var statusText: TextView
     private lateinit var prefs: SharedPreferences
@@ -112,6 +115,9 @@ class MainActivity : AppCompatActivity() {
         btnLaser = findViewById(R.id.btn_laser)
         btnTopographic = findViewById(R.id.btn_topographic)
         btnCircular = findViewById(R.id.btn_circular)
+        btnBars = findViewById(R.id.btn_bars)
+        btnBloom = findViewById(R.id.btn_bloom)
+        btnStarscape = findViewById(R.id.btn_starscape)
         btnBurnin = findViewById(R.id.btn_burnin)
         statusText = findViewById(R.id.status_text)
         prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -126,10 +132,12 @@ class MainActivity : AppCompatActivity() {
 
         scrim.setOnClickListener { hideMenu() }
 
-        // Swipe-down on the sheet dismisses it (taps on the buttons still work,
-        // since children consume their own touches).
+        // Fast swipe-down on the sheet dismisses it. The sheet is a ScrollView,
+        // so the listener must NOT consume touches (return false) — otherwise the
+        // ScrollView can't scroll its content on short screens. The detector still
+        // observes every event and fires onFling for the dismiss gesture.
         val sheetGestures = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
-            override fun onDown(e: MotionEvent) = true
+            override fun onDown(e: MotionEvent) = false
             override fun onFling(
                 e1: MotionEvent?, e2: MotionEvent, vx: Float, vy: Float
             ): Boolean {
@@ -139,7 +147,7 @@ class MainActivity : AppCompatActivity() {
                 return false
             }
         })
-        optionsSheet.setOnTouchListener { _, ev -> sheetGestures.onTouchEvent(ev) }
+        optionsSheet.setOnTouchListener { _, ev -> sheetGestures.onTouchEvent(ev); false }
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -203,6 +211,15 @@ class MainActivity : AppCompatActivity() {
         btnCircular.setOnClickListener {
             glView.selectScene(5); updateVisualizerSelection()
         }
+        btnBars.setOnClickListener {
+            glView.selectScene(6); updateVisualizerSelection()
+        }
+        btnBloom.setOnClickListener {
+            glView.selectScene(7); updateVisualizerSelection()
+        }
+        btnStarscape.setOnClickListener {
+            glView.selectScene(8); updateVisualizerSelection()
+        }
 
         // Burn-in protection toggle (persisted, default on).
         val burnIn = prefs.getBoolean(KEY_BURNIN, true)
@@ -239,6 +256,9 @@ class MainActivity : AppCompatActivity() {
         btnLaser.isSelected = glView.sceneIndex == 3
         btnTopographic.isSelected = glView.sceneIndex == 4
         btnCircular.isSelected = glView.sceneIndex == 5
+        btnBars.isSelected = glView.sceneIndex == 6
+        btnBloom.isSelected = glView.sceneIndex == 7
+        btnStarscape.isSelected = glView.sceneIndex == 8
     }
 
     private fun updateStatus() {

@@ -30,23 +30,26 @@ class CircularSpectrumScene : GlScene {
         private const val FRAGMENT_SHADER = """#version 300 es
             precision highp float;
             uniform vec2  u_resolution;
-            uniform float u_aspectRatio;
             uniform float u_dim;
             uniform sampler2D u_spectrum;     // BINS x 2 : row0 mag, row1 peak
             out vec4 fragColor;
 
             const float BINS_F = float(${BINS});
-            const float INNER = 0.22;
-            const float MAXLEN = 0.55;
+            // INNER + MAXLEN (+ peak dot) must stay < 0.5 so the ring never
+            // touches the shorter screen edge — see normalization below.
+            const float INNER = 0.14;
+            const float MAXLEN = 0.30;
 
             vec3 palette(float t) {
                 return 0.5 + 0.5 * cos(6.28318 * (t + vec3(0.0, 0.33, 0.67)));
             }
 
             void main() {
-                // Aspect-corrected centre coords so the circle stays round.
-                vec2 uv = gl_FragCoord.xy / u_resolution - 0.5;
-                uv.x *= u_aspectRatio;
+                // Normalize by the SHORTER axis: the ring stays perfectly round
+                // AND fits on every screen — portrait, landscape, or unfolded
+                // tablet — without ever clipping off the top/bottom.
+                vec2 uv = (gl_FragCoord.xy - 0.5 * u_resolution)
+                          / min(u_resolution.x, u_resolution.y);
 
                 float r = length(uv);
                 float a = atan(uv.y, uv.x) / 6.28318 + 0.5;   // 0..1 around circle
@@ -95,21 +98,18 @@ class CircularSpectrumScene : GlScene {
     private var program = 0
     private var aPos = 0
     private var uResolution = 0
-    private var uAspect = 0
     private var uDim = 0
     private var uSpectrum = 0
 
     private var specTex = 0
     private var width = 1f
     private var height = 1f
-    private var aspect = 1f
     private var lastTime = -1f
 
     override fun onCreated() {
         program = ShaderUtil.buildProgram(VERTEX_SHADER, FRAGMENT_SHADER)
         aPos = GLES20.glGetAttribLocation(program, "aPos")
         uResolution = GLES20.glGetUniformLocation(program, "u_resolution")
-        uAspect = GLES20.glGetUniformLocation(program, "u_aspectRatio")
         uDim = GLES20.glGetUniformLocation(program, "u_dim")
         uSpectrum = GLES20.glGetUniformLocation(program, "u_spectrum")
 
@@ -131,7 +131,6 @@ class CircularSpectrumScene : GlScene {
     override fun onResize(width: Int, height: Int, aspect: Float) {
         this.width = width.toFloat()
         this.height = height.toFloat()
-        this.aspect = aspect
     }
 
     override fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
@@ -154,7 +153,6 @@ class CircularSpectrumScene : GlScene {
         )
         GLES20.glUniform1i(uSpectrum, 0)
         GLES20.glUniform2f(uResolution, width, height)
-        GLES20.glUniform1f(uAspect, aspect)
         GLES20.glUniform1f(uDim, dim)
 
         GLES20.glEnableVertexAttribArray(aPos)

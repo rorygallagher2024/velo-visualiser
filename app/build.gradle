@@ -5,12 +5,12 @@ plugins {
 
 android {
     namespace 'com.lowlatency.visualizer'
-    compileSdk 36
+    compileSdk 37
 
     defaultConfig {
         applicationId "com.lowlatency.visualizer"
         minSdk 29            // AudioPlaybackCapture (MediaProjection audio) requires API 29
-        targetSdk 36         // Android 16 — forward-compatible target
+        targetSdk 37         // Android 17 — latest target
         versionCode 1
         versionName "1.0"
 

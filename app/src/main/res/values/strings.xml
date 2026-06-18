@@ -14,6 +14,9 @@
     <string name="vis_laser">Volumetric Laser Array</string>
     <string name="vis_topographic">Topographic Bass Matrix</string>
     <string name="vis_circular">Circular Spectrum</string>
+    <string name="vis_bars">Spectrum Bars</string>
+    <string name="vis_bloom">Spectral Bloom</string>
+    <string name="vis_starscape">Starscape</string>
     <string name="display_label">Display</string>
     <string name="burnin_on">Burn-in Protection: On</string>
     <string name="burnin_off">Burn-in Protection: Off</string>
