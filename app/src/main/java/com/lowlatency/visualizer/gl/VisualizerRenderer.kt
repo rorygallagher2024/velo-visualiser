@@ -62,6 +62,13 @@ class VisualizerRenderer : GLSurfaceView.Renderer {
     // GL thread with [low, mid, high]; must be allocation-free / non-blocking.
     @Volatile var bandsSink: ((Float, Float, Float) -> Unit)? = null
 
+    // HDR bloom post-processing. When off (or for a scene that opts out via
+    // bypassPostProcessing), the scene draws straight to the screen exactly as
+    // before — no FBO, no extra passes, zero overhead.
+    @Volatile var bloomEnabled = true
+    private val post = PostProcessor()
+    private val bloomIntensity = 1.0f
+
     // Burn-in idle gate state (u_burnInProtectAlpha, folded into `dim`).
     // Toggleable from the settings menu; set on the UI thread, read on GL thread.
     @Volatile var burnInEnabled = true
@@ -87,6 +94,7 @@ class VisualizerRenderer : GLSurfaceView.Renderer {
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
         GLES20.glClearColor(0f, 0f, 0f, 1f)     // pure black
         startNanos = System.nanoTime()
+        post.onCreated()
         scenes.forEach { it.onCreated() }
         Log.i(TAG, "Surface created. Sample rate=${NativeBridge.nativeGetSampleRate()}")
     }
@@ -98,18 +106,12 @@ class VisualizerRenderer : GLSurfaceView.Renderer {
         surfaceH = height
         aspect = width.toFloat() / height.toFloat()
         GLES20.glViewport(0, 0, width, height)
+        post.resize(width, height)
         scenes.forEach { it.onResize(width, height, aspect) }
         Log.i(TAG, "Surface resized to ${width}x$height (aspect=$aspect)")
     }
 
     override fun onDrawFrame(gl: GL10?) {
-        // CRITICAL state isolation: every frame we restore a known-clean GL
-        // baseline BEFORE the scene draws. This guarantees the Fluid scene's
-        // additive blending (and any depth/cull state) can never leak into the
-        // Oscilloscope/Tunnel — they render exactly as they did pre-Phase-4.
-        resetGlState()
-        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
-
         // Pull the freshest audio data from the native ring buffer + FFT.
         NativeBridge.fillLatestAudioBuffer(pcm)
         NativeBridge.fillLatestFrequencyBands(bands)
@@ -120,8 +122,28 @@ class VisualizerRenderer : GLSurfaceView.Renderer {
         val t = nowSec()
         // u_burnInProtectAlpha is folded into `dim` so it dims every scene's
         // final color uniformly (incl. any static baseline) with no extra plumbing.
+        // NB: updateTransition may swap `current`, so resolve the scene afterward.
         val dim = updateTransition(t) * updateBurnInGate(t)
-        scenes[current].draw(pcm, bands, t, dim)
+        val scene = scenes[current]
+
+        val usePost = bloomEnabled && post.isReady && !scene.bypassPostProcessing
+        if (usePost) {
+            post.beginScene()                    // render into the offscreen HDR buffer
+        } else {
+            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
+            GLES20.glViewport(0, 0, surfaceW, surfaceH)
+        }
+
+        // CRITICAL state isolation: every frame we restore a known-clean GL
+        // baseline BEFORE the scene draws. This guarantees the Fluid scene's
+        // additive blending (and any depth/cull state) can never leak between
+        // scenes (or into the post passes).
+        resetGlState()
+        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
+
+        scene.draw(pcm, bands, t, dim)
+
+        if (usePost) post.bloomToScreen(bloomIntensity)   // bright → blur → composite to screen
     }
 
     /**

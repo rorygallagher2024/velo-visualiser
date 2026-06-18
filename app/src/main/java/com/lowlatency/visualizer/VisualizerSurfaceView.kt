@@ -81,6 +81,11 @@ class VisualizerSurfaceView @JvmOverloads constructor(
         get() = renderer.bandsSink
         set(value) { renderer.bandsSink = value }
 
+    /** Enable/disable the HDR bloom (glow) post-processing pipeline. */
+    var bloomEnabled: Boolean
+        get() = renderer.bloomEnabled
+        set(value) { renderer.bloomEnabled = value }
+
     /** Switch to an explicit scene (wraps), updating the menu source-of-truth. */
     fun selectScene(index: Int) {
         val count = renderer.sceneCount

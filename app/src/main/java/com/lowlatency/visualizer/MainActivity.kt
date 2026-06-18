@@ -58,6 +58,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnStarscape: Button
     private lateinit var btnRawScope: Button
     private lateinit var btnBurnin: Button
+    private lateinit var btnGlow: Button
     private lateinit var statusText: TextView
     private lateinit var prefs: SharedPreferences
 
@@ -145,6 +146,7 @@ class MainActivity : AppCompatActivity() {
         btnStarscape = findViewById(R.id.btn_starscape)
         btnRawScope = findViewById(R.id.btn_rawscope)
         btnBurnin = findViewById(R.id.btn_burnin)
+        btnGlow = findViewById(R.id.btn_glow)
         statusText = findViewById(R.id.status_text)
         tabBtnVisuals = findViewById(R.id.tab_btn_visuals)
         tabBtnLighting = findViewById(R.id.tab_btn_lighting)
@@ -284,11 +286,27 @@ class MainActivity : AppCompatActivity() {
             prefs.edit().putBoolean(KEY_BURNIN, enabled).apply()
             updateBurnInButton(enabled)
         }
+
+        // HDR bloom / glow toggle (persisted, default on).
+        val glow = prefs.getBoolean(KEY_GLOW, true)
+        glView.bloomEnabled = glow
+        updateGlowButton(glow)
+        btnGlow.setOnClickListener {
+            val enabled = !glView.bloomEnabled
+            glView.bloomEnabled = enabled
+            prefs.edit().putBoolean(KEY_GLOW, enabled).apply()
+            updateGlowButton(enabled)
+        }
     }
 
     private fun updateBurnInButton(enabled: Boolean) {
         btnBurnin.isSelected = enabled
         btnBurnin.setText(if (enabled) R.string.burnin_on else R.string.burnin_off)
+    }
+
+    private fun updateGlowButton(enabled: Boolean) {
+        btnGlow.isSelected = enabled
+        btnGlow.setText(if (enabled) R.string.glow_on else R.string.glow_off)
     }
 
     // ----- Smart lighting (Philips Hue) -----
@@ -617,6 +635,7 @@ class MainActivity : AppCompatActivity() {
         private const val PREFS = "visualizer_prefs"
         private const val KEY_FIRST_BOOT_DONE = "first_boot_done"
         private const val KEY_BURNIN = "burn_in_enabled"
+        private const val KEY_GLOW = "bloom_enabled"
         private const val KEY_SCREENSHARE_RATIONALE = "screenshare_rationale_shown"
         private const val SWIPE_DOWN_VELOCITY = 1200f
     }

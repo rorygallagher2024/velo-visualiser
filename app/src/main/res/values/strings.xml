@@ -21,6 +21,8 @@
     <string name="display_label">Display</string>
     <string name="burnin_on">Burn-in Protection: On</string>
     <string name="burnin_off">Burn-in Protection: Off</string>
+    <string name="glow_on">Glow (Bloom): On</string>
+    <string name="glow_off">Glow (Bloom): Off</string>
     <string name="status_idle">Oboe Engine: starting…</string>
 
     <!-- Settings tabs -->

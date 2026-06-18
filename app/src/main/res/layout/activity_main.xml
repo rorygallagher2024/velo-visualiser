@@ -289,9 +289,22 @@
             android:id="@+id/btn_burnin"
             android:layout_width="match_parent"
             android:layout_height="44dp"
-            android:layout_marginBottom="20dp"
+            android:layout_marginBottom="8dp"
             android:background="@drawable/pill_button_bg"
             android:text="@string/burnin_on"
+            android:textColor="@color/text_primary"
+            android:textAllCaps="false"
+            android:textSize="13sp"
+            android:stateListAnimator="@null" />
+
+        <!-- HDR bloom / glow post-processing toggle -->
+        <Button
+            android:id="@+id/btn_glow"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:layout_marginBottom="20dp"
+            android:background="@drawable/pill_button_bg"
+            android:text="@string/glow_on"
             android:textColor="@color/text_primary"
             android:textAllCaps="false"
             android:textSize="13sp"

@@ -30,4 +30,11 @@ interface GlScene {
      * here. Runs on the GL thread. Default: no-op.
      */
     fun onDeactivate() {}
+
+    /**
+     * If true, the renderer draws this scene straight to the screen and skips
+     * the bloom post-processing pipeline. Use for scenes that must stay
+     * pixel-pure (e.g. the Raw Oscilloscope). Default: false (bloom applies).
+     */
+    val bypassPostProcessing: Boolean get() = false
 }

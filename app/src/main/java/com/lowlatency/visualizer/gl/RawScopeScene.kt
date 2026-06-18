@@ -66,6 +66,9 @@ class RawScopeScene : GlScene {
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
     }
 
+    // Stay pixel-pure: never route the raw trace through the bloom pipeline.
+    override val bypassPostProcessing: Boolean get() = true
+
     override fun onResize(width: Int, height: Int, aspect: Float) {
         // A 1D trace needs no aspect correction: x spans the full width, y is amplitude.
     }
