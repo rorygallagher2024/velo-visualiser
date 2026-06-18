@@ -23,6 +23,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.lowlatency.visualizer.hue.HueCredentialStore
@@ -59,11 +60,18 @@ class MainActivity : AppCompatActivity() {
     private lateinit var statusText: TextView
     private lateinit var prefs: SharedPreferences
 
+    // --- Settings tabs ---
+    private lateinit var tabBtnVisuals: Button
+    private lateinit var tabBtnLighting: Button
+    private lateinit var tabVisualizers: View
+    private lateinit var tabLighting: View
+
     // --- Smart lighting (Philips Hue) ---
     private lateinit var btnHueConnect: Button
     private lateinit var hueAreaContainer: LinearLayout
     private lateinit var btnHueSync: Button
     private lateinit var hueStatus: TextView
+    private lateinit var hueConn: TextView
     private lateinit var hueController: HueLightController
     private lateinit var hueStore: HueCredentialStore
     private var hueAreas: List<HueEntertainmentArea> = emptyList()
@@ -110,6 +118,7 @@ class MainActivity : AppCompatActivity() {
 
         bindViews()
         wireGestures()
+        wireTabs()
         wireMenuControls()
         wireHue()
         wireFirstBoot()
@@ -135,10 +144,15 @@ class MainActivity : AppCompatActivity() {
         btnStarscape = findViewById(R.id.btn_starscape)
         btnBurnin = findViewById(R.id.btn_burnin)
         statusText = findViewById(R.id.status_text)
+        tabBtnVisuals = findViewById(R.id.tab_btn_visuals)
+        tabBtnLighting = findViewById(R.id.tab_btn_lighting)
+        tabVisualizers = findViewById(R.id.tab_visualizers)
+        tabLighting = findViewById(R.id.tab_lighting)
         btnHueConnect = findViewById(R.id.btn_hue_connect)
         hueAreaContainer = findViewById(R.id.hue_area_container)
         btnHueSync = findViewById(R.id.btn_hue_sync)
         hueStatus = findViewById(R.id.hue_status)
+        hueConn = findViewById(R.id.hue_conn)
         prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         optionsSheet.visibility = View.GONE
     }
@@ -177,6 +191,21 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         })
+    }
+
+    // ----- Settings tabs: Visualizers | Lighting -----
+
+    private fun wireTabs() {
+        tabBtnVisuals.setOnClickListener { selectTab(lighting = false) }
+        tabBtnLighting.setOnClickListener { selectTab(lighting = true) }
+        selectTab(lighting = false)   // default to the Visualizers tab
+    }
+
+    private fun selectTab(lighting: Boolean) {
+        tabBtnVisuals.isSelected = !lighting
+        tabBtnLighting.isSelected = lighting
+        tabVisualizers.visibility = if (lighting) View.GONE else View.VISIBLE
+        tabLighting.visibility = if (lighting) View.VISIBLE else View.GONE
     }
 
     private fun showMenu() {
@@ -269,9 +298,14 @@ class MainActivity : AppCompatActivity() {
         btnHueConnect.setOnClickListener { onHueConnectClicked() }
         btnHueSync.setOnClickListener { onHueSyncToggle() }
 
-        // If we already paired in a previous session, jump straight to area pick.
+        // If we already paired in a previous session, the bridge is remembered:
+        // reflect that and relabel Connect as a refresh action.
         if (hueStore.loadCredentials() != null) {
+            updateHueConn(HueConn.PAIRED)
             hueStatus.text = getString(R.string.hue_status_paired)
+            btnHueConnect.setText(R.string.hue_reconnect)
+        } else {
+            updateHueConn(HueConn.DISCONNECTED)
         }
     }
 
@@ -283,11 +317,13 @@ class MainActivity : AppCompatActivity() {
             return
         }
         hueStatus.setText(R.string.hue_status_searching)
+        updateHueConn(HueConn.SEARCHING)
         btnHueConnect.isEnabled = false
         hueController.setup.discoverBridges { bridges ->
             val bridge = bridges.firstOrNull()
             if (bridge == null) {
                 hueStatus.setText(R.string.hue_status_no_bridge)
+                updateHueConn(HueConn.DISCONNECTED)
                 btnHueConnect.isEnabled = true
                 return@discoverBridges
             }
@@ -296,11 +332,14 @@ class MainActivity : AppCompatActivity() {
                 onCountdown = { s -> hueStatus.text = getString(R.string.hue_status_press_button, s) },
                 onSuccess = {
                     hueStatus.setText(R.string.hue_status_paired)
+                    updateHueConn(HueConn.PAIRED)
                     btnHueConnect.isEnabled = true
+                    btnHueConnect.setText(R.string.hue_reconnect)
                     loadHueAreas()
                 },
                 onError = { msg ->
                     hueStatus.text = msg
+                    updateHueConn(HueConn.DISCONNECTED)
                     btnHueConnect.isEnabled = true
                 },
             )
@@ -361,6 +400,7 @@ class MainActivity : AppCompatActivity() {
         if (hueController.isEnabled) {
             hueController.disable()
             updateHueSyncButton(false)
+            updateHueConn(HueConn.PAIRED)
             hueStatus.text = getString(R.string.hue_sync_off)
             return
         }
@@ -372,6 +412,7 @@ class MainActivity : AppCompatActivity() {
         hueController.enable(area) { ok, err ->
             btnHueSync.isEnabled = true
             updateHueSyncButton(ok)
+            updateHueConn(if (ok) HueConn.STREAMING else HueConn.PAIRED)
             hueStatus.text = if (ok) getString(R.string.hue_status_synced) else (err ?: "Failed to sync.")
         }
     }
@@ -379,6 +420,25 @@ class MainActivity : AppCompatActivity() {
     private fun updateHueSyncButton(on: Boolean) {
         btnHueSync.isSelected = on
         btnHueSync.setText(if (on) R.string.hue_sync_on else R.string.hue_sync_off)
+    }
+
+    private enum class HueConn { DISCONNECTED, SEARCHING, PAIRED, STREAMING }
+
+    /** Update the colored connection-state dot + label in the Lighting tab. */
+    private fun updateHueConn(state: HueConn) {
+        val textRes = when (state) {
+            HueConn.DISCONNECTED -> R.string.hue_conn_disconnected
+            HueConn.SEARCHING -> R.string.hue_conn_searching
+            HueConn.PAIRED -> R.string.hue_conn_paired
+            HueConn.STREAMING -> R.string.hue_conn_streaming
+        }
+        val colorRes = when (state) {
+            HueConn.DISCONNECTED -> R.color.hue_disconnected
+            HueConn.SEARCHING, HueConn.PAIRED -> R.color.hue_pending
+            HueConn.STREAMING -> R.color.hue_connected
+        }
+        hueConn.setText(textRes)
+        hueConn.setTextColor(ContextCompat.getColor(this, colorRes))
     }
 
     private fun syncMenuState() {
@@ -445,7 +505,24 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun selectInternalAudio() {
-        if (!systemAudioMode) requestSystemAudioCapture()
+        if (systemAudioMode) return
+        // First time: explain why Android will ask for screen-capture permission
+        // (internal audio is routed through the screen-capture API).
+        if (prefs.getBoolean(KEY_SCREENSHARE_RATIONALE, false)) {
+            requestSystemAudioCapture()
+            return
+        }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.screenshare_title)
+            .setMessage(R.string.screenshare_message)
+            .setPositiveButton(R.string.screenshare_continue) { _, _ ->
+                prefs.edit().putBoolean(KEY_SCREENSHARE_RATIONALE, true).apply()
+                requestSystemAudioCapture()
+            }
+            .setNegativeButton(android.R.string.cancel) { _, _ ->
+                updateSourceSelection()   // stay on the mic toggle
+            }
+            .show()
     }
 
     private fun buildPermissionList(): Array<String> {
@@ -534,6 +611,7 @@ class MainActivity : AppCompatActivity() {
         private const val PREFS = "visualizer_prefs"
         private const val KEY_FIRST_BOOT_DONE = "first_boot_done"
         private const val KEY_BURNIN = "burn_in_enabled"
+        private const val KEY_SCREENSHARE_RATIONALE = "screenshare_rationale_shown"
         private const val SWIPE_DOWN_VELOCITY = 1200f
     }
 }
