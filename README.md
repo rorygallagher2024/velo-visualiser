@@ -29,11 +29,10 @@ Any unauthorized commercial distribution will result in immediate DMCA takedown 
 
 ---
 
-## Latency — the whole point
+## Latency
 
-Latency is Oscillux's reason to exist. 
-
-Most "music + lights" apps drive Hue over the **legacy REST API**, which is rate-limited to ~10 commands/second and lands hundreds of milliseconds after the beat — visibly late. Oscillux instead streams over the **Hue Entertainment API**: a **DTLS-PSK encrypted UDP** channel (port 2100) pushing the binary *HueStream v2* protocol at ~50 Hz, fire-and-forget. That's the bridge's dedicated low-latency path.
+**Lighting**
+Oscillux streams over the **Hue Entertainment API**: a **DTLS-PSK encrypted UDP** channel (port 2100) pushing the binary *HueStream v2* protocol at ~50 Hz (The bridge's dedicated low-latency path)
 
 **Audio → pixel (on-device):** **sub-10 ms.** Oboe runs the mic in `LowLatency · Exclusive · Unprocessed` mode straight into a lock-free ring buffer; the GL thread pulls the freshest window every vsync — no locks, no allocations, no extra buffering.
 
@@ -47,9 +46,9 @@ Most "music + lights" apps drive Hue over the **legacy REST API**, which is rate
 | Bridge → Zigbee → bulb (Entertainment fast path) | ~25 ms |
 | **Total, realistically** | **~40–70 ms** |
 
-The app-side contribution is single-digit-to-~20 ms; the rest is the **Zigbee/bulb leg, which is inherent to Hue hardware** and no app can avoid. The win is that the streaming path is ~10× faster than the REST path a typical Hue app would use — so the lights feel locked to the beat, not chasing it.
+The app-side contribution is single-digit-to-~20 ms; the rest is the **Zigbee/bulb leg, which is inherent to Hue hardware**. This streaming path is still fast so the lights feel locked to the beat.
 
-> Honest caveats: numbers are engineering estimates (not lab-measured on your hardware); actual figures vary with device, Wi-Fi quality, and bulb model. The on-device audio→pixel path is the rigorously optimized part; the Hue figures are the realistic best case for the streaming API.
+> Caveat: numbers are estimates; actual figures vary with device, Wi-Fi quality, and bulb model. The on-device audio→pixel path is the rigorously optimized part; the Hue figures are the realistic best case for the streaming API.
 
 ---
 
@@ -86,7 +85,7 @@ Compiled APKs for personal use are provided in the **Releases** tab.
 
 ## Smart Lighting — Philips Hue Sync
 
-The app can drive **Philips Hue** lights in real time from the same audio it visualizes, using the **Hue Entertainment API** for low-latency streaming (not the slow per-bulb REST endpoints). For the latency rationale and figures, see [Latency — the whole point](#latency--the-whole-point).
+The app can drive **Philips Hue** lights in real time from the same audio it visualizes, using the **Hue Entertainment API** for low-latency streaming. For the latency rationale and figures, see [Latency — the whole point](#latency--the-whole-point).
 
 Open the settings sheet (swipe up) and switch to the **Lighting** tab:
 
@@ -108,7 +107,7 @@ A live **connection indicator** shows the current state (Disconnected / Searchin
 - The CLIP v2 REST calls (area list, stream start/stop) go over HTTPS to the bridge.
 
 ### Persistence & privacy
-- **Your bridge is remembered between sessions.** The `username` + `clientkey` are stored in **`EncryptedSharedPreferences`**, along with your selected Entertainment Area. You won't need to press the bridge button again — on relaunch, "Connect" simply refreshes the area list. (Light sync itself is not auto-started; flip the toggle to resume.)
+- **The bridge is remembered between sessions.** The `username` + `clientkey` are stored in **`EncryptedSharedPreferences`**, along with your selected Entertainment Area. You won't need to press the bridge button again — on relaunch, "Connect" simply refreshes the area list. (Light sync itself is not auto-started; flip the toggle to resume.)
 - **Local only.** Everything runs over your LAN — your phone and bridge must be on the same Wi-Fi. No Hue cloud account is used and nothing about your audio or lights leaves the network.
 - **No bridge found?** If discovery turns up nothing, the app says so and re-enables the Connect button to retry — check that both devices are on the same network.
 
