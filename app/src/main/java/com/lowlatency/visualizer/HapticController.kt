@@ -1,10 +1,12 @@
 package com.lowlatency.visualizer
 
 import android.content.Context
+import android.media.AudioAttributes
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.util.Log
 
 /**
  * Beat-driven haptics: a short vibration pulse on each detected bass transient.
@@ -30,8 +32,26 @@ class HapticController(context: Context) {
     }
     private val hasAmplitudeControl = vibrator?.hasAmplitudeControl() == true
 
+    // Route as MEDIA so the OS is less likely to filter it as "touch feedback"
+    // (which is suppressed when that system setting / ring-vibration is off).
+    private val mediaAttrs = AudioAttributes.Builder()
+        .setUsage(AudioAttributes.USAGE_MEDIA)
+        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+        .build()
+
+    init {
+        Log.i(TAG, "Haptics init: vibrator=${vibrator != null}, amplitudeControl=$hasAmplitudeControl")
+    }
+
     /** Whether this device can vibrate at all (used to enable/hide the toggle). */
     val isSupported: Boolean get() = vibrator != null
+
+    /** Fire one strong, long pulse immediately to confirm vibration works at all. */
+    fun previewPulse() {
+        val v = vibrator ?: run { Log.w(TAG, "previewPulse: no vibrator"); return }
+        emit(v, 220L, 255)
+        Log.i(TAG, "previewPulse fired (220ms, max amplitude)")
+    }
 
     @Volatile var enabled = false
         set(value) {
@@ -39,30 +59,44 @@ class HapticController(context: Context) {
             if (!value) vibrator?.cancel()
         }
 
-    private var lastLow = 0f
-    private var lastBeatNs = 0L
+    private val beat = BeatDetector(debugName = "haptics")
 
-    /** Called on the GL thread with the latest [low, mid, high] bands. */
-    fun onBands(low: Float, mid: Float, high: Float) {
+    /**
+     * Internal/system audio arrives much hotter than the unprocessed mic, so the
+     * same detection over-fires. Raise the threshold for internal audio only.
+     */
+    fun setSystemAudio(internal: Boolean) {
+        beat.thresholdScale = if (internal) INTERNAL_THRESHOLD_SCALE else 1f
+    }
+
+    /** Called on the GL thread with the latest raw PCM window. */
+    fun onPcm(pcm: FloatArray) {
+        // Keep the detector warm even when disabled so re-enabling doesn't fire
+        // a spurious pulse from a cold baseline.
+        val isBeat = beat.update(pcm)
         if (!enabled) return
         val v = vibrator ?: return
+        if (isBeat) pulse(v, 0.9f)
+    }
 
-        val now = System.nanoTime()
-        val isBeat = low > BEAT_THRESHOLD &&
-            (low - lastLow) > BEAT_DELTA &&
-            (now - lastBeatNs) > MIN_GAP_NS
-        lastLow = low
-        if (!isBeat) return
-        lastBeatNs = now
+    private fun pulse(v: Vibrator, energy: Float) {
+        val durationMs = (MIN_MS + energy * (MAX_MS - MIN_MS)).toLong().coerceIn(MIN_MS, MAX_MS)
+        val amp = (energy * 255f).toInt().coerceIn(110, 255)
+        emit(v, durationMs, amp)
+    }
 
-        val durationMs = (MIN_MS + low * (MAX_MS - MIN_MS)).toLong().coerceIn(MIN_MS, MAX_MS)
+    private fun emit(v: Vibrator, durationMs: Long, amplitude: Int) {
         val effect = if (hasAmplitudeControl) {
-            val amp = (low * 255f).toInt().coerceIn(60, 255)
-            VibrationEffect.createOneShot(durationMs, amp)
+            VibrationEffect.createOneShot(durationMs, amplitude.coerceIn(1, 255))
         } else {
             VibrationEffect.createOneShot(durationMs, VibrationEffect.DEFAULT_AMPLITUDE)
         }
-        try { v.vibrate(effect) } catch (_: Throwable) { /* ignore transient vibrator errors */ }
+        try {
+            @Suppress("DEPRECATION")
+            v.vibrate(effect, mediaAttrs)
+        } catch (t: Throwable) {
+            Log.w(TAG, "vibrate failed: ${t.message}")
+        }
     }
 
     fun release() {
@@ -70,10 +104,9 @@ class HapticController(context: Context) {
     }
 
     companion object {
-        private const val BEAT_THRESHOLD = 0.42f
-        private const val BEAT_DELTA = 0.10f
-        private const val MIN_GAP_NS = 120_000_000L   // 120 ms between pulses
-        private const val MIN_MS = 12L
-        private const val MAX_MS = 45L
+        private const val TAG = "HapticController"
+        private const val MIN_MS = 20L
+        private const val MAX_MS = 70L
+        private const val INTERNAL_THRESHOLD_SCALE = 3.0f   // internal audio is much hotter
     }
 }

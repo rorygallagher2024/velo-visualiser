@@ -113,8 +113,10 @@ class OscilloscopeScene : GlScene {
                 // Sample at the orbit-offset coordinate (burn-in protection).
                 vec2 fragPx = gl_FragCoord.xy + v_orbit;
 
-                // Exponential halo radius (bass widens it).
-                float bloom = 11.0 * (1.0 + u_low * 1.5);
+                // Exponential halo radius (bass widens it). Kept tight so this
+                // reads as a fine neon filament with a soft glow — clearly
+                // distinct from the flat 1px Raw Oscilloscope.
+                float bloom = 4.5 * (1.0 + u_low * 1.2);
 
                 // Chromatic aberration grows toward the edges, scaled by bass.
                 float edge = abs((fragPx.x / u_resolution.x - 0.5) * 2.0);
@@ -127,8 +129,8 @@ class OscilloscopeScene : GlScene {
                 float d0  = traceDistance(fragPx, 0.0);
                 float dCb = traceDistance(fragPx, -ca);
 
-                // Micro-core: ~1px ultra-bright WHITE filament (sub-pixel sigma).
-                float coreSig = 0.8;
+                // Micro-core: sub-pixel ultra-bright WHITE filament (thin).
+                float coreSig = 0.6;
                 float core = exp(-(d0 * d0) / (2.0 * coreSig * coreSig));
 
                 // Colored phosphor halo: smooth exponential falloff, per-channel

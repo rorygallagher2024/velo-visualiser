@@ -29,6 +29,7 @@
     <string name="haptics_on">Vibrate on Beat: On</string>
     <string name="haptics_off">Vibrate on Beat: Off</string>
     <string name="status_idle">Oboe Engine: starting…</string>
+    <string name="version_fmt">Oscillux v%1$s</string>
 
     <!-- Settings tabs -->
     <string name="tab_visualizers">Visualizers</string>

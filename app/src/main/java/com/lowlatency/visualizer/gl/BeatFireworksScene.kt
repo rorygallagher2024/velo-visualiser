@@ -1,6 +1,7 @@
 package com.lowlatency.visualizer.gl
 
 import android.opengl.GLES20
+import com.lowlatency.visualizer.BeatDetector
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
@@ -24,9 +25,6 @@ class BeatFireworksScene : GlScene {
         private const val GRAVITY = 0.55f
         private const val DRAG = 0.7f
         private const val MAX_LIFE = 1.6f
-        private const val BEAT_THRESHOLD = 0.42f
-        private const val BEAT_DELTA = 0.10f
-        private const val BEAT_MIN_GAP = 0.12f    // seconds between bursts
         private const val BURST_MIN = 50
         private const val BURST_MAX = 90
 
@@ -75,9 +73,8 @@ class BeatFireworksScene : GlScene {
         .allocateDirect(MAX * STRIDE * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
 
     private val rnd = Random(0xBEEF)
+    private val beat = BeatDetector()
     private var lastTime = -1f
-    private var lastLow = 0f
-    private var lastBeat = -1f
 
     private var program = 0
     private var aData = 0
@@ -108,15 +105,8 @@ class BeatFireworksScene : GlScene {
         val dt = if (lastTime < 0f) 0.016f else (timeSec - lastTime).coerceIn(0f, 0.05f)
         lastTime = timeSec
 
-        // Beat detection on the low band → launch a burst.
-        val low = bands[0]
-        if (low > BEAT_THRESHOLD && (low - lastLow) > BEAT_DELTA &&
-            (timeSec - lastBeat) > BEAT_MIN_GAP
-        ) {
-            spawnBurst(low)
-            lastBeat = timeSec
-        }
-        lastLow = low
+        // Bass-onset beat detection on the raw PCM → launch a burst.
+        if (beat.update(pcm)) spawnBurst(0.85f)
 
         // Integrate + pack alive particles.
         var n = 0

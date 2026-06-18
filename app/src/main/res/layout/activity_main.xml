@@ -33,6 +33,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
+        android:layout_marginTop="72dp"
         android:background="@drawable/sheet_background"
         android:clickable="true"
         android:focusable="true"
@@ -46,7 +47,7 @@
             android:paddingStart="24dp"
             android:paddingEnd="24dp"
             android:paddingTop="12dp"
-            android:paddingBottom="28dp">
+            android:paddingBottom="44dp">
 
         <!-- Drag handle -->
         <View
@@ -436,7 +437,7 @@
         </LinearLayout>
         <!-- /TAB 2 -->
 
-        <!-- Engine status indicator (always visible) -->
+        <!-- Engine status + app version (always visible) -->
         <TextView
             android:id="@+id/status_text"
             android:layout_width="match_parent"

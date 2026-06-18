@@ -182,6 +182,13 @@ class MainActivity : AppCompatActivity() {
         optionsSheet.visibility = View.GONE
     }
 
+    /** The app's versionName from the manifest/Gradle (e.g. "1.1"). */
+    private fun appVersionName(): String = try {
+        packageManager.getPackageInfo(packageName, 0).versionName ?: "?"
+    } catch (_: Exception) {
+        "?"
+    }
+
     /** Show the ASCII Oscillux logo on startup, then fade it out. */
     private fun wireSplash() {
         splashLogo.text = "▁▂▃▄▅▆▇█▇▆▅▄▃▂▁\n\nO S C I L L U X"
@@ -349,6 +356,9 @@ class MainActivity : AppCompatActivity() {
                 hapticController.enabled = enabled
                 prefs.edit().putBoolean(KEY_HAPTICS, enabled).apply()
                 updateHapticsButton(enabled)
+                // Confirmation buzz so you can tell vibration works at all,
+                // independent of whether a beat has been detected yet.
+                if (enabled) hapticController.previewPulse()
             }
         } else {
             btnHaptics.isEnabled = false
@@ -378,12 +388,10 @@ class MainActivity : AppCompatActivity() {
         hueController = HueLightController(this)
         hueStore = HueCredentialStore(this)
 
-        // Feed audio bands to the light + haptic pipelines every render frame
-        // (GL thread). Both taps are cheap and non-blocking.
-        glView.bandsSink = { low, mid, high ->
-            hueController.onBands(low, mid, high)
-            hapticController.onBands(low, mid, high)
-        }
+        // Hue light sync reads the FFT bands; haptics runs bass-onset detection
+        // on the raw PCM (a separate tap, so it can't affect any visual tuning).
+        glView.bandsSink = { low, mid, high -> hueController.onBands(low, mid, high) }
+        glView.pcmBeatSink = { pcm -> hapticController.onPcm(pcm) }
 
         btnHueConnect.setOnClickListener { onHueConnectClicked() }
         btnHueSync.setOnClickListener { onHueSyncToggle() }
@@ -565,15 +573,20 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateStatus() {
+        // Haptics over-fire on the much hotter internal audio — desensitise there.
+        if (::hapticController.isInitialized) hapticController.setSystemAudio(systemAudioMode)
+
         val rate = NativeBridge.nativeGetSampleRate()
+        val version = getString(R.string.version_fmt, appVersionName())
         // NOTE: the active Oboe API isn't exposed over JNI (the C++ engine is
         // off-limits this phase). On minSdk 29 Oboe uses AAudio as requested,
         // with OpenSL ES only as a rare fallback, so we label the expected path.
-        statusText.text = if (systemAudioMode) {
+        val engine = if (systemAudioMode) {
             "AudioPlaybackCapture • $rate Hz"
         } else {
             "Oboe Engine: AAudio Active • $rate Hz"
         }
+        statusText.text = "$engine   ·   $version"
     }
 
     // ----- First-boot overlay -----
@@ -668,6 +681,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     /** Choose the display mode with the highest refresh rate at native resolution. */
+    @Suppress("DEPRECATION")   // windowManager.defaultDisplay is the pre-R fallback only
     private fun selectHighestRefreshRate() {
         val display = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) display else windowManager.defaultDisplay
         val current = display?.mode ?: return

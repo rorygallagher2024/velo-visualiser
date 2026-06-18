@@ -32,7 +32,7 @@ class VisualizerSurfaceView @JvmOverloads constructor(
     var onSwipeUp: (() -> Unit)? = null
 
     /** The currently displayed scene index (source of truth for the menu). */
-    var sceneIndex = 0
+    var sceneIndex = VisualizerRenderer.DEFAULT_SCENE
         private set
 
     private val renderer = VisualizerRenderer()
@@ -80,6 +80,11 @@ class VisualizerSurfaceView @JvmOverloads constructor(
     var bandsSink: ((Float, Float, Float) -> Unit)?
         get() = renderer.bandsSink
         set(value) { renderer.bandsSink = value }
+
+    /** Per-frame raw-PCM tap on the GL thread (beat/onset detection for haptics). */
+    var pcmBeatSink: ((FloatArray) -> Unit)?
+        get() = renderer.pcmBeatSink
+        set(value) { renderer.pcmBeatSink = value }
 
     /** Enable/disable the HDR bloom (glow) post-processing pipeline. */
     var bloomEnabled: Boolean
