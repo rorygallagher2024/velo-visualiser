@@ -57,6 +57,10 @@ class VisualizerRenderer : GLSurfaceView.Renderer {
     private var transitionStart = -1f          // <0 => no transition in progress
     private var swapped = false
 
+    // Optional per-frame audio tap (e.g. the Hue light controller). Called on the
+    // GL thread with [low, mid, high]; must be allocation-free / non-blocking.
+    @Volatile var bandsSink: ((Float, Float, Float) -> Unit)? = null
+
     // Burn-in idle gate state (u_burnInProtectAlpha, folded into `dim`).
     // Toggleable from the settings menu; set on the UI thread, read on GL thread.
     @Volatile var burnInEnabled = true
@@ -108,6 +112,9 @@ class VisualizerRenderer : GLSurfaceView.Renderer {
         // Pull the freshest audio data from the native ring buffer + FFT.
         NativeBridge.fillLatestAudioBuffer(pcm)
         NativeBridge.fillLatestFrequencyBands(bands)
+
+        // Forward the bands to any tap (Hue light sync) — cheap, non-blocking.
+        bandsSink?.invoke(bands[0], bands[1], bands[2])
 
         val t = nowSec()
         // u_burnInProtectAlpha is folded into `dim` so it dims every scene's

@@ -76,6 +76,11 @@ class VisualizerSurfaceView @JvmOverloads constructor(
         get() = renderer.burnInEnabled
         set(value) { renderer.burnInEnabled = value }
 
+    /** Per-frame audio tap [low, mid, high] on the GL thread (Hue light sync). */
+    var bandsSink: ((Float, Float, Float) -> Unit)?
+        get() = renderer.bandsSink
+        set(value) { renderer.bandsSink = value }
+
     /** Switch to an explicit scene (wraps), updating the menu source-of-truth. */
     fun selectScene(index: Int) {
         val count = renderer.sceneCount

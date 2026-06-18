@@ -246,6 +246,60 @@
             android:textSize="13sp"
             android:stateListAnimator="@null" />
 
+        <!-- ===== Smart Lighting (Philips Hue) ===== -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/hue_section_label"
+            android:textColor="@color/text_dim"
+            android:textSize="12sp"
+            android:letterSpacing="0.1"
+            android:textAllCaps="true"
+            android:layout_marginBottom="8dp" />
+
+        <Button
+            android:id="@+id/btn_hue_connect"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/pill_button_bg"
+            android:text="@string/hue_connect"
+            android:textColor="@color/text_primary"
+            android:textAllCaps="false"
+            android:textSize="13sp"
+            android:stateListAnimator="@null" />
+
+        <!-- Dynamically populated list of Entertainment Areas -->
+        <LinearLayout
+            android:id="@+id/hue_area_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone" />
+
+        <Button
+            android:id="@+id/btn_hue_sync"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/pill_button_bg"
+            android:text="@string/hue_sync_off"
+            android:textColor="@color/text_primary"
+            android:textAllCaps="false"
+            android:textSize="13sp"
+            android:enabled="false"
+            android:stateListAnimator="@null" />
+
+        <TextView
+            android:id="@+id/hue_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:text="@string/hue_status_idle"
+            android:textColor="@color/text_dim"
+            android:textSize="11sp"
+            android:layout_marginBottom="20dp" />
+
         <!-- Status indicator -->
         <TextView
             android:id="@+id/status_text"

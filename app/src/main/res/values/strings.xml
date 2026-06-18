@@ -22,6 +22,19 @@
     <string name="burnin_off">Burn-in Protection: Off</string>
     <string name="status_idle">Oboe Engine: starting…</string>
 
+    <!-- Smart lighting (Philips Hue) -->
+    <string name="hue_section_label">Smart Lighting</string>
+    <string name="hue_connect">Connect Hue Bridge</string>
+    <string name="hue_sync_on">Light Sync: On</string>
+    <string name="hue_sync_off">Light Sync: Off</string>
+    <string name="hue_status_idle">Hue: not connected</string>
+    <string name="hue_status_searching">Searching for a Hue Bridge…</string>
+    <string name="hue_status_press_button">Press the button on your Hue Bridge… %1$d s</string>
+    <string name="hue_status_paired">Bridge paired. Choose an Entertainment Area.</string>
+    <string name="hue_status_no_bridge">No bridge found. Make sure it\'s on the same Wi-Fi.</string>
+    <string name="hue_status_synced">Light sync active.</string>
+    <string name="hue_select_area">Select an Entertainment Area:</string>
+
     <!-- First-boot overlay -->
     <string name="welcome_title">Low-Latency Visualizer</string>
     <string name="hint_swipe_sides">◀  Swipe left / right to change visuals  ▶</string>
