@@ -2,6 +2,7 @@ package com.lowlatency.visualizer.gl
 
 import kotlin.math.PI
 import kotlin.math.cos
+import kotlin.math.floor
 import kotlin.math.log10
 import kotlin.math.pow
 import kotlin.math.sin
@@ -39,13 +40,28 @@ class SpectrumAnalyzer(val bins: Int = 128, private val fftSize: Int = 1024) {
         fft(re, im)
 
         val half = n / 2
-        val ratio = half.toDouble() / 1.0          // log range: bin 1 .. n/2
+        val logSpan = half.toDouble()               // log range: bin 1 .. n/2
         for (b in 0 until bins) {
-            val lo = (ratio.pow(b.toDouble() / bins)).toInt().coerceIn(1, half - 1)
-            val hi = (ratio.pow((b + 1).toDouble() / bins)).toInt().coerceIn(lo + 1, half)
-            var sum = 0f
-            for (k in lo until hi) sum += sqrt(re[k] * re[k] + im[k] * im[k])
-            val avg = sum / (hi - lo)
+            // Continuous (fractional) FFT-bin positions spanned by this bar.
+            val posLo = logSpan.pow(b.toDouble() / bins)
+            val posHi = logSpan.pow((b + 1).toDouble() / bins)
+            val iLo = floor(posLo).toInt()
+            val iHi = floor(posHi).toInt()
+
+            // If the bar spans at least one whole FFT bin, average the energy in
+            // it. At the low end the log bands are narrower than a single bin —
+            // there, several bars would otherwise snap to the *same* bin and move
+            // in lock-step. Interpolate the magnitude at the band centre instead
+            // so adjacent low bars differ smoothly.
+            val avg = if (iHi > iLo) {
+                var sum = 0f; var count = 0
+                var k = maxOf(iLo, 1)
+                val end = minOf(iHi, half - 1)
+                while (k <= end) { sum += magAt(k); count++; k++ }
+                if (count > 0) sum / count else magInterp((posLo + posHi) * 0.5, half)
+            } else {
+                magInterp((posLo + posHi) * 0.5, half)
+            }
 
             // dB normalization == the "logarithmic scale" so lows don't dominate.
             val db = 20f * log10(avg + 1e-6f)
@@ -58,6 +74,17 @@ class SpectrumAnalyzer(val bins: Int = 128, private val fftSize: Int = 1024) {
             peaks[b] = if (magnitudes[b] >= peaks[b]) magnitudes[b]
             else (peaks[b] - PEAK_FALL * dt).coerceAtLeast(magnitudes[b])
         }
+    }
+
+    /** Magnitude of FFT bin [k]. */
+    private fun magAt(k: Int): Float = sqrt(re[k] * re[k] + im[k] * im[k])
+
+    /** Linearly-interpolated magnitude at a fractional bin position. */
+    private fun magInterp(pos: Double, half: Int): Float {
+        val i0 = pos.toInt().coerceIn(1, half - 1)
+        val i1 = (i0 + 1).coerceAtMost(half - 1)
+        val w = (pos - i0).toFloat().coerceIn(0f, 1f)
+        return magAt(i0) * (1f - w) + magAt(i1) * w
     }
 
     /** In-place iterative radix-2 FFT (fftSize must be a power of two). */

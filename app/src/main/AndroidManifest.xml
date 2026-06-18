@@ -25,7 +25,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.LowLatencyVisualizer"
-        tools:targetApi="34">
+        tools:targetApi="37">
 
         <activity
             android:name=".MainActivity"

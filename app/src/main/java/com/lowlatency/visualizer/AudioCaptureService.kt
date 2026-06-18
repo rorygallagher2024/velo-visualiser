@@ -46,6 +46,13 @@ class AudioCaptureService : Service() {
         private const val SAMPLE_RATE = 48_000
         private const val CHANNELS = 2 // playback capture is stereo
 
+        // System audio (AudioPlaybackCapture) arrives near full-scale, whereas
+        // the UNPROCESSED mic the visuals were tuned for is much quieter — so
+        // internal audio saturates every scene. Attenuate it here, at the shared
+        // ring-buffer source, so the waveform, the native FFT bands, and the
+        // Kotlin spectrum analyzer all scale down together. ~ -10 dBFS.
+        private const val SYSTEM_AUDIO_GAIN = 0.30f
+
         fun newIntent(context: Context, resultCode: Int, data: Intent): Intent =
             Intent(context, AudioCaptureService::class.java)
                 .putExtra(EXTRA_RESULT_CODE, resultCode)
@@ -160,6 +167,9 @@ class AudioCaptureService : Service() {
             while (capturing) {
                 val read = record?.read(buf, 0, buf.size) ?: -1
                 if (read > 0) {
+                    for (i in 0 until read) {
+                        buf[i] = (buf[i] * SYSTEM_AUDIO_GAIN).toInt().toShort()
+                    }
                     NativeBridge.nativePushPcm(buf, read / CHANNELS, CHANNELS)
                 } else if (read < 0) {
                     Log.e(TAG, "AudioRecord.read error: $read")
