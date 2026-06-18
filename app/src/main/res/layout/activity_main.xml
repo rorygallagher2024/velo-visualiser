@@ -56,6 +56,45 @@
             android:layout_marginBottom="16dp"
             android:background="@color/text_dim" />
 
+        <!-- Tab bar: Visualizers | Lighting -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="20dp">
+
+            <Button
+                android:id="@+id/tab_btn_visuals"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="6dp"
+                android:background="@drawable/segment_button_bg"
+                android:text="@string/tab_visualizers"
+                android:textColor="@color/text_primary"
+                android:textAllCaps="false"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/tab_btn_lighting"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:background="@drawable/segment_button_bg"
+                android:text="@string/tab_lighting"
+                android:textColor="@color/text_primary"
+                android:textAllCaps="false"
+                android:stateListAnimator="@null" />
+        </LinearLayout>
+
+        <!-- ===== TAB 1: Visualizers ===== -->
+        <LinearLayout
+            android:id="@+id/tab_visualizers"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -215,8 +254,20 @@
                 android:id="@+id/btn_starscape"
                 android:layout_width="match_parent"
                 android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
                 android:background="@drawable/pill_button_bg"
                 android:text="@string/vis_starscape"
+                android:textColor="@color/text_primary"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_rawscope"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_rawscope"
                 android:textColor="@color/text_primary"
                 android:textAllCaps="false"
                 android:textSize="13sp"
@@ -246,7 +297,84 @@
             android:textSize="13sp"
             android:stateListAnimator="@null" />
 
-        <!-- Status indicator -->
+        </LinearLayout>
+        <!-- /TAB 1 -->
+
+        <!-- ===== TAB 2: Lighting (Philips Hue) ===== -->
+        <LinearLayout
+            android:id="@+id/tab_lighting"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+        <!-- Live connection-state indicator (dot colored in code) -->
+        <TextView
+            android:id="@+id/hue_conn"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/hue_conn_disconnected"
+            android:textColor="@color/text_dim"
+            android:textSize="14sp"
+            android:layout_marginBottom="6dp" />
+
+        <!-- Local-only note -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/hue_local_note"
+            android:textColor="@color/text_dim"
+            android:textSize="11sp"
+            android:lineSpacingMultiplier="1.2"
+            android:layout_marginBottom="16dp" />
+
+        <Button
+            android:id="@+id/btn_hue_connect"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/pill_button_bg"
+            android:text="@string/hue_connect"
+            android:textColor="@color/text_primary"
+            android:textAllCaps="false"
+            android:textSize="13sp"
+            android:stateListAnimator="@null" />
+
+        <!-- Dynamically populated list of Entertainment Areas -->
+        <LinearLayout
+            android:id="@+id/hue_area_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone" />
+
+        <Button
+            android:id="@+id/btn_hue_sync"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/pill_button_bg"
+            android:text="@string/hue_sync_off"
+            android:textColor="@color/text_primary"
+            android:textAllCaps="false"
+            android:textSize="13sp"
+            android:enabled="false"
+            android:stateListAnimator="@null" />
+
+        <TextView
+            android:id="@+id/hue_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:text="@string/hue_status_idle"
+            android:textColor="@color/text_dim"
+            android:textSize="11sp"
+            android:layout_marginBottom="20dp" />
+
+        </LinearLayout>
+        <!-- /TAB 2 -->
+
+        <!-- Engine status indicator (always visible) -->
         <TextView
             android:id="@+id/status_text"
             android:layout_width="match_parent"

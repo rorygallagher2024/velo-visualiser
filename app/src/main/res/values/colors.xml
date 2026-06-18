@@ -13,4 +13,9 @@
     <color name="first_boot_scrim">#E6000000</color>
     <color name="text_primary">#FFFFFFFF</color>
     <color name="text_dim">#80FFFFFF</color>
+
+    <!-- Hue connection-state indicator dots -->
+    <color name="hue_connected">#FF26FF8C</color>
+    <color name="hue_pending">#FFFFC107</color>
+    <color name="hue_disconnected">#80FFFFFF</color>
 </resources>

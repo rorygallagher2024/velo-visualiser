@@ -17,10 +17,41 @@
     <string name="vis_bars">Spectrum Bars</string>
     <string name="vis_bloom">Spectral Bloom</string>
     <string name="vis_starscape">Starscape</string>
+    <string name="vis_rawscope">Raw Oscilloscope</string>
     <string name="display_label">Display</string>
     <string name="burnin_on">Burn-in Protection: On</string>
     <string name="burnin_off">Burn-in Protection: Off</string>
     <string name="status_idle">Oboe Engine: starting…</string>
+
+    <!-- Settings tabs -->
+    <string name="tab_visualizers">Visualizers</string>
+    <string name="tab_lighting">Lighting</string>
+
+    <!-- Smart lighting (Philips Hue) -->
+    <string name="hue_section_label">Smart Lighting</string>
+    <string name="hue_connect">Connect Hue Bridge</string>
+    <string name="hue_reconnect">Reconnect / Refresh Areas</string>
+    <string name="hue_sync_on">Light Sync: On</string>
+    <string name="hue_sync_off">Light Sync: Off</string>
+    <string name="hue_local_note">Works over your local Wi-Fi only — your phone and Hue Bridge must be on the same network. No Hue cloud account is used.</string>
+    <string name="hue_status_idle">Tap “Connect Hue Bridge” to begin.</string>
+    <string name="hue_status_searching">Searching for a Hue Bridge on your network…</string>
+    <string name="hue_status_press_button">Press the button on your Hue Bridge… %1$d s</string>
+    <string name="hue_status_paired">Bridge paired. Choose an Entertainment Area.</string>
+    <string name="hue_status_no_bridge">No bridge found. Make sure your phone and Hue Bridge are on the same Wi-Fi, then try again.</string>
+    <string name="hue_status_synced">Light sync active.</string>
+    <string name="hue_select_area">Select an Entertainment Area:</string>
+
+    <!-- Hue connection-state indicator -->
+    <string name="hue_conn_disconnected">●  Disconnected</string>
+    <string name="hue_conn_searching">●  Searching…</string>
+    <string name="hue_conn_paired">●  Bridge connected</string>
+    <string name="hue_conn_streaming">●  Connected — syncing lights</string>
+
+    <!-- Internal-audio screen-capture rationale (shown once) -->
+    <string name="screenshare_title">Why screen capture?</string>
+    <string name="screenshare_message">To visualize sound from other apps (music, video, games), Android routes their audio through its screen-capture API — so the system will ask for screen-recording permission.\n\nThis app only reads the audio that\'s playing. It never records, saves, or transmits your screen.</string>
+    <string name="screenshare_continue">Continue</string>
 
     <!-- First-boot overlay -->
     <string name="welcome_title">Low-Latency Visualizer</string>

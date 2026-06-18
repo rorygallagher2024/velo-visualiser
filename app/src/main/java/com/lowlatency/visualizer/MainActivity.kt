@@ -18,12 +18,17 @@ import android.view.View
 import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
 import android.widget.Button
+import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import com.lowlatency.visualizer.hue.HueCredentialStore
+import com.lowlatency.visualizer.hue.HueEntertainmentArea
+import com.lowlatency.visualizer.hue.HueLightController
 import kotlin.math.abs
 
 /**
@@ -51,9 +56,27 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnBars: Button
     private lateinit var btnBloom: Button
     private lateinit var btnStarscape: Button
+    private lateinit var btnRawScope: Button
     private lateinit var btnBurnin: Button
     private lateinit var statusText: TextView
     private lateinit var prefs: SharedPreferences
+
+    // --- Settings tabs ---
+    private lateinit var tabBtnVisuals: Button
+    private lateinit var tabBtnLighting: Button
+    private lateinit var tabVisualizers: View
+    private lateinit var tabLighting: View
+
+    // --- Smart lighting (Philips Hue) ---
+    private lateinit var btnHueConnect: Button
+    private lateinit var hueAreaContainer: LinearLayout
+    private lateinit var btnHueSync: Button
+    private lateinit var hueStatus: TextView
+    private lateinit var hueConn: TextView
+    private lateinit var hueController: HueLightController
+    private lateinit var hueStore: HueCredentialStore
+    private var hueAreas: List<HueEntertainmentArea> = emptyList()
+    private var selectedArea: HueEntertainmentArea? = null
 
     private var systemAudioMode = false
     private var menuOpen = false
@@ -96,7 +119,9 @@ class MainActivity : AppCompatActivity() {
 
         bindViews()
         wireGestures()
+        wireTabs()
         wireMenuControls()
+        wireHue()
         wireFirstBoot()
 
         requestPermissions.launch(buildPermissionList())
@@ -118,8 +143,18 @@ class MainActivity : AppCompatActivity() {
         btnBars = findViewById(R.id.btn_bars)
         btnBloom = findViewById(R.id.btn_bloom)
         btnStarscape = findViewById(R.id.btn_starscape)
+        btnRawScope = findViewById(R.id.btn_rawscope)
         btnBurnin = findViewById(R.id.btn_burnin)
         statusText = findViewById(R.id.status_text)
+        tabBtnVisuals = findViewById(R.id.tab_btn_visuals)
+        tabBtnLighting = findViewById(R.id.tab_btn_lighting)
+        tabVisualizers = findViewById(R.id.tab_visualizers)
+        tabLighting = findViewById(R.id.tab_lighting)
+        btnHueConnect = findViewById(R.id.btn_hue_connect)
+        hueAreaContainer = findViewById(R.id.hue_area_container)
+        btnHueSync = findViewById(R.id.btn_hue_sync)
+        hueStatus = findViewById(R.id.hue_status)
+        hueConn = findViewById(R.id.hue_conn)
         prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         optionsSheet.visibility = View.GONE
     }
@@ -158,6 +193,21 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         })
+    }
+
+    // ----- Settings tabs: Visualizers | Lighting -----
+
+    private fun wireTabs() {
+        tabBtnVisuals.setOnClickListener { selectTab(lighting = false) }
+        tabBtnLighting.setOnClickListener { selectTab(lighting = true) }
+        selectTab(lighting = false)   // default to the Visualizers tab
+    }
+
+    private fun selectTab(lighting: Boolean) {
+        tabBtnVisuals.isSelected = !lighting
+        tabBtnLighting.isSelected = lighting
+        tabVisualizers.visibility = if (lighting) View.GONE else View.VISIBLE
+        tabLighting.visibility = if (lighting) View.VISIBLE else View.GONE
     }
 
     private fun showMenu() {
@@ -220,6 +270,9 @@ class MainActivity : AppCompatActivity() {
         btnStarscape.setOnClickListener {
             glView.selectScene(8); updateVisualizerSelection()
         }
+        btnRawScope.setOnClickListener {
+            glView.selectScene(9); updateVisualizerSelection()
+        }
 
         // Burn-in protection toggle (persisted, default on).
         val burnIn = prefs.getBoolean(KEY_BURNIN, true)
@@ -236,6 +289,161 @@ class MainActivity : AppCompatActivity() {
     private fun updateBurnInButton(enabled: Boolean) {
         btnBurnin.isSelected = enabled
         btnBurnin.setText(if (enabled) R.string.burnin_on else R.string.burnin_off)
+    }
+
+    // ----- Smart lighting (Philips Hue) -----
+
+    private fun wireHue() {
+        hueController = HueLightController(this)
+        hueStore = HueCredentialStore(this)
+
+        // Feed audio bands to the light pipeline every render frame (GL thread).
+        glView.bandsSink = { low, mid, high -> hueController.onBands(low, mid, high) }
+
+        btnHueConnect.setOnClickListener { onHueConnectClicked() }
+        btnHueSync.setOnClickListener { onHueSyncToggle() }
+
+        // If we already paired in a previous session, the bridge is remembered:
+        // reflect that and relabel Connect as a refresh action.
+        if (hueStore.loadCredentials() != null) {
+            updateHueConn(HueConn.PAIRED)
+            hueStatus.text = getString(R.string.hue_status_paired)
+            btnHueConnect.setText(R.string.hue_reconnect)
+        } else {
+            updateHueConn(HueConn.DISCONNECTED)
+        }
+    }
+
+    private fun onHueConnectClicked() {
+        val existing = hueStore.loadCredentials()
+        if (existing != null) {
+            hueStatus.text = getString(R.string.hue_status_paired)
+            loadHueAreas()
+            return
+        }
+        hueStatus.setText(R.string.hue_status_searching)
+        updateHueConn(HueConn.SEARCHING)
+        btnHueConnect.isEnabled = false
+        hueController.setup.discoverBridges { bridges ->
+            val bridge = bridges.firstOrNull()
+            if (bridge == null) {
+                hueStatus.setText(R.string.hue_status_no_bridge)
+                updateHueConn(HueConn.DISCONNECTED)
+                btnHueConnect.isEnabled = true
+                return@discoverBridges
+            }
+            hueController.setup.pair(
+                bridgeIp = bridge.ip,
+                onCountdown = { s -> hueStatus.text = getString(R.string.hue_status_press_button, s) },
+                onSuccess = {
+                    hueStatus.setText(R.string.hue_status_paired)
+                    updateHueConn(HueConn.PAIRED)
+                    btnHueConnect.isEnabled = true
+                    btnHueConnect.setText(R.string.hue_reconnect)
+                    loadHueAreas()
+                },
+                onError = { msg ->
+                    hueStatus.text = msg
+                    updateHueConn(HueConn.DISCONNECTED)
+                    btnHueConnect.isEnabled = true
+                },
+            )
+        }
+    }
+
+    private fun loadHueAreas() {
+        val creds = hueStore.loadCredentials() ?: return
+        hueController.setup.listEntertainmentAreas(
+            creds = creds,
+            onResult = { areas -> showHueAreas(areas) },
+            onError = { msg -> hueStatus.text = msg },
+        )
+    }
+
+    private fun showHueAreas(areas: List<HueEntertainmentArea>) {
+        hueAreas = areas
+        hueAreaContainer.removeAllViews()
+        if (areas.isEmpty()) {
+            hueStatus.text = "No Entertainment Areas — create one in the Philips Hue app."
+            hueAreaContainer.visibility = View.GONE
+            return
+        }
+        val h = resources.displayMetrics.density * 40
+        for (area in areas) {
+            val b = Button(this).apply {
+                text = area.name
+                isAllCaps = false
+                textSize = 13f
+                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_primary))
+                setBackgroundResource(R.drawable.pill_button_bg)
+                stateListAnimator = null
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, h.toInt()
+                ).apply { bottomMargin = (resources.displayMetrics.density * 8).toInt() }
+                setOnClickListener { selectHueArea(area) }
+            }
+            hueAreaContainer.addView(b)
+        }
+        hueAreaContainer.visibility = View.VISIBLE
+        hueStatus.setText(R.string.hue_select_area)
+
+        // Restore the previously selected area, if it still exists.
+        val saved = areas.firstOrNull { it.id == hueStore.selectedAreaId }
+        if (saved != null) selectHueArea(saved)
+    }
+
+    private fun selectHueArea(area: HueEntertainmentArea) {
+        selectedArea = area
+        hueStore.selectedAreaId = area.id
+        for (i in 0 until hueAreaContainer.childCount) {
+            hueAreaContainer.getChildAt(i).isSelected = (hueAreas.getOrNull(i)?.id == area.id)
+        }
+        btnHueSync.isEnabled = true
+    }
+
+    private fun onHueSyncToggle() {
+        if (hueController.isEnabled) {
+            hueController.disable()
+            updateHueSyncButton(false)
+            updateHueConn(HueConn.PAIRED)
+            hueStatus.text = getString(R.string.hue_sync_off)
+            return
+        }
+        val area = selectedArea ?: run {
+            hueStatus.setText(R.string.hue_select_area)
+            return
+        }
+        btnHueSync.isEnabled = false
+        hueController.enable(area) { ok, err ->
+            btnHueSync.isEnabled = true
+            updateHueSyncButton(ok)
+            updateHueConn(if (ok) HueConn.STREAMING else HueConn.PAIRED)
+            hueStatus.text = if (ok) getString(R.string.hue_status_synced) else (err ?: "Failed to sync.")
+        }
+    }
+
+    private fun updateHueSyncButton(on: Boolean) {
+        btnHueSync.isSelected = on
+        btnHueSync.setText(if (on) R.string.hue_sync_on else R.string.hue_sync_off)
+    }
+
+    private enum class HueConn { DISCONNECTED, SEARCHING, PAIRED, STREAMING }
+
+    /** Update the colored connection-state dot + label in the Lighting tab. */
+    private fun updateHueConn(state: HueConn) {
+        val textRes = when (state) {
+            HueConn.DISCONNECTED -> R.string.hue_conn_disconnected
+            HueConn.SEARCHING -> R.string.hue_conn_searching
+            HueConn.PAIRED -> R.string.hue_conn_paired
+            HueConn.STREAMING -> R.string.hue_conn_streaming
+        }
+        val colorRes = when (state) {
+            HueConn.DISCONNECTED -> R.color.hue_disconnected
+            HueConn.SEARCHING, HueConn.PAIRED -> R.color.hue_pending
+            HueConn.STREAMING -> R.color.hue_connected
+        }
+        hueConn.setText(textRes)
+        hueConn.setTextColor(ContextCompat.getColor(this, colorRes))
     }
 
     private fun syncMenuState() {
@@ -259,6 +467,7 @@ class MainActivity : AppCompatActivity() {
         btnBars.isSelected = glView.sceneIndex == 6
         btnBloom.isSelected = glView.sceneIndex == 7
         btnStarscape.isSelected = glView.sceneIndex == 8
+        btnRawScope.isSelected = glView.sceneIndex == 9
     }
 
     private fun updateStatus() {
@@ -302,7 +511,24 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun selectInternalAudio() {
-        if (!systemAudioMode) requestSystemAudioCapture()
+        if (systemAudioMode) return
+        // First time: explain why Android will ask for screen-capture permission
+        // (internal audio is routed through the screen-capture API).
+        if (prefs.getBoolean(KEY_SCREENSHARE_RATIONALE, false)) {
+            requestSystemAudioCapture()
+            return
+        }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.screenshare_title)
+            .setMessage(R.string.screenshare_message)
+            .setPositiveButton(R.string.screenshare_continue) { _, _ ->
+                prefs.edit().putBoolean(KEY_SCREENSHARE_RATIONALE, true).apply()
+                requestSystemAudioCapture()
+            }
+            .setNegativeButton(android.R.string.cancel) { _, _ ->
+                updateSourceSelection()   // stay on the mic toggle
+            }
+            .show()
     }
 
     private fun buildPermissionList(): Array<String> {
@@ -381,6 +607,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        if (::hueController.isInitialized) hueController.disable()
         NativeBridge.nativeStop()
         super.onDestroy()
     }
@@ -390,6 +617,7 @@ class MainActivity : AppCompatActivity() {
         private const val PREFS = "visualizer_prefs"
         private const val KEY_FIRST_BOOT_DONE = "first_boot_done"
         private const val KEY_BURNIN = "burn_in_enabled"
+        private const val KEY_SCREENSHARE_RATIONALE = "screenshare_rationale_shown"
         private const val SWIPE_DOWN_VELOCITY = 1200f
     }
 }
