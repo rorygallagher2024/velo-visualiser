@@ -1,6 +1,6 @@
 # Velo Visualiser
 
-Velo is a professional-grade Android audio visualizer engineered around one obsession: **latency**. 
+Velo is an Android audio visualizer engineered around one primary objective: **low latency**. 
 
 A bare-metal C++/Oboe audio engine and custom OpenGL ES 3.1 shaders bypass standard Android bottlenecks to deliver sub-10 ms audio-to-pixel response, while driving Philips Hue lights and device haptics in real-time.
 
