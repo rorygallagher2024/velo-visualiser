@@ -174,8 +174,8 @@ class VisualizerRenderer : GLSurfaceView.Renderer {
 
         if (usePost) {
             // Bloom carries the punch; scene exposure lifts only gently.
-            val bloomI = 1.0f + hdrPunch * 2.0f
-            val exposure = 1.0f + hdrPunch * 0.3f
+            val bloomI = 1.4f + hdrPunch * 3.0f
+            val exposure = 1.0f + hdrPunch * 0.5f
             post.bloomToScreen(bloomI, exposure)   // bright → blur → composite
         }
     }

@@ -55,7 +55,7 @@ class LaserArrayScene : GlScene {
                 mat2 R = rot(spin);
 
                 float width = mix(0.05, 0.5, u_low);     // lows widen beams
-                float opacity = 0.20 + u_low * 4.0;       // lows strobe (HDR)
+                float opacity = 0.15 + u_low * 1.8;       // lows strobe (HDR, restrained)
 
                 vec3 col = vec3(0.0);
                 float t = 0.2;

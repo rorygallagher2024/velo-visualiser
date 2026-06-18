@@ -96,13 +96,14 @@ class SpectralBloomScene : GlScene {
                 col *= smoothstep(0.95, 0.1, r);            // vignette to black
 
                 // Highs scatter shimmer across the centre.
-                col += high * pow(max(1.0 - r, 0.0), 3.0) * vec3(1.0);
+                col += high * pow(max(1.0 - r, 0.0), 3.0) * 0.5;
 
-                // HDR core bloom — the bass "beat flare".
+                // Core flare on the bass — kept restrained so the centre doesn't
+                // blow to white (the bloom pipeline amplifies it further).
                 float core = exp(-r * 6.0);
-                col += core * (0.5 + low * 4.0) * palette(u_time * 0.1 + 0.2);
+                col += core * (0.3 + low * 1.2) * palette(u_time * 0.1 + 0.2);
 
-                col *= 1.0 + low * 1.5;                     // overall HDR lift on the beat
+                col *= 0.7 * (1.0 + low * 0.6);             // overall level + gentle beat lift
 
                 fragColor = vec4(col * u_dim, 1.0);
             }
