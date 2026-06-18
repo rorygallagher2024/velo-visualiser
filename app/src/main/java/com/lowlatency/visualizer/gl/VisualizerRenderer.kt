@@ -50,7 +50,9 @@ class VisualizerRenderer : GLSurfaceView.Renderer {
         SpectrogramScene(),        // 10
         BeatFireworksScene(),      // 11
         PhyllotaxisScene(),        // 12
-        ElectricIrisScene()         // 13
+        ElectricIrisScene(),       // 13
+        MandalaPulseScene(),       // 14
+        AudioWebScene()            // 15
     )
     private var current = DEFAULT_SCENE
     private var target = DEFAULT_SCENE

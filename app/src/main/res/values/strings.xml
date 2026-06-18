@@ -22,6 +22,8 @@
     <string name="vis_fireworks">Beat Fireworks</string>
     <string name="vis_phyllotaxis">Phyllotaxis Bloom</string>
     <string name="vis_electric_iris">Electric Iris</string>
+    <string name="vis_mandala">Mandala Pulse</string>
+    <string name="vis_audio_web">Audio Web</string>
     <string name="display_label">Display</string>
     <string name="burnin_on">Burn-in Protection: On</string>
     <string name="burnin_off">Burn-in Protection: Off</string>

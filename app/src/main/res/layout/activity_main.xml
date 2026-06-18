@@ -315,8 +315,32 @@
                 android:id="@+id/btn_electric_iris"
                 android:layout_width="match_parent"
                 android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
                 android:background="@drawable/pill_button_bg"
                 android:text="@string/vis_electric_iris"
+                android:textColor="@color/text_primary"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_mandala"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_mandala"
+                android:textColor="@color/text_primary"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_audio_web"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_audio_web"
                 android:textColor="@color/text_primary"
                 android:textAllCaps="false"
                 android:textSize="13sp"
