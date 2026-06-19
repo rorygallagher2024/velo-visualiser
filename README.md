@@ -6,8 +6,9 @@ A bare-metal C++/Oboe audio engine and custom OpenGL ES 3.1 shaders bypass stand
 
 ## Features
 
-- **13 audio-reactive visualizers** — Waveforms, spectra, particle fluids, scrolling spectrograms, and more.
-- **HDR Bloom** — Post-processing for real luminous glow on capable FP16 panels.
+- **18 audio-reactive visualizers** — Waveforms, spectra, particle fluids, scrolling spectrograms, dot-matrix LED meters, and more.
+- **HDR Bloom** — Post-processing for real luminous glow on capable FP16 panels, with selectable glow strength.
+- **Global colour themes** — A single post-process colour grade re-tints every visual (Neon, Warm, Cool, Mono…) at zero per-scene cost.
 - **Two audio sources** — Raw microphone capture or internal/system audio via screen-share.
 - **Real-time Philips Hue Sync** — Direct local UDP streaming over the Hue Entertainment API.
 - **Vibrate-on-beat haptics** — Bass-onset detection triggers physical pulses.
