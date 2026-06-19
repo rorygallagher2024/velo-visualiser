@@ -66,6 +66,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnMandala: Button
     private lateinit var btnAudioWeb: Button
     private lateinit var btnTopoRidge: Button
+    private lateinit var btnLedMatrix: Button
     private lateinit var btnBurnin: Button
     private lateinit var btnGlowOff: Button
     private lateinit var btnGlowSubtle: Button
@@ -201,6 +202,7 @@ class MainActivity : AppCompatActivity() {
         btnMandala = findViewById(R.id.btn_mandala)
         btnAudioWeb = findViewById(R.id.btn_audio_web)
         btnTopoRidge = findViewById(R.id.btn_topo_ridge)
+        btnLedMatrix = findViewById(R.id.btn_led_matrix)
         btnBurnin = findViewById(R.id.btn_burnin)
         btnGlowOff = findViewById(R.id.btn_glow_off)
         btnGlowSubtle = findViewById(R.id.btn_glow_subtle)
@@ -360,6 +362,7 @@ class MainActivity : AppCompatActivity() {
             Triple(btnMandala, 14, btnMandala.text.toString()),
             Triple(btnAudioWeb, 15, btnAudioWeb.text.toString()),
             Triple(btnTopoRidge, 16, btnTopoRidge.text.toString()),
+            Triple(btnLedMatrix, 17, btnLedMatrix.text.toString()),
         )
         prefs.getStringSet(KEY_FAVOURITES, emptySet())?.forEach {
             it.toIntOrNull()?.let { idx -> favourites.add(idx) }

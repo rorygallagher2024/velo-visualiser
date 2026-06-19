@@ -57,7 +57,8 @@ class VisualizerRenderer : GLSurfaceView.Renderer {
         ElectricIrisScene(),       // 13
         MandalaPulseScene(),       // 14
         AudioWebScene(),           // 15
-        TopographicRidgeScene()    // 16 — alt take on #4, for comparison
+        TopographicRidgeScene(),   // 16 — alt take on #4, for comparison
+        LedMatrixScene()           // 17 — TE "Pocket LED" dot-matrix spectrum
     )
     private var current = DEFAULT_SCENE
     private var target = DEFAULT_SCENE

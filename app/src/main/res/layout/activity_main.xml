@@ -73,8 +73,10 @@
                 android:background="@drawable/segment_button_bg"
                 android:text="@string/tab_visualizers"
                 android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="12sp"
+                android:textAllCaps="true"
+                android:letterSpacing="0.1"
+                android:textStyle="bold"
+                android:textSize="11sp"
                 android:stateListAnimator="@null" />
 
             <Button
@@ -87,8 +89,10 @@
                 android:background="@drawable/segment_button_bg"
                 android:text="@string/tab_lighting"
                 android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="12sp"
+                android:textAllCaps="true"
+                android:letterSpacing="0.1"
+                android:textStyle="bold"
+                android:textSize="11sp"
                 android:stateListAnimator="@null" />
 
             <Button
@@ -100,8 +104,10 @@
                 android:background="@drawable/segment_button_bg"
                 android:text="@string/tab_settings"
                 android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="12sp"
+                android:textAllCaps="true"
+                android:letterSpacing="0.1"
+                android:textStyle="bold"
+                android:textSize="11sp"
                 android:stateListAnimator="@null" />
         </LinearLayout>
 
@@ -325,8 +331,20 @@
                 android:id="@+id/btn_topo_ridge"
                 android:layout_width="match_parent"
                 android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
                 android:background="@drawable/pill_button_bg"
                 android:text="@string/vis_topo_ridge"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_led_matrix"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_led_matrix"
                 android:textColor="@color/btn_text"
                 android:textAllCaps="false"
                 android:textSize="13sp"

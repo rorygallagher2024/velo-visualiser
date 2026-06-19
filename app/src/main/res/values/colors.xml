@@ -6,7 +6,7 @@
 
     <!-- UI overlay palette — Teenage Engineering inspired: warm charcoal panel,
          off-white "ink", monochrome inverted selection (no colour accent). -->
-    <color name="accent">#FFF1EEE6</color>          <!-- selected-fill = off-white ink -->
+    <color name="accent">#FFF0531C</color>          <!-- TE / OP-1 orange — selected fill + brand pop -->
     <color name="ink_invert">#FF1B1A17</color>      <!-- text on a selected (light) fill -->
     <color name="sheet_fill">#F21B1A17</color>      <!-- warm charcoal, ~95% -->
     <color name="sheet_stroke">#26FFFFFF</color>    <!-- hairline -->
@@ -16,8 +16,8 @@
     <color name="text_primary">#FFF1EEE6</color>    <!-- warm off-white -->
     <color name="text_dim">#FF8C897F</color>        <!-- warm grey -->
 
-    <!-- Selectable-button text: inverts to dark ink when the button is filled. -->
-    <color name="seg_text_selected">#FF1B1A17</color>
+    <!-- Selectable-button text: white sits on the orange selected fill. -->
+    <color name="seg_text_selected">#FFFFFFFF</color>
 
     <!-- Hue connection-state indicator dots -->
     <color name="hue_connected">#FF26FF8C</color>
