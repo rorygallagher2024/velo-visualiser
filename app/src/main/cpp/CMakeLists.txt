@@ -45,6 +45,38 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(kissfft)
 
 # ---------------------------------------------------------------------------
+# Ableton Link — wireless tempo/beat sync (Traktor, Ableton Live, etc.).
+# Link is header-only but pulls asio-standalone as a git submodule (fetched
+# automatically). We do NOT add_subdirectory it: its `Ableton::Link` target is an
+# IMPORTED INTERFACE that would be scoped to Link's own directory. Instead we just
+# download the sources and include AbletonLinkConfig.cmake here, which defines
+# `Ableton::Link` in THIS scope (the documented integration path).
+# ---------------------------------------------------------------------------
+FetchContent_Declare(
+        abletonlink
+        GIT_REPOSITORY https://github.com/Ableton/link.git
+        GIT_TAG        Link-3.1.2     # pinned for reproducible builds
+        GIT_SHALLOW    TRUE
+)
+FetchContent_GetProperties(abletonlink)
+if(NOT abletonlink_POPULATED)
+        FetchContent_Populate(abletonlink)
+endif()
+include(${abletonlink_SOURCE_DIR}/AbletonLinkConfig.cmake)
+
+# The wrapper: compiled WITH exceptions/RTTI, which override the global
+# -fno-exceptions (target options come after CMAKE_CXX_FLAGS on the command
+# line). It links the Ableton::Link interface (headers + asio) and exposes a
+# plain interface that the no-exceptions engine can call safely.
+# LINK_PLATFORM_LINUX=1 forces Link's posix backend: its config only sets this
+# when CMAKE_SYSTEM_NAME=="Linux", but on Android it's "Android", so we set it
+# explicitly (Android uses the Linux/posix clock + networking implementation).
+add_library(linkbridge STATIC LinkController.cpp)
+target_link_libraries(linkbridge PUBLIC Ableton::Link)
+target_compile_definitions(linkbridge PRIVATE LINK_PLATFORM_LINUX=1)
+target_compile_options(linkbridge PRIVATE -O3 -fexceptions -frtti)
+
+# ---------------------------------------------------------------------------
 # Our native library
 # ---------------------------------------------------------------------------
 add_library(native-lib SHARED
@@ -69,6 +101,7 @@ find_library(android-lib android)
 target_link_libraries(native-lib
         oboe            # Oboe transitively brings in AAudio / OpenSL ES
         kissfft         # static FFT, linked into native-lib.so
+        linkbridge      # Ableton Link wrapper (exceptions isolated to this lib)
         ${log-lib}
         ${android-lib})
 

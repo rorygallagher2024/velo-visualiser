@@ -73,9 +73,22 @@ class HapticController(context: Context) {
         // Keep the detector warm even when idle so re-enabling doesn't fire a
         // spurious pulse from a cold baseline.
         val isBeat = beat.update(pcm)
-        if (!enabled || systemAudio) return
+        // When Ableton Link drives the beat, the audio-onset path is suppressed
+        // (Link calls onLinkBeat instead) so they never double-fire.
+        if (!enabled || systemAudio || LinkSync.enabled) return
         val v = vibrator ?: return
         if (isBeat) pulse(v, 0.9f)
+    }
+
+    /**
+     * Called on the GL thread on each Ableton Link beat. Unlike [onPcm] this is
+     * NOT gated to the mic source — Link's beat is network-clock accurate, so it
+     * lands on time regardless of whether the audio source is buffered.
+     */
+    fun onLinkBeat() {
+        if (!enabled) return
+        val v = vibrator ?: return
+        pulse(v, 0.9f)
     }
 
     private fun pulse(v: Vibrator, energy: Float) {
