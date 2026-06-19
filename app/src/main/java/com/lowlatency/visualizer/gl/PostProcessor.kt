@@ -207,7 +207,7 @@ class PostProcessor {
 
     companion object {
         private const val TAG = "PostProcessor"
-        private const val BLOOM_THRESHOLD = 0.6f    // luminance above which pixels bloom
+        private const val BLOOM_THRESHOLD = 0.82f   // only the brightest cores bloom (tight halo)
         private const val BLUR_PASSES = 2           // H+V iterations (wider, softer glow)
 
         // Full-screen triangle from gl_VertexID — no attributes/VBO.

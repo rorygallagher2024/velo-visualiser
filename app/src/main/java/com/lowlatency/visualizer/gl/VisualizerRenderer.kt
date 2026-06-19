@@ -54,7 +54,8 @@ class VisualizerRenderer : GLSurfaceView.Renderer {
         PhyllotaxisScene(),        // 12
         ElectricIrisScene(),       // 13
         MandalaPulseScene(),       // 14
-        AudioWebScene()            // 15
+        AudioWebScene(),           // 15
+        TopographicRidgeScene()    // 16 — alt take on #4, for comparison
     )
     private var current = DEFAULT_SCENE
     private var target = DEFAULT_SCENE
@@ -174,8 +175,8 @@ class VisualizerRenderer : GLSurfaceView.Renderer {
 
         if (usePost) {
             // Bloom carries the punch; scene exposure lifts only gently.
-            val bloomI = 1.4f + hdrPunch * 3.0f
-            val exposure = 1.0f + hdrPunch * 0.5f
+            val bloomI = 1.0f + hdrPunch * 1.8f
+            val exposure = 1.0f + hdrPunch * 0.3f
             post.bloomToScreen(bloomI, exposure)   // bright → blur → composite
         }
     }

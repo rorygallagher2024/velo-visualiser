@@ -65,6 +65,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnElectricIris: Button
     private lateinit var btnMandala: Button
     private lateinit var btnAudioWeb: Button
+    private lateinit var btnTopoRidge: Button
     private lateinit var btnBurnin: Button
     private lateinit var btnGlow: Button
     private lateinit var btnHaptics: Button
@@ -184,6 +185,7 @@ class MainActivity : AppCompatActivity() {
         btnElectricIris = findViewById(R.id.btn_electric_iris)
         btnMandala = findViewById(R.id.btn_mandala)
         btnAudioWeb = findViewById(R.id.btn_audio_web)
+        btnTopoRidge = findViewById(R.id.btn_topo_ridge)
         btnBurnin = findViewById(R.id.btn_burnin)
         btnGlow = findViewById(R.id.btn_glow)
         btnHaptics = findViewById(R.id.btn_haptics)
@@ -357,6 +359,9 @@ class MainActivity : AppCompatActivity() {
         }
         btnAudioWeb.setOnClickListener {
             glView.selectScene(15); updateVisualizerSelection()
+        }
+        btnTopoRidge.setOnClickListener {
+            glView.selectScene(16); updateVisualizerSelection()
         }
 
         // Burn-in protection toggle (persisted, default on).
@@ -630,6 +635,7 @@ class MainActivity : AppCompatActivity() {
         btnElectricIris.isSelected = glView.sceneIndex == 13
         btnMandala.isSelected = glView.sceneIndex == 14
         btnAudioWeb.isSelected = glView.sceneIndex == 15
+        btnTopoRidge.isSelected = glView.sceneIndex == 16
     }
 
     private fun updateStatus() {

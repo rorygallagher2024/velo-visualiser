@@ -47,9 +47,10 @@ class PhyllotaxisScene : GlScene {
                 p.x /= u_aspect;                            // keep the bloom round
                 gl_Position = vec4(p, 0.0, 1.0);
 
-                gl_PointSize = mix(2.0, 13.0, spec) * (1.0 - r * 0.25);
+                gl_PointSize = mix(5.0, 16.0, spec) * (1.0 - r * 0.2);
                 v_col = palette(frac * 0.8 + spec * 0.3 + u_time * 0.03);
-                v_bright = 0.25 + spec * 1.6;               // HDR on loud bins
+                // Every dot reaches into HDR; loud bins push much brighter.
+                v_bright = 1.2 + spec * 2.2;
             }
         """
 
