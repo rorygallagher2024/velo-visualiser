@@ -524,6 +524,13 @@ class MainActivity : AppCompatActivity() {
         beatDot.animate().alpha(0.18f).scaleX(1f).scaleY(1f).setDuration(170L).start()
     }
 
+    /** Peak absolute amplitude of a PCM window — an absolute loudness measure. */
+    private fun pcmPeak(pcm: FloatArray): Float {
+        var p = 0f
+        for (s in pcm) { val a = abs(s); if (a > p) p = a }
+        return p
+    }
+
     private fun updateLinkStatus() {
         if (!LinkSync.enabled) return
         val peers = NativeBridge.nativeLinkPeers()
@@ -622,7 +629,11 @@ class MainActivity : AppCompatActivity() {
         // Hue light sync reads the FFT bands; haptics runs bass-onset detection
         // on the raw PCM (a separate tap, so it can't affect any visual tuning).
         glView.bandsSink = { low, mid, high -> hueController.onBands(low, mid, high) }
-        glView.pcmBeatSink = { pcm -> hapticController.onPcm(pcm) }
+        glView.pcmBeatSink = { pcm ->
+            hapticController.onPcm(pcm)
+            // Absolute mic loudness scales the Link beat-strobe brightness.
+            hueController.onMicLevel(pcmPeak(pcm))
+        }
         // When Ableton Link is on, the beat comes from Link's clock (mic still
         // drives the visuals). Link beats fire haptics regardless of audio source,
         // and flash the diagnostic beat light when the menu is open. The callback
