@@ -14,7 +14,6 @@ import android.media.AudioPlaybackCaptureConfiguration
 import android.media.AudioRecord
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
-import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.annotation.RequiresPermission
@@ -97,24 +96,15 @@ class AudioCaptureService : Service() {
             .setOngoing(true)
             .build()
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(
-                NOTIFICATION_ID,
-                notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
-            )
-        } else {
-            startForeground(NOTIFICATION_ID, notification)
-        }
+        startForeground(
+            NOTIFICATION_ID,
+            notification,
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
+        )
     }
 
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     private fun startCapture(resultCode: Int, data: Intent) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            Log.e(TAG, "AudioPlaybackCapture requires API 29+.")
-            stopSelf()
-            return
-        }
 
         val mpm = getSystemService(MediaProjectionManager::class.java)
         // getMediaProjection() is @Nullable on API 36+ — bail out cleanly if the
