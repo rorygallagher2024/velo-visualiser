@@ -121,7 +121,6 @@ class HueLightController(context: Context) {
             var lastLow = 0f
             var lastLinkBeat = linkBeatCount
             var level = 0f      // smoothed loudness follower (Link beat scaling)
-            var diagFrame = 0   // throttles the calibration log
             // Held beat colour for Link mode, recomputed from bass presence each beat.
             var beatR = 1f; var beatG = 1f; var beatB = 1f
             val frameNs = 1_000_000_000L / SEND_HZ
@@ -139,31 +138,34 @@ class HueLightController(context: Context) {
                     // the absolute mic level, so a beat in a quiet/near-silent
                     // passage flashes subtly while a loud drop flashes full.
                     level = max(micLevel, level * LEVEL_DECAY)
-                    if (++diagFrame % 50 == 0) {
-                        Log.d(TAG, String.format("Link mic peak=%.4f level=%.4f", micLevel, level))
-                    }
 
                     val bc = linkBeatCount
                     if (bc != lastLinkBeat) {
                         lastLinkBeat = bc
-                        // Loudness gate: below BASE the beat stays dim; above it
-                        // ramps quickly to full whack. smoothstep over a narrow band
-                        // = near on/off without flicker right at the threshold.
-                        val t = ((level - LEVEL_BASE) / (LEVEL_FULL - LEVEL_BASE)).coerceIn(0f, 1f)
-                        val loudness = t * t * (3f - 2f * t)
-                        flash = MIN_BEAT_AMP + (1f - MIN_BEAT_AMP) * loudness
-                        // Bass presence picks a hue: bass-heavy => purple, treble
-                        // => green. Interpolating in HUE (not RGB) sweeps through
-                        // blue/cyan for the mids instead of a muddy grey.
-                        val warmth = (l / (l + h + 1e-3f)).coerceIn(0f, 1f)
-                        val hue = GREEN_HUE + (PURPLE_HUE - GREEN_HUE) * warmth
-                        hsvToRgb(hue, STROBE_SAT, 1f)
-                        beatR = hsvOut[0]; beatG = hsvOut[1]; beatB = hsvOut[2]
+                        // Only beat when the track is actually playing: below BASE
+                        // we skip the flash entirely, so it decays to 0 and the
+                        // lights settle (no pulsing during quiet parts / no music).
+                        if (level >= LEVEL_BASE) {
+                            // Brightness ramps from a small floor up to full whack.
+                            val t = ((level - LEVEL_BASE) / (LEVEL_FULL - LEVEL_BASE)).coerceIn(0f, 1f)
+                            val loudness = t * t * (3f - 2f * t)
+                            flash = MIN_BEAT_AMP + (1f - MIN_BEAT_AMP) * loudness
+                            // Bass presence picks a hue: bass-heavy => purple, treble
+                            // => green. Interpolating in HUE (not RGB) sweeps through
+                            // blue/cyan for the mids instead of a muddy grey.
+                            val warmth = (l / (l + h + 1e-3f)).coerceIn(0f, 1f)
+                            val hue = GREEN_HUE + (PURPLE_HUE - GREEN_HUE) * warmth
+                            hsvToRgb(hue, STROBE_SAT, 1f)
+                            beatR = hsvOut[0]; beatG = hsvOut[1]; beatB = hsvOut[2]
+                        }
                     }
                     flash *= FLASH_DECAY
-                    val r = sqrt((beatR * flash).coerceIn(0f, 1f))
-                    val g = sqrt((beatG * flash).coerceIn(0f, 1f))
-                    val b = sqrt((beatB * flash).coerceIn(0f, 1f))
+                    // Beat punches on top of a constant dim ambient floor, so the
+                    // lights rest on a low colour instead of going fully dark when
+                    // there's no beat (quiet parts / no music).
+                    val r = sqrt((AMBIENT_R + beatR * flash).coerceIn(0f, 1f))
+                    val g = sqrt((AMBIENT_G + beatG * flash).coerceIn(0f, 1f))
+                    val b = sqrt((AMBIENT_B + beatB * flash).coerceIn(0f, 1f))
                     for (i in channelIds.indices) {
                         rgb[i * 3] = r; rgb[i * 3 + 1] = g; rgb[i * 3 + 2] = b
                     }
@@ -246,8 +248,14 @@ class HueLightController(context: Context) {
 
         // Loudness gate for the Link beat-strobe (absolute mic PCM peak).
         private const val LEVEL_DECAY = 0.93f     // per-frame loudness-follower falloff (~50 Hz)
-        private const val LEVEL_BASE = 0.015f     // mic peak below this => dim beats
-        private const val LEVEL_FULL = 0.04f      // mic peak above this => full-brightness beats
-        private const val MIN_BEAT_AMP = 0.06f    // dim beat level below BASE (subtle, not off)
+        private const val LEVEL_BASE = 0.012f     // mic peak below this => no beat (rest on ambient)
+        private const val LEVEL_FULL = 0.03f      // mic peak above this => full-brightness beats
+        private const val MIN_BEAT_AMP = 0.06f    // floor for the weakest *active* beat (just above BASE)
+
+        // Resting ambient colour (pre-gamma) so the lights hold a dim glow when
+        // there's no beat, instead of going black. A soft purple-blue.
+        private const val AMBIENT_R = 0.006f
+        private const val AMBIENT_G = 0.003f
+        private const val AMBIENT_B = 0.014f
     }
 }
