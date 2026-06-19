@@ -86,24 +86,6 @@ Open in Android Studio (Meerkat 2024.3.1 or higher):
 
 ---
 
-## Developer Documentation
-
-Velo uses a hybrid architecture: a thin Kotlin shell manages UI, permissions, and lifecycle, while delegating all real-time processing to the C++ core.
-
-```text
-    ┌──────────────────────────────────────────────────────────────┐
-    │  Kotlin shell (UI / permissions / lifecycle)                 │
-    │   MainActivity ── permissions, MediaProjection, 120 Hz mode  │
-    │   AudioCaptureService ── system audio (AudioPlaybackCapture) │
-    │   VisualizerSurfaceView / VisualizerRenderer ── GLES loop    │
-    │   hue/ ── Entertainment DTLS streaming · HapticController    │
-    └───────────────┬───────────────────────────┬──────────────────┘
-                    │ JNI (NativeBridge)        │ JNI push (system audio)
-                    ▼                           ▼
-    ┌──────────────────────────────────────────────────────────────┐
-    │  Native C++ engine                                           │
-    │   AudioEngine (Oboe) ── AAudio → OpenSL ES fallback          │
-    │    • Input · LowLatency · Exclusive · Unprocessed            │
-    │   CircularBuffer ── lock-free SPSC ring, zero-alloc writes   │
-    │   FftProcessor ── KissFFT 3-band analysis                    │
-    └──────────────────────────────────────────────────────────────┘
+### Tested On
+- Google Pixel 10 Pro Fold
+- Google Pixel Tablet
