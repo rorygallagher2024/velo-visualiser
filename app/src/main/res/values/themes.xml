@@ -5,6 +5,9 @@
         <item name="android:windowBackground">@color/scope_background</item>
         <item name="android:statusBarColor">@color/scope_background</item>
         <item name="android:navigationBarColor">@color/scope_background</item>
+        <!-- App-wide Teenage-Engineering monospace. -->
+        <item name="android:fontFamily">@font/space_mono</item>
+        <item name="fontFamily">@font/space_mono</item>
     </style>
 
     <!-- Immersive fullscreen variant for the visualizer surface. -->

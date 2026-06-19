@@ -43,7 +43,11 @@ class PostProcessor {
     private var uBlurDir = 0
     private var uCompScene = 0
     private var uCompBloom = 0
-    private var uCompIntensity = 0
+    private var uCompBloomI = 0
+    private var uCompExposure = 0
+    private var uCompHueShift = 0
+    private var uCompSat = 0
+    private var uCompTint = 0
 
     private var ready = false
 
@@ -58,7 +62,11 @@ class PostProcessor {
         uBlurDir = GLES20.glGetUniformLocation(blurProg, "u_dir")
         uCompScene = GLES20.glGetUniformLocation(compositeProg, "u_scene")
         uCompBloom = GLES20.glGetUniformLocation(compositeProg, "u_bloom")
-        uCompIntensity = GLES20.glGetUniformLocation(compositeProg, "u_intensity")
+        uCompBloomI = GLES20.glGetUniformLocation(compositeProg, "u_bloomIntensity")
+        uCompExposure = GLES20.glGetUniformLocation(compositeProg, "u_exposure")
+        uCompHueShift = GLES20.glGetUniformLocation(compositeProg, "u_hueShift")
+        uCompSat = GLES20.glGetUniformLocation(compositeProg, "u_saturation")
+        uCompTint = GLES20.glGetUniformLocation(compositeProg, "u_tint")
     }
 
     fun resize(width: Int, height: Int) {
@@ -74,7 +82,6 @@ class PostProcessor {
             bloomTex[i] = createColorTexture(bloomW, bloomH)
             bloomFbo[i] = createFbo(bloomTex[i])
         }
-
         ready = sceneFbo != 0 && bloomFbo[0] != 0 && bloomFbo[1] != 0
         if (!ready) Log.w(TAG, "Post-processing FBOs incomplete; bloom disabled.")
     }
@@ -88,10 +95,19 @@ class PostProcessor {
     val isReady: Boolean get() = ready
 
     /**
-     * Run bright-pass → blur → composite, ending on the default framebuffer
-     * (the screen). [intensity] scales the added glow.
+     * Run bright-pass → blur → composite (+ colour-grade), ending on the default
+     * framebuffer (the screen).
+     *
+     * @param bloomIntensity glow strength (rises on the beat; 0 = glow off)
+     * @param exposure       overall scene exposure (a gentle beat lift)
+     * @param hueShift       theme hue rotation (radians about the luma axis)
+     * @param saturation     theme saturation scale (1 = unchanged)
+     * @param tintR/G/B      theme tint multiplier
      */
-    fun bloomToScreen(intensity: Float) {
+    fun present(
+        bloomIntensity: Float, exposure: Float,
+        hueShift: Float, saturation: Float, tintR: Float, tintG: Float, tintB: Float,
+    ) {
         // The scene may have left additive blending / depth on — the post passes
         // must run on a clean state.
         GLES20.glDisable(GLES20.GL_BLEND)
@@ -106,14 +122,13 @@ class PostProcessor {
         GLES20.glUniform1f(uThreshold, BLOOM_THRESHOLD)
         drawTriangle()
 
-        // 2) Separable Gaussian, ping-ponging between the two quarter-res buffers.
+        // 2) Separable Gaussian bloom, ping-ponging the two quarter-res buffers.
         GLES20.glUseProgram(blurProg)
         val texelX = 1f / bloomW
         val texelY = 1f / bloomH
         var srcTex = bloomTex[0]
         var dstFbo = bloomFbo[1]
         for (pass in 0 until BLUR_PASSES) {
-            // Horizontal
             GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, dstFbo)
             GLES20.glViewport(0, 0, bloomW, bloomH)
             bindTex(0, srcTex, uBlurTex)
@@ -122,7 +137,6 @@ class PostProcessor {
             srcTex = if (dstFbo == bloomFbo[1]) bloomTex[1] else bloomTex[0]
             dstFbo = if (dstFbo == bloomFbo[1]) bloomFbo[0] else bloomFbo[1]
 
-            // Vertical
             GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, dstFbo)
             GLES20.glViewport(0, 0, bloomW, bloomH)
             bindTex(0, srcTex, uBlurTex)
@@ -139,7 +153,11 @@ class PostProcessor {
         GLES20.glUseProgram(compositeProg)
         bindTex(0, sceneTex, uCompScene)
         bindTex(1, finalBloomTex, uCompBloom)
-        GLES20.glUniform1f(uCompIntensity, intensity)
+        GLES20.glUniform1f(uCompBloomI, bloomIntensity)
+        GLES20.glUniform1f(uCompExposure, exposure)
+        GLES20.glUniform1f(uCompHueShift, hueShift)
+        GLES20.glUniform1f(uCompSat, saturation)
+        GLES20.glUniform3f(uCompTint, tintR, tintG, tintB)
         drawTriangle()
     }
 
@@ -204,7 +222,7 @@ class PostProcessor {
 
     companion object {
         private const val TAG = "PostProcessor"
-        private const val BLOOM_THRESHOLD = 0.75f   // luminance above which pixels bloom
+        private const val BLOOM_THRESHOLD = 0.82f   // only the brightest cores bloom (tight halo)
         private const val BLUR_PASSES = 2           // H+V iterations (wider, softer glow)
 
         // Full-screen triangle from gl_VertexID — no attributes/VBO.
@@ -252,13 +270,41 @@ class PostProcessor {
             precision highp float;
             uniform sampler2D u_scene;
             uniform sampler2D u_bloom;
-            uniform float u_intensity;
+            uniform float u_bloomIntensity;
+            uniform float u_exposure;
+            uniform float u_hueShift;     // theme: radians about the luma axis
+            uniform float u_saturation;   // theme: saturation scale
+            uniform vec3  u_tint;         // theme: rgb tint
             in vec2 v_uv;
             out vec4 o;
+
+            // Cheap hash for output dithering (kills banding on 8-bit surfaces).
+            float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+
+            // Hue rotation about the (1,1,1) luma axis (Rodrigues) — preserves
+            // brightness/HDR magnitude while spinning the hue.
+            vec3 hueRotate(vec3 c, float a) {
+                const vec3 k = vec3(0.57735027);
+                float cosA = cos(a);
+                return c * cosA + cross(k, c) * sin(a) + k * dot(k, c) * (1.0 - cosA);
+            }
+
             void main() {
                 vec3 scene = texture(u_scene, v_uv).rgb;
                 vec3 bloom = texture(u_bloom, v_uv).rgb;
-                o = vec4(scene + bloom * u_intensity, 1.0);  // keep HDR for the FP16 surface
+
+                // Bloom carries the beat punch; scene exposure lifts only gently.
+                vec3 col = scene * u_exposure + bloom * u_bloomIntensity;
+
+                // Theme grade: saturation -> hue rotation -> tint. (Identity for
+                // the default theme: sat 1, hue 0, tint 1.)
+                float luma = dot(col, vec3(0.2126, 0.7152, 0.0722));
+                col = mix(vec3(luma), col, u_saturation);
+                col = hueRotate(col, u_hueShift);
+                col *= u_tint;
+
+                col += (hash(gl_FragCoord.xy) - 0.5) / 255.0;   // dither
+                o = vec4(col, 1.0);  // HDR (>1.0) for the FP16 surface; SDR clamps
             }
         """
     }

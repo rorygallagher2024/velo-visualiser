@@ -50,12 +50,12 @@ class LaserArrayScene : GlScene {
                 vec3 ro = vec3(0.0, 0.0, -2.0);
                 vec3 rd = normalize(vec3(uv, 1.4));
 
-                // Mids/Highs drive the pan/scan rotation of the array.
-                float spin = u_time * 0.15 + u_mid * 2.5 + u_high * 3.0;
+                // Mids/Highs nudge the pan/scan rotation (gentle, to avoid jitter).
+                float spin = u_time * 0.15 + u_mid * 0.8 + u_high * 0.6;
                 mat2 R = rot(spin);
 
                 float width = mix(0.05, 0.5, u_low);     // lows widen beams
-                float opacity = 0.20 + u_low * 4.0;       // lows strobe (HDR)
+                float opacity = 0.15 + u_low * 1.8;       // lows strobe (HDR, restrained)
 
                 vec3 col = vec3(0.0);
                 float t = 0.2;
@@ -73,9 +73,10 @@ class LaserArrayScene : GlScene {
                     t += 0.12;
                 }
 
-                // Central vanishing-point flare (highs brighten the core).
+                // Central vanishing-point flare (highs brighten the core) — kept
+                // restrained so the centre doesn't blow to white.
                 float r0 = length(uv);
-                col += vec3(0.6, 0.8, 1.0) * exp(-r0 * 6.0) * (0.4 + u_high * 3.0);
+                col += vec3(0.6, 0.8, 1.0) * exp(-r0 * 7.0) * (0.25 + u_high * 1.2);
 
                 // Unbounded HDR output (no tone-mapping) * transition fade.
                 fragColor = vec4(col * u_dim, 1.0);

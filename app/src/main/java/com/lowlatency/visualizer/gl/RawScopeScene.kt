@@ -30,13 +30,18 @@ class RawScopeScene : GlScene {
             }
         """
 
+        // Drive the trace into HDR range: the scope bypasses bloom and draws
+        // straight to the FP16 HDR surface, so a value > 1.0 pushes the display
+        // to peak nits. Multiplying the whole colour keeps the green hue intact.
+        private const val HDR_BOOST = 10.0f
+
         private const val FRAGMENT_SHADER = """#version 300 es
-            precision mediump float;
+            precision highp float;
             uniform float u_dim;
             out vec4 fragColor;
             void main() {
-                // Flat, on-brand green. No glow — the line is the line.
-                fragColor = vec4(vec3(0.149, 1.0, 0.549) * u_dim, 1.0);
+                // Flat, on-brand green at max HDR brightness. No glow — the line is the line.
+                fragColor = vec4(vec3(0.149, 1.0, 0.549) * ${HDR_BOOST} * u_dim, 1.0);
             }
         """
     }

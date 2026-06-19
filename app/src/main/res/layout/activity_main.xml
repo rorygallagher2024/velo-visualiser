@@ -57,7 +57,7 @@
             android:layout_marginBottom="16dp"
             android:background="@color/text_dim" />
 
-        <!-- Tab bar: Visualizers | Lighting -->
+        <!-- Tab bar: Visuals | Lighting | Settings -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -69,11 +69,14 @@
                 android:layout_width="0dp"
                 android:layout_height="44dp"
                 android:layout_weight="1"
-                android:layout_marginEnd="6dp"
+                android:layout_marginEnd="4dp"
                 android:background="@drawable/segment_button_bg"
                 android:text="@string/tab_visualizers"
-                android:textColor="@color/text_primary"
-                android:textAllCaps="false"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="true"
+                android:letterSpacing="0.1"
+                android:textStyle="bold"
+                android:textSize="11sp"
                 android:stateListAnimator="@null" />
 
             <Button
@@ -81,11 +84,30 @@
                 android:layout_width="0dp"
                 android:layout_height="44dp"
                 android:layout_weight="1"
-                android:layout_marginStart="6dp"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
                 android:background="@drawable/segment_button_bg"
                 android:text="@string/tab_lighting"
-                android:textColor="@color/text_primary"
-                android:textAllCaps="false"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="true"
+                android:letterSpacing="0.1"
+                android:textStyle="bold"
+                android:textSize="11sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/tab_btn_settings"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:background="@drawable/segment_button_bg"
+                android:text="@string/tab_settings"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="true"
+                android:letterSpacing="0.1"
+                android:textStyle="bold"
+                android:textSize="11sp"
                 android:stateListAnimator="@null" />
         </LinearLayout>
 
@@ -95,6 +117,250 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/visualizer_label"
+            android:textColor="@color/text_dim"
+            android:textSize="12sp"
+            android:letterSpacing="0.1"
+            android:textAllCaps="true"
+            android:layout_marginBottom="8dp" />
+
+        <!-- Visualizer selector (stacked so full labels fit) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginBottom="20dp">
+
+            <Button
+                android:id="@+id/btn_oscilloscope"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_oscilloscope"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_tunnel"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_tunnel"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_fluid"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_fluid"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_laser"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_laser"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_topographic"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_topographic"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_circular"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_circular"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_bars"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_bars"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_bloom"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_bloom"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_starscape"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_starscape"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_rawscope"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_rawscope"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_spectrogram"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_spectrogram"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_fireworks"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_fireworks"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_phyllotaxis"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_phyllotaxis"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_electric_iris"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_electric_iris"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_mandala"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_mandala"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_audio_web"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_audio_web"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_topo_ridge"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_topo_ridge"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_led_matrix"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_led_matrix"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+        </LinearLayout>
+
+        </LinearLayout>
+        <!-- /TAB 1: Visuals -->
+
+        <!-- ===== TAB 3: Settings (audio source · display · beat sensitivity) ===== -->
+        <LinearLayout
+            android:id="@+id/tab_settings"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
 
         <TextView
             android:layout_width="wrap_content"
@@ -121,7 +387,7 @@
                 android:layout_marginEnd="6dp"
                 android:background="@drawable/segment_button_bg"
                 android:text="@string/source_mic"
-                android:textColor="@color/text_primary"
+                android:textColor="@color/btn_text"
                 android:textAllCaps="false"
                 android:stateListAnimator="@null" />
 
@@ -133,217 +399,8 @@
                 android:layout_marginStart="6dp"
                 android:background="@drawable/segment_button_bg"
                 android:text="@string/source_internal"
-                android:textColor="@color/text_primary"
+                android:textColor="@color/btn_text"
                 android:textAllCaps="false"
-                android:stateListAnimator="@null" />
-        </LinearLayout>
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/visualizer_label"
-            android:textColor="@color/text_dim"
-            android:textSize="12sp"
-            android:letterSpacing="0.1"
-            android:textAllCaps="true"
-            android:layout_marginBottom="8dp" />
-
-        <!-- Visualizer selector (stacked so full labels fit) -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:layout_marginBottom="20dp">
-
-            <Button
-                android:id="@+id/btn_oscilloscope"
-                android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_oscilloscope"
-                android:textColor="@color/text_primary"
-                android:textAllCaps="false"
-                android:textSize="13sp"
-                android:stateListAnimator="@null" />
-
-            <Button
-                android:id="@+id/btn_tunnel"
-                android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_tunnel"
-                android:textColor="@color/text_primary"
-                android:textAllCaps="false"
-                android:textSize="13sp"
-                android:stateListAnimator="@null" />
-
-            <Button
-                android:id="@+id/btn_fluid"
-                android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_fluid"
-                android:textColor="@color/text_primary"
-                android:textAllCaps="false"
-                android:textSize="13sp"
-                android:stateListAnimator="@null" />
-
-            <Button
-                android:id="@+id/btn_laser"
-                android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_laser"
-                android:textColor="@color/text_primary"
-                android:textAllCaps="false"
-                android:textSize="13sp"
-                android:stateListAnimator="@null" />
-
-            <Button
-                android:id="@+id/btn_topographic"
-                android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_topographic"
-                android:textColor="@color/text_primary"
-                android:textAllCaps="false"
-                android:textSize="13sp"
-                android:stateListAnimator="@null" />
-
-            <Button
-                android:id="@+id/btn_circular"
-                android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_circular"
-                android:textColor="@color/text_primary"
-                android:textAllCaps="false"
-                android:textSize="13sp"
-                android:stateListAnimator="@null" />
-
-            <Button
-                android:id="@+id/btn_bars"
-                android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_bars"
-                android:textColor="@color/text_primary"
-                android:textAllCaps="false"
-                android:textSize="13sp"
-                android:stateListAnimator="@null" />
-
-            <Button
-                android:id="@+id/btn_bloom"
-                android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_bloom"
-                android:textColor="@color/text_primary"
-                android:textAllCaps="false"
-                android:textSize="13sp"
-                android:stateListAnimator="@null" />
-
-            <Button
-                android:id="@+id/btn_starscape"
-                android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_starscape"
-                android:textColor="@color/text_primary"
-                android:textAllCaps="false"
-                android:textSize="13sp"
-                android:stateListAnimator="@null" />
-
-            <Button
-                android:id="@+id/btn_rawscope"
-                android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_rawscope"
-                android:textColor="@color/text_primary"
-                android:textAllCaps="false"
-                android:textSize="13sp"
-                android:stateListAnimator="@null" />
-
-            <Button
-                android:id="@+id/btn_spectrogram"
-                android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_spectrogram"
-                android:textColor="@color/text_primary"
-                android:textAllCaps="false"
-                android:textSize="13sp"
-                android:stateListAnimator="@null" />
-
-            <Button
-                android:id="@+id/btn_fireworks"
-                android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_fireworks"
-                android:textColor="@color/text_primary"
-                android:textAllCaps="false"
-                android:textSize="13sp"
-                android:stateListAnimator="@null" />
-
-            <Button
-                android:id="@+id/btn_phyllotaxis"
-                android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_phyllotaxis"
-                android:textColor="@color/text_primary"
-                android:textAllCaps="false"
-                android:textSize="13sp"
-                android:stateListAnimator="@null" />
-
-            <Button
-                android:id="@+id/btn_electric_iris"
-                android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_electric_iris"
-                android:textColor="@color/text_primary"
-                android:textAllCaps="false"
-                android:textSize="13sp"
-                android:stateListAnimator="@null" />
-
-            <Button
-                android:id="@+id/btn_mandala"
-                android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_mandala"
-                android:textColor="@color/text_primary"
-                android:textAllCaps="false"
-                android:textSize="13sp"
-                android:stateListAnimator="@null" />
-
-            <Button
-                android:id="@+id/btn_audio_web"
-                android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_audio_web"
-                android:textColor="@color/text_primary"
-                android:textAllCaps="false"
-                android:textSize="13sp"
                 android:stateListAnimator="@null" />
         </LinearLayout>
 
@@ -365,23 +422,83 @@
             android:layout_marginBottom="8dp"
             android:background="@drawable/pill_button_bg"
             android:text="@string/burnin_on"
-            android:textColor="@color/text_primary"
+            android:textColor="@color/btn_text"
             android:textAllCaps="false"
             android:textSize="13sp"
             android:stateListAnimator="@null" />
 
-        <!-- HDR bloom / glow post-processing toggle -->
-        <Button
-            android:id="@+id/btn_glow"
+        <!-- HDR bloom / glow strength -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/glow_label"
+            android:textColor="@color/text_dim"
+            android:textSize="12sp"
+            android:letterSpacing="0.1"
+            android:textAllCaps="true"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="8dp" />
+
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="44dp"
-            android:layout_marginBottom="8dp"
-            android:background="@drawable/pill_button_bg"
-            android:text="@string/glow_on"
-            android:textColor="@color/text_primary"
-            android:textAllCaps="false"
-            android:textSize="13sp"
-            android:stateListAnimator="@null" />
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="12dp">
+
+            <Button
+                android:id="@+id/btn_glow_off"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="4dp"
+                android:background="@drawable/segment_button_bg"
+                android:text="@string/glow_off"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="11sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_glow_subtle"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
+                android:background="@drawable/segment_button_bg"
+                android:text="@string/glow_subtle"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="11sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_glow_standard"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
+                android:background="@drawable/segment_button_bg"
+                android:text="@string/glow_standard"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="11sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_glow_intense"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:background="@drawable/segment_button_bg"
+                android:text="@string/glow_intense"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="11sp"
+                android:stateListAnimator="@null" />
+        </LinearLayout>
 
         <!-- Vibrate-on-beat haptics toggle -->
         <Button
@@ -391,7 +508,7 @@
             android:layout_marginBottom="16dp"
             android:background="@drawable/pill_button_bg"
             android:text="@string/haptics_off"
-            android:textColor="@color/text_primary"
+            android:textColor="@color/btn_text"
             android:textAllCaps="false"
             android:textSize="13sp"
             android:stateListAnimator="@null" />
@@ -421,7 +538,7 @@
                 android:layout_marginEnd="6dp"
                 android:background="@drawable/segment_button_bg"
                 android:text="@string/beat_sens_low"
-                android:textColor="@color/text_primary"
+                android:textColor="@color/btn_text"
                 android:textAllCaps="false"
                 android:textSize="13sp"
                 android:stateListAnimator="@null" />
@@ -434,7 +551,7 @@
                 android:layout_marginEnd="6dp"
                 android:background="@drawable/segment_button_bg"
                 android:text="@string/beat_sens_standard"
-                android:textColor="@color/text_primary"
+                android:textColor="@color/btn_text"
                 android:textAllCaps="false"
                 android:textSize="13sp"
                 android:stateListAnimator="@null" />
@@ -446,14 +563,101 @@
                 android:layout_weight="1"
                 android:background="@drawable/segment_button_bg"
                 android:text="@string/beat_sens_high"
-                android:textColor="@color/text_primary"
+                android:textColor="@color/btn_text"
                 android:textAllCaps="false"
                 android:textSize="13sp"
                 android:stateListAnimator="@null" />
         </LinearLayout>
 
+        <!-- Theme (global colour grade applied to every visual) -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/theme_label"
+            android:textColor="@color/text_dim"
+            android:textSize="12sp"
+            android:letterSpacing="0.1"
+            android:textAllCaps="true"
+            android:layout_marginBottom="8dp" />
+
+        <LinearLayout
+            android:id="@+id/theme_row"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="20dp">
+
+            <Button
+                android:id="@+id/btn_theme_spectrum"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="4dp"
+                android:background="@drawable/segment_button_bg"
+                android:text="@string/theme_spectrum"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="10sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_theme_neon"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
+                android:background="@drawable/segment_button_bg"
+                android:text="@string/theme_neon"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="10sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_theme_warm"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
+                android:background="@drawable/segment_button_bg"
+                android:text="@string/theme_warm"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="10sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_theme_cool"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
+                android:background="@drawable/segment_button_bg"
+                android:text="@string/theme_cool"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="10sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_theme_mono"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:background="@drawable/segment_button_bg"
+                android:text="@string/theme_mono"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="10sp"
+                android:stateListAnimator="@null" />
         </LinearLayout>
-        <!-- /TAB 1 -->
+
+        </LinearLayout>
+        <!-- /TAB 3: Settings -->
 
         <!-- ===== TAB 2: Lighting (Philips Hue) ===== -->
         <LinearLayout
@@ -490,7 +694,7 @@
             android:layout_marginBottom="8dp"
             android:background="@drawable/pill_button_bg"
             android:text="@string/hue_connect"
-            android:textColor="@color/text_primary"
+            android:textColor="@color/btn_text"
             android:textAllCaps="false"
             android:textSize="13sp"
             android:stateListAnimator="@null" />
@@ -510,7 +714,7 @@
             android:layout_marginBottom="8dp"
             android:background="@drawable/pill_button_bg"
             android:text="@string/hue_sync_off"
-            android:textColor="@color/text_primary"
+            android:textColor="@color/btn_text"
             android:textAllCaps="false"
             android:textSize="13sp"
             android:enabled="false"
@@ -564,7 +768,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/welcome_title"
-                android:textColor="@color/text_primary"
+                android:textColor="@color/btn_text"
                 android:textSize="24sp"
                 android:textStyle="bold"
                 android:layout_marginBottom="48dp" />
@@ -573,7 +777,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/hint_swipe_sides"
-                android:textColor="@color/text_primary"
+                android:textColor="@color/btn_text"
                 android:textSize="16sp"
                 android:layout_marginBottom="20dp" />
 
@@ -581,7 +785,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/hint_swipe_up"
-                android:textColor="@color/text_primary"
+                android:textColor="@color/btn_text"
                 android:textSize="16sp"
                 android:layout_marginBottom="48dp" />
 
@@ -592,7 +796,7 @@
                 android:minWidth="160dp"
                 android:background="@drawable/pill_button_bg"
                 android:text="@string/understood"
-                android:textColor="@color/text_primary"
+                android:textColor="@color/btn_text"
                 android:textAllCaps="false"
                 android:stateListAnimator="@null" />
         </LinearLayout>

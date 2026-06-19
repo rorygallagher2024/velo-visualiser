@@ -80,9 +80,9 @@ class TopographicScene : GlScene {
             void main() {
                 float fade = pow(1.0 - v_fog, 1.6);     // back rows -> absolute dark
                 vec3 col = palette(0.55 - v_height * 0.4);
-                col *= (0.3 + v_height * 1.5);          // taller = brighter
+                col *= (0.8 + v_height * 1.4);          // taller = brighter (bright floor)
                 col *= fade;
-                col *= 1.0 + v_height * 2.0;            // HDR on the spikes
+                col *= 1.6 + v_height * 2.5;            // HDR lift on the whole wireframe
                 fragColor = vec4(col * u_dim, 1.0);
             }
         """

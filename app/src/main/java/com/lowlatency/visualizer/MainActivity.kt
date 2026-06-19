@@ -65,21 +65,38 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnElectricIris: Button
     private lateinit var btnMandala: Button
     private lateinit var btnAudioWeb: Button
+    private lateinit var btnTopoRidge: Button
+    private lateinit var btnLedMatrix: Button
     private lateinit var btnBurnin: Button
-    private lateinit var btnGlow: Button
+    private lateinit var btnGlowOff: Button
+    private lateinit var btnGlowSubtle: Button
+    private lateinit var btnGlowStandard: Button
+    private lateinit var btnGlowIntense: Button
     private lateinit var btnHaptics: Button
     private lateinit var btnSensLow: Button
     private lateinit var btnSensStandard: Button
     private lateinit var btnSensHigh: Button
+    private lateinit var btnThemeSpectrum: Button
+    private lateinit var btnThemeNeon: Button
+    private lateinit var btnThemeWarm: Button
+    private lateinit var btnThemeCool: Button
+    private lateinit var btnThemeMono: Button
     private lateinit var hapticController: HapticController
     private lateinit var statusText: TextView
     private lateinit var prefs: SharedPreferences
 
+    // Visualizer buttons paired with their scene index + base label (for the
+    // favourite ★ prefix). Built in wireMenuControls.
+    private lateinit var visButtons: List<Triple<Button, Int, String>>
+    private val favourites = linkedSetOf<Int>()
+
     // --- Settings tabs ---
     private lateinit var tabBtnVisuals: Button
     private lateinit var tabBtnLighting: Button
+    private lateinit var tabBtnSettings: Button
     private lateinit var tabVisualizers: View
     private lateinit var tabLighting: View
+    private lateinit var tabSettings: View
 
     // --- Smart lighting (Philips Hue) ---
     private lateinit var btnHueConnect: Button
@@ -184,17 +201,29 @@ class MainActivity : AppCompatActivity() {
         btnElectricIris = findViewById(R.id.btn_electric_iris)
         btnMandala = findViewById(R.id.btn_mandala)
         btnAudioWeb = findViewById(R.id.btn_audio_web)
+        btnTopoRidge = findViewById(R.id.btn_topo_ridge)
+        btnLedMatrix = findViewById(R.id.btn_led_matrix)
         btnBurnin = findViewById(R.id.btn_burnin)
-        btnGlow = findViewById(R.id.btn_glow)
+        btnGlowOff = findViewById(R.id.btn_glow_off)
+        btnGlowSubtle = findViewById(R.id.btn_glow_subtle)
+        btnGlowStandard = findViewById(R.id.btn_glow_standard)
+        btnGlowIntense = findViewById(R.id.btn_glow_intense)
         btnHaptics = findViewById(R.id.btn_haptics)
         btnSensLow = findViewById(R.id.btn_sens_low)
         btnSensStandard = findViewById(R.id.btn_sens_standard)
         btnSensHigh = findViewById(R.id.btn_sens_high)
+        btnThemeSpectrum = findViewById(R.id.btn_theme_spectrum)
+        btnThemeNeon = findViewById(R.id.btn_theme_neon)
+        btnThemeWarm = findViewById(R.id.btn_theme_warm)
+        btnThemeCool = findViewById(R.id.btn_theme_cool)
+        btnThemeMono = findViewById(R.id.btn_theme_mono)
         statusText = findViewById(R.id.status_text)
         tabBtnVisuals = findViewById(R.id.tab_btn_visuals)
         tabBtnLighting = findViewById(R.id.tab_btn_lighting)
+        tabBtnSettings = findViewById(R.id.tab_btn_settings)
         tabVisualizers = findViewById(R.id.tab_visualizers)
         tabLighting = findViewById(R.id.tab_lighting)
+        tabSettings = findViewById(R.id.tab_settings)
         btnHueConnect = findViewById(R.id.btn_hue_connect)
         hueAreaContainer = findViewById(R.id.hue_area_container)
         btnHueSync = findViewById(R.id.btn_hue_sync)
@@ -262,19 +291,22 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
-    // ----- Settings tabs: Visualizers | Lighting -----
+    // ----- Settings tabs: Visuals | Lighting | Settings -----
 
     private fun wireTabs() {
-        tabBtnVisuals.setOnClickListener { selectTab(lighting = false) }
-        tabBtnLighting.setOnClickListener { selectTab(lighting = true) }
-        selectTab(lighting = false)   // default to the Visualizers tab
+        tabBtnVisuals.setOnClickListener { selectTab(TAB_VISUALS) }
+        tabBtnLighting.setOnClickListener { selectTab(TAB_LIGHTING) }
+        tabBtnSettings.setOnClickListener { selectTab(TAB_SETTINGS) }
+        selectTab(TAB_VISUALS)   // default to the Visuals tab
     }
 
-    private fun selectTab(lighting: Boolean) {
-        tabBtnVisuals.isSelected = !lighting
-        tabBtnLighting.isSelected = lighting
-        tabVisualizers.visibility = if (lighting) View.GONE else View.VISIBLE
-        tabLighting.visibility = if (lighting) View.VISIBLE else View.GONE
+    private fun selectTab(tab: Int) {
+        tabBtnVisuals.isSelected = tab == TAB_VISUALS
+        tabBtnLighting.isSelected = tab == TAB_LIGHTING
+        tabBtnSettings.isSelected = tab == TAB_SETTINGS
+        tabVisualizers.visibility = if (tab == TAB_VISUALS) View.VISIBLE else View.GONE
+        tabLighting.visibility = if (tab == TAB_LIGHTING) View.VISIBLE else View.GONE
+        tabSettings.visibility = if (tab == TAB_SETTINGS) View.VISIBLE else View.GONE
     }
 
     private fun showMenu() {
@@ -310,54 +342,37 @@ class MainActivity : AppCompatActivity() {
     private fun wireMenuControls() {
         segMic.setOnClickListener { selectMicrophone() }
         segInternal.setOnClickListener { selectInternalAudio() }
-        btnOscilloscope.setOnClickListener {
-            glView.selectScene(0); updateVisualizerSelection()
+
+        // Visualizer buttons: tap = select, long-press = toggle favourite.
+        visButtons = listOf(
+            Triple(btnOscilloscope, 0, btnOscilloscope.text.toString()),
+            Triple(btnTunnel, 1, btnTunnel.text.toString()),
+            Triple(btnFluid, 2, btnFluid.text.toString()),
+            Triple(btnLaser, 3, btnLaser.text.toString()),
+            Triple(btnTopographic, 4, btnTopographic.text.toString()),
+            Triple(btnCircular, 5, btnCircular.text.toString()),
+            Triple(btnBars, 6, btnBars.text.toString()),
+            Triple(btnBloom, 7, btnBloom.text.toString()),
+            Triple(btnStarscape, 8, btnStarscape.text.toString()),
+            Triple(btnRawScope, 9, btnRawScope.text.toString()),
+            Triple(btnSpectrogram, 10, btnSpectrogram.text.toString()),
+            Triple(btnFireworks, 11, btnFireworks.text.toString()),
+            Triple(btnPhyllotaxis, 12, btnPhyllotaxis.text.toString()),
+            Triple(btnElectricIris, 13, btnElectricIris.text.toString()),
+            Triple(btnMandala, 14, btnMandala.text.toString()),
+            Triple(btnAudioWeb, 15, btnAudioWeb.text.toString()),
+            Triple(btnTopoRidge, 16, btnTopoRidge.text.toString()),
+            Triple(btnLedMatrix, 17, btnLedMatrix.text.toString()),
+        )
+        prefs.getStringSet(KEY_FAVOURITES, emptySet())?.forEach {
+            it.toIntOrNull()?.let { idx -> favourites.add(idx) }
         }
-        btnTunnel.setOnClickListener {
-            glView.selectScene(1); updateVisualizerSelection()
+        glView.favourites = favourites.sorted()
+        visButtons.forEach { (b, idx, _) ->
+            b.setOnClickListener { glView.selectScene(idx); updateVisualizerSelection() }
+            b.setOnLongClickListener { toggleFavourite(idx); true }
         }
-        btnFluid.setOnClickListener {
-            glView.selectScene(2); updateVisualizerSelection()
-        }
-        btnLaser.setOnClickListener {
-            glView.selectScene(3); updateVisualizerSelection()
-        }
-        btnTopographic.setOnClickListener {
-            glView.selectScene(4); updateVisualizerSelection()
-        }
-        btnCircular.setOnClickListener {
-            glView.selectScene(5); updateVisualizerSelection()
-        }
-        btnBars.setOnClickListener {
-            glView.selectScene(6); updateVisualizerSelection()
-        }
-        btnBloom.setOnClickListener {
-            glView.selectScene(7); updateVisualizerSelection()
-        }
-        btnStarscape.setOnClickListener {
-            glView.selectScene(8); updateVisualizerSelection()
-        }
-        btnRawScope.setOnClickListener {
-            glView.selectScene(9); updateVisualizerSelection()
-        }
-        btnSpectrogram.setOnClickListener {
-            glView.selectScene(10); updateVisualizerSelection()
-        }
-        btnFireworks.setOnClickListener {
-            glView.selectScene(11); updateVisualizerSelection()
-        }
-        btnPhyllotaxis.setOnClickListener {
-            glView.selectScene(12); updateVisualizerSelection()
-        }
-        btnElectricIris.setOnClickListener {
-            glView.selectScene(13); updateVisualizerSelection()
-        }
-        btnMandala.setOnClickListener {
-            glView.selectScene(14); updateVisualizerSelection()
-        }
-        btnAudioWeb.setOnClickListener {
-            glView.selectScene(15); updateVisualizerSelection()
-        }
+        updateVisualizerSelection()
 
         // Burn-in protection toggle (persisted, default on).
         val burnIn = prefs.getBoolean(KEY_BURNIN, true)
@@ -370,16 +385,22 @@ class MainActivity : AppCompatActivity() {
             updateBurnInButton(enabled)
         }
 
-        // HDR bloom / glow toggle (persisted, default on).
-        val glow = prefs.getBoolean(KEY_GLOW, true)
-        glView.bloomEnabled = glow
-        updateGlowButton(glow)
-        btnGlow.setOnClickListener {
-            val enabled = !glView.bloomEnabled
-            glView.bloomEnabled = enabled
-            prefs.edit().putBoolean(KEY_GLOW, enabled).apply()
-            updateGlowButton(enabled)
-        }
+        // HDR bloom / glow strength (persisted).
+        GlowSettings.strength = GlowSettings.Strength.fromKey(prefs.getString(KEY_GLOW, null))
+        updateGlowSelection()
+        btnGlowOff.setOnClickListener { setGlow(GlowSettings.Strength.OFF) }
+        btnGlowSubtle.setOnClickListener { setGlow(GlowSettings.Strength.SUBTLE) }
+        btnGlowStandard.setOnClickListener { setGlow(GlowSettings.Strength.STANDARD) }
+        btnGlowIntense.setOnClickListener { setGlow(GlowSettings.Strength.INTENSE) }
+
+        // Colour theme (persisted, applied as a global grade in the composite).
+        ThemeSettings.preset = ThemeSettings.Theme.fromKey(prefs.getString(KEY_THEME, null))
+        updateThemeSelection()
+        btnThemeSpectrum.setOnClickListener { setTheme(ThemeSettings.Theme.SPECTRUM) }
+        btnThemeNeon.setOnClickListener { setTheme(ThemeSettings.Theme.NEON) }
+        btnThemeWarm.setOnClickListener { setTheme(ThemeSettings.Theme.WARM) }
+        btnThemeCool.setOnClickListener { setTheme(ThemeSettings.Theme.COOL) }
+        btnThemeMono.setOnClickListener { setTheme(ThemeSettings.Theme.MONO) }
 
         // Vibrate-on-beat haptics (persisted, default off). Disabled if the
         // device has no vibrator. Created here, before wireHue() wires the sink.
@@ -429,9 +450,47 @@ class MainActivity : AppCompatActivity() {
         btnBurnin.setText(if (enabled) R.string.burnin_on else R.string.burnin_off)
     }
 
-    private fun updateGlowButton(enabled: Boolean) {
-        btnGlow.isSelected = enabled
-        btnGlow.setText(if (enabled) R.string.glow_on else R.string.glow_off)
+    private fun setGlow(s: GlowSettings.Strength) {
+        GlowSettings.strength = s
+        prefs.edit().putString(KEY_GLOW, s.key).apply()
+        updateGlowSelection()
+    }
+
+    private fun updateGlowSelection() {
+        val s = GlowSettings.strength
+        btnGlowOff.isSelected = s == GlowSettings.Strength.OFF
+        btnGlowSubtle.isSelected = s == GlowSettings.Strength.SUBTLE
+        btnGlowStandard.isSelected = s == GlowSettings.Strength.STANDARD
+        btnGlowIntense.isSelected = s == GlowSettings.Strength.INTENSE
+    }
+
+    private fun setTheme(t: ThemeSettings.Theme) {
+        ThemeSettings.preset = t
+        prefs.edit().putString(KEY_THEME, t.key).apply()
+        updateThemeSelection()
+    }
+
+    private fun updateThemeSelection() {
+        val t = ThemeSettings.preset
+        btnThemeSpectrum.isSelected = t == ThemeSettings.Theme.SPECTRUM
+        btnThemeNeon.isSelected = t == ThemeSettings.Theme.NEON
+        btnThemeWarm.isSelected = t == ThemeSettings.Theme.WARM
+        btnThemeCool.isSelected = t == ThemeSettings.Theme.COOL
+        btnThemeMono.isSelected = t == ThemeSettings.Theme.MONO
+    }
+
+    /** Long-press a visualizer to add/remove it from the swipe favourites. */
+    private fun toggleFavourite(index: Int) {
+        if (!favourites.add(index)) favourites.remove(index)
+        prefs.edit().putStringSet(KEY_FAVOURITES, favourites.map { it.toString() }.toSet()).apply()
+        glView.favourites = favourites.sorted()
+        updateVisualizerSelection()
+        val fav = favourites.contains(index)
+        Toast.makeText(
+            this,
+            if (fav) "Added to swipe favourites" else "Removed from favourites",
+            Toast.LENGTH_SHORT,
+        ).show()
     }
 
     private fun updateHapticsButton(enabled: Boolean) {
@@ -524,7 +583,7 @@ class MainActivity : AppCompatActivity() {
                 text = area.name
                 isAllCaps = false
                 textSize = 13f
-                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_primary))
+                setTextColor(ContextCompat.getColorStateList(this@MainActivity, R.color.btn_text))
                 setBackgroundResource(R.drawable.pill_button_bg)
                 stateListAnimator = null
                 layoutParams = LinearLayout.LayoutParams(
@@ -614,22 +673,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateVisualizerSelection() {
-        btnOscilloscope.isSelected = glView.sceneIndex == 0
-        btnTunnel.isSelected = glView.sceneIndex == 1
-        btnFluid.isSelected = glView.sceneIndex == 2
-        btnLaser.isSelected = glView.sceneIndex == 3
-        btnTopographic.isSelected = glView.sceneIndex == 4
-        btnCircular.isSelected = glView.sceneIndex == 5
-        btnBars.isSelected = glView.sceneIndex == 6
-        btnBloom.isSelected = glView.sceneIndex == 7
-        btnStarscape.isSelected = glView.sceneIndex == 8
-        btnRawScope.isSelected = glView.sceneIndex == 9
-        btnSpectrogram.isSelected = glView.sceneIndex == 10
-        btnFireworks.isSelected = glView.sceneIndex == 11
-        btnPhyllotaxis.isSelected = glView.sceneIndex == 12
-        btnElectricIris.isSelected = glView.sceneIndex == 13
-        btnMandala.isSelected = glView.sceneIndex == 14
-        btnAudioWeb.isSelected = glView.sceneIndex == 15
+        val current = glView.sceneIndex
+        for ((b, idx, base) in visButtons) {
+            b.isSelected = idx == current
+            b.text = if (favourites.contains(idx)) "★ $base" else base
+        }
     }
 
     private fun updateStatus() {
@@ -747,12 +795,20 @@ class MainActivity : AppCompatActivity() {
      * Unlock HDR output and keep the panel awake. COLOR_MODE_HDR asks the
      * compositor to treat this window as HDR; on non-HDR panels it is ignored.
      */
+    @Suppress("DEPRECATION")   // windowManager.defaultDisplay is the pre-R fallback only
     private fun configureHdrWindow() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             window.colorMode = ActivityInfo.COLOR_MODE_HDR
             Log.i(TAG, "Requested HDR color mode.")
         }
+        // Report whether the panel is actually HDR-capable. If not, the >1.0
+        // output simply clamps to white (SDR) — the bloom/punch still work, just
+        // without the extra-nit boost. Lets us confirm HDR is genuinely engaging.
+        val d = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) display else windowManager.defaultDisplay
+        val isHdr = d?.isHdr == true
+        val types = d?.hdrCapabilities?.supportedHdrTypes?.joinToString() ?: "none"
+        Log.i(TAG, "Display HDR capable=$isHdr (types: $types)")
     }
 
     /** Choose the display mode with the highest refresh rate at native resolution. */
@@ -801,11 +857,16 @@ class MainActivity : AppCompatActivity() {
         private const val PREFS = "visualizer_prefs"
         private const val KEY_FIRST_BOOT_DONE = "first_boot_done"
         private const val KEY_BURNIN = "burn_in_enabled"
-        private const val KEY_GLOW = "bloom_enabled"
+        private const val KEY_GLOW = "glow_strength"   // string preset (was a boolean key)
         private const val KEY_HAPTICS = "haptics_enabled"
         private const val KEY_BEAT_SENS = "beat_sensitivity"
+        private const val KEY_THEME = "color_theme"
+        private const val KEY_FAVOURITES = "favourite_scenes"
         private const val KEY_SCREENSHARE_RATIONALE = "screenshare_rationale_shown"
         private const val SWIPE_DOWN_VELOCITY = 1200f
+        private const val TAB_VISUALS = 0
+        private const val TAB_LIGHTING = 1
+        private const val TAB_SETTINGS = 2
         private const val SPLASH_HOLD_MS = 3300L
         private const val SPLASH_FADE_MS = 700L
     }

@@ -74,8 +74,9 @@ class SpectralBloomScene : GlScene {
                 float r = length(uv);
                 float a = atan(uv.y, uv.x);
 
-                // Kaleidoscope mirror fold — petal count breathes with the mids.
-                float sides = 6.0 + floor(mid * 6.0);     // 6..12 petals
+                // Kaleidoscope mirror fold — FIXED petal count. (A mid-driven
+                // count snapped between integers, which read as twitchy.)
+                float sides = 8.0;
                 float sector = TAU / sides;
                 a = mod(a, sector);
                 a = abs(a - sector * 0.5);
@@ -96,13 +97,14 @@ class SpectralBloomScene : GlScene {
                 col *= smoothstep(0.95, 0.1, r);            // vignette to black
 
                 // Highs scatter shimmer across the centre.
-                col += high * pow(max(1.0 - r, 0.0), 3.0) * vec3(1.0);
+                col += high * pow(max(1.0 - r, 0.0), 3.0) * 0.35;
 
-                // HDR core bloom — the bass "beat flare".
-                float core = exp(-r * 6.0);
-                col += core * (0.5 + low * 4.0) * palette(u_time * 0.1 + 0.2);
+                // Core flare on the bass — restrained so the centre doesn't blow
+                // to white (the bloom pipeline amplifies it further).
+                float core = exp(-r * 6.5);
+                col += core * (0.22 + low * 0.7) * palette(u_time * 0.1 + 0.2);
 
-                col *= 1.0 + low * 1.5;                     // overall HDR lift on the beat
+                col *= 0.7 * (1.0 + low * 0.6);             // overall level + gentle beat lift
 
                 fragColor = vec4(col * u_dim, 1.0);
             }
@@ -123,6 +125,11 @@ class SpectralBloomScene : GlScene {
     private var width = 1f
     private var height = 1f
 
+    // Smoothed bands — the kaleidoscope's zoom/rotation followed the raw FFT
+    // bands, which jitter frame-to-frame; an EMA makes the motion fluid.
+    private val smBands = FloatArray(3)
+    private var lastTime = -1f
+
     override fun onCreated() {
         program = ShaderUtil.buildProgram(VERTEX_SHADER, FRAGMENT_SHADER)
         aPos = GLES20.glGetAttribLocation(program, "aPos")
@@ -138,12 +145,18 @@ class SpectralBloomScene : GlScene {
     }
 
     override fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
+        // Smooth the bands (time-based EMA, ~0.25 s) so motion isn't twitchy.
+        val dt = if (lastTime < 0f) 0.016f else (timeSec - lastTime).coerceIn(0f, 0.05f)
+        lastTime = timeSec
+        val k = (dt / 0.25f).coerceIn(0f, 1f)
+        for (i in 0..2) smBands[i] += (bands[i] - smBands[i]) * k
+
         GLES20.glDisable(GLES20.GL_BLEND)    // opaque full-screen pass
         GLES20.glUseProgram(program)
         GLES20.glUniform2f(uResolution, width, height)
         GLES20.glUniform1f(uTime, timeSec)
         GLES20.glUniform1f(uDim, dim)
-        GLES20.glUniform3f(uBands, bands[0], bands[1], bands[2])
+        GLES20.glUniform3f(uBands, smBands[0], smBands[1], smBands[2])
 
         GLES20.glEnableVertexAttribArray(aPos)
         GLES20.glVertexAttribPointer(aPos, 2, GLES20.GL_FLOAT, false, 0, quad)
