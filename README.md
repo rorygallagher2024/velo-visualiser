@@ -4,19 +4,27 @@ Velo is an Android audio visualizer engineered around one primary objective: **l
 
 A bare-metal C++/Oboe audio engine and custom OpenGL ES 3.1 shaders bypass standard Android bottlenecks to deliver sub-10 ms audio-to-pixel response, while driving Philips Hue lights and device haptics in real-time.
 
+The stand-out features:
+1. The MOST reactive visualiser with sub 10ms latency from sound to pixel
+2. HDR capable 3D visuals targeting 120+ fps
+3. Visuals that can be supplemented by reliable beat detection coming directly from music & DJ software utilising Ableton link
+4. Reactive room lighting powered by a low Latency Philips Hue lighting integration
+
 ## Demo
 
 **Velo Visualiser Demo Video**
-[![Velo Demo](https://img.youtube.com/vi/J6lmJJCc-Lo/maxresdefault.jpg)](https://youtu.be/J6lmJJCc-Lo?si=TL1AwiiatRvApf1)
+[![Velo Demo](https://img.youtube.com/vi/J6lmJJCc-Lo/maxresdefault.jpg)](https://youtu.be/J6lmJJCc-Lo)
+`▶ Watch on YouTube`
 
 **Velo Visualiser: Ableton Link & Philips Hue Lighting Integration**
 [![Velo Lighting Demo](https://img.youtube.com/vi/DZwIyPs-1f8/maxresdefault.jpg)](https://www.youtube.com/watch?v=DZwIyPs-1f8)
+`▶ Watch on YouTube`
 
 
-## Features
+## The full feature list
 
 - **19 audio-reactive visualizers** — Waveforms, spectra, particle fluids, scrolling spectrograms, dot-matrix LED meters, and more.
-- **HDR Bloom** — Post-processing for real luminous glow on capable FP16 panels, with selectable glow strength.
+- **HDR Effects** — Including post-processing for real luminous glow on capable FP16 panels and selectable glow strength.
 - **Global colour themes** — A single post-process colour grade re-tints every visual (Neon, Warm, Cool, Mono…) at zero per-scene cost.
 - **Ableton Link sync** — Lock beat-driven effects to Traktor, Ableton Live, and other Link software over Wi-Fi; the mic still drives the visuals while Link sets the beat.
 - **Two audio sources** — Raw microphone capture or internal/system audio via screen-share.
@@ -46,7 +54,9 @@ Most Android visualizers suffer from inherent 100ms+ delays due to their relianc
 
 ### End-to-End Latency Estimates
 
-**Audio → Pixel (On-Device): Sub-10 ms.** **Beat → Light (Philips Hue): ~40–70 ms.**
+**Audio → Pixel (On-Device): Sub-10 ms.** 
+**Beat → Light (Philips Hue): ~40–70 ms.**
+
 While the app's calculation is near-instant, total physical time to change a lightbulb is bottlenecked by the Hue Bridge's Zigbee mesh network.
 
 | Stage | Approx. Time |
@@ -58,18 +68,11 @@ While the app's calculation is near-instant, total physical time to change a lig
 
 ---
 
-## Input Sources & Permissions
-
-* **Environmental Mic:** Bypasses Android's background noise cancellation. *Requires `RECORD_AUDIO` permission.*
-* **System Audio:** Captures internal audio playback. *Requires `MediaProjection` screen-capture permission per session.*
-
----
-
 ## Smart Lighting (Philips Hue Sync)
 
 Velo drives Hue lights using the **Hue Stream v2** protocol over **DTLS-PSK encrypted UDP** (Port 2100). 
 
-1. **Pairing:** Swipe up to the **Lighting** tab. Tap *Connect Hue Bridge*. The app uses mDNS to find your local bridge. Press the physical button on the bridge when prompted.
+1. **Pairing:** Swipe up, and select the **Lighting** tab. Tap *Connect Hue Bridge*. The app uses mDNS to find your local bridge. Press the physical button on the bridge when prompted.
 2. **Setup:** Select an Entertainment Area (must be created in the official Philips Hue app first).
 3. **Persistence:** The `username` and `clientkey` are stored locally via `EncryptedSharedPreferences`. 
 
@@ -90,7 +93,7 @@ Open in Android Studio (Meerkat 2024.3.1 or higher):
 
 ---
 
-### Tested On
+### Tested and validated on
 - Google Pixel 10 Pro Fold
 - Google Pixel Tablet
 - Samsung Galaxy Tab S8 Ultra
