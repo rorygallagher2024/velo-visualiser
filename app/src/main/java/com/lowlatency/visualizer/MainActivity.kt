@@ -629,6 +629,7 @@ class MainActivity : AppCompatActivity() {
         // runs on the GL thread, so the light update hops to the UI thread.
         glView.onLinkBeat = {
             hapticController.onLinkBeat()
+            hueController.onLinkBeat()
             if (menuOpen) beatDot.post { flashBeatDot() }
         }
 

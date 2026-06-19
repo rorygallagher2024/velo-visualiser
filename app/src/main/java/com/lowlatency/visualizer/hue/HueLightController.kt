@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import com.lowlatency.visualizer.LinkSync
 import kotlin.concurrent.thread
 import kotlin.math.max
 import kotlin.math.sqrt
@@ -39,6 +40,12 @@ class HueLightController(context: Context) {
     fun onBands(low: Float, mid: Float, high: Float) {
         this.low = low; this.mid = mid; this.high = high
     }
+
+    // Incremented on each Ableton Link beat (GL thread). When Link sync is on the
+    // sender loop flashes on these instead of audio onset — colours still follow
+    // the bands. Single writer (GL thread); the sender thread only reads it.
+    @Volatile private var linkBeatCount = 0
+    fun onLinkBeat() { linkBeatCount++ }
 
     /**
      * Start streaming to [area]: persist the choice, activate the stream over
@@ -105,14 +112,22 @@ class HueLightController(context: Context) {
 
             var flash = 0f
             var lastLow = 0f
+            var lastLinkBeat = linkBeatCount
             val frameNs = 1_000_000_000L / SEND_HZ
 
             while (running) {
                 val t0 = System.nanoTime()
                 val l = low; val m = mid; val h = high
 
-                // Beat detection on the low band → transient flash envelope.
-                if (l > BEAT_THRESHOLD && (l - lastLow) > BEAT_DELTA) flash = 1f
+                // Flash source: Ableton Link's beat when sync is on (locked to
+                // Traktor), otherwise audio low-band onset. Colours follow the
+                // bands either way.
+                if (LinkSync.enabled) {
+                    val c = linkBeatCount
+                    if (c != lastLinkBeat) { flash = 1f; lastLinkBeat = c }
+                } else {
+                    if (l > BEAT_THRESHOLD && (l - lastLow) > BEAT_DELTA) flash = 1f
+                }
                 flash *= FLASH_DECAY
                 lastLow = l
 
