@@ -16,4 +16,13 @@
         <item name="android:windowContentOverlay">@null</item>
         <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
     </style>
+
+    <!-- Dark themed dialog for Privacy Policy -->
+    <style name="Theme.LowLatencyVisualizer.Dialog" parent="Theme.AppCompat.Dialog.Alert">
+        <item name="android:windowBackground">@color/sheet_fill</item>
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_dim</item>
+        <item name="colorAccent">@color/accent</item>
+        <item name="android:fontFamily">@font/space_mono</item>
+    </style>
 </resources>

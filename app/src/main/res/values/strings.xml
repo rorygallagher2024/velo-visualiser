@@ -40,6 +40,29 @@
     <string name="theme_warm">Warm</string>
     <string name="theme_cool">Cool</string>
     <string name="theme_mono">Mono</string>
+    <string name="privacy_policy_label">Privacy &amp; Data Safety</string>
+    <string name="btn_privacy_policy">View Privacy Policy</string>
+    <string name="privacy_policy_text"><b>Privacy Policy for Velo Visualiser</b>\n\n
+        Last Updated: June 19, 2026\n\n
+        Velo Visualiser (\"we\", \"our\", or \"us\") is committed to protecting your privacy. This Privacy Policy explains how we handle data when you use our mobile application.\n\n
+        <b>1. Information We Collect</b>\n\n
+        <b>Audio Data (Microphone and System Audio)</b>\n
+        • <b>What we collect:</b> The app accesses your device\'s microphone and system audio (via MediaProjection) to generate real-time visualisations.\n
+        • <b>How we use it:</b> Audio data is processed <b>locally and in real-time</b> on your device. We use this data only to calculate frequency bands and waveforms for visual effects and haptic feedback.\n
+        • <b>Storage and Transmission:</b> We <b>do not record, store, or transmit</b> any audio data. The raw PCM data exists only in temporary volatile memory (RAM) for the duration of the processing (typically less than 100ms) and is immediately overwritten.\n\n
+        <b>Network Information</b>\n
+        • <b>Local Network Access:</b> The app requests access to your local network to discover and communicate with Philips Hue Bridges.\n
+        • <b>Usage:</b> This access is used solely for local UDP/REST communication with your smart lighting hardware. No data is sent to external servers or the cloud.\n\n
+        <b>Device Information</b>\n
+        • The app may check your device\'s display capabilities (such as HDR support and refresh rate) to optimize the OpenGL rendering. This information is not collected or transmitted.\n\n
+        <b>2. Third-Party Services</b>\n
+        • <b>Philips Hue:</b> If you enable Hue Sync, the app communicates directly with your Philips Hue Bridge over your local Wi-Fi. Please refer to the Philips Hue privacy policy for information on how they handle data.\n\n
+        <b>3. Data Safety</b>\n
+        Velo Visualiser does not collect, share, or sell any personal data. It is a utility tool designed to operate entirely on-device.\n\n
+        <b>4. Changes to This Policy</b>\n
+        We may update our Privacy Policy from time to time.\n\n
+        <b>5. Contact Us</b>\n
+        If you have any questions about this Privacy Policy, please contact us via our GitHub repository.</string>
     <string name="haptics_on">Vibrate on Beat: On</string>
     <string name="haptics_off">Vibrate on Beat: Off</string>
     <string name="beat_sens_label">Beat Sensitivity</string>

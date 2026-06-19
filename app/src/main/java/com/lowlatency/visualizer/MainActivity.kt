@@ -9,7 +9,10 @@ import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.media.projection.MediaProjectionManager
+import android.net.Uri
 import android.os.Build
+import androidx.core.text.HtmlCompat
+import androidx.core.net.toUri
 import android.os.Bundle
 import android.util.Log
 import android.view.GestureDetector
@@ -81,6 +84,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnThemeWarm: Button
     private lateinit var btnThemeCool: Button
     private lateinit var btnThemeMono: Button
+    private lateinit var btnPrivacyPolicy: Button
     private lateinit var hapticController: HapticController
     private lateinit var statusText: TextView
     private lateinit var prefs: SharedPreferences
@@ -217,6 +221,7 @@ class MainActivity : AppCompatActivity() {
         btnThemeWarm = findViewById(R.id.btn_theme_warm)
         btnThemeCool = findViewById(R.id.btn_theme_cool)
         btnThemeMono = findViewById(R.id.btn_theme_mono)
+        btnPrivacyPolicy = findViewById(R.id.btn_privacy_policy)
         statusText = findViewById(R.id.status_text)
         tabBtnVisuals = findViewById(R.id.tab_btn_visuals)
         tabBtnLighting = findViewById(R.id.tab_btn_lighting)
@@ -401,6 +406,10 @@ class MainActivity : AppCompatActivity() {
         btnThemeWarm.setOnClickListener { setTheme(ThemeSettings.Theme.WARM) }
         btnThemeCool.setOnClickListener { setTheme(ThemeSettings.Theme.COOL) }
         btnThemeMono.setOnClickListener { setTheme(ThemeSettings.Theme.MONO) }
+
+        btnPrivacyPolicy.setOnClickListener {
+            showPrivacyPolicy()
+        }
 
         // Vibrate-on-beat haptics (persisted, default off). Disabled if the
         // device has no vibrator. Created here, before wireHue() wires the sink.
@@ -784,6 +793,15 @@ class MainActivity : AppCompatActivity() {
         } else {
             requestPermissions.launch(buildPermissionList())
         }
+    }
+
+    private fun showPrivacyPolicy() {
+        val message = HtmlCompat.fromHtml(getString(R.string.privacy_policy_text), HtmlCompat.FROM_HTML_MODE_LEGACY)
+        AlertDialog.Builder(this, R.style.Theme_LowLatencyVisualizer_Dialog)
+            .setTitle(R.string.btn_privacy_policy)
+            .setMessage(message)
+            .setPositiveButton(android.R.string.ok, null)
+            .show()
     }
 
     private fun requestSystemAudioCapture() {
