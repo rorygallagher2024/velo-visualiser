@@ -580,7 +580,7 @@ class MainActivity : AppCompatActivity() {
                 text = area.name
                 isAllCaps = false
                 textSize = 13f
-                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_primary))
+                setTextColor(ContextCompat.getColorStateList(this@MainActivity, R.color.btn_text))
                 setBackgroundResource(R.drawable.pill_button_bg)
                 stateListAnimator = null
                 layoutParams = LinearLayout.LayoutParams(
