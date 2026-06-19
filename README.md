@@ -4,11 +4,17 @@ Velo is an Android audio visualizer engineered around one primary objective: **l
 
 A bare-metal C++/Oboe audio engine and custom OpenGL ES 3.1 shaders bypass standard Android bottlenecks to deliver sub-10 ms audio-to-pixel response, while driving Philips Hue lights and device haptics in real-time.
 
+## Demo
+
+[![Velo Demo](https://img.youtube.com/vi/J6lmJJCc-Lo/maxresdefault.jpg)](https://youtu.be/J6lmJJCc-Lo?si=TL1AwiiatRvApf1)
+
+
 ## Features
 
-- **18 audio-reactive visualizers** — Waveforms, spectra, particle fluids, scrolling spectrograms, dot-matrix LED meters, and more.
+- **19 audio-reactive visualizers** — Waveforms, spectra, particle fluids, scrolling spectrograms, dot-matrix LED meters, and more.
 - **HDR Bloom** — Post-processing for real luminous glow on capable FP16 panels, with selectable glow strength.
 - **Global colour themes** — A single post-process colour grade re-tints every visual (Neon, Warm, Cool, Mono…) at zero per-scene cost.
+- **Ableton Link sync** — Lock beat-driven effects to Traktor, Ableton Live, and other Link software over Wi-Fi; the mic still drives the visuals while Link sets the beat.
 - **Two audio sources** — Raw microphone capture or internal/system audio via screen-share.
 - **Real-time Philips Hue Sync** — Direct local UDP streaming over the Hue Entertainment API.
 - **Vibrate-on-beat haptics** — Bass-onset detection triggers physical pulses.
@@ -62,12 +68,6 @@ Velo drives Hue lights using the **Hue Stream v2** protocol over **DTLS-PSK encr
 1. **Pairing:** Swipe up to the **Lighting** tab. Tap *Connect Hue Bridge*. The app uses mDNS to find your local bridge. Press the physical button on the bridge when prompted.
 2. **Setup:** Select an Entertainment Area (must be created in the official Philips Hue app first).
 3. **Persistence:** The `username` and `clientkey` are stored locally via `EncryptedSharedPreferences`. 
-
----
-
-## Demo
-
-[![Velo Demo](https://img.youtube.com/vi/NZ0ZSBPTFWk/maxresdefault.jpg)](https://youtu.be/NZ0ZSBPTFWk)
 
 ---
 
