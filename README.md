@@ -89,3 +89,4 @@ Open in Android Studio (Meerkat 2024.3.1 or higher):
 ### Tested On
 - Google Pixel 10 Pro Fold
 - Google Pixel Tablet
+- Samsung Galaxy Tab S8 Ultra
