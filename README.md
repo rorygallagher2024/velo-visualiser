@@ -16,7 +16,7 @@ A bare-metal C++/Oboe audio engine and custom OpenGL ES 3.1 shaders bypass stand
 - **Global colour themes** — A single post-process colour grade re-tints every visual (Neon, Warm, Cool, Mono…) at zero per-scene cost.
 - **Ableton Link sync** — Lock beat-driven effects to Traktor, Ableton Live, and other Link software over Wi-Fi; the mic still drives the visuals while Link sets the beat.
 - **Two audio sources** — Raw microphone capture or internal/system audio via screen-share.
-- **Real-time Philips Hue Sync** — Direct local UDP streaming over the Hue Entertainment API.
+- **Real-time Philips Hue Sync** — Direct local UDP streaming over the Hue Entertainment API. Also works in co-ordination with Ableton Link to drive a sychronised beat to the bulbs.
 - **Vibrate-on-beat haptics** — Bass-onset detection triggers physical pulses.
 - **Foldable & Resizable Support** — The render loop survives screen state changes without recreating.
 
