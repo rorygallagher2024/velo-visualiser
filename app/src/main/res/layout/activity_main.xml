@@ -199,18 +199,6 @@
                 android:stateListAnimator="@null" />
 
             <Button
-                android:id="@+id/btn_topographic"
-                android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_topographic"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="13sp"
-                android:stateListAnimator="@null" />
-
-            <Button
                 android:id="@+id/btn_circular"
                 android:layout_width="match_parent"
                 android:layout_height="44dp"
@@ -358,8 +346,20 @@
                 android:id="@+id/btn_led_matrix"
                 android:layout_width="match_parent"
                 android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
                 android:background="@drawable/pill_button_bg"
                 android:text="@string/vis_led_matrix"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_mechanical_meter"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_mechanical_meter"
                 android:textColor="@color/btn_text"
                 android:textAllCaps="false"
                 android:textSize="13sp"

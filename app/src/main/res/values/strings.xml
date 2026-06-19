@@ -13,7 +13,6 @@
     <string name="vis_tunnel">Deep Tunnel</string>
     <string name="vis_fluid">Fluid Dynamics</string>
     <string name="vis_laser">Volumetric Laser Array</string>
-    <string name="vis_topographic">Topographic Bass Matrix</string>
     <string name="vis_circular">Circular Spectrum</string>
     <string name="vis_bars">Spectrum Bars</string>
     <string name="vis_bloom">Spectral Bloom</string>
@@ -25,8 +24,9 @@
     <string name="vis_electric_iris">Electric Iris</string>
     <string name="vis_mandala">Mandala Pulse</string>
     <string name="vis_audio_web">Audio Web</string>
-    <string name="vis_topo_ridge">Topographic Ridge (alt)</string>
+    <string name="vis_topo_ridge">Topographic Ridge</string>
     <string name="vis_led_matrix">Pocket LED</string>
+    <string name="vis_mechanical_meter">Mechanical Meter</string>
     <string name="display_label">Display</string>
     <string name="burnin_on">Burn-in Protection: On</string>
     <string name="burnin_off">Burn-in Protection: Off</string>

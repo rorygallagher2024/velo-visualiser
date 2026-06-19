@@ -57,7 +57,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnTunnel: Button
     private lateinit var btnFluid: Button
     private lateinit var btnLaser: Button
-    private lateinit var btnTopographic: Button
     private lateinit var btnCircular: Button
     private lateinit var btnBars: Button
     private lateinit var btnBloom: Button
@@ -71,6 +70,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnAudioWeb: Button
     private lateinit var btnTopoRidge: Button
     private lateinit var btnLedMatrix: Button
+    private lateinit var btnMechanicalMeter: Button
     private lateinit var btnBurnin: Button
     private lateinit var btnGlowOff: Button
     private lateinit var btnGlowSubtle: Button
@@ -195,7 +195,6 @@ class MainActivity : AppCompatActivity() {
         btnTunnel = findViewById(R.id.btn_tunnel)
         btnFluid = findViewById(R.id.btn_fluid)
         btnLaser = findViewById(R.id.btn_laser)
-        btnTopographic = findViewById(R.id.btn_topographic)
         btnCircular = findViewById(R.id.btn_circular)
         btnBars = findViewById(R.id.btn_bars)
         btnBloom = findViewById(R.id.btn_bloom)
@@ -209,6 +208,7 @@ class MainActivity : AppCompatActivity() {
         btnAudioWeb = findViewById(R.id.btn_audio_web)
         btnTopoRidge = findViewById(R.id.btn_topo_ridge)
         btnLedMatrix = findViewById(R.id.btn_led_matrix)
+        btnMechanicalMeter = findViewById(R.id.btn_mechanical_meter)
         btnBurnin = findViewById(R.id.btn_burnin)
         btnGlowOff = findViewById(R.id.btn_glow_off)
         btnGlowSubtle = findViewById(R.id.btn_glow_subtle)
@@ -377,20 +377,20 @@ class MainActivity : AppCompatActivity() {
             Triple(btnTunnel, 1, btnTunnel.text.toString()),
             Triple(btnFluid, 2, btnFluid.text.toString()),
             Triple(btnLaser, 3, btnLaser.text.toString()),
-            Triple(btnTopographic, 4, btnTopographic.text.toString()),
-            Triple(btnCircular, 5, btnCircular.text.toString()),
-            Triple(btnBars, 6, btnBars.text.toString()),
-            Triple(btnBloom, 7, btnBloom.text.toString()),
-            Triple(btnStarscape, 8, btnStarscape.text.toString()),
-            Triple(btnRawScope, 9, btnRawScope.text.toString()),
-            Triple(btnSpectrogram, 10, btnSpectrogram.text.toString()),
-            Triple(btnFireworks, 11, btnFireworks.text.toString()),
-            Triple(btnPhyllotaxis, 12, btnPhyllotaxis.text.toString()),
-            Triple(btnElectricIris, 13, btnElectricIris.text.toString()),
-            Triple(btnMandala, 14, btnMandala.text.toString()),
-            Triple(btnAudioWeb, 15, btnAudioWeb.text.toString()),
-            Triple(btnTopoRidge, 16, btnTopoRidge.text.toString()),
-            Triple(btnLedMatrix, 17, btnLedMatrix.text.toString()),
+            Triple(btnCircular, 4, btnCircular.text.toString()),
+            Triple(btnBars, 5, btnBars.text.toString()),
+            Triple(btnBloom, 6, btnBloom.text.toString()),
+            Triple(btnStarscape, 7, btnStarscape.text.toString()),
+            Triple(btnRawScope, 8, btnRawScope.text.toString()),
+            Triple(btnSpectrogram, 9, btnSpectrogram.text.toString()),
+            Triple(btnFireworks, 10, btnFireworks.text.toString()),
+            Triple(btnPhyllotaxis, 11, btnPhyllotaxis.text.toString()),
+            Triple(btnElectricIris, 12, btnElectricIris.text.toString()),
+            Triple(btnMandala, 13, btnMandala.text.toString()),
+            Triple(btnAudioWeb, 14, btnAudioWeb.text.toString()),
+            Triple(btnTopoRidge, 15, btnTopoRidge.text.toString()),
+            Triple(btnLedMatrix, 16, btnLedMatrix.text.toString()),
+            Triple(btnMechanicalMeter, 17, btnMechanicalMeter.text.toString()),
         )
         prefs.getStringSet(KEY_FAVOURITES, emptySet())?.forEach {
             it.toIntOrNull()?.let { idx -> favourites.add(idx) }

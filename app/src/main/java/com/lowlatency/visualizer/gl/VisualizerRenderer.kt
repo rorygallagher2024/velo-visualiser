@@ -22,7 +22,7 @@ class VisualizerRenderer : GLSurfaceView.Renderer {
 
     companion object {
         private const val TAG = "VisualizerRenderer"
-        const val DEFAULT_SCENE = 9       // Raw Oscilloscope — shown on startup
+        const val DEFAULT_SCENE = 17       // Mechanical Meter — shown on startup
         private const val POINTS = 1024
         private const val TRANSITION_SEC = 0.45f   // total fade duration
         private const val PUNCH_FALL = 3.5f        // HDR beat-punch decay rate (~0.3 s)
@@ -45,20 +45,20 @@ class VisualizerRenderer : GLSurfaceView.Renderer {
         TunnelScene(),             // 1
         FluidScene(),              // 2
         LaserArrayScene(),         // 3
-        TopographicScene(),        // 4
-        CircularSpectrumScene(),   // 5
-        BarSpectrumScene(),        // 6
-        SpectralBloomScene(),      // 7
-        StarscapeScene(),          // 8
-        RawScopeScene(),           // 9
-        SpectrogramScene(),        // 10
-        BeatFireworksScene(),      // 11
-        PhyllotaxisScene(),        // 12
-        ElectricIrisScene(),       // 13
-        MandalaPulseScene(),       // 14
-        AudioWebScene(),           // 15
-        TopographicRidgeScene(),   // 16 — alt take on #4, for comparison
-        LedMatrixScene()           // 17 — TE "Pocket LED" dot-matrix spectrum
+        CircularSpectrumScene(),   // 4
+        BarSpectrumScene(),        // 5
+        SpectralBloomScene(),      // 6
+        StarscapeScene(),          // 7
+        RawScopeScene(),           // 8
+        SpectrogramScene(),        // 9
+        BeatFireworksScene(),      // 10
+        PhyllotaxisScene(),        // 11
+        ElectricIrisScene(),       // 12
+        MandalaPulseScene(),       // 13
+        AudioWebScene(),           // 14
+        TopographicRidgeScene(),   // 15
+        LedMatrixScene(),          // 16 — TE "Pocket LED" dot-matrix spectrum
+        MechanicalMeterScene()     // 17 — TE "Mechanical Meter" analog needle
     )
     private var current = DEFAULT_SCENE
     private var target = DEFAULT_SCENE
