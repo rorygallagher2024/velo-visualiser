@@ -24,7 +24,7 @@ class VisualizerRenderer : GLSurfaceView.Renderer {
 
     companion object {
         private const val TAG = "VisualizerRenderer"
-        const val DEFAULT_SCENE = 17       // Mechanical Meter — shown on startup
+        const val DEFAULT_SCENE = 8       // Raw Oscilloscope — shown on startup
         private const val POINTS = 1024
         private const val TRANSITION_SEC = 0.45f   // total fade duration
         private const val PUNCH_FALL = 3.5f        // HDR beat-punch decay rate (~0.3 s)
