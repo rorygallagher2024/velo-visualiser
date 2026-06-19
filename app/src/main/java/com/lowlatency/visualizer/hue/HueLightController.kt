@@ -54,6 +54,12 @@ class HueLightController(context: Context) {
     @Volatile private var micLevel = 0f
     fun onMicLevel(level: Float) { micLevel = level }
 
+    // Volume-independent bass fraction (bassRMS / (bassRMS + trebleRMS)), computed
+    // from raw PCM and fed from the GL thread. Drives the Link strobe colour:
+    // high => blue/purple, low => light red. Lightly smoothed here.
+    @Volatile private var bassRatio = 0.5f
+    fun onBassRatio(r: Float) { bassRatio += 0.25f * (r - bassRatio) }
+
     /**
      * Start streaming to [area]: persist the choice, activate the stream over
      * REST, open DTLS, and spin up the sender loop. [onResult] is posted on the
@@ -150,13 +156,19 @@ class HueLightController(context: Context) {
                             val t = ((level - LEVEL_BASE) / (LEVEL_FULL - LEVEL_BASE)).coerceIn(0f, 1f)
                             val loudness = t * t * (3f - 2f * t)
                             flash = MIN_BEAT_AMP + (1f - MIN_BEAT_AMP) * loudness
-                            // Bass presence picks a hue: bass-heavy => purple, treble
-                            // => green. Interpolating in HUE (not RGB) sweeps through
-                            // blue/cyan for the mids instead of a muddy grey.
-                            val warmth = (l / (l + h + 1e-3f)).coerceIn(0f, 1f)
-                            val hue = GREEN_HUE + (PURPLE_HUE - GREEN_HUE) * warmth
-                            hsvToRgb(hue, STROBE_SAT, 1f)
+                            // Colour by bass content: enough bass => blue/purple;
+                            // little bass but mids/treble present (breakdown) =>
+                            // light red. Driven by the PCM bass fraction (the FFT
+                            // low band saturates at volume), swept through
+                            // magenta/pink; the red end is desaturated ("light" red).
+                            val bf = bassRatio
+                            val ct = ((bf - BASS_LO) / (BASS_HI - BASS_LO)).coerceIn(0f, 1f)
+                            val cs = ct * ct * (3f - 2f * ct)
+                            val hue = RED_HUE + (PURPLE_HUE - RED_HUE) * cs
+                            val sat = SAT_TREBLE + (SAT_BASS - SAT_TREBLE) * cs
+                            hsvToRgb(hue, sat, 1f)
                             beatR = hsvOut[0]; beatG = hsvOut[1]; beatB = hsvOut[2]
+                            Log.d(TAG, String.format("Link beat bassRatio=%.2f hue=%.0f", bf, hue))
                         }
                     }
                     flash *= FLASH_DECAY
@@ -242,9 +254,14 @@ class HueLightController(context: Context) {
 
         // Link beat-strobe hues (degrees). Bass-heavy beats flash purple, treble
         // beats flash green; mids sweep through blue/cyan (hue-space, never grey).
-        private const val PURPLE_HUE = 280f
-        private const val GREEN_HUE = 135f
-        private const val STROBE_SAT = 1.0f       // full saturation for a club feel
+        // Beat-strobe colour: little bass (breakdown) => light red, enough bass =>
+        // blue/purple, blended through pink/magenta over the bass fraction.
+        private const val RED_HUE = 360f          // little-bass colour (light red)
+        private const val PURPLE_HUE = 265f       // bass-heavy colour (blue/purple)
+        private const val BASS_LO = 0.45f         // PCM bass ratio below this => full red
+        private const val BASS_HI = 0.70f         // PCM bass ratio above this => full blue/purple
+        private const val SAT_BASS = 1.0f         // vivid blue/purple
+        private const val SAT_TREBLE = 0.70f      // lower sat => lighter red
 
         // Loudness gate for the Link beat-strobe (absolute mic PCM peak).
         private const val LEVEL_DECAY = 0.93f     // per-frame loudness-follower falloff (~50 Hz)

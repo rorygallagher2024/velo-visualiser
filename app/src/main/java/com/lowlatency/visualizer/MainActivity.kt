@@ -36,6 +36,7 @@ import com.lowlatency.visualizer.hue.HueCredentialStore
 import com.lowlatency.visualizer.hue.HueEntertainmentArea
 import com.lowlatency.visualizer.hue.HueLightController
 import kotlin.math.abs
+import kotlin.math.sqrt
 
 /**
  * UI shell. Hosts the OpenGL canvas plus a translucent overlay layer:
@@ -123,6 +124,7 @@ class MainActivity : AppCompatActivity() {
 
     private var systemAudioMode = false
     private var menuOpen = false
+    private var bassLpState = 0f   // one-pole low-pass state for the bass/treble split
 
     // Ableton Link: a multicast lock is mandatory or Android's Wi-Fi chip filters
     // out Link's UDP discovery packets. The status poller refreshes peer/BPM text
@@ -524,12 +526,6 @@ class MainActivity : AppCompatActivity() {
         beatDot.animate().alpha(0.18f).scaleX(1f).scaleY(1f).setDuration(170L).start()
     }
 
-    /** Peak absolute amplitude of a PCM window — an absolute loudness measure. */
-    private fun pcmPeak(pcm: FloatArray): Float {
-        var p = 0f
-        for (s in pcm) { val a = abs(s); if (a > p) p = a }
-        return p
-    }
 
     private fun updateLinkStatus() {
         if (!LinkSync.enabled) return
@@ -631,8 +627,28 @@ class MainActivity : AppCompatActivity() {
         glView.bandsSink = { low, mid, high -> hueController.onBands(low, mid, high) }
         glView.pcmBeatSink = { pcm ->
             hapticController.onPcm(pcm)
-            // Absolute mic loudness scales the Link beat-strobe brightness.
-            hueController.onMicLevel(pcmPeak(pcm))
+            // Feed the Hue Link strobe from raw PCM: absolute peak (brightness) +
+            // a volume-independent bass/treble balance (colour). We compute the
+            // balance here rather than from the FFT bands because the low band
+            // saturates at loud volume (pegs at 1.0) and can't tell bass from a
+            // bass-filtered breakdown.
+            var peak = 0f
+            var lp = bassLpState
+            var bassAcc = 0f
+            var trebAcc = 0f
+            for (s in pcm) {
+                val a = abs(s); if (a > peak) peak = a
+                lp += BASS_LP_A * (s - lp)          // one-pole low-pass (~230 Hz)
+                bassAcc += lp * lp
+                val tre = s - lp
+                trebAcc += tre * tre
+            }
+            bassLpState = lp
+            val n = pcm.size.toFloat()
+            val bassRms = sqrt(bassAcc / n)
+            val trebRms = sqrt(trebAcc / n)
+            hueController.onMicLevel(peak)
+            hueController.onBassRatio(bassRms / (bassRms + trebRms + 1e-6f))
         }
         // When Ableton Link is on, the beat comes from Link's clock (mic still
         // drives the visuals). Link beats fire haptics regardless of audio source,
@@ -1009,6 +1025,7 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_BEAT_SENS = "beat_sensitivity"
         private const val KEY_THEME = "color_theme"
         private const val KEY_LINK = "ableton_link_enabled"
+        private const val BASS_LP_A = 0.03f   // one-pole low-pass coeff (~230 Hz @ 48 kHz)
         private const val KEY_FAVOURITES = "favourite_scenes"
         private const val KEY_SCREENSHARE_RATIONALE = "screenshare_rationale_shown"
         private const val SWIPE_DOWN_VELOCITY = 1200f
