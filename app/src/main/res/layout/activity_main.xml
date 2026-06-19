@@ -847,9 +847,9 @@
                 android:fontFamily="monospace"
                 android:gravity="center"
                 android:includeFontPadding="false"
-                android:lineSpacingMultiplier="1.1"
+                android:lineSpacingMultiplier="1.0"
                 android:textColor="@color/accent"
-                android:textSize="22sp"
+                android:textSize="18sp"
                 android:textStyle="bold" />
 
             <TextView

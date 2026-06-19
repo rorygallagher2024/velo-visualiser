@@ -248,11 +248,12 @@ class MainActivity : AppCompatActivity() {
     /** Show the ASCII "VELO" logo on startup, then fade it out. */
     private fun wireSplash() {
         splashLogo.text = listOf(
-            "█   █ █████ █      ███ ",
-            "█   █ █     █     █   █",
-            "█   █ ████  █     █   █",
-            " █ █  █     █     █   █",
-            "  █   █████ █████  ███ ",
+            " _     _  _______  _        _______ ",
+            "| |   | ||  _____|| |      |  ___  |",
+            "| |   | || |____  | |      | |   | |",
+            "| |   | ||  ____| | |      | |   | |",
+            " \\ \\ / / | |____  | |_____ | |___| |",
+            "  \\___/  |_______||_______||_______|",
         ).joinToString("\n")
         splashOverlay.postDelayed({
             splashOverlay.animate().alpha(0f).setDuration(SPLASH_FADE_MS)
