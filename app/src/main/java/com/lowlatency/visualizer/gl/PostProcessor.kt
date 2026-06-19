@@ -45,6 +45,9 @@ class PostProcessor {
     private var uCompBloom = 0
     private var uCompBloomI = 0
     private var uCompExposure = 0
+    private var uCompHueShift = 0
+    private var uCompSat = 0
+    private var uCompTint = 0
 
     private var ready = false
 
@@ -61,6 +64,9 @@ class PostProcessor {
         uCompBloom = GLES20.glGetUniformLocation(compositeProg, "u_bloom")
         uCompBloomI = GLES20.glGetUniformLocation(compositeProg, "u_bloomIntensity")
         uCompExposure = GLES20.glGetUniformLocation(compositeProg, "u_exposure")
+        uCompHueShift = GLES20.glGetUniformLocation(compositeProg, "u_hueShift")
+        uCompSat = GLES20.glGetUniformLocation(compositeProg, "u_saturation")
+        uCompTint = GLES20.glGetUniformLocation(compositeProg, "u_tint")
     }
 
     fun resize(width: Int, height: Int) {
@@ -89,13 +95,19 @@ class PostProcessor {
     val isReady: Boolean get() = ready
 
     /**
-     * Run bright-pass → blur → composite, ending on the default framebuffer
-     * (the screen).
+     * Run bright-pass → blur → composite (+ colour-grade), ending on the default
+     * framebuffer (the screen).
      *
-     * @param bloomIntensity glow strength (rises on the beat)
+     * @param bloomIntensity glow strength (rises on the beat; 0 = glow off)
      * @param exposure       overall scene exposure (a gentle beat lift)
+     * @param hueShift       theme hue rotation (radians about the luma axis)
+     * @param saturation     theme saturation scale (1 = unchanged)
+     * @param tintR/G/B      theme tint multiplier
      */
-    fun bloomToScreen(bloomIntensity: Float, exposure: Float) {
+    fun present(
+        bloomIntensity: Float, exposure: Float,
+        hueShift: Float, saturation: Float, tintR: Float, tintG: Float, tintB: Float,
+    ) {
         // The scene may have left additive blending / depth on — the post passes
         // must run on a clean state.
         GLES20.glDisable(GLES20.GL_BLEND)
@@ -143,6 +155,9 @@ class PostProcessor {
         bindTex(1, finalBloomTex, uCompBloom)
         GLES20.glUniform1f(uCompBloomI, bloomIntensity)
         GLES20.glUniform1f(uCompExposure, exposure)
+        GLES20.glUniform1f(uCompHueShift, hueShift)
+        GLES20.glUniform1f(uCompSat, saturation)
+        GLES20.glUniform3f(uCompTint, tintR, tintG, tintB)
         drawTriangle()
     }
 
@@ -257,22 +272,39 @@ class PostProcessor {
             uniform sampler2D u_bloom;
             uniform float u_bloomIntensity;
             uniform float u_exposure;
+            uniform float u_hueShift;     // theme: radians about the luma axis
+            uniform float u_saturation;   // theme: saturation scale
+            uniform vec3  u_tint;         // theme: rgb tint
             in vec2 v_uv;
             out vec4 o;
 
             // Cheap hash for output dithering (kills banding on 8-bit surfaces).
             float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 
+            // Hue rotation about the (1,1,1) luma axis (Rodrigues) — preserves
+            // brightness/HDR magnitude while spinning the hue.
+            vec3 hueRotate(vec3 c, float a) {
+                const vec3 k = vec3(0.57735027);
+                float cosA = cos(a);
+                return c * cosA + cross(k, c) * sin(a) + k * dot(k, c) * (1.0 - cosA);
+            }
+
             void main() {
                 vec3 scene = texture(u_scene, v_uv).rgb;
                 vec3 bloom = texture(u_bloom, v_uv).rgb;
 
                 // Bloom carries the beat punch; scene exposure lifts only gently.
-                // Values stay HDR (>1.0) for the FP16 surface; SDR clamps to white.
                 vec3 col = scene * u_exposure + bloom * u_bloomIntensity;
 
+                // Theme grade: saturation -> hue rotation -> tint. (Identity for
+                // the default theme: sat 1, hue 0, tint 1.)
+                float luma = dot(col, vec3(0.2126, 0.7152, 0.0722));
+                col = mix(vec3(luma), col, u_saturation);
+                col = hueRotate(col, u_hueShift);
+                col *= u_tint;
+
                 col += (hash(gl_FragCoord.xy) - 0.5) / 255.0;   // dither
-                o = vec4(col, 1.0);
+                o = vec4(col, 1.0);  // HDR (>1.0) for the FP16 surface; SDR clamps
             }
         """
     }

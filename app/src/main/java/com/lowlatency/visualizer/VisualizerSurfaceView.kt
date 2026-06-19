@@ -53,9 +53,8 @@ class VisualizerSurfaceView @JvmOverloads constructor(
             ): Boolean {
                 val horizontal = abs(velocityX) > abs(velocityY)
                 if (horizontal && abs(velocityX) > SWIPE_VELOCITY) {
-                    // Left => next scene, right => previous.
-                    val dir = if (velocityX < 0) 1 else -1
-                    selectScene(sceneIndex + dir)
+                    // Left => next scene, right => previous (within favourites if set).
+                    swipeScene(if (velocityX < 0) 1 else -1)
                     return true
                 }
                 if (!horizontal && velocityY < -SWIPE_VELOCITY) {
@@ -86,10 +85,11 @@ class VisualizerSurfaceView @JvmOverloads constructor(
         get() = renderer.pcmBeatSink
         set(value) { renderer.pcmBeatSink = value }
 
-    /** Enable/disable the HDR bloom (glow) post-processing pipeline. */
-    var bloomEnabled: Boolean
-        get() = renderer.bloomEnabled
-        set(value) { renderer.bloomEnabled = value }
+    /**
+     * Favourite scene indices (sorted). When non-empty, a swipe cycles ONLY
+     * these; empty = swipe cycles all scenes. The menu can still pick any scene.
+     */
+    var favourites: List<Int> = emptyList()
 
     /** Switch to an explicit scene (wraps), updating the menu source-of-truth. */
     fun selectScene(index: Int) {
@@ -97,6 +97,23 @@ class VisualizerSurfaceView @JvmOverloads constructor(
         val next = ((index % count) + count) % count
         sceneIndex = next
         queueEvent { renderer.requestScene(next) }
+    }
+
+    /** Step to the next/previous scene for a swipe — within favourites if set. */
+    private fun swipeScene(dir: Int) {
+        val favs = favourites
+        if (favs.isEmpty()) {
+            selectScene(sceneIndex + dir)
+            return
+        }
+        val pos = favs.indexOf(sceneIndex)
+        val next = if (pos < 0) {
+            // Current isn't a favourite — jump to the first (or last) favourite.
+            if (dir > 0) favs.first() else favs.last()
+        } else {
+            favs[((pos + dir) % favs.size + favs.size) % favs.size]
+        }
+        selectScene(next)
     }
 
     init {

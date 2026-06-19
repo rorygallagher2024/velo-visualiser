@@ -4,7 +4,9 @@ import android.opengl.GLES20
 import android.opengl.GLSurfaceView
 import android.util.Log
 import com.lowlatency.visualizer.BeatDetector
+import com.lowlatency.visualizer.GlowSettings
 import com.lowlatency.visualizer.NativeBridge
+import com.lowlatency.visualizer.ThemeSettings
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
 import kotlin.math.abs
@@ -77,10 +79,9 @@ class VisualizerRenderer : GLSurfaceView.Renderer {
     // FFT bands so beat detection never affects the visuals' tuning.
     @Volatile var pcmBeatSink: ((FloatArray) -> Unit)? = null
 
-    // HDR bloom post-processing. When off (or for a scene that opts out via
-    // bypassPostProcessing), the scene draws straight to the screen exactly as
-    // before — no FBO, no extra passes, zero overhead.
-    @Volatile var bloomEnabled = true
+    // HDR bloom + theme post-processing. Glow strength and theme are read from
+    // the global GlowSettings/ThemeSettings. When glow is off AND the theme is
+    // the default, a non-bypass scene draws straight to the screen (zero overhead).
     private val post = PostProcessor()
 
     // Beat-driven HDR "punch": on each kick it spikes the bloom/streak/exposure
@@ -156,7 +157,10 @@ class VisualizerRenderer : GLSurfaceView.Renderer {
         val dim = updateTransition(t) * updateBurnInGate(t)
         val scene = scenes[current]
 
-        val usePost = bloomEnabled && post.isReady && !scene.bypassPostProcessing
+        val glow = GlowSettings.strength
+        val theme = ThemeSettings.preset
+        val usePost = post.isReady && !scene.bypassPostProcessing &&
+            (glow.enabled || ThemeSettings.isGraded)
         if (usePost) {
             post.beginScene()                    // render into the offscreen HDR buffer
         } else {
@@ -174,10 +178,13 @@ class VisualizerRenderer : GLSurfaceView.Renderer {
         scene.draw(pcm, bands, t, dim)
 
         if (usePost) {
-            // Bloom carries the punch; scene exposure lifts only gently.
-            val bloomI = 1.0f + hdrPunch * 1.8f
+            // Bloom carries the punch (0 when glow is off); exposure lifts gently.
+            val bloomI = if (glow.enabled) (1.0f + hdrPunch * 1.8f) * glow.intensity else 0f
             val exposure = 1.0f + hdrPunch * 0.3f
-            post.bloomToScreen(bloomI, exposure)   // bright → blur → composite
+            post.present(
+                bloomI, exposure,
+                theme.hueShift, theme.saturation, theme.tintR, theme.tintG, theme.tintB,
+            )
         }
     }
 
