@@ -50,6 +50,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var firstBootOverlay: View
     private lateinit var splashOverlay: View
     private lateinit var splashLogo: TextView
+    private lateinit var introHint: View
     private lateinit var segMic: Button
     private lateinit var segInternal: Button
     private lateinit var btnOscilloscope: Button
@@ -187,6 +188,7 @@ class MainActivity : AppCompatActivity() {
         firstBootOverlay = findViewById(R.id.first_boot_overlay)
         splashOverlay = findViewById(R.id.splash_overlay)
         splashLogo = findViewById(R.id.splash_logo)
+        introHint = findViewById(R.id.intro_hint)
         segMic = findViewById(R.id.seg_mic)
         segInternal = findViewById(R.id.seg_internal)
         btnOscilloscope = findViewById(R.id.btn_oscilloscope)
@@ -257,8 +259,28 @@ class MainActivity : AppCompatActivity() {
         ).joinToString("\n")
         splashOverlay.postDelayed({
             splashOverlay.animate().alpha(0f).setDuration(SPLASH_FADE_MS)
-                .withEndAction { splashOverlay.visibility = View.GONE }.start()
+                .withEndAction { 
+                    splashOverlay.visibility = View.GONE 
+                    showIntroHint()
+                }.start()
         }, SPLASH_HOLD_MS)
+    }
+
+    /** Show a brief, non-blocking gesture hint after the splash fades. */
+    private fun showIntroHint() {
+        introHint.visibility = View.VISIBLE
+        introHint.animate().alpha(1f).setDuration(600).start()
+        
+        introHint.postDelayed({
+            if (menuOpen) {
+                // If the user already opened the menu, just hide it immediately
+                introHint.visibility = View.GONE
+            } else {
+                introHint.animate().alpha(0f).setDuration(1000)
+                    .withEndAction { introHint.visibility = View.GONE }
+                    .start()
+            }
+        }, INTRO_HINT_DURATION_MS)
     }
 
     // ----- Gestures: swipe-up opens the menu, swipe-down / tap-outside closes -----
@@ -888,5 +910,6 @@ class MainActivity : AppCompatActivity() {
         private const val TAB_SETTINGS = 2
         private const val SPLASH_HOLD_MS = 3300L
         private const val SPLASH_FADE_MS = 700L
+        private const val INTRO_HINT_DURATION_MS = 5000L
     }
 }

@@ -7,6 +7,7 @@
     <string name="source_label">Audio Source</string>
     <string name="source_mic">Microphone</string>
     <string name="source_internal">Internal Audio</string>
+    <string name="hint_long_press_fav">Long-press to favorite ★</string>
     <string name="visualizer_label">Visualizer</string>
     <string name="vis_oscilloscope">Hardware Oscilloscope</string>
     <string name="vis_tunnel">Deep Tunnel</string>
