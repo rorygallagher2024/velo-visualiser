@@ -27,6 +27,7 @@
     <string name="vis_topo_ridge">Topographic Ridge</string>
     <string name="vis_led_matrix">Pocket LED</string>
     <string name="vis_mechanical_meter">Mechanical Meter</string>
+    <string name="vis_beat_pulse">Beat Pulse</string>
     <string name="display_label">Display</string>
     <string name="burnin_on">Burn-in Protection: On</string>
     <string name="burnin_off">Burn-in Protection: Off</string>
@@ -70,6 +71,14 @@
     <string name="beat_sens_low">Low</string>
     <string name="beat_sens_standard">Standard</string>
     <string name="beat_sens_high">High</string>
+    <string name="link_label">Tempo Sync</string>
+    <string name="link_sync_on">Ableton Link Sync: On</string>
+    <string name="link_sync_off">Ableton Link Sync: Off</string>
+    <string name="link_help">Locks the beat to Ableton Link software on your Wi-Fi (Traktor, Ableton Live, and more) for perfectly-timed bloom and haptics. The microphone still drives the visuals — Link only sets the beat. Both devices must be on the same network.</string>
+    <string name="link_beat_label">Beat</string>
+    <string name="link_status_off">Off</string>
+    <string name="link_status_searching">Searching for Link peers…</string>
+    <string name="link_status_connected">Connected · %1$d peer(s) · %2$.0f BPM</string>
     <string name="status_idle">Oboe Engine: starting…</string>
     <string name="version_fmt">Velo v%1$s</string>
 

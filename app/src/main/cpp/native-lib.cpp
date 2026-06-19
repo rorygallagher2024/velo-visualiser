@@ -2,6 +2,7 @@
 #include <vector>
 #include <android/log.h>
 #include "AudioEngine.h"
+#include "LinkController.h"
 
 #define LOG_TAG "NativeBridge"
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
@@ -120,6 +121,33 @@ Java_com_lowlatency_visualizer_NativeBridge_nativePushPcm(JNIEnv *env, jobject,
 
     AudioEngine::instance().pushExternalPcm(mono.data(), static_cast<size_t>(frames));
     env->ReleaseShortArrayElements(pcm, src, JNI_ABORT); // read-only, no copy-back
+}
+
+// ---------------------------------------------------------------------------
+// Ableton Link — wireless tempo/beat sync. The wrapper (LinkController) owns the
+// ableton::Link instance and catches anything it throws, so these bindings stay
+// trivial. Enable/tempo/peers are called from the UI thread; pollBeats is called
+// once per frame from the GL render thread (realtime-safe).
+// ---------------------------------------------------------------------------
+JNIEXPORT void JNICALL
+Java_com_lowlatency_visualizer_NativeBridge_nativeLinkSetEnabled(JNIEnv *, jobject,
+                                                                 jboolean enabled) {
+    velo::linkSetEnabled(enabled == JNI_TRUE);
+}
+
+JNIEXPORT jint JNICALL
+Java_com_lowlatency_visualizer_NativeBridge_nativeLinkPollBeats(JNIEnv *, jobject) {
+    return velo::linkPollBeats();
+}
+
+JNIEXPORT jdouble JNICALL
+Java_com_lowlatency_visualizer_NativeBridge_nativeLinkTempo(JNIEnv *, jobject) {
+    return velo::linkTempo();
+}
+
+JNIEXPORT jint JNICALL
+Java_com_lowlatency_visualizer_NativeBridge_nativeLinkPeers(JNIEnv *, jobject) {
+    return velo::linkNumPeers();
 }
 
 } // extern "C"

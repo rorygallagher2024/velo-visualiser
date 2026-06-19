@@ -162,7 +162,7 @@ class MechanicalMeterScene : GlScene {
         // RMS is typically very low (0.001 to 0.05). 
         // We need much more gain and a nonlinear curve to make it "dance".
         // Use a logarithmic-style boost to make quiet sounds move the needle.
-        val gain = 700f
+        val gain = 175f
         val targetLevel = (rms * gain).let { if (it < 0.01f) 0f else sqrt(it) }.coerceIn(0f, 1.2f)
         
         // --- BALLISTICS TWEAKS ---

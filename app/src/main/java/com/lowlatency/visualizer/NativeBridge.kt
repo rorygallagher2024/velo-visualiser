@@ -52,4 +52,21 @@ object NativeBridge {
      * interleaved PCM read off an AudioPlaybackCapture-configured AudioRecord.
      */
     external fun nativePushPcm(pcm: ShortArray, frames: Int, channels: Int)
+
+    // --- Ableton Link (wireless tempo/beat sync) ---
+
+    /** Join/leave the local-network Link session. Call from the UI thread. */
+    external fun nativeLinkSetEnabled(enabled: Boolean)
+
+    /**
+     * Beats elapsed since the previous call (0, or 1 on a beat boundary). Call
+     * once per frame from the GL render thread only — it's realtime-safe.
+     */
+    external fun nativeLinkPollBeats(): Int
+
+    /** Current shared session tempo in BPM (0 if unavailable). UI-thread. */
+    external fun nativeLinkTempo(): Double
+
+    /** Number of connected Ableton Link peers on the network. UI-thread. */
+    external fun nativeLinkPeers(): Int
 }

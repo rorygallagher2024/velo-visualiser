@@ -12,8 +12,8 @@ android {
         minSdk 29            // AudioPlaybackCapture (MediaProjection audio) requires API 29
         targetSdk 37         // Android 17 — latest target
         // Bump the minor version on each change; shown at the bottom of the menu.
-        versionCode 18
-        versionName "1.17"
+        versionCode 21
+        versionName "1.20"
 
         // --- NDK / native build ---
         ndk {

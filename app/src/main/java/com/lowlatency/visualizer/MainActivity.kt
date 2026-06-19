@@ -10,7 +10,10 @@ import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.media.projection.MediaProjectionManager
 import android.net.Uri
+import android.net.wifi.WifiManager
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import androidx.core.text.HtmlCompat
 import androidx.core.net.toUri
 import android.os.Bundle
@@ -71,6 +74,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnTopoRidge: Button
     private lateinit var btnLedMatrix: Button
     private lateinit var btnMechanicalMeter: Button
+    private lateinit var btnBeatPulse: Button
     private lateinit var btnBurnin: Button
     private lateinit var btnGlowOff: Button
     private lateinit var btnGlowSubtle: Button
@@ -80,6 +84,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnSensLow: Button
     private lateinit var btnSensStandard: Button
     private lateinit var btnSensHigh: Button
+    private lateinit var btnLinkSync: Button
+    private lateinit var linkStatus: TextView
+    private lateinit var beatDot: View
     private lateinit var btnThemeSpectrum: Button
     private lateinit var btnThemeNeon: Button
     private lateinit var btnThemeWarm: Button
@@ -116,6 +123,18 @@ class MainActivity : AppCompatActivity() {
 
     private var systemAudioMode = false
     private var menuOpen = false
+
+    // Ableton Link: a multicast lock is mandatory or Android's Wi-Fi chip filters
+    // out Link's UDP discovery packets. The status poller refreshes peer/BPM text
+    // while sync is on.
+    private var multicastLock: WifiManager.MulticastLock? = null
+    private val linkHandler = Handler(Looper.getMainLooper())
+    private val linkStatusPoller = object : Runnable {
+        override fun run() {
+            updateLinkStatus()
+            linkHandler.postDelayed(this, 1000L)
+        }
+    }
 
     private val requestPermissions = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -209,6 +228,7 @@ class MainActivity : AppCompatActivity() {
         btnTopoRidge = findViewById(R.id.btn_topo_ridge)
         btnLedMatrix = findViewById(R.id.btn_led_matrix)
         btnMechanicalMeter = findViewById(R.id.btn_mechanical_meter)
+        btnBeatPulse = findViewById(R.id.btn_beat_pulse)
         btnBurnin = findViewById(R.id.btn_burnin)
         btnGlowOff = findViewById(R.id.btn_glow_off)
         btnGlowSubtle = findViewById(R.id.btn_glow_subtle)
@@ -218,6 +238,9 @@ class MainActivity : AppCompatActivity() {
         btnSensLow = findViewById(R.id.btn_sens_low)
         btnSensStandard = findViewById(R.id.btn_sens_standard)
         btnSensHigh = findViewById(R.id.btn_sens_high)
+        btnLinkSync = findViewById(R.id.btn_link_sync)
+        linkStatus = findViewById(R.id.link_status)
+        beatDot = findViewById(R.id.beat_dot)
         btnThemeSpectrum = findViewById(R.id.btn_theme_spectrum)
         btnThemeNeon = findViewById(R.id.btn_theme_neon)
         btnThemeWarm = findViewById(R.id.btn_theme_warm)
@@ -391,6 +414,7 @@ class MainActivity : AppCompatActivity() {
             Triple(btnTopoRidge, 15, btnTopoRidge.text.toString()),
             Triple(btnLedMatrix, 16, btnLedMatrix.text.toString()),
             Triple(btnMechanicalMeter, 17, btnMechanicalMeter.text.toString()),
+            Triple(btnBeatPulse, 18, btnBeatPulse.text.toString()),
         )
         prefs.getStringSet(KEY_FAVOURITES, emptySet())?.forEach {
             it.toIntOrNull()?.let { idx -> favourites.add(idx) }
@@ -463,6 +487,65 @@ class MainActivity : AppCompatActivity() {
         btnSensLow.setOnClickListener { setBeatSensitivity(BeatSettings.Sensitivity.LOW) }
         btnSensStandard.setOnClickListener { setBeatSensitivity(BeatSettings.Sensitivity.STANDARD) }
         btnSensHigh.setOnClickListener { setBeatSensitivity(BeatSettings.Sensitivity.HIGH) }
+
+        // Ableton Link wireless tempo/beat sync (persisted, default off).
+        setLinkSync(prefs.getBoolean(KEY_LINK, false), persist = false)
+        btnLinkSync.setOnClickListener { setLinkSync(!LinkSync.enabled, persist = true) }
+    }
+
+    /** Enable/disable Ableton Link: native session + multicast lock + status poll. */
+    private fun setLinkSync(enabled: Boolean, persist: Boolean) {
+        LinkSync.enabled = enabled
+        NativeBridge.nativeLinkSetEnabled(enabled)
+        if (enabled) acquireMulticastLock() else releaseMulticastLock()
+        if (persist) prefs.edit().putBoolean(KEY_LINK, enabled).apply()
+
+        btnLinkSync.isSelected = enabled
+        btnLinkSync.setText(if (enabled) R.string.link_sync_on else R.string.link_sync_off)
+
+        linkHandler.removeCallbacks(linkStatusPoller)
+        if (enabled) {
+            linkHandler.post(linkStatusPoller)            // poll peers/BPM ~1 Hz
+        } else {
+            linkStatus.setText(R.string.link_status_off)
+            beatDot.animate().cancel()
+            beatDot.alpha = 0.18f
+            beatDot.scaleX = 1f
+            beatDot.scaleY = 1f
+        }
+    }
+
+    /** Pulse the diagnostic beat light: snap bright + slightly larger, then ease back. */
+    private fun flashBeatDot() {
+        beatDot.animate().cancel()
+        beatDot.alpha = 1f
+        beatDot.scaleX = 1.35f
+        beatDot.scaleY = 1.35f
+        beatDot.animate().alpha(0.18f).scaleX(1f).scaleY(1f).setDuration(170L).start()
+    }
+
+    private fun updateLinkStatus() {
+        if (!LinkSync.enabled) return
+        val peers = NativeBridge.nativeLinkPeers()
+        if (peers <= 0) {
+            linkStatus.setText(R.string.link_status_searching)
+        } else {
+            linkStatus.text = getString(R.string.link_status_connected, peers, NativeBridge.nativeLinkTempo())
+        }
+    }
+
+    private fun acquireMulticastLock() {
+        if (multicastLock?.isHeld == true) return
+        val wifi = applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager ?: return
+        multicastLock = wifi.createMulticastLock("velo-ableton-link").apply {
+            setReferenceCounted(false)
+            acquire()
+        }
+    }
+
+    private fun releaseMulticastLock() {
+        multicastLock?.let { if (it.isHeld) it.release() }
+        multicastLock = null
     }
 
     private fun setBeatSensitivity(s: BeatSettings.Sensitivity) {
@@ -540,6 +623,14 @@ class MainActivity : AppCompatActivity() {
         // on the raw PCM (a separate tap, so it can't affect any visual tuning).
         glView.bandsSink = { low, mid, high -> hueController.onBands(low, mid, high) }
         glView.pcmBeatSink = { pcm -> hapticController.onPcm(pcm) }
+        // When Ableton Link is on, the beat comes from Link's clock (mic still
+        // drives the visuals). Link beats fire haptics regardless of audio source,
+        // and flash the diagnostic beat light when the menu is open. The callback
+        // runs on the GL thread, so the light update hops to the UI thread.
+        glView.onLinkBeat = {
+            hapticController.onLinkBeat()
+            if (menuOpen) beatDot.post { flashBeatDot() }
+        }
 
         btnHueConnect.setOnClickListener { onHueConnectClicked() }
         btnHueSync.setOnClickListener { onHueSyncToggle() }
@@ -889,6 +980,9 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         if (::hueController.isInitialized) hueController.disable()
         if (::hapticController.isInitialized) hapticController.release()
+        linkHandler.removeCallbacks(linkStatusPoller)
+        NativeBridge.nativeLinkSetEnabled(false)
+        releaseMulticastLock()
         NativeBridge.nativeStop()
         super.onDestroy()
     }
@@ -902,6 +996,7 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_HAPTICS = "haptics_enabled"
         private const val KEY_BEAT_SENS = "beat_sensitivity"
         private const val KEY_THEME = "color_theme"
+        private const val KEY_LINK = "ableton_link_enabled"
         private const val KEY_FAVOURITES = "favourite_scenes"
         private const val KEY_SCREENSHARE_RATIONALE = "screenshare_rationale_shown"
         private const val SWIPE_DOWN_VELOCITY = 1200f

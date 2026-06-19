@@ -85,6 +85,11 @@ class VisualizerSurfaceView @JvmOverloads constructor(
         get() = renderer.pcmBeatSink
         set(value) { renderer.pcmBeatSink = value }
 
+    /** Fired on the GL thread on each Ableton Link beat (haptics when Link sync is on). */
+    var onLinkBeat: (() -> Unit)?
+        get() = renderer.onLinkBeat
+        set(value) { renderer.onLinkBeat = value }
+
     /**
      * Favourite scene indices (sorted). When non-empty, a swipe cycles ONLY
      * these; empty = swipe cycles all scenes. The menu can still pick any scene.

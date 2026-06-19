@@ -4,7 +4,9 @@ import android.opengl.GLES20
 import android.opengl.GLSurfaceView
 import android.util.Log
 import com.lowlatency.visualizer.BeatDetector
+import com.lowlatency.visualizer.BeatPulse
 import com.lowlatency.visualizer.GlowSettings
+import com.lowlatency.visualizer.LinkSync
 import com.lowlatency.visualizer.NativeBridge
 import com.lowlatency.visualizer.ThemeSettings
 import javax.microedition.khronos.egl.EGLConfig
@@ -58,7 +60,8 @@ class VisualizerRenderer : GLSurfaceView.Renderer {
         AudioWebScene(),           // 14
         TopographicRidgeScene(),   // 15
         LedMatrixScene(),          // 16 — TE "Pocket LED" dot-matrix spectrum
-        MechanicalMeterScene()     // 17 — TE "Mechanical Meter" analog needle
+        MechanicalMeterScene(),    // 17 — TE "Mechanical Meter" analog needle
+        BeatPulseScene()           // 18 — beat-emphasis demo (Ableton Link)
     )
     private var current = DEFAULT_SCENE
     private var target = DEFAULT_SCENE
@@ -79,6 +82,10 @@ class VisualizerRenderer : GLSurfaceView.Renderer {
     // reused PCM array — read it synchronously, don't retain it. Separate from the
     // FFT bands so beat detection never affects the visuals' tuning.
     @Volatile var pcmBeatSink: ((FloatArray) -> Unit)? = null
+
+    // Fired on the GL thread on each Ableton Link beat (only when Link sync is on).
+    // Used to drive haptics off Link's network clock instead of audio onset.
+    @Volatile var onLinkBeat: (() -> Unit)? = null
 
     // HDR bloom + theme post-processing. Glow strength and theme are read from
     // the global GlowSettings/ThemeSettings. When glow is off AND the theme is
@@ -148,9 +155,25 @@ class VisualizerRenderer : GLSurfaceView.Renderer {
         val dt = (t - lastFrameSec).coerceIn(0f, 0.1f)
         lastFrameSec = t
 
-        // HDR beat-punch envelope (spikes on a kick, decays smoothly).
-        if (hdrBeat.update(pcm)) hdrPunch = 1f
-        else hdrPunch = (hdrPunch - dt * PUNCH_FALL).coerceAtLeast(0f)
+        // HDR beat-punch envelope (spikes on a beat, decays smoothly). The beat
+        // source is Ableton Link's network clock when sync is on, otherwise the
+        // audio onset detector. Link beats also drive haptics (mic still drives
+        // the visuals themselves).
+        val beatNow = if (LinkSync.enabled) {
+            NativeBridge.nativeLinkPollBeats() > 0
+        } else {
+            hdrBeat.update(pcm)
+        }
+        if (beatNow) {
+            hdrPunch = 1f
+            if (LinkSync.enabled) onLinkBeat?.invoke()
+        } else {
+            hdrPunch = (hdrPunch - dt * PUNCH_FALL).coerceAtLeast(0f)
+        }
+
+        // Publish the beat for beat-reactive scenes (e.g. Beat Pulse).
+        BeatPulse.envelope = hdrPunch
+        if (beatNow) BeatPulse.beatCount++
 
         // u_burnInProtectAlpha is folded into `dim` so it dims every scene's
         // final color uniformly (incl. any static baseline) with no extra plumbing.
