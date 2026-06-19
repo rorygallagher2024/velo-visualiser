@@ -6,7 +6,11 @@ A bare-metal C++/Oboe audio engine and custom OpenGL ES 3.1 shaders bypass stand
 
 ## Demo
 
+**Velo Visualiser Demo Video**
 [![Velo Demo](https://img.youtube.com/vi/J6lmJJCc-Lo/maxresdefault.jpg)](https://youtu.be/J6lmJJCc-Lo?si=TL1AwiiatRvApf1)
+
+**Velo Visualiser: Ableton Link & Philips Hue Lighting Integration**
+[![Velo Lighting Demo](https://img.youtube.com/vi/DZwIyPs-1f8/maxresdefault.jpg)](https://www.youtube.com/watch?v=DZwIyPs-1f8)
 
 
 ## Features
