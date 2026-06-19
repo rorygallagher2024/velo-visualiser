@@ -704,6 +704,29 @@
             android:orientation="vertical"
             android:visibility="gone">
 
+        <!-- Philips Hue Branding and Prerequisites -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/hue_header_title"
+            android:textColor="@color/accent"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textAllCaps="true"
+            android:letterSpacing="0.05"
+            android:layout_marginBottom="12dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/hue_prerequisites"
+            android:textColor="@color/text_primary"
+            android:textSize="12sp"
+            android:lineSpacingMultiplier="1.2"
+            android:padding="12dp"
+            android:background="@drawable/segment_button_bg"
+            android:layout_marginBottom="16dp" />
+
         <!-- Live connection-state indicator (dot colored in code) -->
         <TextView
             android:id="@+id/hue_conn"
