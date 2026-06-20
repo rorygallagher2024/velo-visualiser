@@ -45,8 +45,8 @@ uniform float u_hue;        // slow palette drift
 
 out vec4 fragColor;
 
-#define ITER  10
-#define MARCH 84
+#define ITER  8
+#define MARCH 56
 #define TAU 6.2831853
 
 const float MINR2   = 0.25;   // sphere-fold inner radius^2 (0.5^2)
@@ -140,9 +140,11 @@ void main() {
         float d = boxDE(pos, scale, tr);
         // Nebular glow: brighter where the ray skims fine structure.
         glow += exp(-tr * 2.3) / (1.0 + t * t * 0.35);
-        if (d < 0.00085 * t) { hit = true; trap = tr; break; }
-        t += d * 0.9;
-        if (t > 16.0) break;
+        // Pixel-size-aware hit threshold (looser with fewer steps); full-length
+        // steps so the reduced step budget still reaches the geometry.
+        if (d < 0.0013 * t) { hit = true; trap = tr; break; }
+        t += d;
+        if (t > 14.0) break;
     }
     glow *= 0.06;
 
