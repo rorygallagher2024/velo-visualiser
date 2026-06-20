@@ -30,6 +30,7 @@
     <string name="vis_mandelbox">Fractal Cathedral</string>
     <string name="vis_mandelbox_warning">Requires a high-end device</string>
     <string name="vis_reaction_diffusion">Reaction Diffusion</string>
+    <string name="vis_cymatics">Cymatics</string>
     <string name="cat_instruments">Instruments</string>
     <string name="cat_reactive">Reactive</string>
     <string name="cat_immersive">Immersive</string>

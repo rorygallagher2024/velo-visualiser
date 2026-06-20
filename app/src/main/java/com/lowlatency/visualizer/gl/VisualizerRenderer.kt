@@ -63,7 +63,8 @@ class VisualizerRenderer : GLSurfaceView.Renderer {
         MechanicalMeterScene(),    // 17 — TE "Mechanical Meter" analog needle
         BeatPulseScene(),          // 18 — beat-emphasis demo (Ableton Link)
         MandelboxScene(),          // 19 — "Fractal Cathedral" ray-marched mandelbox
-        ReactionDiffusionScene()   // 20 — Gray-Scott Turing patterns (FBO ping-pong)
+        ReactionDiffusionScene(),  // 20 — Gray-Scott Turing patterns (FBO ping-pong)
+        ChladniPlateScene()        // 21 — "Cymatics" dominant-frequency Chladni plate
     )
     private var current = DEFAULT_SCENE
     private var target = DEFAULT_SCENE

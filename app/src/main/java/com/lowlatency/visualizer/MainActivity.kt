@@ -78,6 +78,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnBeatPulse: Button
     private lateinit var btnMandelbox: Button
     private lateinit var btnReactionDiffusion: Button
+    private lateinit var btnCymatics: Button
     private lateinit var btnBurnin: Button
     private lateinit var btnGlowOff: Button
     private lateinit var btnGlowSubtle: Button
@@ -253,6 +254,7 @@ class MainActivity : AppCompatActivity() {
         btnBeatPulse = findViewById(R.id.btn_beat_pulse)
         btnMandelbox = findViewById(R.id.btn_mandelbox)
         btnReactionDiffusion = findViewById(R.id.btn_reaction_diffusion)
+        btnCymatics = findViewById(R.id.btn_cymatics)
         btnBurnin = findViewById(R.id.btn_burnin)
         btnGlowOff = findViewById(R.id.btn_glow_off)
         btnGlowSubtle = findViewById(R.id.btn_glow_subtle)
@@ -440,6 +442,7 @@ class MainActivity : AppCompatActivity() {
             Triple(btnBeatPulse, 18, btnBeatPulse.text.toString()),
             Triple(btnMandelbox, 19, btnMandelbox.text.toString()),
             Triple(btnReactionDiffusion, 20, btnReactionDiffusion.text.toString()),
+            Triple(btnCymatics, 21, btnCymatics.text.toString()),
         )
         prefs.getStringSet(KEY_FAVOURITES, emptySet())?.forEach {
             it.toIntOrNull()?.let { idx -> favourites.add(idx) }
