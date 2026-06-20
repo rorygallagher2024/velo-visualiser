@@ -3,8 +3,10 @@ package com.lowlatency.visualizer
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Dialog
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
@@ -141,6 +143,14 @@ class MainActivity : AppCompatActivity() {
     private var lastPeerCount = 0
     private var linkNotifyRunnable: Runnable? = null
 
+    private val captureStopReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (systemAudioMode) {
+                selectMicrophone()
+            }
+        }
+    }
+
     // Ableton Link: a multicast lock is mandatory or Android's Wi-Fi chip filters
     // out Link's UDP discovery packets. The status poller refreshes peer/BPM text
     // while sync is on.
@@ -221,6 +231,13 @@ class MainActivity : AppCompatActivity() {
         wireMenuControls()
         wireHue()
         wireFirstBoot()
+
+        ContextCompat.registerReceiver(
+            this,
+            captureStopReceiver,
+            IntentFilter(AudioCaptureService.ACTION_STOPPED),
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
 
         requestPermissions.launch(buildPermissionList())
     }
@@ -1358,6 +1375,7 @@ class MainActivity : AppCompatActivity() {
         NativeBridge.nativeLinkSetEnabled(false)
         releaseMulticastLock()
         NativeBridge.nativeStop()
+        unregisterReceiver(captureStopReceiver)
         super.onDestroy()
     }
 
