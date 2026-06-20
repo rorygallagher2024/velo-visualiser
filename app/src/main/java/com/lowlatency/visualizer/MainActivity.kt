@@ -88,6 +88,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnSensHigh: Button
     private lateinit var btnLinkSync: Button
     private lateinit var linkStatus: TextView
+    private lateinit var linkNotification: TextView
     private lateinit var beatDot: View
     private lateinit var btnAdvanced: Button
     private lateinit var btnThemeSpectrum: Button
@@ -132,6 +133,8 @@ class MainActivity : AppCompatActivity() {
     private var bassLpState = 0f   // one-pole low-pass state for the bass/treble split
     private var perfOverlayEnabled = false
     private var lastHuePackets = 0L
+    private var lastPeerCount = 0
+    private var linkNotifyRunnable: Runnable? = null
 
     // Ableton Link: a multicast lock is mandatory or Android's Wi-Fi chip filters
     // out Link's UDP discovery packets. The status poller refreshes peer/BPM text
@@ -258,6 +261,7 @@ class MainActivity : AppCompatActivity() {
         btnSensHigh = findViewById(R.id.btn_sens_high)
         btnLinkSync = findViewById(R.id.btn_link_sync)
         linkStatus = findViewById(R.id.link_status)
+        linkNotification = findViewById(R.id.link_notification)
         beatDot = findViewById(R.id.beat_dot)
         btnAdvanced = findViewById(R.id.btn_advanced)
         btnThemeSpectrum = findViewById(R.id.btn_theme_spectrum)
@@ -660,8 +664,10 @@ class MainActivity : AppCompatActivity() {
 
         linkHandler.removeCallbacks(linkStatusPoller)
         if (enabled) {
+            lastPeerCount = NativeBridge.nativeLinkPeers() // initialize without notifying
             linkHandler.post(linkStatusPoller)            // poll peers/BPM ~1 Hz
         } else {
+            lastPeerCount = 0
             linkStatus.setText(R.string.link_status_off)
             beatDot.animate().cancel()
             beatDot.alpha = 0.18f
@@ -683,11 +689,37 @@ class MainActivity : AppCompatActivity() {
     private fun updateLinkStatus() {
         if (!LinkSync.enabled) return
         val peers = NativeBridge.nativeLinkPeers()
+        if (peers != lastPeerCount) {
+            if (peers > lastPeerCount) {
+                showLinkNotification(getString(R.string.link_notification_joined))
+            } else {
+                showLinkNotification(getString(R.string.link_notification_left))
+            }
+            lastPeerCount = peers
+        }
         if (peers <= 0) {
             linkStatus.setText(R.string.link_status_searching)
         } else {
             linkStatus.text = getString(R.string.link_status_connected, peers, NativeBridge.nativeLinkTempo())
         }
+    }
+
+    private fun showLinkNotification(message: String) {
+        linkNotifyRunnable?.let { linkNotification.removeCallbacks(it) }
+        linkNotification.animate().cancel()
+
+        linkNotification.text = message
+        linkNotification.visibility = View.VISIBLE
+        linkNotification.alpha = 0f
+        linkNotification.animate().alpha(1f).setDuration(300).start()
+
+        val hide = Runnable {
+            linkNotification.animate().alpha(0f).setDuration(300).withEndAction {
+                linkNotification.visibility = View.GONE
+            }.start()
+        }
+        linkNotifyRunnable = hide
+        linkNotification.postDelayed(hide, 3500L)
     }
 
     private fun acquireMulticastLock() {
