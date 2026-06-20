@@ -37,8 +37,8 @@
         android:id="@+id/link_notification"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="top|center_horizontal"
-        android:layout_marginTop="80dp"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="64dp"
         android:background="@drawable/chip_bg"
         android:paddingHorizontal="16dp"
         android:paddingVertical="8dp"
@@ -478,6 +478,7 @@
             android:orientation="vertical"
             android:visibility="gone">
 
+        <!-- ===== Group: Audio & Beat ===== -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -519,128 +520,6 @@
                 android:textAllCaps="false"
                 android:stateListAnimator="@null" />
         </LinearLayout>
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/display_label"
-            android:textColor="@color/text_dim"
-            android:textSize="12sp"
-            android:letterSpacing="0.1"
-            android:textAllCaps="true"
-            android:layout_marginBottom="8dp" />
-
-        <!-- OLED burn-in protection toggle -->
-        <Button
-            android:id="@+id/btn_burnin"
-            android:layout_width="match_parent"
-            android:layout_height="44dp"
-            android:layout_marginBottom="8dp"
-            android:background="@drawable/pill_button_bg"
-            android:text="@string/burnin_on"
-            android:textColor="@color/btn_text"
-            android:textAllCaps="false"
-            android:textSize="13sp"
-            android:stateListAnimator="@null" />
-
-        <!-- Performance diagnostics overlay toggle -->
-        <Button
-            android:id="@+id/btn_perf_overlay"
-            android:layout_width="match_parent"
-            android:layout_height="44dp"
-            android:layout_marginBottom="8dp"
-            android:background="@drawable/pill_button_bg"
-            android:text="@string/perf_overlay_off"
-            android:textColor="@color/btn_text"
-            android:textAllCaps="false"
-            android:textSize="13sp"
-            android:stateListAnimator="@null" />
-
-        <!-- HDR bloom / glow strength -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/glow_label"
-            android:textColor="@color/text_dim"
-            android:textSize="12sp"
-            android:letterSpacing="0.1"
-            android:textAllCaps="true"
-            android:layout_marginTop="4dp"
-            android:layout_marginBottom="8dp" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginBottom="12dp">
-
-            <Button
-                android:id="@+id/btn_glow_off"
-                android:layout_width="0dp"
-                android:layout_height="44dp"
-                android:layout_weight="1"
-                android:layout_marginEnd="4dp"
-                android:background="@drawable/segment_button_bg"
-                android:text="@string/glow_off"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="11sp"
-                android:stateListAnimator="@null" />
-
-            <Button
-                android:id="@+id/btn_glow_subtle"
-                android:layout_width="0dp"
-                android:layout_height="44dp"
-                android:layout_weight="1"
-                android:layout_marginStart="4dp"
-                android:layout_marginEnd="4dp"
-                android:background="@drawable/segment_button_bg"
-                android:text="@string/glow_subtle"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="11sp"
-                android:stateListAnimator="@null" />
-
-            <Button
-                android:id="@+id/btn_glow_standard"
-                android:layout_width="0dp"
-                android:layout_height="44dp"
-                android:layout_weight="1"
-                android:layout_marginStart="4dp"
-                android:layout_marginEnd="4dp"
-                android:background="@drawable/segment_button_bg"
-                android:text="@string/glow_standard"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="11sp"
-                android:stateListAnimator="@null" />
-
-            <Button
-                android:id="@+id/btn_glow_intense"
-                android:layout_width="0dp"
-                android:layout_height="44dp"
-                android:layout_weight="1"
-                android:layout_marginStart="4dp"
-                android:background="@drawable/segment_button_bg"
-                android:text="@string/glow_intense"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="11sp"
-                android:stateListAnimator="@null" />
-        </LinearLayout>
-
-        <!-- Vibrate-on-beat haptics toggle -->
-        <Button
-            android:id="@+id/btn_haptics"
-            android:layout_width="match_parent"
-            android:layout_height="44dp"
-            android:layout_marginBottom="16dp"
-            android:background="@drawable/pill_button_bg"
-            android:text="@string/haptics_off"
-            android:textColor="@color/btn_text"
-            android:textAllCaps="false"
-            android:textSize="13sp"
-            android:stateListAnimator="@null" />
 
         <!-- Beat sensitivity (drives fireworks, haptics, starscape flashes) -->
         <TextView
@@ -698,6 +577,19 @@
                 android:stateListAnimator="@null" />
         </LinearLayout>
 
+        <!-- Vibrate-on-beat haptics toggle -->
+        <Button
+            android:id="@+id/btn_haptics"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:layout_marginBottom="20dp"
+            android:background="@drawable/pill_button_bg"
+            android:text="@string/haptics_off"
+            android:textColor="@color/btn_text"
+            android:textAllCaps="false"
+            android:textSize="13sp"
+            android:stateListAnimator="@null" />
+
         <!-- Ableton Link wireless tempo/beat sync -->
         <TextView
             android:layout_width="wrap_content"
@@ -713,9 +605,21 @@
             android:id="@+id/btn_link_sync"
             android:layout_width="match_parent"
             android:layout_height="44dp"
-            android:layout_marginBottom="6dp"
+            android:layout_marginBottom="8dp"
             android:background="@drawable/pill_button_bg"
             android:text="@string/link_sync_off"
+            android:textColor="@color/btn_text"
+            android:textAllCaps="false"
+            android:textSize="13sp"
+            android:stateListAnimator="@null" />
+
+        <Button
+            android:id="@+id/btn_link_notify"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:layout_marginBottom="6dp"
+            android:background="@drawable/pill_button_bg"
+            android:text="@string/link_notifications_on"
             android:textColor="@color/btn_text"
             android:textAllCaps="false"
             android:textSize="13sp"
@@ -765,7 +669,88 @@
             android:textColor="@color/text_dim"
             android:textSize="11sp"
             android:lineSpacingMultiplier="1.2"
-            android:layout_marginBottom="20dp" />
+            android:layout_marginBottom="8dp" />
+
+        <!-- ───── divider: Audio & Beat / Display ───── -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="16dp"
+            android:background="@color/sheet_stroke" />
+
+        <!-- ===== Group: Display ===== -->
+        <!-- HDR bloom / glow strength -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/glow_label"
+            android:textColor="@color/text_dim"
+            android:textSize="12sp"
+            android:letterSpacing="0.1"
+            android:textAllCaps="true"
+            android:layout_marginBottom="8dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="20dp">
+
+            <Button
+                android:id="@+id/btn_glow_off"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="4dp"
+                android:background="@drawable/segment_button_bg"
+                android:text="@string/glow_off"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="11sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_glow_subtle"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
+                android:background="@drawable/segment_button_bg"
+                android:text="@string/glow_subtle"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="11sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_glow_standard"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
+                android:background="@drawable/segment_button_bg"
+                android:text="@string/glow_standard"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="11sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_glow_intense"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:background="@drawable/segment_button_bg"
+                android:text="@string/glow_intense"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="11sp"
+                android:stateListAnimator="@null" />
+        </LinearLayout>
 
         <!-- Theme (global colour grade applied to every visual) -->
         <TextView
@@ -854,6 +839,51 @@
                 android:stateListAnimator="@null" />
         </LinearLayout>
 
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/display_label"
+            android:textColor="@color/text_dim"
+            android:textSize="12sp"
+            android:letterSpacing="0.1"
+            android:textAllCaps="true"
+            android:layout_marginBottom="8dp" />
+
+        <!-- OLED burn-in protection toggle -->
+        <Button
+            android:id="@+id/btn_burnin"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/pill_button_bg"
+            android:text="@string/burnin_on"
+            android:textColor="@color/btn_text"
+            android:textAllCaps="false"
+            android:textSize="13sp"
+            android:stateListAnimator="@null" />
+
+        <!-- Performance diagnostics overlay toggle -->
+        <Button
+            android:id="@+id/btn_perf_overlay"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/pill_button_bg"
+            android:text="@string/perf_overlay_off"
+            android:textColor="@color/btn_text"
+            android:textAllCaps="false"
+            android:textSize="13sp"
+            android:stateListAnimator="@null" />
+
+        <!-- ───── divider: Display / About ───── -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="16dp"
+            android:background="@color/sheet_stroke" />
+
+        <!-- ===== Group: About ===== -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

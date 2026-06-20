@@ -87,6 +87,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnSensStandard: Button
     private lateinit var btnSensHigh: Button
     private lateinit var btnLinkSync: Button
+    private lateinit var btnLinkNotify: Button
     private lateinit var linkStatus: TextView
     private lateinit var linkNotification: TextView
     private lateinit var beatDot: View
@@ -260,6 +261,7 @@ class MainActivity : AppCompatActivity() {
         btnSensStandard = findViewById(R.id.btn_sens_standard)
         btnSensHigh = findViewById(R.id.btn_sens_high)
         btnLinkSync = findViewById(R.id.btn_link_sync)
+        btnLinkNotify = findViewById(R.id.btn_link_notify)
         linkStatus = findViewById(R.id.link_status)
         linkNotification = findViewById(R.id.link_notification)
         beatDot = findViewById(R.id.beat_dot)
@@ -520,6 +522,14 @@ class MainActivity : AppCompatActivity() {
         setLinkSync(prefs.getBoolean(KEY_LINK, false), persist = false)
         btnLinkSync.setOnClickListener { setLinkSync(!LinkSync.enabled, persist = true) }
 
+        // Link session notifications toggle (persisted, default on).
+        updateLinkNotifyButton(prefs.getBoolean(KEY_LINK_NOTIFY, true))
+        btnLinkNotify.setOnClickListener {
+            val enabled = !prefs.getBoolean(KEY_LINK_NOTIFY, true)
+            prefs.edit().putBoolean(KEY_LINK_NOTIFY, enabled).apply()
+            updateLinkNotifyButton(enabled)
+        }
+
         // Advanced light-sync tuning (persisted). Restore saved slider positions
         // into the strobe settings, then open the panel on tap.
         HueStrobeSettings.micSensitivity = prefs.getFloat(KEY_ADV_SENS, HueStrobeSettings.micSensitivity)
@@ -677,6 +687,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     /** Pulse the diagnostic beat light: snap bright + slightly larger, then ease back. */
+    private fun updateLinkNotifyButton(enabled: Boolean) {
+        btnLinkNotify.isSelected = enabled
+        btnLinkNotify.setText(if (enabled) R.string.link_notifications_on else R.string.link_notifications_off)
+    }
+
     private fun flashBeatDot() {
         beatDot.animate().cancel()
         beatDot.alpha = 1f
@@ -705,6 +720,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showLinkNotification(message: String) {
+        if (!prefs.getBoolean(KEY_LINK_NOTIFY, true)) return
+        
         linkNotifyRunnable?.let { linkNotification.removeCallbacks(it) }
         linkNotification.animate().cancel()
 
@@ -1293,6 +1310,7 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_BEAT_SENS = "beat_sensitivity"
         private const val KEY_THEME = "color_theme"
         private const val KEY_LINK = "ableton_link_enabled"
+        private const val KEY_LINK_NOTIFY = "ableton_link_notifications"
         private const val KEY_ADV_SENS = "adv_mic_sensitivity"
         private const val KEY_ADV_COLOUR = "adv_colour_split"
         private const val KEY_ADV_GLOW = "adv_resting_glow"

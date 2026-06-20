@@ -35,15 +35,17 @@ The stand-out features:
 - **Foldable & Resizable Support**: The render loop survives screen state changes without recreating.
 - **Diagnostics Overlay Toggle**: Displays FPS, audio latency, Ableton link status, Hue drop rates and more.
 
-## ⚠️ Proprietary & Source-Available License
-**This is NOT an Open Source project.** The source code is provided for educational, review, and personal compilation purposes only.
+## License
 
-By accessing this repository, you agree to the following terms:
-1. **No Commercial Use:** You may not monetize this software or any derivatives.
-2. **No App Store Distribution:** You are strictly prohibited from compiling, repackaging, or distributing this software (or any modified version of it) to the Google Play Store, Amazon Appstore, or any other digital storefront.
-3. **No Redistribution:** You may not redistribute modified binaries.
+Velo Visualiser is **free and open source software**, licensed under the
+**GNU General Public License v3.0** — see [LICENSE](LICENSE).
 
-Any unauthorized commercial distribution will result in immediate DMCA takedown notices.
+You're free to use, study, modify, and redistribute it. Any distributed
+derivative must also remain GPLv3. (The GPL is required here because the app
+integrates [Ableton Link](https://github.com/Ableton/link), which is GPLv2+
+unless used under a commercial licence from Ableton.)
+
+No data collection, no ads, no tracking — local-only, and it'll stay that way.
 
 ---
 
@@ -83,9 +85,9 @@ Velo drives Hue lights using the **Hue Stream v2** protocol over **DTLS-PSK encr
 
 ## Installation & Setup
 
-⚠️ **Current Status: Technical Alpha** Since Velo is distributed via GitHub, Android will display an "Unverified Developer" warning during installation. Tap **"More details"** and then **"Install anyway."**
-
-Compiled APKs for personal testing are provided in the **Releases** tab.
+Prebuilt APKs are available in the **Releases** tab. Since Velo is distributed
+via GitHub rather than the Play Store, Android shows an "Unverified Developer"
+warning on install — tap **"More details"** → **"Install anyway."**
 
 ### Build Requirements
 Open in Android Studio (Meerkat 2024.3.1 or higher):
@@ -94,9 +96,28 @@ Open in Android Studio (Meerkat 2024.3.1 or higher):
 * **CMake:** 3.22.1
 * **Architecture:** `arm64-v8a` only.
 
----
-
 ### Tested and validated on
 - Google Pixel 10 Pro Fold
 - Google Pixel Tablet
 - Samsung Galaxy Tab S8 Ultra
+
+---
+
+## Contributing
+
+Contributions are welcome — bug reports, fixes, and new visualizers especially.
+Open an issue to discuss larger changes first. New scenes implement the
+`GlScene` interface (`app/src/main/java/com/lowlatency/visualizer/gl/`) and are
+registered in `VisualizerRenderer`.
+
+By contributing, you agree your contributions are licensed under GPLv3.
+
+## Acknowledgements
+
+Velo stands on excellent open source work:
+- [Oboe](https://github.com/google/oboe) — low-latency audio (Apache-2.0)
+- [Ableton Link](https://github.com/Ableton/link) — tempo sync (GPLv2+)
+- [KissFFT](https://github.com/mborgerding/kissfft) — FFT (BSD-3-Clause)
+- [OkHttp](https://square.github.io/okhttp/) — Hue REST (Apache-2.0)
+- [Bouncy Castle](https://www.bouncycastle.org/) — DTLS-PSK (MIT-style)
+- [Space Mono](https://fonts.google.com/specimen/Space+Mono) — UI typeface (OFL)

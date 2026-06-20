@@ -101,6 +101,8 @@
     <string name="link_status_off">Disabled</string>
     <string name="link_notification_joined">A peer joined the session</string>
     <string name="link_notification_left">A peer left the session</string>
+    <string name="link_notifications_on">Link Notifications: Enabled</string>
+    <string name="link_notifications_off">Link Notifications: Disabled</string>
     <string name="adv_button">Advanced…</string>
     <string name="adv_title">Advanced</string>
     <string name="adv_title_link">Advanced — Link Beat Sync</string>
