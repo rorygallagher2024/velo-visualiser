@@ -853,9 +853,21 @@
             android:id="@+id/btn_privacy_policy"
             android:layout_width="match_parent"
             android:layout_height="44dp"
-            android:layout_marginBottom="20dp"
+            android:layout_marginBottom="8dp"
             android:background="@drawable/pill_button_bg"
             android:text="@string/btn_privacy_policy"
+            android:textColor="@color/btn_text"
+            android:textAllCaps="false"
+            android:textSize="13sp"
+            android:stateListAnimator="@null" />
+
+        <Button
+            android:id="@+id/btn_about"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:layout_marginBottom="20dp"
+            android:background="@drawable/pill_button_bg"
+            android:text="@string/btn_about"
             android:textColor="@color/btn_text"
             android:textAllCaps="false"
             android:textSize="13sp"

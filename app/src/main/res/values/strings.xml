@@ -48,6 +48,24 @@
     <string name="theme_mono">Mono</string>
     <string name="privacy_policy_label">Privacy &amp; Data Safety</string>
     <string name="btn_privacy_policy">View Privacy Policy</string>
+    <string name="btn_about">About &amp; Licenses</string>
+    <string name="about_title">About</string>
+    <string name="about_copyright">© 2026 Rory. All rights reserved.</string>
+    <string name="about_licenses_title">Third-Party Licenses</string>
+    <string name="about_licenses_text"><b>Android Jetpack (androidx)</b>\n
+        Copyright © Google LLC. Licensed under the Apache License, Version 2.0.\n\n
+        <b>OkHttp</b>\n
+        Copyright © 2019 Square, Inc. Licensed under the Apache License, Version 2.0.\n\n
+        <b>Bouncy Castle</b>\n
+        Copyright © 2000–2024 The Legion of the Bouncy Castle Inc. Licensed under the MIT License.\n\n
+        <b>Oboe</b>\n
+        Copyright © Google LLC. Licensed under the Apache License, Version 2.0.\n\n
+        <b>Ableton Link</b>\n
+        Copyright © 2016 Ableton. Licensed under the GPLv2+ or a proprietary license for commercial use.\n\n
+        <b>Space Mono Font</b>\n
+        Copyright © 2016 Google Inc. Licensed under the SIL Open Font License, Version 1.1.</string>
+    <string name="about_trademarks_title">Trademarks</string>
+    <string name="about_trademarks_text"><b>Philips Hue</b> is a trademark of Signify. This app is not affiliated with, sponsored by, or endorsed by Signify.\n\n<b>Ableton Link</b> is a trademark of Ableton AG.</string>
     <string name="privacy_policy_text"><b>Privacy Policy for Velo Visualiser</b>\n\n
         Last Updated: June 19, 2026\n\n
         Velo Visualiser (\"we\", \"our\", or \"us\") is committed to protecting your privacy. This Privacy Policy explains how we handle data when you use our mobile application.\n\n

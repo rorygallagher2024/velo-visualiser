@@ -9,13 +9,11 @@ import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.media.projection.MediaProjectionManager
-import android.net.Uri
 import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import androidx.core.text.HtmlCompat
-import androidx.core.net.toUri
 import android.os.Bundle
 import android.util.Log
 import android.view.GestureDetector
@@ -98,6 +96,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnThemeCool: Button
     private lateinit var btnThemeMono: Button
     private lateinit var btnPrivacyPolicy: Button
+    private lateinit var btnAbout: Button
     private lateinit var btnPerfOverlay: Button
     private lateinit var perfOverlay: TextView
     private lateinit var hapticController: HapticController
@@ -267,6 +266,7 @@ class MainActivity : AppCompatActivity() {
         btnThemeCool = findViewById(R.id.btn_theme_cool)
         btnThemeMono = findViewById(R.id.btn_theme_mono)
         btnPrivacyPolicy = findViewById(R.id.btn_privacy_policy)
+        btnAbout = findViewById(R.id.btn_about)
         btnPerfOverlay = findViewById(R.id.btn_perf_overlay)
         perfOverlay = findViewById(R.id.perf_overlay)
         statusText = findViewById(R.id.status_text)
@@ -294,14 +294,7 @@ class MainActivity : AppCompatActivity() {
 
     /** Show the ASCII "VELO" logo on startup, then fade it out. */
     private fun wireSplash() {
-        splashLogo.text = listOf(
-            " _     _  _______  _        _______ ",
-            "| |   | ||  _____|| |      |  ___  |",
-            "| |   | || |____  | |      | |   | |",
-            "| |   | ||  ____| | |      | |   | |",
-            " \\ \\ / / | |____  | |_____ | |___| |",
-            "  \\___/  |_______||_______||_______|",
-        ).joinToString("\n")
+        splashLogo.text = LOGO_ASCII
         splashOverlay.postDelayed({
             splashOverlay.animate().alpha(0f).setDuration(SPLASH_FADE_MS)
                 .withEndAction { 
@@ -483,6 +476,10 @@ class MainActivity : AppCompatActivity() {
 
         btnPrivacyPolicy.setOnClickListener {
             showPrivacyPolicy()
+        }
+
+        btnAbout.setOnClickListener {
+            showAboutDialog()
         }
 
         // Vibrate-on-beat haptics (persisted, default off). Disabled if the
@@ -910,7 +907,7 @@ class MainActivity : AppCompatActivity() {
                     hueStatus.text = msg
                     updateHueConn(HueConn.DISCONNECTED)
                     btnHueConnect.isEnabled = true
-                },
+                }
             )
         }
     }
@@ -928,7 +925,7 @@ class MainActivity : AppCompatActivity() {
         hueAreas = areas
         hueAreaContainer.removeAllViews()
         if (areas.isEmpty()) {
-            hueStatus.text = "No Entertainment Areas — create one in the Philips Hue app."
+            hueStatus.text = getString(R.string.hue_status_no_bridge)
             hueAreaContainer.visibility = View.GONE
             return
         }
@@ -1068,7 +1065,7 @@ class MainActivity : AppCompatActivity() {
         } else {
             "Oboe Engine: AAudio Active • $rate Hz"
         }
-        statusText.text = "$engine   ·   $version"
+        statusText.text = getString(R.string.version_fmt, "$engine   ·   $version")
     }
 
     // ----- First-boot overlay -----
@@ -1158,6 +1155,26 @@ class MainActivity : AppCompatActivity() {
             .setMessage(message)
             .setPositiveButton(android.R.string.ok, null)
             .show()
+    }
+
+    private fun showAboutDialog() {
+        val view = layoutInflater.inflate(R.layout.dialog_about, null)
+        
+        view.findViewById<TextView>(R.id.about_logo).text = LOGO_ASCII
+        view.findViewById<TextView>(R.id.about_version).text = getString(R.string.version_fmt, appVersionName())
+        
+        val licenses = HtmlCompat.fromHtml(getString(R.string.about_licenses_text), HtmlCompat.FROM_HTML_MODE_LEGACY)
+        view.findViewById<TextView>(R.id.about_licenses).text = licenses
+
+        val trademarks = HtmlCompat.fromHtml(getString(R.string.about_trademarks_text), HtmlCompat.FROM_HTML_MODE_LEGACY)
+        view.findViewById<TextView>(R.id.about_trademarks).text = trademarks
+
+        val dialog = AlertDialog.Builder(this).setView(view).create()
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+        
+        view.findViewById<Button>(R.id.btn_about_ok).setOnClickListener { dialog.dismiss() }
+        
+        dialog.show()
     }
 
     private fun requestSystemAudioCapture() {
@@ -1263,5 +1280,14 @@ class MainActivity : AppCompatActivity() {
         private const val SPLASH_HOLD_MS = 3300L
         private const val SPLASH_FADE_MS = 700L
         private const val INTRO_HINT_DURATION_MS = 5000L
+
+        private val LOGO_ASCII = listOf(
+            " _     _  _______  _        _______ ",
+            "| |   | ||  _____|| |      |  ___  |",
+            "| |   | || |____  | |      | |   | |",
+            "| |   | ||  ____| | |      | |   | |",
+            " \\ \\ / / | |____  | |_____ | |___| |",
+            "  \\___/  |_______||_______||_______|",
+        ).joinToString("\n")
     }
 }
