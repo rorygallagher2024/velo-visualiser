@@ -2,6 +2,7 @@ package com.lowlatency.visualizer
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.Dialog
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
@@ -105,7 +106,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnPerfOverlay: Button
     private lateinit var perfOverlay: TextView
     private lateinit var hapticController: HapticController
-    private lateinit var statusText: TextView
     private lateinit var prefs: SharedPreferences
 
     // Visualizer buttons paired with their scene index + base label (for the
@@ -281,7 +281,6 @@ class MainActivity : AppCompatActivity() {
         btnAbout = findViewById(R.id.btn_about)
         btnPerfOverlay = findViewById(R.id.btn_perf_overlay)
         perfOverlay = findViewById(R.id.perf_overlay)
-        statusText = findViewById(R.id.status_text)
         tabBtnVisuals = findViewById(R.id.tab_btn_visuals)
         tabBtnLighting = findViewById(R.id.tab_btn_lighting)
         tabBtnSettings = findViewById(R.id.tab_btn_settings)
@@ -423,34 +422,40 @@ class MainActivity : AppCompatActivity() {
 
         // Visualizer buttons: tap = select, long-press = toggle favourite.
         visButtons = listOf(
+            // Instruments
             Triple(btnOscilloscope, 0, btnOscilloscope.text.toString()),
+            Triple(btnRawScope, 8, btnRawScope.text.toString()),
+            Triple(btnBars, 5, btnBars.text.toString()),
+            Triple(btnCircular, 4, btnCircular.text.toString()),
+            Triple(btnSpectrogram, 9, btnSpectrogram.text.toString()),
+            Triple(btnLedMatrix, 16, btnLedMatrix.text.toString()),
+            Triple(btnMechanicalMeter, 17, btnMechanicalMeter.text.toString()),
+            Triple(btnCymatics, 21, btnCymatics.text.toString()),
+            // Reactive
+            Triple(btnBeatPulse, 18, btnBeatPulse.text.toString()),
+            Triple(btnFireworks, 10, btnFireworks.text.toString()),
+            Triple(btnStarscape, 7, btnStarscape.text.toString()),
+            Triple(btnBloom, 6, btnBloom.text.toString()),
+            Triple(btnElectricIris, 12, btnElectricIris.text.toString()),
+            // Immersive
             Triple(btnTunnel, 1, btnTunnel.text.toString()),
             Triple(btnFluid, 2, btnFluid.text.toString()),
             Triple(btnLaser, 3, btnLaser.text.toString()),
-            Triple(btnCircular, 4, btnCircular.text.toString()),
-            Triple(btnBars, 5, btnBars.text.toString()),
-            Triple(btnBloom, 6, btnBloom.text.toString()),
-            Triple(btnStarscape, 7, btnStarscape.text.toString()),
-            Triple(btnRawScope, 8, btnRawScope.text.toString()),
-            Triple(btnSpectrogram, 9, btnSpectrogram.text.toString()),
-            Triple(btnFireworks, 10, btnFireworks.text.toString()),
             Triple(btnPhyllotaxis, 11, btnPhyllotaxis.text.toString()),
-            Triple(btnElectricIris, 12, btnElectricIris.text.toString()),
             Triple(btnMandala, 13, btnMandala.text.toString()),
             Triple(btnAudioWeb, 14, btnAudioWeb.text.toString()),
             Triple(btnTopoRidge, 15, btnTopoRidge.text.toString()),
-            Triple(btnLedMatrix, 16, btnLedMatrix.text.toString()),
-            Triple(btnMechanicalMeter, 17, btnMechanicalMeter.text.toString()),
-            Triple(btnBeatPulse, 18, btnBeatPulse.text.toString()),
             Triple(btnMandelbox, 19, btnMandelbox.text.toString()),
             Triple(btnReactionDiffusion, 20, btnReactionDiffusion.text.toString()),
-            Triple(btnCymatics, 21, btnCymatics.text.toString()),
             Triple(btnStrangeAttractor, 22, btnStrangeAttractor.text.toString()),
         )
+        glView.sceneOrder = visButtons.map { it.second }
+        glView.onSceneChanged = { updateVisualizerSelection() }
+
         prefs.getStringSet(KEY_FAVOURITES, emptySet())?.forEach {
             it.toIntOrNull()?.let { idx -> favourites.add(idx) }
         }
-        glView.favourites = favourites.sorted()
+        updateFavouritesOrder()
         visButtons.forEach { (b, idx, _) ->
             b.setOnClickListener { glView.selectScene(idx); updateVisualizerSelection() }
             b.setOnLongClickListener { toggleFavourite(idx); true }
@@ -857,7 +862,7 @@ class MainActivity : AppCompatActivity() {
     private fun toggleFavourite(index: Int) {
         if (!favourites.add(index)) favourites.remove(index)
         prefs.edit().putStringSet(KEY_FAVOURITES, favourites.map { it.toString() }.toSet()).apply()
-        glView.favourites = favourites.sorted()
+        updateFavouritesOrder()
         updateVisualizerSelection()
         val fav = favourites.contains(index)
         Toast.makeText(
@@ -865,6 +870,11 @@ class MainActivity : AppCompatActivity() {
             if (fav) "Added to swipe favourites" else "Removed from favourites",
             Toast.LENGTH_SHORT,
         ).show()
+    }
+
+    private fun updateFavouritesOrder() {
+        val order = glView.sceneOrder
+        glView.favourites = favourites.toList().sortedBy { order.indexOf(it) }
     }
 
     private fun updateHapticsButton(enabled: Boolean) {
@@ -1112,18 +1122,6 @@ class MainActivity : AppCompatActivity() {
             btnHaptics.isEnabled = available
             btnHaptics.alpha = if (available) 1f else 0.4f
         }
-
-        val rate = NativeBridge.nativeGetSampleRate()
-        val version = getString(R.string.version_fmt, appVersionName())
-        // NOTE: the active Oboe API isn't exposed over JNI (the C++ engine is
-        // off-limits this phase). On minSdk 29 Oboe uses AAudio as requested,
-        // with OpenSL ES only as a rare fallback, so we label the expected path.
-        val engine = if (systemAudioMode) {
-            "AudioPlaybackCapture • $rate Hz"
-        } else {
-            "Oboe Engine: AAudio Active • $rate Hz"
-        }
-        statusText.text = getString(R.string.version_fmt, "$engine   ·   $version")
     }
 
     // ----- First-boot overlay -----
@@ -1207,32 +1205,77 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showPrivacyPolicy() {
+        val dialog = Dialog(this)
+        val view = layoutInflater.inflate(R.layout.dialog_privacy, null)
         val message = HtmlCompat.fromHtml(getString(R.string.privacy_policy_text), HtmlCompat.FROM_HTML_MODE_LEGACY)
-        AlertDialog.Builder(this, R.style.Theme_LowLatencyVisualizer_Dialog)
-            .setTitle(R.string.btn_privacy_policy)
-            .setMessage(message)
-            .setPositiveButton(android.R.string.ok, null)
-            .show()
+        view.findViewById<TextView>(R.id.privacy_text).text = message
+
+        dialog.setContentView(view)
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+        
+        dialog.show()
+        configureDialogWindow(dialog)
+
+        view.findViewById<Button>(R.id.btn_privacy_ok).setOnClickListener { dialog.dismiss() }
     }
 
     private fun showAboutDialog() {
+        val dialog = Dialog(this)
         val view = layoutInflater.inflate(R.layout.dialog_about, null)
         
         view.findViewById<TextView>(R.id.about_logo).text = LOGO_ASCII
         view.findViewById<TextView>(R.id.about_version).text = getString(R.string.version_fmt, appVersionName())
         
+        val rate = NativeBridge.nativeGetSampleRate()
+        val engine = if (systemAudioMode) {
+            "AudioPlaybackCapture • $rate Hz"
+        } else {
+            "Oboe Engine: AAudio Active • $rate Hz"
+        }
+        view.findViewById<TextView>(R.id.about_engine_status).text = engine
+
         val licenses = HtmlCompat.fromHtml(getString(R.string.about_licenses_text), HtmlCompat.FROM_HTML_MODE_LEGACY)
         view.findViewById<TextView>(R.id.about_licenses).text = licenses
 
         val trademarks = HtmlCompat.fromHtml(getString(R.string.about_trademarks_text), HtmlCompat.FROM_HTML_MODE_LEGACY)
         view.findViewById<TextView>(R.id.about_trademarks).text = trademarks
 
-        val dialog = AlertDialog.Builder(this).setView(view).create()
+        dialog.setContentView(view)
         dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
         
-        view.findViewById<Button>(R.id.btn_about_ok).setOnClickListener { dialog.dismiss() }
-        
         dialog.show()
+        configureDialogWindow(dialog)
+        
+        view.findViewById<Button>(R.id.btn_about_ok).setOnClickListener { dialog.dismiss() }
+    }
+
+    /**
+     * Enforce a maximum size for floating dialogs (90% width, 90% max-height) to
+     * ensure they remain unclipped on small devices and in landscape mode.
+     */
+    private fun configureDialogWindow(dialog: Dialog) {
+        val metrics = resources.displayMetrics
+        val w = (metrics.widthPixels * 0.9).toInt()
+        val h = (metrics.heightPixels * 0.9).toInt()
+        
+        dialog.window?.let { window ->
+            val params = window.attributes
+            params.width = w
+            // Set height to WRAP_CONTENT but cap it at the calculated max height
+            window.attributes = params
+            
+            // To properly cap the height while still allowing wrap_content for 
+            // shorter text, we need to set the layout params on the decor view 
+            // after the window is shown.
+            window.setLayout(w, WindowManager.LayoutParams.WRAP_CONTENT)
+            
+            // Re-fetch params to apply the height cap if the wrapped height is too large.
+            window.decorView.post {
+                if (window.decorView.height > h) {
+                    window.setLayout(w, h)
+                }
+            }
+        }
     }
 
     private fun requestSystemAudioCapture() {
