@@ -32,27 +32,31 @@ class AsciiLogoView @JvmOverloads constructor(
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val width = MeasureSpec.getSize(widthMeasureSpec)
+        val availableW = MeasureSpec.getSize(widthMeasureSpec)
+        val availableH = MeasureSpec.getSize(heightMeasureSpec)
         
-        // Base character size calculation. Space Mono is approx 1.6-1.8x as 
-        // tall as it is wide. We calculate height based on the width to 
-        // maintain the intended ASCII aspect ratio.
-        val charWidth = width.toFloat() / 36f
-        val charHeight = charWidth * 1.7f
-        
-        // Final height: 6 lines of text + a generous 24dp "safety buffer" top/bottom
-        // to prevent any external layout from clipping the actual art.
+        // Target 320dp max width for high-end look on tablets/foldables
+        val maxW = (resources.displayMetrics.density * 320).toInt()
         val buffer = (resources.displayMetrics.density * 24).toInt()
-        val height = (charHeight * 6.0f).toInt() + (buffer * 2)
         
-        setMeasuredDimension(width, height)
+        // Calculate dimensions based on width first
+        var targetW = availableW.coerceAtMost(maxW)
+        var targetH = ((targetW.toFloat() / 36f) * 1.7f * 6.0f).toInt() + (buffer * 2)
+        
+        // If height is too tall for screen (landscape/foldable), scale down to fit height
+        if (targetH > availableH && availableH > 0) {
+            targetH = availableH
+            // Back-calculate width to maintain ASCII aspect ratio (36 cols, 6 rows, ~1.7 ratio)
+            val usableH = targetH - (buffer * 2)
+            targetW = ((usableH.toFloat() / 6.0f / 1.7f) * 36f).toInt()
+        }
+        
+        setMeasuredDimension(targetW, targetH)
     }
 
     override fun onDraw(canvas: Canvas) {
         if (asciiText.isEmpty()) return
 
-        // Resolve colors and fonts on each draw to respect any theme changes,
-        // though these are usually static in this app.
         paint.color = ResourcesCompat.getColor(resources, R.color.accent, null)
         paint.typeface = ResourcesCompat.getFont(context, R.font.space_mono_bold)
 
@@ -60,28 +64,23 @@ class AsciiLogoView @JvmOverloads constructor(
         val cols = 36
         val charWidth = width.toFloat() / cols
         
-        // Find the maximum font size that stays within one grid cell width.
-        // We measure a wide character ('W') to ensure no overlap.
+        // Fit font to grid cell width precisely
         var fontSize = charWidth / 0.58f 
         paint.textSize = fontSize
         while (paint.measureText("W") > charWidth && fontSize > 1f) {
-            fontSize -= 0.2f
+            fontSize -= 0.1f
             paint.textSize = fontSize
         }
         
         val metrics = paint.fontMetrics
         val charHeight = metrics.descent - metrics.ascent
         
-        // Vertically center the 6-line block within the view height. 
-        // Because of our large measurement buffer, the art will be safely 
-        // away from the view edges.
         val blockHeight = lines.size * charHeight
         var y = (height - blockHeight) / 2f - metrics.ascent
 
         for (line in lines) {
             val length = line.length.coerceAtMost(cols)
             for (i in 0 until length) {
-                // Draw each character exactly in the center of its grid cell.
                 val x = i * charWidth + charWidth / 2f
                 val char = line[i].toString()
                 if (char != " " && char != "\r") {
