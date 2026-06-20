@@ -123,6 +123,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tabVisualizers: View
     private lateinit var tabLighting: View
     private lateinit var tabSettings: View
+    private lateinit var internalAudioWarning: TextView
 
     // --- Smart lighting (Philips Hue) ---
     private lateinit var btnHueConnect: Button
@@ -305,6 +306,7 @@ class MainActivity : AppCompatActivity() {
         tabVisualizers = findViewById(R.id.tab_visualizers)
         tabLighting = findViewById(R.id.tab_lighting)
         tabSettings = findViewById(R.id.tab_settings)
+        internalAudioWarning = findViewById(R.id.internal_audio_warning)
         btnHueConnect = findViewById(R.id.btn_hue_connect)
         hueAreaContainer = findViewById(R.id.hue_area_container)
         btnHueSync = findViewById(R.id.btn_hue_sync)
@@ -1124,6 +1126,7 @@ class MainActivity : AppCompatActivity() {
     private fun updateSourceSelection() {
         segMic.isSelected = !systemAudioMode
         segInternal.isSelected = systemAudioMode
+        internalAudioWarning.visibility = if (systemAudioMode) View.VISIBLE else View.GONE
     }
 
     private fun updateVisualizerSelection() {
