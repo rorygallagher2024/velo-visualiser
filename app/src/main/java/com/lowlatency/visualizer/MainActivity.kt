@@ -352,7 +352,12 @@ class MainActivity : AppCompatActivity() {
                 e1: MotionEvent?, e2: MotionEvent, vx: Float, vy: Float
             ): Boolean {
                 if (vy > SWIPE_DOWN_VELOCITY && abs(vy) > abs(vx)) {
-                    hideMenu(); return true
+                    // Only dismiss if the ScrollView is already at the top.
+                    // This prevents accidental closure while scrolling up.
+                    if (optionsSheet.scrollY == 0) {
+                        hideMenu()
+                        return true
+                    }
                 }
                 return false
             }
