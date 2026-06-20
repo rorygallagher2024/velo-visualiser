@@ -164,6 +164,7 @@
     <string name="screenshare_title">Why screen capture?</string>
     <string name="screenshare_message">To visualize sound from other apps (music, video, games), Android routes their audio through its screen-capture API — so the system will ask for screen-recording permission.\n\nThis app only reads the audio that\'s playing. It never records, saves, or transmits your screen.</string>
     <string name="screenshare_continue">Continue</string>
+    <string name="internal_audio_latency_warning">Internal audio has higher latency due to system buffering. For the best low-latency experience, use the Microphone.</string>
 
     <!-- Splash -->
     <string name="splash_tagline">V I S U A L I S E R</string>

@@ -557,6 +557,18 @@
                 android:stateListAnimator="@null" />
         </LinearLayout>
 
+        <!-- Latency disclaimer -->
+        <TextView
+            android:id="@+id/internal_audio_warning"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="20dp"
+            android:text="@string/internal_audio_latency_warning"
+            android:textColor="@color/text_dim"
+            android:textSize="11sp"
+            android:lineSpacingMultiplier="1.2"
+            android:visibility="gone" />
+
         <!-- Beat sensitivity (drives fireworks, haptics, starscape flashes) -->
         <TextView
             android:layout_width="wrap_content"
@@ -1142,8 +1154,9 @@
 
         <com.lowlatency.visualizer.AsciiLogoView
             android:id="@+id/splash_logo"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal" />
 
         <TextView
             android:layout_width="wrap_content"

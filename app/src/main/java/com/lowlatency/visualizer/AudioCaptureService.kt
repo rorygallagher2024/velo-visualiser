@@ -42,6 +42,9 @@ class AudioCaptureService : Service() {
         const val EXTRA_RESULT_CODE = "result_code"
         const val EXTRA_RESULT_DATA = "result_data"
 
+        const val ACTION_STOP = "com.lowlatency.visualizer.ACTION_STOP"
+        const val ACTION_STOPPED = "com.lowlatency.visualizer.ACTION_STOPPED"
+
         private const val SAMPLE_RATE = 48_000
         private const val CHANNELS = 2 // playback capture is stereo
 
@@ -66,6 +69,10 @@ class AudioCaptureService : Service() {
 
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_STOP) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
         startAsForeground()
 
         val resultCode = intent?.getIntExtra(EXTRA_RESULT_CODE, 0) ?: 0
@@ -90,10 +97,22 @@ class AudioCaptureService : Service() {
                 NotificationManager.IMPORTANCE_LOW
             )
         )
+        val stopIntent = Intent(this, AudioCaptureService::class.java).apply {
+            action = ACTION_STOP
+        }
+        val stopPendingIntent = android.app.PendingIntent.getService(
+            this, 0, stopIntent, android.app.PendingIntent.FLAG_IMMUTABLE
+        )
+
         val notification: Notification = Notification.Builder(this, CHANNEL_ID)
             .setContentTitle("Visualizing system audio")
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setOngoing(true)
+            .addAction(
+                Notification.Action.Builder(
+                    null, "Stop", stopPendingIntent
+                ).build()
+            )
             .build()
 
         startForeground(
@@ -176,6 +195,7 @@ class AudioCaptureService : Service() {
         record = null
         projection?.stop()
         projection = null
+        sendBroadcast(Intent(ACTION_STOPPED).setPackage(packageName))
         super.onDestroy()
     }
 }

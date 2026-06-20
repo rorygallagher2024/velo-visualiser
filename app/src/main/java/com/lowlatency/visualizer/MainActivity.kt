@@ -3,8 +3,10 @@ package com.lowlatency.visualizer
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Dialog
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
@@ -121,6 +123,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tabVisualizers: View
     private lateinit var tabLighting: View
     private lateinit var tabSettings: View
+    private lateinit var internalAudioWarning: TextView
 
     // --- Smart lighting (Philips Hue) ---
     private lateinit var btnHueConnect: Button
@@ -140,6 +143,14 @@ class MainActivity : AppCompatActivity() {
     private var lastHuePackets = 0L
     private var lastPeerCount = 0
     private var linkNotifyRunnable: Runnable? = null
+
+    private val captureStopReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (systemAudioMode) {
+                selectMicrophone()
+            }
+        }
+    }
 
     // Ableton Link: a multicast lock is mandatory or Android's Wi-Fi chip filters
     // out Link's UDP discovery packets. The status poller refreshes peer/BPM text
@@ -222,6 +233,13 @@ class MainActivity : AppCompatActivity() {
         wireHue()
         wireFirstBoot()
 
+        ContextCompat.registerReceiver(
+            this,
+            captureStopReceiver,
+            IntentFilter(AudioCaptureService.ACTION_STOPPED),
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
+
         requestPermissions.launch(buildPermissionList())
     }
 
@@ -288,6 +306,7 @@ class MainActivity : AppCompatActivity() {
         tabVisualizers = findViewById(R.id.tab_visualizers)
         tabLighting = findViewById(R.id.tab_lighting)
         tabSettings = findViewById(R.id.tab_settings)
+        internalAudioWarning = findViewById(R.id.internal_audio_warning)
         btnHueConnect = findViewById(R.id.btn_hue_connect)
         hueAreaContainer = findViewById(R.id.hue_area_container)
         btnHueSync = findViewById(R.id.btn_hue_sync)
@@ -1107,6 +1126,7 @@ class MainActivity : AppCompatActivity() {
     private fun updateSourceSelection() {
         segMic.isSelected = !systemAudioMode
         segInternal.isSelected = systemAudioMode
+        internalAudioWarning.visibility = if (systemAudioMode) View.VISIBLE else View.GONE
     }
 
     private fun updateVisualizerSelection() {
@@ -1358,6 +1378,7 @@ class MainActivity : AppCompatActivity() {
         NativeBridge.nativeLinkSetEnabled(false)
         releaseMulticastLock()
         NativeBridge.nativeStop()
+        unregisterReceiver(captureStopReceiver)
         super.onDestroy()
     }
 
