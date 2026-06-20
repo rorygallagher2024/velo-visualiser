@@ -12,11 +12,11 @@ import android.content.res.Configuration
 import android.media.projection.MediaProjectionManager
 import android.net.wifi.WifiManager
 import android.os.Build
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import androidx.core.text.HtmlCompat
-import android.os.Bundle
 import android.util.Log
+import android.util.TypedValue
 import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
@@ -33,6 +33,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.text.HtmlCompat
 import com.lowlatency.visualizer.hue.HueCredentialStore
 import com.lowlatency.visualizer.hue.HueEntertainmentArea
 import com.lowlatency.visualizer.hue.HueLightController
@@ -54,7 +55,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var optionsSheet: View
     private lateinit var firstBootOverlay: View
     private lateinit var splashOverlay: View
-    private lateinit var splashLogo: TextView
+    private lateinit var splashLogo: AsciiLogoView
     private lateinit var introHint: View
     private lateinit var segMic: Button
     private lateinit var segInternal: Button
@@ -305,7 +306,8 @@ class MainActivity : AppCompatActivity() {
 
     /** Show the ASCII "VELO" logo on startup, then fade it out. */
     private fun wireSplash() {
-        splashLogo.text = LOGO_ASCII
+        splashLogo.asciiText = LOGO_ASCII
+        
         splashOverlay.postDelayed({
             splashOverlay.animate().alpha(0f).setDuration(SPLASH_FADE_MS)
                 .withEndAction { 
@@ -350,7 +352,12 @@ class MainActivity : AppCompatActivity() {
                 e1: MotionEvent?, e2: MotionEvent, vx: Float, vy: Float
             ): Boolean {
                 if (vy > SWIPE_DOWN_VELOCITY && abs(vy) > abs(vx)) {
-                    hideMenu(); return true
+                    // Only dismiss if the ScrollView is already at the top.
+                    // This prevents accidental closure while scrolling up.
+                    if (optionsSheet.scrollY == 0) {
+                        hideMenu()
+                        return true
+                    }
                 }
                 return false
             }
@@ -1223,7 +1230,9 @@ class MainActivity : AppCompatActivity() {
         val dialog = Dialog(this)
         val view = layoutInflater.inflate(R.layout.dialog_about, null)
         
-        view.findViewById<TextView>(R.id.about_logo).text = LOGO_ASCII
+        val logo = view.findViewById<AsciiLogoView>(R.id.about_logo)
+        logo.asciiText = LOGO_ASCII
+
         view.findViewById<TextView>(R.id.about_version).text = getString(R.string.version_fmt, appVersionName())
         
         val rate = NativeBridge.nativeGetSampleRate()
@@ -1390,6 +1399,6 @@ class MainActivity : AppCompatActivity() {
             "| |   | ||  ____| | |      | |   | |",
             " \\ \\ / / | |____  | |_____ | |___| |",
             "  \\___/  |_______||_______||_______|",
-        ).joinToString("\n")
+        ).joinToString("\n") { it.padEnd(36) }
     }
 }

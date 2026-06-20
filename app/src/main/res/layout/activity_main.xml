@@ -1128,44 +1128,33 @@
         </LinearLayout>
     </FrameLayout>
 
-    <!-- Startup splash: ASCII-style Oscillux logo over black; fades out (topmost) -->
-    <FrameLayout
+    <!-- Startup splash: ASCII-style VELO logo over black; fades out (topmost) -->
+    <LinearLayout
         android:id="@+id/splash_overlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="#FF000000"
         android:clickable="true"
-        android:focusable="true">
+        android:focusable="true"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:paddingHorizontal="32dp">
 
-        <LinearLayout
+        <com.lowlatency.visualizer.AsciiLogoView
+            android:id="@+id/splash_logo"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:orientation="vertical"
-            android:gravity="center">
+            android:text="@string/splash_tagline"
+            android:textColor="@color/text_dim"
+            android:textSize="12sp"
+            android:letterSpacing="0.12"
+            android:layout_marginTop="12dp" />
 
-            <TextView
-                android:id="@+id/splash_logo"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:fontFamily="monospace"
-                android:gravity="center"
-                android:includeFontPadding="false"
-                android:lineSpacingMultiplier="1.0"
-                android:textColor="@color/accent"
-                android:textSize="18sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/splash_tagline"
-                android:textColor="@color/text_dim"
-                android:textSize="12sp"
-                android:letterSpacing="0.12"
-                android:layout_marginTop="22dp" />
-        </LinearLayout>
-    </FrameLayout>
+    </LinearLayout>
 
     <!-- Brief intro hint (fades out after a few seconds) -->
     <LinearLayout
