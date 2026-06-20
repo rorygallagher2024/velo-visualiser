@@ -4,6 +4,9 @@
 *.ap_
 *.aab
 
+# Release output directory (APKs, mapping, metadata)
+app/release/
+
 # Files for the ART/Dalvik VM
 *.dex
 

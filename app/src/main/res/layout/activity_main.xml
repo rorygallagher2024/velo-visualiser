@@ -465,6 +465,18 @@
                 android:text="@string/vis_mandelbox_warning"
                 android:textColor="@color/text_dim"
                 android:textSize="9sp" />
+
+            <Button
+                android:id="@+id/btn_reaction_diffusion"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_reaction_diffusion"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
         </LinearLayout>
 
         </LinearLayout>
