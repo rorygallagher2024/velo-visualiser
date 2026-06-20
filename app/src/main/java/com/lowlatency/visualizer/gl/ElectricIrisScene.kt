@@ -71,7 +71,7 @@ class ElectricIrisScene : GlScene {
                 float spec = texture(u_spectrum, vec2(aMir, 0.5)).r;
 
                 float pr = 0.17 + u_low * 0.11;              // pupil dilates with bass
-                float outer = 0.80;
+                float outer = 0.45;
                 float t = clamp((r - pr) / (outer - pr), 0.0, 1.0);
 
                 vec3 col = vec3(0.0);
