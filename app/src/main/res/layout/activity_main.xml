@@ -160,12 +160,23 @@
                 android:fontStyle="italic" />
         </LinearLayout>
 
-        <!-- Visualizer selector (stacked so full labels fit) -->
+        <!-- Visualizer selector (stacked so full labels fit), grouped by style -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:layout_marginBottom="20dp">
+
+            <!-- ===== Category: Instruments (clean, lightweight) ===== -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/cat_instruments"
+                android:textColor="@color/text_dim"
+                android:textSize="12sp"
+                android:letterSpacing="0.1"
+                android:textAllCaps="true"
+                android:layout_marginBottom="8dp" />
 
             <Button
                 android:id="@+id/btn_oscilloscope"
@@ -178,6 +189,162 @@
                 android:textAllCaps="false"
                 android:textSize="13sp"
                 android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_rawscope"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_rawscope"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_bars"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_bars"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_circular"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_circular"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_spectrogram"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_spectrogram"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_led_matrix"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_led_matrix"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_mechanical_meter"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_mechanical_meter"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+
+            <!-- ===== Category: Reactive (beat / energy driven) ===== -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/cat_reactive"
+                android:textColor="@color/text_dim"
+                android:textSize="12sp"
+                android:letterSpacing="0.1"
+                android:textAllCaps="true"
+                android:layout_marginTop="14dp"
+                android:layout_marginBottom="8dp" />
+
+            <Button
+                android:id="@+id/btn_beat_pulse"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_beat_pulse"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_fireworks"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_fireworks"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_starscape"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_starscape"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_bloom"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_bloom"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_electric_iris"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_electric_iris"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+
+            <!-- ===== Category: Immersive (rich generative, heavier GPU) ===== -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/cat_immersive"
+                android:textColor="@color/text_dim"
+                android:textSize="12sp"
+                android:letterSpacing="0.1"
+                android:textAllCaps="true"
+                android:layout_marginTop="14dp"
+                android:layout_marginBottom="8dp" />
 
             <Button
                 android:id="@+id/btn_tunnel"
@@ -216,108 +383,12 @@
                 android:stateListAnimator="@null" />
 
             <Button
-                android:id="@+id/btn_circular"
-                android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_circular"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="13sp"
-                android:stateListAnimator="@null" />
-
-            <Button
-                android:id="@+id/btn_bars"
-                android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_bars"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="13sp"
-                android:stateListAnimator="@null" />
-
-            <Button
-                android:id="@+id/btn_bloom"
-                android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_bloom"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="13sp"
-                android:stateListAnimator="@null" />
-
-            <Button
-                android:id="@+id/btn_starscape"
-                android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_starscape"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="13sp"
-                android:stateListAnimator="@null" />
-
-            <Button
-                android:id="@+id/btn_rawscope"
-                android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_rawscope"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="13sp"
-                android:stateListAnimator="@null" />
-
-            <Button
-                android:id="@+id/btn_spectrogram"
-                android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_spectrogram"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="13sp"
-                android:stateListAnimator="@null" />
-
-            <Button
-                android:id="@+id/btn_fireworks"
-                android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_fireworks"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="13sp"
-                android:stateListAnimator="@null" />
-
-            <Button
                 android:id="@+id/btn_phyllotaxis"
                 android:layout_width="match_parent"
                 android:layout_height="44dp"
                 android:layout_marginBottom="8dp"
                 android:background="@drawable/pill_button_bg"
                 android:text="@string/vis_phyllotaxis"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="13sp"
-                android:stateListAnimator="@null" />
-
-            <Button
-                android:id="@+id/btn_electric_iris"
-                android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_electric_iris"
                 android:textColor="@color/btn_text"
                 android:textAllCaps="false"
                 android:textSize="13sp"
@@ -360,51 +431,25 @@
                 android:stateListAnimator="@null" />
 
             <Button
-                android:id="@+id/btn_led_matrix"
-                android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_led_matrix"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="13sp"
-                android:stateListAnimator="@null" />
-
-            <Button
-                android:id="@+id/btn_mechanical_meter"
-                android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_mechanical_meter"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="13sp"
-                android:stateListAnimator="@null" />
-
-            <Button
-                android:id="@+id/btn_beat_pulse"
-                android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_beat_pulse"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="13sp"
-                android:stateListAnimator="@null" />
-
-            <Button
                 android:id="@+id/btn_mandelbox"
                 android:layout_width="match_parent"
                 android:layout_height="44dp"
+                android:layout_marginBottom="3dp"
                 android:background="@drawable/pill_button_bg"
                 android:text="@string/vis_mandelbox"
                 android:textColor="@color/btn_text"
                 android:textAllCaps="false"
                 android:textSize="13sp"
                 android:stateListAnimator="@null" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/vis_mandelbox_warning"
+                android:textColor="@color/text_dim"
+                android:textSize="10sp"
+                android:gravity="center"
+                android:fontStyle="italic" />
         </LinearLayout>
 
         </LinearLayout>
