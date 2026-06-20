@@ -524,6 +524,7 @@ class MainActivity : AppCompatActivity() {
         HueStrobeSettings.audioBrightness = prefs.getFloat(KEY_ADV_AUDIO_BRIGHT, HueStrobeSettings.audioBrightness)
         HueStrobeSettings.audioFlash = prefs.getFloat(KEY_ADV_AUDIO_FLASH, HueStrobeSettings.audioFlash)
         HueStrobeSettings.audioSensitivity = prefs.getFloat(KEY_ADV_AUDIO_SENS, HueStrobeSettings.audioSensitivity)
+        HueStrobeSettings.hueLookaheadMs = prefs.getFloat(KEY_ADV_HUE_LOOKAHEAD, HueStrobeSettings.hueLookaheadMs)
         btnAdvanced.setOnClickListener { showAdvancedDialog() }
     }
 
@@ -550,6 +551,9 @@ class MainActivity : AppCompatActivity() {
         val seekAudioFlash = view.findViewById<SeekBar>(R.id.seek_audio_flash)
         val seekAudioSens = view.findViewById<SeekBar>(R.id.seek_audio_sens)
 
+        val seekLookahead = view.findViewById<SeekBar>(R.id.seek_lookahead)
+        val labelLookahead = view.findViewById<TextView>(R.id.label_lookahead_value)
+
         fun applyPositions() {
             seekSens.progress = (HueStrobeSettings.micSensitivity * 100f).toInt()
             seekColour.progress = (HueStrobeSettings.colourSplit * 100f).toInt()
@@ -557,6 +561,8 @@ class MainActivity : AppCompatActivity() {
             seekAudioBright.progress = (HueStrobeSettings.audioBrightness * 100f).toInt()
             seekAudioFlash.progress = (HueStrobeSettings.audioFlash * 100f).toInt()
             seekAudioSens.progress = (HueStrobeSettings.audioSensitivity * 100f).toInt()
+            seekLookahead.progress = HueStrobeSettings.hueLookaheadMs.toInt()
+            labelLookahead.text = if (seekLookahead.progress == 0) "Off" else "-${seekLookahead.progress} ms"
         }
         applyPositions()
 
@@ -566,6 +572,17 @@ class MainActivity : AppCompatActivity() {
         seekAudioBright.onProgress { v -> HueStrobeSettings.audioBrightness = v; prefs.edit().putFloat(KEY_ADV_AUDIO_BRIGHT, v).apply() }
         seekAudioFlash.onProgress { v -> HueStrobeSettings.audioFlash = v; prefs.edit().putFloat(KEY_ADV_AUDIO_FLASH, v).apply() }
         seekAudioSens.onProgress { v -> HueStrobeSettings.audioSensitivity = v; prefs.edit().putFloat(KEY_ADV_AUDIO_SENS, v).apply() }
+        seekLookahead.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
+                if (fromUser) {
+                    HueStrobeSettings.hueLookaheadMs = progress.toFloat()
+                    labelLookahead.text = if (progress == 0) "Off" else "$progress ms"
+                    prefs.edit().putFloat(KEY_ADV_HUE_LOOKAHEAD, progress.toFloat()).apply()
+                }
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar) {}
+        })
 
         val dialog = AlertDialog.Builder(this).setView(view).create()
         dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
@@ -615,6 +632,7 @@ class MainActivity : AppCompatActivity() {
             .putFloat(KEY_ADV_AUDIO_BRIGHT, HueStrobeSettings.audioBrightness)
             .putFloat(KEY_ADV_AUDIO_FLASH, HueStrobeSettings.audioFlash)
             .putFloat(KEY_ADV_AUDIO_SENS, HueStrobeSettings.audioSensitivity)
+            .putFloat(KEY_ADV_HUE_LOOKAHEAD, HueStrobeSettings.hueLookaheadMs)
             .apply()
     }
 
@@ -1229,6 +1247,7 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_ADV_AUDIO_BRIGHT = "adv_audio_brightness"
         private const val KEY_ADV_AUDIO_FLASH = "adv_audio_flash"
         private const val KEY_ADV_AUDIO_SENS = "adv_audio_sensitivity"
+        private const val KEY_ADV_HUE_LOOKAHEAD = "adv_hue_lookahead"
         private const val BASS_LP_A = 0.03f       // one-pole low-pass coeff (~230 Hz @ 48 kHz)
         private const val MIC_NOISE_FLOOR = 0.006f // below this mic peak, treat as silence
         private const val KEY_PERF_OVERLAY = "perf_overlay_enabled"

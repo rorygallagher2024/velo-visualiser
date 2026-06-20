@@ -69,6 +69,9 @@ object NativeBridge {
      */
     external fun nativeLinkPollBeats(): Int
 
+    /** Fractional phase within the current beat (0.0 to 1.0). Any-thread safe. */
+    external fun nativeLinkBeatPhase(): Double
+
     /** Current shared session tempo in BPM (0 if unavailable). UI-thread. */
     external fun nativeLinkTempo(): Double
 

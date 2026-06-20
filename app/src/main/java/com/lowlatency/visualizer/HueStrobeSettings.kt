@@ -16,6 +16,7 @@ object HueStrobeSettings {
     const val DEFAULT_AUDIO_BRIGHTNESS = 0.5f
     const val DEFAULT_AUDIO_FLASH = 0.5f
     const val DEFAULT_AUDIO_SENS = 0.5f
+    const val DEFAULT_HUE_LOOKAHEAD = 0f
 
     // --- Link beat-strobe (Ableton Link on) ---
     /** Higher = beats trigger at a lower volume (more sensitive). */
@@ -33,6 +34,9 @@ object HueStrobeSettings {
     /** How readily the beat-flash fires (higher = more sensitive). */
     @Volatile var audioSensitivity = DEFAULT_AUDIO_SENS
 
+    /** Zigbee latency compensation: fire the Hue command this many ms early. */
+    @Volatile var hueLookaheadMs = DEFAULT_HUE_LOOKAHEAD
+
     /** Restore the hand-tuned defaults (both modes). */
     fun resetToDefaults() {
         micSensitivity = DEFAULT_SENSITIVITY
@@ -41,6 +45,7 @@ object HueStrobeSettings {
         audioBrightness = DEFAULT_AUDIO_BRIGHTNESS
         audioFlash = DEFAULT_AUDIO_FLASH
         audioSensitivity = DEFAULT_AUDIO_SENS
+        hueLookaheadMs = DEFAULT_HUE_LOOKAHEAD
     }
 
     // --- Derived thresholds (read on the sender thread) ---

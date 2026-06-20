@@ -149,6 +149,11 @@ Java_com_lowlatency_visualizer_NativeBridge_nativeLinkPollBeats(JNIEnv *, jobjec
 }
 
 JNIEXPORT jdouble JNICALL
+Java_com_lowlatency_visualizer_NativeBridge_nativeLinkBeatPhase(JNIEnv *, jobject) {
+    return velo::linkBeatPhase();
+}
+
+JNIEXPORT jdouble JNICALL
 Java_com_lowlatency_visualizer_NativeBridge_nativeLinkTempo(JNIEnv *, jobject) {
     return velo::linkTempo();
 }
