@@ -32,6 +32,21 @@
         android:lineSpacingMultiplier="1.3"
         android:visibility="gone" />
 
+    <!-- In-app Link notifications (top-center, briefly shown) -->
+    <TextView
+        android:id="@+id/link_notification"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|center_horizontal"
+        android:layout_marginTop="80dp"
+        android:background="@drawable/chip_bg"
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="8dp"
+        android:textColor="@color/text_primary"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        android:visibility="gone" />
+
     <!-- Tap-outside / dim scrim (hidden until the menu opens) -->
     <View
         android:id="@+id/scrim"
