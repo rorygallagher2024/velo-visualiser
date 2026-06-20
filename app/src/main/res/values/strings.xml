@@ -28,6 +28,11 @@
     <string name="vis_led_matrix">Pocket LED</string>
     <string name="vis_mechanical_meter">Mechanical Meter</string>
     <string name="vis_beat_pulse">Beat Pulse</string>
+    <string name="vis_mandelbox">Fractal Cathedral</string>
+    <string name="vis_mandelbox_warning">Requires a high-end device</string>
+    <string name="cat_instruments">Instruments</string>
+    <string name="cat_reactive">Reactive</string>
+    <string name="cat_immersive">Immersive</string>
     <string name="display_label">Display</string>
     <string name="burnin_on">Burn-in Protection: On</string>
     <string name="burnin_off">Burn-in Protection: Off</string>

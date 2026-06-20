@@ -78,6 +78,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnLedMatrix: Button
     private lateinit var btnMechanicalMeter: Button
     private lateinit var btnBeatPulse: Button
+    private lateinit var btnMandelbox: Button
     private lateinit var btnBurnin: Button
     private lateinit var btnGlowOff: Button
     private lateinit var btnGlowSubtle: Button
@@ -246,6 +247,7 @@ class MainActivity : AppCompatActivity() {
         btnLedMatrix = findViewById(R.id.btn_led_matrix)
         btnMechanicalMeter = findViewById(R.id.btn_mechanical_meter)
         btnBeatPulse = findViewById(R.id.btn_beat_pulse)
+        btnMandelbox = findViewById(R.id.btn_mandelbox)
         btnBurnin = findViewById(R.id.btn_burnin)
         btnGlowOff = findViewById(R.id.btn_glow_off)
         btnGlowSubtle = findViewById(R.id.btn_glow_subtle)
@@ -435,6 +437,7 @@ class MainActivity : AppCompatActivity() {
             Triple(btnLedMatrix, 16, btnLedMatrix.text.toString()),
             Triple(btnMechanicalMeter, 17, btnMechanicalMeter.text.toString()),
             Triple(btnBeatPulse, 18, btnBeatPulse.text.toString()),
+            Triple(btnMandelbox, 19, btnMandelbox.text.toString()),
         )
         prefs.getStringSet(KEY_FAVOURITES, emptySet())?.forEach {
             it.toIntOrNull()?.let { idx -> favourites.add(idx) }

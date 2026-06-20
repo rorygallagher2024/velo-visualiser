@@ -61,7 +61,8 @@ class VisualizerRenderer : GLSurfaceView.Renderer {
         TopographicRidgeScene(),   // 15
         LedMatrixScene(),          // 16 — TE "Pocket LED" dot-matrix spectrum
         MechanicalMeterScene(),    // 17 — TE "Mechanical Meter" analog needle
-        BeatPulseScene()           // 18 — beat-emphasis demo (Ableton Link)
+        BeatPulseScene(),          // 18 — beat-emphasis demo (Ableton Link)
+        MandelboxScene()           // 19 — "Fractal Cathedral" ray-marched mandelbox
     )
     private var current = DEFAULT_SCENE
     private var target = DEFAULT_SCENE
