@@ -135,30 +135,15 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
-        <LinearLayout
+        <!-- The active "VISUALS" tab already names this section, so the section
+             label is dropped; the long-press hint stays for discoverability. -->
+        <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginBottom="8dp">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/visualizer_label"
-                android:textColor="@color/text_dim"
-                android:textSize="12sp"
-                android:letterSpacing="0.1"
-                android:textAllCaps="true" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/hint_long_press_fav"
-                android:textColor="@color/text_dim"
-                android:textSize="10sp"
-                android:fontStyle="italic" />
-        </LinearLayout>
+            android:text="@string/hint_long_press_fav"
+            android:textColor="@color/text_dim"
+            android:textSize="10sp"
+            android:layout_marginBottom="14dp" />
 
         <!-- Visualizer selector (stacked so full labels fit), grouped by style -->
         <LinearLayout
@@ -263,6 +248,13 @@
                 android:stateListAnimator="@null" />
 
             <!-- ===== Category: Reactive (beat / energy driven) ===== -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="16dp"
+                android:background="@color/sheet_stroke" />
+
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -271,7 +263,6 @@
                 android:textSize="12sp"
                 android:letterSpacing="0.1"
                 android:textAllCaps="true"
-                android:layout_marginTop="14dp"
                 android:layout_marginBottom="8dp" />
 
             <Button
@@ -335,6 +326,13 @@
                 android:stateListAnimator="@null" />
 
             <!-- ===== Category: Immersive (rich generative, heavier GPU) ===== -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="16dp"
+                android:background="@color/sheet_stroke" />
+
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -343,7 +341,6 @@
                 android:textSize="12sp"
                 android:letterSpacing="0.1"
                 android:textAllCaps="true"
-                android:layout_marginTop="14dp"
                 android:layout_marginBottom="8dp" />
 
             <Button
@@ -443,13 +440,16 @@
                 android:stateListAnimator="@null" />
 
             <TextView
-                android:layout_width="match_parent"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="2dp"
+                android:background="@drawable/chip_bg"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="3dp"
                 android:text="@string/vis_mandelbox_warning"
                 android:textColor="@color/text_dim"
-                android:textSize="10sp"
-                android:gravity="center"
-                android:fontStyle="italic" />
+                android:textSize="9sp" />
         </LinearLayout>
 
         </LinearLayout>

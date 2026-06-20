@@ -1,14 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Rounded-rect row. Fills solid (off-white ink) when selected/pressed;
-     a barely-there fill + hairline otherwise. -->
+<!-- Rounded-rect row. Pressed flashes a brighter orange (momentary touch
+     feedback, distinct from the steady selected state); selected fills solid
+     accent; idle is a barely-there fill + hairline. Pressed is listed first so
+     a tap gives feedback even on the already-selected row. -->
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:state_selected="true">
+    <item android:state_pressed="true">
         <shape android:shape="rectangle">
-            <solid android:color="@color/accent" />
+            <solid android:color="@color/accent_pressed" />
             <corners android:radius="14dp" />
         </shape>
     </item>
-    <item android:state_pressed="true">
+    <item android:state_selected="true">
         <shape android:shape="rectangle">
             <solid android:color="@color/accent" />
             <corners android:radius="14dp" />
