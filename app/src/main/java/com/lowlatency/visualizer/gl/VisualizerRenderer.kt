@@ -99,6 +99,10 @@ class VisualizerRenderer : GLSurfaceView.Renderer {
     private var hdrPunch = 0f
     private var lastFrameSec = 0f
 
+    // Performance diagnostics (written on GL thread, read on UI thread).
+    @Volatile var fps = 0f
+    @Volatile var frameTimeMs = 0f
+
     // Burn-in idle gate state (u_burnInProtectAlpha, folded into `dim`).
     // Toggleable from the settings menu; set on the UI thread, read on GL thread.
     @Volatile var burnInEnabled = true
@@ -154,6 +158,11 @@ class VisualizerRenderer : GLSurfaceView.Renderer {
         val t = nowSec()
         val dt = (t - lastFrameSec).coerceIn(0f, 0.1f)
         lastFrameSec = t
+
+        if (dt > 0f) {
+            frameTimeMs = dt * 1000f
+            fps = fps * 0.9f + (1f / dt) * 0.1f
+        }
 
         // HDR beat-punch envelope (spikes on a beat, decays smoothly). The beat
         // source is Ableton Link's network clock when sync is on, otherwise the

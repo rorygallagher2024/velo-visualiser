@@ -89,8 +89,13 @@ oboe::DataCallbackResult AudioEngine::onAudioReady(oboe::AudioStream *stream,
                                                    void *audioData,
                                                    int32_t numFrames) {
     // HOT PATH — runs on the real-time audio thread.
-    // Float, mono => numFrames == numSamples. Single memcpy-class write,
-    // zero allocation, zero blocking.
+    auto now = std::chrono::steady_clock::now();
+    if (mLastCallbackTime.time_since_epoch().count() != 0) {
+        auto dt = std::chrono::duration<float, std::milli>(now - mLastCallbackTime);
+        mCallbackPeriodMs.store(dt.count(), std::memory_order_relaxed);
+    }
+    mLastCallbackTime = now;
+
     const auto *samples = static_cast<const float *>(audioData);
     mBuffer->write(samples, static_cast<size_t>(numFrames));
     return oboe::DataCallbackResult::Continue;

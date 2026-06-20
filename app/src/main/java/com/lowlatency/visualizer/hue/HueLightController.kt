@@ -37,6 +37,8 @@ class HueLightController(context: Context) {
     private var client: HueStreamClient? = null
 
     val isEnabled: Boolean get() = running
+    val huePacketsSent: Long get() = client?.packetsSent ?: 0L
+    val huePacketsFailed: Long get() = client?.packetsFailed ?: 0L
 
     /** Called every render frame from the GL thread. Must stay allocation-free. */
     fun onBands(low: Float, mid: Float, high: Float) {

@@ -124,6 +124,14 @@ Java_com_lowlatency_visualizer_NativeBridge_nativePushPcm(JNIEnv *env, jobject,
 }
 
 // ---------------------------------------------------------------------------
+// Diagnostics
+// ---------------------------------------------------------------------------
+JNIEXPORT jfloat JNICALL
+Java_com_lowlatency_visualizer_NativeBridge_nativeGetAudioCallbackMs(JNIEnv *, jobject) {
+    return AudioEngine::instance().callbackPeriodMs();
+}
+
+// ---------------------------------------------------------------------------
 // Ableton Link — wireless tempo/beat sync. The wrapper (LinkController) owns the
 // ableton::Link instance and catches anything it throws, so these bindings stay
 // trivial. Enable/tempo/peers are called from the UI thread; pollBeats is called

@@ -90,6 +90,10 @@ class VisualizerSurfaceView @JvmOverloads constructor(
         get() = renderer.onLinkBeat
         set(value) { renderer.onLinkBeat = value }
 
+    /** Performance diagnostics (read on UI thread). */
+    val rendererFps: Float get() = renderer.fps
+    val rendererFrameTimeMs: Float get() = renderer.frameTimeMs
+
     /**
      * Favourite scene indices (sorted). When non-empty, a swipe cycles ONLY
      * these; empty = swipe cycles all scenes. The menu can still pick any scene.

@@ -53,6 +53,11 @@ object NativeBridge {
      */
     external fun nativePushPcm(pcm: ShortArray, frames: Int, channels: Int)
 
+    // --- Diagnostics ---
+
+    /** Measured period between Oboe audio callbacks in milliseconds. */
+    external fun nativeGetAudioCallbackMs(): Float
+
     // --- Ableton Link (wireless tempo/beat sync) ---
 
     /** Join/leave the local-network Link session. Call from the UI thread. */

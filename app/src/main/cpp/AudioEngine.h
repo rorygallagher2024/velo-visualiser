@@ -2,6 +2,7 @@
 #define LLV_AUDIO_ENGINE_H
 
 #include <oboe/Oboe.h>
+#include <chrono>
 #include <memory>
 #include <mutex>
 #include <vector>
@@ -56,6 +57,7 @@ public:
     void computeBands(float *outBands) noexcept;
 
     int sampleRate() const { return mSampleRate.load(std::memory_order_relaxed); }
+    float callbackPeriodMs() const { return mCallbackPeriodMs.load(std::memory_order_relaxed); }
 
     // --- Oboe callbacks ---
     oboe::DataCallbackResult onAudioReady(oboe::AudioStream *stream,
@@ -83,6 +85,8 @@ private:
     std::mutex mLifecycleLock;        // guards open/close only — never the hot path
     std::atomic<bool> mRunning{false};
     std::atomic<int> mSampleRate{48000};
+    std::atomic<float> mCallbackPeriodMs{0};
+    std::chrono::steady_clock::time_point mLastCallbackTime{};
 };
 
 #endif // LLV_AUDIO_ENGINE_H

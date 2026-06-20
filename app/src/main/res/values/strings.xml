@@ -93,6 +93,8 @@
     <string name="adv_glow">Resting glow</string>
     <string name="adv_reset">Reset</string>
     <string name="adv_done">Done</string>
+    <string name="perf_overlay_on">Performance Overlay: On</string>
+    <string name="perf_overlay_off">Performance Overlay: Off</string>
     <string name="link_status_searching">Searching for Link peers…</string>
     <string name="link_status_connected">Connected · %1$d peer(s) · %2$.0f BPM</string>
     <string name="status_idle">Oboe Engine: starting…</string>
