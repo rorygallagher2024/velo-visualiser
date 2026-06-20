@@ -49,7 +49,7 @@ No data collection, no ads, no tracking — local-only, and it'll stay that way.
 
 ## Support
 
-Velo is free and always will be. If it brings some colour to your music and you'd
+Velo is free but its development cost is not, so if it brings some colour to your music and you'd
 like to chip in for coffee, it's hugely appreciated:
 
 <a href="https://www.buymeacoffee.com/rorygallagher2024"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="42"></a>
