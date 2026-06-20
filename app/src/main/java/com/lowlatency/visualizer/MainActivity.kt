@@ -105,7 +105,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnPerfOverlay: Button
     private lateinit var perfOverlay: TextView
     private lateinit var hapticController: HapticController
-    private lateinit var statusText: TextView
     private lateinit var prefs: SharedPreferences
 
     // Visualizer buttons paired with their scene index + base label (for the
@@ -281,7 +280,6 @@ class MainActivity : AppCompatActivity() {
         btnAbout = findViewById(R.id.btn_about)
         btnPerfOverlay = findViewById(R.id.btn_perf_overlay)
         perfOverlay = findViewById(R.id.perf_overlay)
-        statusText = findViewById(R.id.status_text)
         tabBtnVisuals = findViewById(R.id.tab_btn_visuals)
         tabBtnLighting = findViewById(R.id.tab_btn_lighting)
         tabBtnSettings = findViewById(R.id.tab_btn_settings)
@@ -1123,18 +1121,6 @@ class MainActivity : AppCompatActivity() {
             btnHaptics.isEnabled = available
             btnHaptics.alpha = if (available) 1f else 0.4f
         }
-
-        val rate = NativeBridge.nativeGetSampleRate()
-        val version = getString(R.string.version_fmt, appVersionName())
-        // NOTE: the active Oboe API isn't exposed over JNI (the C++ engine is
-        // off-limits this phase). On minSdk 29 Oboe uses AAudio as requested,
-        // with OpenSL ES only as a rare fallback, so we label the expected path.
-        val engine = if (systemAudioMode) {
-            "AudioPlaybackCapture • $rate Hz"
-        } else {
-            "Oboe Engine: AAudio Active • $rate Hz"
-        }
-        statusText.text = getString(R.string.version_fmt, "$engine   ·   $version")
     }
 
     // ----- First-boot overlay -----
@@ -1232,6 +1218,14 @@ class MainActivity : AppCompatActivity() {
         view.findViewById<TextView>(R.id.about_logo).text = LOGO_ASCII
         view.findViewById<TextView>(R.id.about_version).text = getString(R.string.version_fmt, appVersionName())
         
+        val rate = NativeBridge.nativeGetSampleRate()
+        val engine = if (systemAudioMode) {
+            "AudioPlaybackCapture • $rate Hz"
+        } else {
+            "Oboe Engine: AAudio Active • $rate Hz"
+        }
+        view.findViewById<TextView>(R.id.about_engine_status).text = engine
+
         val licenses = HtmlCompat.fromHtml(getString(R.string.about_licenses_text), HtmlCompat.FROM_HTML_MODE_LEGACY)
         view.findViewById<TextView>(R.id.about_licenses).text = licenses
 

@@ -36,6 +36,14 @@
             android:layout_marginBottom="4dp" />
 
         <TextView
+            android:id="@+id/about_engine_status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/text_dim"
+            android:textSize="11sp"
+            android:layout_marginBottom="4dp" />
+
+        <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/about_copyright"
