@@ -31,9 +31,15 @@ class VisualizerSurfaceView @JvmOverloads constructor(
     /** Invoked on an upward fling that starts near the bottom edge. */
     var onSwipeUp: (() -> Unit)? = null
 
+    /** Invoked on the UI thread when the scene is changed (via swipe or select). */
+    var onSceneChanged: ((Int) -> Unit)? = null
+
     /** The currently displayed scene index (source of truth for the menu). */
     var sceneIndex = VisualizerRenderer.DEFAULT_SCENE
         private set
+
+    /** The ordered list of scene indices matching the menu UI. */
+    var sceneOrder: List<Int> = emptyList()
 
     private val renderer = VisualizerRenderer()
 
@@ -104,25 +110,33 @@ class VisualizerSurfaceView @JvmOverloads constructor(
     fun selectScene(index: Int) {
         val count = renderer.sceneCount
         val next = ((index % count) + count) % count
-        sceneIndex = next
-        queueEvent { renderer.requestScene(next) }
+        if (sceneIndex != next) {
+            sceneIndex = next
+            queueEvent { renderer.requestScene(next) }
+            onSceneChanged?.invoke(next)
+        }
     }
 
     /** Step to the next/previous scene for a swipe — within favourites if set. */
     private fun swipeScene(dir: Int) {
         val favs = favourites
-        if (favs.isEmpty()) {
+        val activeOrder = if (favs.isNotEmpty()) favs else sceneOrder
+        
+        if (activeOrder.isEmpty()) {
+            // Fallback to raw numeric order if no sequence provided
             selectScene(sceneIndex + dir)
             return
         }
-        val pos = favs.indexOf(sceneIndex)
-        val next = if (pos < 0) {
-            // Current isn't a favourite — jump to the first (or last) favourite.
-            if (dir > 0) favs.first() else favs.last()
+
+        val pos = activeOrder.indexOf(sceneIndex)
+        val nextIndex = if (pos < 0) {
+            // Current isn't in the list — jump to the first (or last) item.
+            if (dir > 0) activeOrder.first() else activeOrder.last()
         } else {
-            favs[((pos + dir) % favs.size + favs.size) % favs.size]
+            val nextPos = ((pos + dir) % activeOrder.size + activeOrder.size) % activeOrder.size
+            activeOrder[nextPos]
         }
-        selectScene(next)
+        selectScene(nextIndex)
     }
 
     init {

@@ -423,34 +423,40 @@ class MainActivity : AppCompatActivity() {
 
         // Visualizer buttons: tap = select, long-press = toggle favourite.
         visButtons = listOf(
+            // Instruments
             Triple(btnOscilloscope, 0, btnOscilloscope.text.toString()),
+            Triple(btnRawScope, 8, btnRawScope.text.toString()),
+            Triple(btnBars, 5, btnBars.text.toString()),
+            Triple(btnCircular, 4, btnCircular.text.toString()),
+            Triple(btnSpectrogram, 9, btnSpectrogram.text.toString()),
+            Triple(btnLedMatrix, 16, btnLedMatrix.text.toString()),
+            Triple(btnMechanicalMeter, 17, btnMechanicalMeter.text.toString()),
+            Triple(btnCymatics, 21, btnCymatics.text.toString()),
+            // Reactive
+            Triple(btnBeatPulse, 18, btnBeatPulse.text.toString()),
+            Triple(btnFireworks, 10, btnFireworks.text.toString()),
+            Triple(btnStarscape, 7, btnStarscape.text.toString()),
+            Triple(btnBloom, 6, btnBloom.text.toString()),
+            Triple(btnElectricIris, 12, btnElectricIris.text.toString()),
+            // Immersive
             Triple(btnTunnel, 1, btnTunnel.text.toString()),
             Triple(btnFluid, 2, btnFluid.text.toString()),
             Triple(btnLaser, 3, btnLaser.text.toString()),
-            Triple(btnCircular, 4, btnCircular.text.toString()),
-            Triple(btnBars, 5, btnBars.text.toString()),
-            Triple(btnBloom, 6, btnBloom.text.toString()),
-            Triple(btnStarscape, 7, btnStarscape.text.toString()),
-            Triple(btnRawScope, 8, btnRawScope.text.toString()),
-            Triple(btnSpectrogram, 9, btnSpectrogram.text.toString()),
-            Triple(btnFireworks, 10, btnFireworks.text.toString()),
             Triple(btnPhyllotaxis, 11, btnPhyllotaxis.text.toString()),
-            Triple(btnElectricIris, 12, btnElectricIris.text.toString()),
             Triple(btnMandala, 13, btnMandala.text.toString()),
             Triple(btnAudioWeb, 14, btnAudioWeb.text.toString()),
             Triple(btnTopoRidge, 15, btnTopoRidge.text.toString()),
-            Triple(btnLedMatrix, 16, btnLedMatrix.text.toString()),
-            Triple(btnMechanicalMeter, 17, btnMechanicalMeter.text.toString()),
-            Triple(btnBeatPulse, 18, btnBeatPulse.text.toString()),
             Triple(btnMandelbox, 19, btnMandelbox.text.toString()),
             Triple(btnReactionDiffusion, 20, btnReactionDiffusion.text.toString()),
-            Triple(btnCymatics, 21, btnCymatics.text.toString()),
             Triple(btnStrangeAttractor, 22, btnStrangeAttractor.text.toString()),
         )
+        glView.sceneOrder = visButtons.map { it.second }
+        glView.onSceneChanged = { updateVisualizerSelection() }
+
         prefs.getStringSet(KEY_FAVOURITES, emptySet())?.forEach {
             it.toIntOrNull()?.let { idx -> favourites.add(idx) }
         }
-        glView.favourites = favourites.sorted()
+        updateFavouritesOrder()
         visButtons.forEach { (b, idx, _) ->
             b.setOnClickListener { glView.selectScene(idx); updateVisualizerSelection() }
             b.setOnLongClickListener { toggleFavourite(idx); true }
@@ -857,7 +863,7 @@ class MainActivity : AppCompatActivity() {
     private fun toggleFavourite(index: Int) {
         if (!favourites.add(index)) favourites.remove(index)
         prefs.edit().putStringSet(KEY_FAVOURITES, favourites.map { it.toString() }.toSet()).apply()
-        glView.favourites = favourites.sorted()
+        updateFavouritesOrder()
         updateVisualizerSelection()
         val fav = favourites.contains(index)
         Toast.makeText(
@@ -865,6 +871,11 @@ class MainActivity : AppCompatActivity() {
             if (fav) "Added to swipe favourites" else "Removed from favourites",
             Toast.LENGTH_SHORT,
         ).show()
+    }
+
+    private fun updateFavouritesOrder() {
+        val order = glView.sceneOrder
+        glView.favourites = favourites.toList().sortedBy { order.indexOf(it) }
     }
 
     private fun updateHapticsButton(enabled: Boolean) {
