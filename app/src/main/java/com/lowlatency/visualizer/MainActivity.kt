@@ -97,6 +97,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnThemeCool: Button
     private lateinit var btnThemeMono: Button
     private lateinit var btnPrivacyPolicy: Button
+    private lateinit var btnPerfOverlay: Button
+    private lateinit var perfOverlay: TextView
     private lateinit var hapticController: HapticController
     private lateinit var statusText: TextView
     private lateinit var prefs: SharedPreferences
@@ -128,6 +130,8 @@ class MainActivity : AppCompatActivity() {
     private var systemAudioMode = false
     private var menuOpen = false
     private var bassLpState = 0f   // one-pole low-pass state for the bass/treble split
+    private var perfOverlayEnabled = false
+    private var lastHuePackets = 0L
 
     // Ableton Link: a multicast lock is mandatory or Android's Wi-Fi chip filters
     // out Link's UDP discovery packets. The status poller refreshes peer/BPM text
@@ -138,6 +142,14 @@ class MainActivity : AppCompatActivity() {
         override fun run() {
             updateLinkStatus()
             linkHandler.postDelayed(this, 1000L)
+        }
+    }
+
+    private val perfHandler = Handler(Looper.getMainLooper())
+    private val perfPoller = object : Runnable {
+        override fun run() {
+            updatePerfOverlay()
+            perfHandler.postDelayed(this, 500L)
         }
     }
 
@@ -253,6 +265,8 @@ class MainActivity : AppCompatActivity() {
         btnThemeCool = findViewById(R.id.btn_theme_cool)
         btnThemeMono = findViewById(R.id.btn_theme_mono)
         btnPrivacyPolicy = findViewById(R.id.btn_privacy_policy)
+        btnPerfOverlay = findViewById(R.id.btn_perf_overlay)
+        perfOverlay = findViewById(R.id.perf_overlay)
         statusText = findViewById(R.id.status_text)
         tabBtnVisuals = findViewById(R.id.tab_btn_visuals)
         tabBtnLighting = findViewById(R.id.tab_btn_lighting)
@@ -443,6 +457,10 @@ class MainActivity : AppCompatActivity() {
             updateBurnInButton(enabled)
         }
 
+        // Performance overlay toggle (persisted, default off).
+        setPerfOverlay(prefs.getBoolean(KEY_PERF_OVERLAY, false))
+        btnPerfOverlay.setOnClickListener { setPerfOverlay(!perfOverlayEnabled) }
+
         // HDR bloom / glow strength (persisted).
         GlowSettings.strength = GlowSettings.Strength.fromKey(prefs.getString(KEY_GLOW, null))
         updateGlowSelection()
@@ -506,6 +524,7 @@ class MainActivity : AppCompatActivity() {
         HueStrobeSettings.audioBrightness = prefs.getFloat(KEY_ADV_AUDIO_BRIGHT, HueStrobeSettings.audioBrightness)
         HueStrobeSettings.audioFlash = prefs.getFloat(KEY_ADV_AUDIO_FLASH, HueStrobeSettings.audioFlash)
         HueStrobeSettings.audioSensitivity = prefs.getFloat(KEY_ADV_AUDIO_SENS, HueStrobeSettings.audioSensitivity)
+        HueStrobeSettings.hueLookaheadMs = prefs.getFloat(KEY_ADV_HUE_LOOKAHEAD, HueStrobeSettings.hueLookaheadMs)
         btnAdvanced.setOnClickListener { showAdvancedDialog() }
     }
 
@@ -532,6 +551,9 @@ class MainActivity : AppCompatActivity() {
         val seekAudioFlash = view.findViewById<SeekBar>(R.id.seek_audio_flash)
         val seekAudioSens = view.findViewById<SeekBar>(R.id.seek_audio_sens)
 
+        val seekLookahead = view.findViewById<SeekBar>(R.id.seek_lookahead)
+        val labelLookahead = view.findViewById<TextView>(R.id.label_lookahead_value)
+
         fun applyPositions() {
             seekSens.progress = (HueStrobeSettings.micSensitivity * 100f).toInt()
             seekColour.progress = (HueStrobeSettings.colourSplit * 100f).toInt()
@@ -539,6 +561,8 @@ class MainActivity : AppCompatActivity() {
             seekAudioBright.progress = (HueStrobeSettings.audioBrightness * 100f).toInt()
             seekAudioFlash.progress = (HueStrobeSettings.audioFlash * 100f).toInt()
             seekAudioSens.progress = (HueStrobeSettings.audioSensitivity * 100f).toInt()
+            seekLookahead.progress = HueStrobeSettings.hueLookaheadMs.toInt()
+            labelLookahead.text = if (seekLookahead.progress == 0) "Off" else "-${seekLookahead.progress} ms"
         }
         applyPositions()
 
@@ -548,6 +572,17 @@ class MainActivity : AppCompatActivity() {
         seekAudioBright.onProgress { v -> HueStrobeSettings.audioBrightness = v; prefs.edit().putFloat(KEY_ADV_AUDIO_BRIGHT, v).apply() }
         seekAudioFlash.onProgress { v -> HueStrobeSettings.audioFlash = v; prefs.edit().putFloat(KEY_ADV_AUDIO_FLASH, v).apply() }
         seekAudioSens.onProgress { v -> HueStrobeSettings.audioSensitivity = v; prefs.edit().putFloat(KEY_ADV_AUDIO_SENS, v).apply() }
+        seekLookahead.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
+                if (fromUser) {
+                    HueStrobeSettings.hueLookaheadMs = progress.toFloat()
+                    labelLookahead.text = if (progress == 0) "Off" else "$progress ms"
+                    prefs.edit().putFloat(KEY_ADV_HUE_LOOKAHEAD, progress.toFloat()).apply()
+                }
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar) {}
+        })
 
         val dialog = AlertDialog.Builder(this).setView(view).create()
         dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
@@ -597,6 +632,7 @@ class MainActivity : AppCompatActivity() {
             .putFloat(KEY_ADV_AUDIO_BRIGHT, HueStrobeSettings.audioBrightness)
             .putFloat(KEY_ADV_AUDIO_FLASH, HueStrobeSettings.audioFlash)
             .putFloat(KEY_ADV_AUDIO_SENS, HueStrobeSettings.audioSensitivity)
+            .putFloat(KEY_ADV_HUE_LOOKAHEAD, HueStrobeSettings.hueLookaheadMs)
             .apply()
     }
 
@@ -683,6 +719,51 @@ class MainActivity : AppCompatActivity() {
     private fun updateBurnInButton(enabled: Boolean) {
         btnBurnin.isSelected = enabled
         btnBurnin.setText(if (enabled) R.string.burnin_on else R.string.burnin_off)
+    }
+
+    private fun setPerfOverlay(enabled: Boolean) {
+        perfOverlayEnabled = enabled
+        prefs.edit().putBoolean(KEY_PERF_OVERLAY, enabled).apply()
+        btnPerfOverlay.isSelected = enabled
+        btnPerfOverlay.setText(if (enabled) R.string.perf_overlay_on else R.string.perf_overlay_off)
+        if (enabled) {
+            perfOverlay.visibility = View.VISIBLE
+            lastHuePackets = if (::hueController.isInitialized) hueController.huePacketsSent else 0L
+            perfHandler.removeCallbacks(perfPoller)
+            perfHandler.post(perfPoller)
+        } else {
+            perfOverlay.visibility = View.GONE
+            perfHandler.removeCallbacks(perfPoller)
+        }
+    }
+
+    private fun updatePerfOverlay() {
+        if (!perfOverlayEnabled) return
+        val sb = StringBuilder()
+
+        val fps = glView.rendererFps
+        val frameMs = glView.rendererFrameTimeMs
+        sb.append("Render: %.1f fps · %.1fms/frame".format(fps, frameMs))
+
+        val audioMs = NativeBridge.nativeGetAudioCallbackMs()
+        val rate = NativeBridge.nativeGetSampleRate()
+        sb.append("\nAudio: %.1fms callback · %d Hz".format(audioMs, rate))
+
+        if (LinkSync.enabled) {
+            val bpm = NativeBridge.nativeLinkTempo()
+            val peers = NativeBridge.nativeLinkPeers()
+            sb.append("\nLink: %.0f bpm · %d peer%s".format(bpm, peers, if (peers == 1) "" else "s"))
+        }
+
+        if (::hueController.isInitialized && hueController.isEnabled) {
+            val sent = hueController.huePacketsSent
+            val pps = ((sent - lastHuePackets) * 2).coerceAtLeast(0)
+            lastHuePackets = sent
+            val drops = hueController.huePacketsFailed
+            sb.append("\nHue: %d pps · %d drop%s".format(pps, drops, if (drops == 1L) "" else "s"))
+        }
+
+        perfOverlay.text = sb.toString()
     }
 
     private fun setGlow(s: GlowSettings.Strength) {
@@ -1082,19 +1163,23 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Unlock HDR output and keep the panel awake. COLOR_MODE_HDR asks the
-     * compositor to treat this window as HDR; on non-HDR panels it is ignored.
+     * Unlock HDR output, hide system bars (immersive), and keep the panel awake.
      */
     @Suppress("DEPRECATION")   // windowManager.defaultDisplay is the pre-R fallback only
     private fun configureHdrWindow() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
+        // Full immersive mode: hide status bar + navigation handle.
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
+        androidx.core.view.WindowInsetsControllerCompat(window, window.decorView).apply {
+            hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             window.colorMode = ActivityInfo.COLOR_MODE_HDR
             Log.i(TAG, "Requested HDR color mode.")
         }
-        // Report whether the panel is actually HDR-capable. If not, the >1.0
-        // output simply clamps to white (SDR) — the bloom/punch still work, just
-        // without the extra-nit boost. Lets us confirm HDR is genuinely engaging.
         val d = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) display else windowManager.defaultDisplay
         val isHdr = d?.isHdr == true
         val types = d?.hdrCapabilities?.supportedHdrTypes?.joinToString() ?: "none"
@@ -1136,6 +1221,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        perfHandler.removeCallbacks(perfPoller)
         if (::hueController.isInitialized) hueController.disable()
         if (::hapticController.isInitialized) hapticController.release()
         linkHandler.removeCallbacks(linkStatusPoller)
@@ -1161,8 +1247,10 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_ADV_AUDIO_BRIGHT = "adv_audio_brightness"
         private const val KEY_ADV_AUDIO_FLASH = "adv_audio_flash"
         private const val KEY_ADV_AUDIO_SENS = "adv_audio_sensitivity"
+        private const val KEY_ADV_HUE_LOOKAHEAD = "adv_hue_lookahead"
         private const val BASS_LP_A = 0.03f       // one-pole low-pass coeff (~230 Hz @ 48 kHz)
         private const val MIC_NOISE_FLOOR = 0.006f // below this mic peak, treat as silence
+        private const val KEY_PERF_OVERLAY = "perf_overlay_enabled"
         private const val KEY_FAVOURITES = "favourite_scenes"
         private const val KEY_SCREENSHARE_RATIONALE = "screenshare_rationale_shown"
         private const val SWIPE_DOWN_VELOCITY = 1200f

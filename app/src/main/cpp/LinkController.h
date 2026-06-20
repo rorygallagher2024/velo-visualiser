@@ -24,6 +24,9 @@ int linkPollBeats();
 // Current shared session tempo in BPM (0 if unavailable). UI-thread safe.
 double linkTempo();
 
+// Fractional phase within the current beat (0.0 to 1.0). Any-thread safe.
+double linkBeatPhase();
+
 // Number of other Ableton Link peers on the network. UI-thread safe.
 int linkNumPeers();
 

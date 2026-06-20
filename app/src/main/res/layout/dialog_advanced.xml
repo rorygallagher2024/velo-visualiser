@@ -1,0 +1,318 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Advanced lighting configuration. Shows one of two control groups depending
+     on whether Ableton Link is on: the Link beat-strobe (meters + trigger lines)
+     or the audio-reactive light show. -->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="20dp"
+    android:background="@drawable/sheet_background"
+    android:scrollbars="none">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <TextView
+            android:id="@+id/adv_title_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/adv_title"
+            android:textColor="@color/text_primary"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.08"
+            android:layout_marginBottom="4dp" />
+
+        <TextView
+            android:id="@+id/adv_hint_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/adv_hint_link"
+            android:textColor="@color/text_dim"
+            android:textSize="11sp"
+            android:lineSpacingMultiplier="1.2"
+            android:layout_marginBottom="18dp" />
+
+        <!-- ===== Group: Ableton Link beat-strobe ===== -->
+        <LinearLayout
+            android:id="@+id/group_link"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/adv_meter_level"
+                android:textColor="@color/text_dim"
+                android:textSize="11sp"
+                android:letterSpacing="0.12"
+                android:textAllCaps="true"
+                android:layout_marginBottom="4dp" />
+
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="16dp"
+                android:layout_marginBottom="14dp">
+
+                <ProgressBar
+                    android:id="@+id/meter_level"
+                    style="?android:attr/progressBarStyleHorizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="10dp"
+                    android:layout_gravity="center_vertical"
+                    android:max="100"
+                    android:progress="0"
+                    android:progressTint="@color/accent"
+                    android:progressBackgroundTint="@color/sheet_stroke" />
+
+                <View
+                    android:id="@+id/marker_level"
+                    android:layout_width="2dp"
+                    android:layout_height="16dp"
+                    android:background="@color/text_primary" />
+            </FrameLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/adv_meter_bass"
+                android:textColor="@color/text_dim"
+                android:textSize="11sp"
+                android:letterSpacing="0.12"
+                android:textAllCaps="true"
+                android:layout_marginBottom="4dp" />
+
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="16dp"
+                android:layout_marginBottom="22dp">
+
+                <ProgressBar
+                    android:id="@+id/meter_bass"
+                    style="?android:attr/progressBarStyleHorizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="10dp"
+                    android:layout_gravity="center_vertical"
+                    android:max="100"
+                    android:progress="0"
+                    android:progressTint="@color/accent"
+                    android:progressBackgroundTint="@color/sheet_stroke" />
+
+                <View
+                    android:id="@+id/marker_bass"
+                    android:layout_width="2dp"
+                    android:layout_height="16dp"
+                    android:background="@color/text_primary" />
+            </FrameLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/adv_sensitivity"
+                android:textColor="@color/text_dim"
+                android:textSize="11sp"
+                android:letterSpacing="0.12"
+                android:textAllCaps="true"
+                android:layout_marginBottom="2dp" />
+
+            <SeekBar
+                android:id="@+id/seek_sensitivity"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="100"
+                android:progressTint="@color/accent"
+                android:thumbTint="@color/accent"
+                android:progressBackgroundTint="@color/sheet_stroke"
+                android:layout_marginBottom="14dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/adv_colour"
+                android:textColor="@color/text_dim"
+                android:textSize="11sp"
+                android:letterSpacing="0.12"
+                android:textAllCaps="true"
+                android:layout_marginBottom="2dp" />
+
+            <SeekBar
+                android:id="@+id/seek_colour"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="100"
+                android:progressTint="@color/accent"
+                android:thumbTint="@color/accent"
+                android:progressBackgroundTint="@color/sheet_stroke"
+                android:layout_marginBottom="14dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/adv_glow"
+                android:textColor="@color/text_dim"
+                android:textSize="11sp"
+                android:letterSpacing="0.12"
+                android:textAllCaps="true"
+                android:layout_marginBottom="2dp" />
+
+            <SeekBar
+                android:id="@+id/seek_glow"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="100"
+                android:progressTint="@color/accent"
+                android:thumbTint="@color/accent"
+                android:progressBackgroundTint="@color/sheet_stroke"
+                android:layout_marginBottom="14dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="2dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/adv_hue_lookahead"
+                    android:textColor="@color/text_dim"
+                    android:textSize="11sp"
+                    android:letterSpacing="0.12"
+                    android:textAllCaps="true" />
+
+                <TextView
+                    android:id="@+id/label_lookahead_value"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Off"
+                    android:textColor="@color/text_dim"
+                    android:textSize="11sp" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/adv_hue_lookahead_hint"
+                android:textColor="@color/text_dim"
+                android:textSize="10sp"
+                android:lineSpacingMultiplier="1.2"
+                android:layout_marginBottom="6dp" />
+
+            <SeekBar
+                android:id="@+id/seek_lookahead"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="150"
+                android:progressTint="@color/accent"
+                android:thumbTint="@color/accent"
+                android:progressBackgroundTint="@color/sheet_stroke"
+                android:layout_marginBottom="22dp" />
+        </LinearLayout>
+
+        <!-- ===== Group: audio-reactive light show ===== -->
+        <LinearLayout
+            android:id="@+id/group_audio"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/adv_audio_brightness"
+                android:textColor="@color/text_dim"
+                android:textSize="11sp"
+                android:letterSpacing="0.12"
+                android:textAllCaps="true"
+                android:layout_marginBottom="2dp" />
+
+            <SeekBar
+                android:id="@+id/seek_audio_brightness"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="100"
+                android:progressTint="@color/accent"
+                android:thumbTint="@color/accent"
+                android:progressBackgroundTint="@color/sheet_stroke"
+                android:layout_marginBottom="14dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/adv_audio_flash"
+                android:textColor="@color/text_dim"
+                android:textSize="11sp"
+                android:letterSpacing="0.12"
+                android:textAllCaps="true"
+                android:layout_marginBottom="2dp" />
+
+            <SeekBar
+                android:id="@+id/seek_audio_flash"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="100"
+                android:progressTint="@color/accent"
+                android:thumbTint="@color/accent"
+                android:progressBackgroundTint="@color/sheet_stroke"
+                android:layout_marginBottom="14dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/adv_audio_sens"
+                android:textColor="@color/text_dim"
+                android:textSize="11sp"
+                android:letterSpacing="0.12"
+                android:textAllCaps="true"
+                android:layout_marginBottom="2dp" />
+
+            <SeekBar
+                android:id="@+id/seek_audio_sens"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="100"
+                android:progressTint="@color/accent"
+                android:thumbTint="@color/accent"
+                android:progressBackgroundTint="@color/sheet_stroke"
+                android:layout_marginBottom="22dp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btn_adv_reset"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="6dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/adv_reset"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_adv_done"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/adv_done"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+        </LinearLayout>
+    </LinearLayout>
+</ScrollView>

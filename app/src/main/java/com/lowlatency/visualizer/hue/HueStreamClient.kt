@@ -35,6 +35,11 @@ class HueStreamClient(
     private var dtls: DTLSTransport? = null
     private var sequence = 0
 
+    @Volatile var packetsSent = 0L
+        private set
+    @Volatile var packetsFailed = 0L
+        private set
+
     // Pre-built header (everything before the per-channel color data). Only the
     // sequence byte at [SEQ_OFFSET] changes per frame.
     private val header: ByteArray = buildHeader(areaId)
@@ -85,7 +90,9 @@ class HueStreamClient(
         }
         try {
             transport.send(frame, 0, p)
+            packetsSent++
         } catch (t: Throwable) {
+            packetsFailed++
             Log.w(TAG, "frame send failed: ${t.message}")
         }
     }

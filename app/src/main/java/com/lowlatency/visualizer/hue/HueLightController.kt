@@ -6,6 +6,7 @@ import android.os.Looper
 import android.util.Log
 import com.lowlatency.visualizer.HueStrobeSettings
 import com.lowlatency.visualizer.LinkSync
+import com.lowlatency.visualizer.NativeBridge
 import kotlin.concurrent.thread
 import kotlin.math.abs
 import kotlin.math.max
@@ -37,6 +38,8 @@ class HueLightController(context: Context) {
     private var client: HueStreamClient? = null
 
     val isEnabled: Boolean get() = running
+    val huePacketsSent: Long get() = client?.packetsSent ?: 0L
+    val huePacketsFailed: Long get() = client?.packetsFailed ?: 0L
 
     /** Called every render frame from the GL thread. Must stay allocation-free. */
     fun onBands(low: Float, mid: Float, high: Float) {
@@ -141,6 +144,7 @@ class HueLightController(context: Context) {
             // Held beat colour for Link mode, recomputed from bass presence each beat.
             var beatR = 1f; var beatG = 1f; var beatB = 1f
             val frameNs = 1_000_000_000L / SEND_HZ
+            var linkBeatFired = false
 
             while (running) {
                 val t0 = System.nanoTime()
@@ -154,34 +158,46 @@ class HueLightController(context: Context) {
                     val levelBase = cfg.levelBase
                     val levelFull = cfg.levelFull
 
-                    // Recent-loudness peak follower (fast attack, slow decay) over
-                    // the absolute mic level, so a beat in a quiet/near-silent
-                    // passage flashes subtly while a loud drop flashes full.
                     level = max(micLevel, level * LEVEL_DECAY)
 
+                    val lookaheadMs = cfg.hueLookaheadMs
                     val bc = linkBeatCount
-                    if (bc != lastLinkBeat) {
-                        lastLinkBeat = bc
-                        // Only beat when the track is actually playing: below base
-                        // we skip the flash entirely, so it decays to 0 and the
-                        // lights settle (no pulsing during quiet parts / no music).
-                        if (level >= levelBase) {
-                            // Brightness ramps from a small floor up to full whack.
-                            val t = ((level - levelBase) / (levelFull - levelBase)).coerceIn(0f, 1f)
-                            val loudness = t * t * (3f - 2f * t)
-                            flash = MIN_BEAT_AMP + (1f - MIN_BEAT_AMP) * loudness
-                            // Colour by bass content: enough bass => blue/purple;
-                            // little bass but mids/treble (breakdown) => light red.
-                            // Driven by the PCM bass ratio (the FFT low band
-                            // saturates at volume), swept through magenta/pink; the
-                            // red end is desaturated so it reads as "light" red.
-                            val ct = ((bassRatio - cfg.bassLo) / (cfg.bassHi - cfg.bassLo)).coerceIn(0f, 1f)
-                            val cs = ct * ct * (3f - 2f * ct)
-                            val hue = RED_HUE + (PURPLE_HUE - RED_HUE) * cs
-                            val sat = SAT_TREBLE + (SAT_BASS - SAT_TREBLE) * cs
-                            hsvToRgb(hue, sat, 1f)
-                            beatR = hsvOut[0]; beatG = hsvOut[1]; beatB = hsvOut[2]
+                    var shouldFlash = false
+
+                    if (lookaheadMs > 0f) {
+                        if (bc != lastLinkBeat) {
+                            if (!linkBeatFired) shouldFlash = true
+                            lastLinkBeat = bc
+                            linkBeatFired = false
                         }
+                        if (!shouldFlash && !linkBeatFired) {
+                            val phase = NativeBridge.nativeLinkBeatPhase()
+                            val bpm = NativeBridge.nativeLinkTempo()
+                            if (bpm > 0.0) {
+                                val msUntilBeat = (1.0 - phase) * 60000.0 / bpm
+                                if (msUntilBeat <= lookaheadMs) {
+                                    linkBeatFired = true
+                                    shouldFlash = true
+                                }
+                            }
+                        }
+                    } else {
+                        if (bc != lastLinkBeat) {
+                            shouldFlash = true
+                            lastLinkBeat = bc
+                        }
+                    }
+
+                    if (shouldFlash && level >= levelBase) {
+                        val t = ((level - levelBase) / (levelFull - levelBase)).coerceIn(0f, 1f)
+                        val loudness = t * t * (3f - 2f * t)
+                        flash = MIN_BEAT_AMP + (1f - MIN_BEAT_AMP) * loudness
+                        val ct = ((bassRatio - cfg.bassLo) / (cfg.bassHi - cfg.bassLo)).coerceIn(0f, 1f)
+                        val cs = ct * ct * (3f - 2f * ct)
+                        val hue = RED_HUE + (PURPLE_HUE - RED_HUE) * cs
+                        val sat = SAT_TREBLE + (SAT_BASS - SAT_TREBLE) * cs
+                        hsvToRgb(hue, sat, 1f)
+                        beatR = hsvOut[0]; beatG = hsvOut[1]; beatB = hsvOut[2]
                     }
                     flash *= FLASH_DECAY
                     // Beat punches on top of the (tunable) ambient floor, so the
@@ -194,8 +210,6 @@ class HueLightController(context: Context) {
                         rgb[i * 3] = r; rgb[i * 3 + 1] = g; rgb[i * 3 + 2] = b
                     }
                 } else {
-                    // Audio mode: continuous spectrum colour + low-band onset flash,
-                    // with user-tunable beat sensitivity / flash strength / brightness.
                     val cfg = HueStrobeSettings
                     if (l > cfg.audioBeatThreshold && (l - lastLow) > cfg.audioBeatDelta) flash = 1f
                     flash *= FLASH_DECAY

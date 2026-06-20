@@ -53,6 +53,11 @@ object NativeBridge {
      */
     external fun nativePushPcm(pcm: ShortArray, frames: Int, channels: Int)
 
+    // --- Diagnostics ---
+
+    /** Measured period between Oboe audio callbacks in milliseconds. */
+    external fun nativeGetAudioCallbackMs(): Float
+
     // --- Ableton Link (wireless tempo/beat sync) ---
 
     /** Join/leave the local-network Link session. Call from the UI thread. */
@@ -63,6 +68,9 @@ object NativeBridge {
      * once per frame from the GL render thread only — it's realtime-safe.
      */
     external fun nativeLinkPollBeats(): Int
+
+    /** Fractional phase within the current beat (0.0 to 1.0). Any-thread safe. */
+    external fun nativeLinkBeatPhase(): Double
 
     /** Current shared session tempo in BPM (0 if unavailable). UI-thread. */
     external fun nativeLinkTempo(): Double

@@ -77,6 +77,19 @@ int linkPollBeats() {
     }
 }
 
+double linkBeatPhase() {
+    try {
+        auto& l = link();
+        if (!l.isEnabled()) return 0.0;
+        const auto time = l.clock().micros();
+        const auto state = l.captureAppSessionState();
+        const double beat = state.beatAtTime(time, kQuantum);
+        return beat - std::floor(beat);
+    } catch (...) {
+        return 0.0;
+    }
+}
+
 double linkTempo() {
     try {
         return link().captureAppSessionState().tempo();
