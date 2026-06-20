@@ -64,7 +64,8 @@ class VisualizerRenderer : GLSurfaceView.Renderer {
         BeatPulseScene(),          // 18 — beat-emphasis demo (Ableton Link)
         MandelboxScene(),          // 19 — "Fractal Cathedral" ray-marched mandelbox
         ReactionDiffusionScene(),  // 20 — Gray-Scott Turing patterns (FBO ping-pong)
-        ChladniPlateScene()        // 21 — "Cymatics" dominant-frequency Chladni plate
+        ChladniPlateScene(),       // 21 — "Cymatics" dominant-frequency Chladni plate
+        StrangeAttractorScene()    // 22 — Aizawa attractor particle cloud (compute)
     )
     private var current = DEFAULT_SCENE
     private var target = DEFAULT_SCENE

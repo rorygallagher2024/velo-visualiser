@@ -25,7 +25,7 @@ The stand-out features:
 
 ## The full feature list
 
-- **21 audio-reactive visualizers**: Waveforms, spectra, particle fluids, scrolling spectrograms, dot-matrix LED meters, and more.
+- **22 audio-reactive visualizers**: Waveforms, spectra, particle fluids, scrolling spectrograms, dot-matrix LED meters, and more.
 - **HDR Effects**: Including post-processing for real luminous glow on capable FP16 panels and selectable glow strength.
 - **Global colour themes**: A single post-process colour grade re-tints every visual (Neon, Warm, Cool, Mono…) at zero per-scene cost.
 - **Real-time Philips Hue Sync Integration**: Direct local UDP streaming over the Hue Entertainment API. Also works in co-ordination with Ableton Link to drive a sychronised beat to the bulbs. Included advanced controls for calibration and the ability to send Ableton Link beats early for perfect synchronisation.
