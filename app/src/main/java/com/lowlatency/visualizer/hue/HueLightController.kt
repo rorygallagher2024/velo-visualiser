@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import com.lowlatency.visualizer.HueStrobeSettings
 import com.lowlatency.visualizer.LinkSync
 import kotlin.concurrent.thread
 import kotlin.math.abs
@@ -52,13 +53,23 @@ class HueLightController(context: Context) {
     // Link beat-strobe so quiet passages flash subtly. This is the ABSOLUTE level —
     // not the normalized FFT bands, which stay hot even when the track is quiet.
     @Volatile private var micLevel = 0f
-    fun onMicLevel(level: Float) { micLevel = level }
+    @Volatile private var meterLevel = 0f
+    fun onMicLevel(peak: Float) {
+        micLevel = peak
+        // Peak-hold + slow decay so the Advanced meter reads as a steady VU bar
+        // instead of the spiky raw per-frame peak.
+        meterLevel = if (peak > meterLevel) peak else meterLevel * METER_DECAY
+    }
 
     // Volume-independent bass fraction (bassRMS / (bassRMS + trebleRMS)), computed
     // from raw PCM and fed from the GL thread. Drives the Link strobe colour:
     // high => blue/purple, low => light red. Lightly smoothed here.
     @Volatile private var bassRatio = 0.5f
     fun onBassRatio(r: Float) { bassRatio += 0.25f * (r - bassRatio) }
+
+    // Live values for the Advanced panel's meter (read on the UI thread).
+    val currentMicLevel: Float get() = meterLevel
+    val currentBassRatio: Float get() = bassRatio
 
     /**
      * Start streaming to [area]: persist the choice, activate the stream over
@@ -137,8 +148,11 @@ class HueLightController(context: Context) {
 
                 if (LinkSync.enabled) {
                     // Beat-strobe: dark between Link beats; on each beat flash a
-                    // colour chosen by bass presence — bass-heavy => purple, treble
-                    // => green. Brightness scales with how loud the track is.
+                    // colour chosen by bass presence. All thresholds come from the
+                    // user-tunable HueStrobeSettings (device mic varies a lot).
+                    val cfg = HueStrobeSettings
+                    val levelBase = cfg.levelBase
+                    val levelFull = cfg.levelFull
 
                     // Recent-loudness peak follower (fast attack, slow decay) over
                     // the absolute mic level, so a beat in a quiet/near-silent
@@ -148,44 +162,44 @@ class HueLightController(context: Context) {
                     val bc = linkBeatCount
                     if (bc != lastLinkBeat) {
                         lastLinkBeat = bc
-                        // Only beat when the track is actually playing: below BASE
+                        // Only beat when the track is actually playing: below base
                         // we skip the flash entirely, so it decays to 0 and the
                         // lights settle (no pulsing during quiet parts / no music).
-                        if (level >= LEVEL_BASE) {
+                        if (level >= levelBase) {
                             // Brightness ramps from a small floor up to full whack.
-                            val t = ((level - LEVEL_BASE) / (LEVEL_FULL - LEVEL_BASE)).coerceIn(0f, 1f)
+                            val t = ((level - levelBase) / (levelFull - levelBase)).coerceIn(0f, 1f)
                             val loudness = t * t * (3f - 2f * t)
                             flash = MIN_BEAT_AMP + (1f - MIN_BEAT_AMP) * loudness
                             // Colour by bass content: enough bass => blue/purple;
-                            // little bass but mids/treble present (breakdown) =>
-                            // light red. Driven by the PCM bass fraction (the FFT
-                            // low band saturates at volume), swept through
-                            // magenta/pink; the red end is desaturated ("light" red).
-                            val bf = bassRatio
-                            val ct = ((bf - BASS_LO) / (BASS_HI - BASS_LO)).coerceIn(0f, 1f)
+                            // little bass but mids/treble (breakdown) => light red.
+                            // Driven by the PCM bass ratio (the FFT low band
+                            // saturates at volume), swept through magenta/pink; the
+                            // red end is desaturated so it reads as "light" red.
+                            val ct = ((bassRatio - cfg.bassLo) / (cfg.bassHi - cfg.bassLo)).coerceIn(0f, 1f)
                             val cs = ct * ct * (3f - 2f * ct)
                             val hue = RED_HUE + (PURPLE_HUE - RED_HUE) * cs
                             val sat = SAT_TREBLE + (SAT_BASS - SAT_TREBLE) * cs
                             hsvToRgb(hue, sat, 1f)
                             beatR = hsvOut[0]; beatG = hsvOut[1]; beatB = hsvOut[2]
-                            Log.d(TAG, String.format("Link beat bassRatio=%.2f hue=%.0f", bf, hue))
                         }
                     }
                     flash *= FLASH_DECAY
-                    // Beat punches on top of a constant dim ambient floor, so the
-                    // lights rest on a low colour instead of going fully dark when
+                    // Beat punches on top of the (tunable) ambient floor, so the
+                    // lights rest on a low glow instead of going fully dark when
                     // there's no beat (quiet parts / no music).
-                    val r = sqrt((AMBIENT_R + beatR * flash).coerceIn(0f, 1f))
-                    val g = sqrt((AMBIENT_G + beatG * flash).coerceIn(0f, 1f))
-                    val b = sqrt((AMBIENT_B + beatB * flash).coerceIn(0f, 1f))
+                    val r = sqrt((cfg.ambientR + beatR * flash).coerceIn(0f, 1f))
+                    val g = sqrt((cfg.ambientG + beatG * flash).coerceIn(0f, 1f))
+                    val b = sqrt((cfg.ambientB + beatB * flash).coerceIn(0f, 1f))
                     for (i in channelIds.indices) {
                         rgb[i * 3] = r; rgb[i * 3 + 1] = g; rgb[i * 3 + 2] = b
                     }
                 } else {
-                    // Audio mode: continuous spectrum colour + low-band onset flash.
-                    if (l > BEAT_THRESHOLD && (l - lastLow) > BEAT_DELTA) flash = 1f
+                    // Audio mode: continuous spectrum colour + low-band onset flash,
+                    // with user-tunable beat sensitivity / flash strength / brightness.
+                    val cfg = HueStrobeSettings
+                    if (l > cfg.audioBeatThreshold && (l - lastLow) > cfg.audioBeatDelta) flash = 1f
                     flash *= FLASH_DECAY
-                    mapColors(channelIds.size, l, m, h, flash, rgb)
+                    mapColors(channelIds.size, l, m, h, flash * cfg.audioFlashMul, rgb)
                 }
                 lastLow = l
 
@@ -208,7 +222,7 @@ class HueLightController(context: Context) {
      */
     private fun mapColors(count: Int, low: Float, mid: Float, high: Float, flash: Float, out: FloatArray) {
         val energy = max(low, max(mid, high))
-        val bright = MIN_BRIGHT + (1f - MIN_BRIGHT) * energy
+        val bright = (MIN_BRIGHT + (1f - MIN_BRIGHT) * energy) * HueStrobeSettings.audioBrightMul
         for (i in 0 until count) {
             val ph = if (count > 1) i.toFloat() / count else 0f
             // Rotate emphasis from bass-warm (red) to treble-cool (blue) per channel.
@@ -248,31 +262,19 @@ class HueLightController(context: Context) {
         private const val TAG = "HueLightController"
         private const val SEND_HZ = 50L          // Hue Entertainment caps ~50–60 Hz
         private const val MIN_BRIGHT = 0.06f      // floor so lights never go fully dark while synced
-        private const val BEAT_THRESHOLD = 0.45f  // low-band level that can register as a beat
-        private const val BEAT_DELTA = 0.12f      // required rise vs last frame
         private const val FLASH_DECAY = 0.80f     // per-frame flash falloff (~50 Hz)
 
-        // Link beat-strobe hues (degrees). Bass-heavy beats flash purple, treble
-        // beats flash green; mids sweep through blue/cyan (hue-space, never grey).
-        // Beat-strobe colour: little bass (breakdown) => light red, enough bass =>
-        // blue/purple, blended through pink/magenta over the bass fraction.
+        // Link beat-strobe — fixed shape constants. The user-tunable thresholds
+        // (level gate, bass split, ambient glow) live in HueStrobeSettings.
+        private const val LEVEL_DECAY = 0.93f     // per-frame loudness-follower falloff (~50 Hz)
+        private const val METER_DECAY = 0.90f     // Advanced meter VU-bar peak-hold falloff
+        private const val MIN_BEAT_AMP = 0.06f    // floor for the weakest *active* beat
+
+        // Colour endpoints: little bass (breakdown) => light red, enough bass =>
+        // blue/purple, blended through pink/magenta over the bass ratio.
         private const val RED_HUE = 360f          // little-bass colour (light red)
         private const val PURPLE_HUE = 265f       // bass-heavy colour (blue/purple)
-        private const val BASS_LO = 0.45f         // PCM bass ratio below this => full red
-        private const val BASS_HI = 0.70f         // PCM bass ratio above this => full blue/purple
         private const val SAT_BASS = 1.0f         // vivid blue/purple
         private const val SAT_TREBLE = 0.70f      // lower sat => lighter red
-
-        // Loudness gate for the Link beat-strobe (absolute mic PCM peak).
-        private const val LEVEL_DECAY = 0.93f     // per-frame loudness-follower falloff (~50 Hz)
-        private const val LEVEL_BASE = 0.012f     // mic peak below this => no beat (rest on ambient)
-        private const val LEVEL_FULL = 0.03f      // mic peak above this => full-brightness beats
-        private const val MIN_BEAT_AMP = 0.06f    // floor for the weakest *active* beat (just above BASE)
-
-        // Resting ambient colour (pre-gamma) so the lights hold a dim glow when
-        // there's no beat, instead of going black. A soft purple-blue.
-        private const val AMBIENT_R = 0.006f
-        private const val AMBIENT_G = 0.003f
-        private const val AMBIENT_B = 0.014f
     }
 }

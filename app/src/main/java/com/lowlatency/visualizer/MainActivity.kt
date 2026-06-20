@@ -25,6 +25,8 @@ import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.ProgressBar
+import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
@@ -88,6 +90,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnLinkSync: Button
     private lateinit var linkStatus: TextView
     private lateinit var beatDot: View
+    private lateinit var btnAdvanced: Button
     private lateinit var btnThemeSpectrum: Button
     private lateinit var btnThemeNeon: Button
     private lateinit var btnThemeWarm: Button
@@ -243,6 +246,7 @@ class MainActivity : AppCompatActivity() {
         btnLinkSync = findViewById(R.id.btn_link_sync)
         linkStatus = findViewById(R.id.link_status)
         beatDot = findViewById(R.id.beat_dot)
+        btnAdvanced = findViewById(R.id.btn_advanced)
         btnThemeSpectrum = findViewById(R.id.btn_theme_spectrum)
         btnThemeNeon = findViewById(R.id.btn_theme_neon)
         btnThemeWarm = findViewById(R.id.btn_theme_warm)
@@ -493,6 +497,118 @@ class MainActivity : AppCompatActivity() {
         // Ableton Link wireless tempo/beat sync (persisted, default off).
         setLinkSync(prefs.getBoolean(KEY_LINK, false), persist = false)
         btnLinkSync.setOnClickListener { setLinkSync(!LinkSync.enabled, persist = true) }
+
+        // Advanced light-sync tuning (persisted). Restore saved slider positions
+        // into the strobe settings, then open the panel on tap.
+        HueStrobeSettings.micSensitivity = prefs.getFloat(KEY_ADV_SENS, HueStrobeSettings.micSensitivity)
+        HueStrobeSettings.colourSplit = prefs.getFloat(KEY_ADV_COLOUR, HueStrobeSettings.colourSplit)
+        HueStrobeSettings.restingGlow = prefs.getFloat(KEY_ADV_GLOW, HueStrobeSettings.restingGlow)
+        HueStrobeSettings.audioBrightness = prefs.getFloat(KEY_ADV_AUDIO_BRIGHT, HueStrobeSettings.audioBrightness)
+        HueStrobeSettings.audioFlash = prefs.getFloat(KEY_ADV_AUDIO_FLASH, HueStrobeSettings.audioFlash)
+        HueStrobeSettings.audioSensitivity = prefs.getFloat(KEY_ADV_AUDIO_SENS, HueStrobeSettings.audioSensitivity)
+        btnAdvanced.setOnClickListener { showAdvancedDialog() }
+    }
+
+    /**
+     * Advanced lighting panel. Adapts to the mode: with Ableton Link on it shows
+     * the beat-strobe controls (live meters + sensitivity/colour/glow); with Link
+     * off it shows the audio-reactive light-show controls (brightness/flash/sens).
+     */
+    private fun showAdvancedDialog() {
+        val view = layoutInflater.inflate(R.layout.dialog_advanced, null)
+        val linkMode = LinkSync.enabled
+
+        view.findViewById<TextView>(R.id.adv_title_text)
+            .setText(if (linkMode) R.string.adv_title_link else R.string.adv_title_audio)
+        view.findViewById<TextView>(R.id.adv_hint_text)
+            .setText(if (linkMode) R.string.adv_hint_link else R.string.adv_hint_audio)
+        view.findViewById<View>(R.id.group_link).visibility = if (linkMode) View.VISIBLE else View.GONE
+        view.findViewById<View>(R.id.group_audio).visibility = if (linkMode) View.GONE else View.VISIBLE
+
+        val seekSens = view.findViewById<SeekBar>(R.id.seek_sensitivity)
+        val seekColour = view.findViewById<SeekBar>(R.id.seek_colour)
+        val seekGlow = view.findViewById<SeekBar>(R.id.seek_glow)
+        val seekAudioBright = view.findViewById<SeekBar>(R.id.seek_audio_brightness)
+        val seekAudioFlash = view.findViewById<SeekBar>(R.id.seek_audio_flash)
+        val seekAudioSens = view.findViewById<SeekBar>(R.id.seek_audio_sens)
+
+        fun applyPositions() {
+            seekSens.progress = (HueStrobeSettings.micSensitivity * 100f).toInt()
+            seekColour.progress = (HueStrobeSettings.colourSplit * 100f).toInt()
+            seekGlow.progress = (HueStrobeSettings.restingGlow * 100f).toInt()
+            seekAudioBright.progress = (HueStrobeSettings.audioBrightness * 100f).toInt()
+            seekAudioFlash.progress = (HueStrobeSettings.audioFlash * 100f).toInt()
+            seekAudioSens.progress = (HueStrobeSettings.audioSensitivity * 100f).toInt()
+        }
+        applyPositions()
+
+        seekSens.onProgress { v -> HueStrobeSettings.micSensitivity = v; prefs.edit().putFloat(KEY_ADV_SENS, v).apply() }
+        seekColour.onProgress { v -> HueStrobeSettings.colourSplit = v; prefs.edit().putFloat(KEY_ADV_COLOUR, v).apply() }
+        seekGlow.onProgress { v -> HueStrobeSettings.restingGlow = v; prefs.edit().putFloat(KEY_ADV_GLOW, v).apply() }
+        seekAudioBright.onProgress { v -> HueStrobeSettings.audioBrightness = v; prefs.edit().putFloat(KEY_ADV_AUDIO_BRIGHT, v).apply() }
+        seekAudioFlash.onProgress { v -> HueStrobeSettings.audioFlash = v; prefs.edit().putFloat(KEY_ADV_AUDIO_FLASH, v).apply() }
+        seekAudioSens.onProgress { v -> HueStrobeSettings.audioSensitivity = v; prefs.edit().putFloat(KEY_ADV_AUDIO_SENS, v).apply() }
+
+        val dialog = AlertDialog.Builder(this).setView(view).create()
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+        view.findViewById<Button>(R.id.btn_adv_done).setOnClickListener { dialog.dismiss() }
+        view.findViewById<Button>(R.id.btn_adv_reset).setOnClickListener {
+            HueStrobeSettings.resetToDefaults()
+            persistAdvanced()
+            applyPositions()
+        }
+
+        // Live meters + trigger lines only apply to the Link beat-strobe.
+        if (linkMode) {
+            val meterLevel = view.findViewById<ProgressBar>(R.id.meter_level)
+            val meterBass = view.findViewById<ProgressBar>(R.id.meter_bass)
+            val markerLevel = view.findViewById<View>(R.id.marker_level)
+            val markerBass = view.findViewById<View>(R.id.marker_bass)
+            val poll = object : Runnable {
+                override fun run() {
+                    // Scale the level bar so the mic peak that reaches FULL
+                    // brightness sits at the top; the trigger point then sits at a
+                    // fixed 40% (levelBase / levelFull), marked by the line.
+                    val full = HueStrobeSettings.levelFull.coerceAtLeast(1e-4f)
+                    meterLevel.progress =
+                        (hueController.currentMicLevel / full * 100f).toInt().coerceIn(0, 100)
+                    meterBass.progress = (hueController.currentBassRatio * 100f).toInt().coerceIn(0, 100)
+                    val triggerFrac = (HueStrobeSettings.levelBase / full).coerceIn(0f, 1f)
+                    markerLevel.translationX = triggerFrac * (meterLevel.width - markerLevel.width)
+                    val splitMid = ((HueStrobeSettings.bassLo + HueStrobeSettings.bassHi) * 0.5f).coerceIn(0f, 1f)
+                    markerBass.translationX = splitMid * (meterBass.width - markerBass.width)
+                    linkHandler.postDelayed(this, 50L)
+                }
+            }
+            dialog.setOnDismissListener { linkHandler.removeCallbacks(poll) }
+            dialog.show()
+            linkHandler.post(poll)
+        } else {
+            dialog.show()
+        }
+    }
+
+    /** Persist every Advanced slider value (used after a reset). */
+    private fun persistAdvanced() {
+        prefs.edit()
+            .putFloat(KEY_ADV_SENS, HueStrobeSettings.micSensitivity)
+            .putFloat(KEY_ADV_COLOUR, HueStrobeSettings.colourSplit)
+            .putFloat(KEY_ADV_GLOW, HueStrobeSettings.restingGlow)
+            .putFloat(KEY_ADV_AUDIO_BRIGHT, HueStrobeSettings.audioBrightness)
+            .putFloat(KEY_ADV_AUDIO_FLASH, HueStrobeSettings.audioFlash)
+            .putFloat(KEY_ADV_AUDIO_SENS, HueStrobeSettings.audioSensitivity)
+            .apply()
+    }
+
+    /** Concise SeekBar listener that reports the 0..1 position on user changes. */
+    private inline fun SeekBar.onProgress(crossinline action: (Float) -> Unit) {
+        setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(s: SeekBar, p: Int, fromUser: Boolean) {
+                if (fromUser) action(p / 100f)
+            }
+            override fun onStartTrackingTouch(s: SeekBar) {}
+            override fun onStopTrackingTouch(s: SeekBar) {}
+        })
     }
 
     /** Enable/disable Ableton Link: native session + multicast lock + status poll. */
@@ -504,6 +620,7 @@ class MainActivity : AppCompatActivity() {
 
         btnLinkSync.isSelected = enabled
         btnLinkSync.setText(if (enabled) R.string.link_sync_on else R.string.link_sync_off)
+        updateAdvancedVisibility()
 
         linkHandler.removeCallbacks(linkStatusPoller)
         if (enabled) {
@@ -648,7 +765,10 @@ class MainActivity : AppCompatActivity() {
             val bassRms = sqrt(bassAcc / n)
             val trebRms = sqrt(trebAcc / n)
             hueController.onMicLevel(peak)
-            hueController.onBassRatio(bassRms / (bassRms + trebRms + 1e-6f))
+            // The bass ratio is meaningless in silence (a ratio of two ~0 noise
+            // floors hovers around 0.5), so report 0 below a small noise floor.
+            val ratio = if (peak < MIC_NOISE_FLOOR) 0f else bassRms / (bassRms + trebRms + 1e-6f)
+            hueController.onBassRatio(ratio)
         }
         // When Ableton Link is on, the beat comes from Link's clock (mic still
         // drives the visuals). Link beats fire haptics regardless of audio source,
@@ -791,6 +911,16 @@ class MainActivity : AppCompatActivity() {
     private fun updateHueSyncButton(on: Boolean) {
         btnHueSync.isSelected = on
         btnHueSync.setText(if (on) R.string.hue_sync_on else R.string.hue_sync_off)
+        updateAdvancedVisibility()
+    }
+
+    /**
+     * The Advanced panel tunes the Hue lights (audio mode and Link mode both), so
+     * show it whenever Hue sync is active. The panel adapts to whichever mode is on.
+     */
+    private fun updateAdvancedVisibility() {
+        val relevant = ::hueController.isInitialized && hueController.isEnabled
+        btnAdvanced.visibility = if (relevant) View.VISIBLE else View.GONE
     }
 
     private enum class HueConn { DISCONNECTED, SEARCHING, PAIRED, STREAMING }
@@ -1025,7 +1155,14 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_BEAT_SENS = "beat_sensitivity"
         private const val KEY_THEME = "color_theme"
         private const val KEY_LINK = "ableton_link_enabled"
-        private const val BASS_LP_A = 0.03f   // one-pole low-pass coeff (~230 Hz @ 48 kHz)
+        private const val KEY_ADV_SENS = "adv_mic_sensitivity"
+        private const val KEY_ADV_COLOUR = "adv_colour_split"
+        private const val KEY_ADV_GLOW = "adv_resting_glow"
+        private const val KEY_ADV_AUDIO_BRIGHT = "adv_audio_brightness"
+        private const val KEY_ADV_AUDIO_FLASH = "adv_audio_flash"
+        private const val KEY_ADV_AUDIO_SENS = "adv_audio_sensitivity"
+        private const val BASS_LP_A = 0.03f       // one-pole low-pass coeff (~230 Hz @ 48 kHz)
+        private const val MIC_NOISE_FLOOR = 0.006f // below this mic peak, treat as silence
         private const val KEY_FAVOURITES = "favourite_scenes"
         private const val KEY_SCREENSHARE_RATIONALE = "screenshare_rationale_shown"
         private const val SWIPE_DOWN_VELOCITY = 1200f

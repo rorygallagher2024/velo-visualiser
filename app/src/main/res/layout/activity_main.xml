@@ -869,7 +869,21 @@
             android:text="@string/hue_status_idle"
             android:textColor="@color/text_dim"
             android:textSize="11sp"
-            android:layout_marginBottom="20dp" />
+            android:layout_marginBottom="16dp" />
+
+        <!-- Advanced light tuning (shown only while Hue sync is active). -->
+        <Button
+            android:id="@+id/btn_advanced"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:layout_marginBottom="20dp"
+            android:background="@drawable/pill_button_bg"
+            android:text="@string/adv_button"
+            android:textColor="@color/btn_text"
+            android:textAllCaps="false"
+            android:textSize="13sp"
+            android:visibility="gone"
+            android:stateListAnimator="@null" />
 
         </LinearLayout>
         <!-- /TAB 2 -->
