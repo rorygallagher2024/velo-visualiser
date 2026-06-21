@@ -84,7 +84,6 @@ class BarSpectrumScene : GlScene {
         """
     }
 
-    private val analyzer = SpectrumAnalyzer(bins = BINS)
     // 64x2 upload buffer: indices [0,BINS) = magnitudes, [BINS,2*BINS) = peaks.
     private val upload: FloatBuffer = ByteBuffer
         .allocateDirect(BINS * 2 * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
@@ -93,6 +92,7 @@ class BarSpectrumScene : GlScene {
         .allocateDirect(8 * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
         .apply { put(floatArrayOf(-1f, -1f, 1f, -1f, -1f, 1f, 1f, 1f)); position(0) }
 
+    private val vbo = IntArray(1)
     private var program = 0
     private var aPos = 0
     private var uResolution = 0
@@ -102,7 +102,6 @@ class BarSpectrumScene : GlScene {
     private var specTex = 0
     private var width = 1f
     private var height = 1f
-    private var lastTime = -1f
 
     override fun onCreated() {
         program = ShaderUtil.buildProgram(VERTEX_SHADER, FRAGMENT_SHADER)
@@ -110,6 +109,11 @@ class BarSpectrumScene : GlScene {
         uResolution = GLES20.glGetUniformLocation(program, "u_resolution")
         uDim = GLES20.glGetUniformLocation(program, "u_dim")
         uSpectrum = GLES20.glGetUniformLocation(program, "u_spectrum")
+
+        GLES20.glGenBuffers(1, vbo, 0)
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, vbo[0])
+        GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, quad.capacity() * 4, quad, GLES20.GL_STATIC_DRAW)
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
 
         val tex = IntArray(1)
         GLES20.glGenTextures(1, tex, 0)
@@ -132,13 +136,25 @@ class BarSpectrumScene : GlScene {
     }
 
     override fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
-        val dt = if (lastTime < 0f) 0.016f else (timeSec - lastTime).coerceIn(0f, 0.05f)
-        lastTime = timeSec
-
-        analyzer.update(pcm, dt)
+        val magnitudes = SpectrumData.magnitudes
+        val peaks = SpectrumData.peaks
         upload.clear()
-        upload.put(analyzer.magnitudes)      // row 0
-        upload.put(analyzer.peaks)           // row 1
+        for (i in 0 until BINS) {
+            val lo = i * 128 / BINS
+            val hi = (i + 1) * 128 / BINS
+            val n = (hi - lo).coerceAtLeast(1)
+            var sum = 0f
+            for (j in lo until lo + n) sum += magnitudes[j.coerceAtMost(127)]
+            upload.put(sum / n)
+        }
+        for (i in 0 until BINS) {
+            val lo = i * 128 / BINS
+            val hi = (i + 1) * 128 / BINS
+            val n = (hi - lo).coerceAtLeast(1)
+            var sum = 0f
+            for (j in lo until lo + n) sum += peaks[j.coerceAtMost(127)]
+            upload.put(sum / n)
+        }
         upload.position(0)
 
         GLES20.glDisable(GLES20.GL_BLEND)    // opaque full-screen pass
@@ -153,9 +169,11 @@ class BarSpectrumScene : GlScene {
         GLES20.glUniform2f(uResolution, width, height)
         GLES20.glUniform1f(uDim, dim)
 
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, vbo[0])
         GLES20.glEnableVertexAttribArray(aPos)
-        GLES20.glVertexAttribPointer(aPos, 2, GLES20.GL_FLOAT, false, 0, quad)
+        GLES20.glVertexAttribPointer(aPos, 2, GLES20.GL_FLOAT, false, 0, 0)
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
         GLES20.glDisableVertexAttribArray(aPos)
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
     }
 }

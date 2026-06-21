@@ -80,11 +80,19 @@ class RawScopeScene : GlScene {
 
     override fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
         val n = minOf(pcm.size, POINTS)
-        buffer.clear(); buffer.put(pcm, 0, n); buffer.position(0)
 
         GLES20.glUseProgram(program)
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, vbo)
-        GLES20.glBufferSubData(GLES20.GL_ARRAY_BUFFER, 0, n * 4, buffer)
+
+        val buf = SpectrumData.sharedBuffer
+        if (buf != null) {
+            buf.position(0)
+            GLES20.glBufferSubData(GLES20.GL_ARRAY_BUFFER, 0, n * 4, buf)
+        } else {
+            buffer.clear(); buffer.put(pcm, 0, n); buffer.position(0)
+            GLES20.glBufferSubData(GLES20.GL_ARRAY_BUFFER, 0, n * 4, buffer)
+        }
+
         GLES20.glEnableVertexAttribArray(aSample)
         GLES20.glVertexAttribPointer(aSample, 1, GLES20.GL_FLOAT, false, 0, 0)
 

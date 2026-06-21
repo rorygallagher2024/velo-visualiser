@@ -58,7 +58,6 @@ class SpectrogramScene : GlScene {
         """
     }
 
-    private val analyzer = SpectrumAnalyzer(bins = BINS)
     private val column: FloatBuffer = ByteBuffer
         .allocateDirect(BINS * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
 
@@ -69,7 +68,6 @@ class SpectrogramScene : GlScene {
     private var uDim = 0
     private var tex = 0
     private var writeCol = 0
-    private var lastTime = -1f
 
     override fun onCreated() {
         program = ShaderUtil.buildProgram(VERTEX_SHADER, FRAGMENT_SHADER)
@@ -99,11 +97,7 @@ class SpectrogramScene : GlScene {
     override fun onResize(width: Int, height: Int, aspect: Float) {}
 
     override fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
-        val dt = if (lastTime < 0f) 0.016f else (timeSec - lastTime).coerceIn(0f, 0.05f)
-        lastTime = timeSec
-
-        analyzer.update(pcm, dt)
-        column.clear(); column.put(analyzer.magnitudes).position(0)
+        column.clear(); column.put(SpectrumData.magnitudes).position(0)
 
         GLES20.glDisable(GLES20.GL_BLEND)
         GLES20.glUseProgram(program)

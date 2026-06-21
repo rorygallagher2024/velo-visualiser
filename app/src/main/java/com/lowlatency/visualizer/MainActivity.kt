@@ -112,6 +112,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnPrivacyPolicy: Button
     private lateinit var btnAbout: Button
     private lateinit var btnPerfOverlay: Button
+    private lateinit var btnPeakLuminance: Button
+    private lateinit var groupPeakLuminance: View
     private lateinit var perfOverlay: TextView
     private lateinit var hapticController: HapticController
     private lateinit var prefs: SharedPreferences
@@ -191,7 +193,7 @@ class MainActivity : AppCompatActivity() {
                 if (!huePingPollerRunning) return@pingBridge
                 if (rtt != null) {
                     val state = if (hueController.isEnabled) HueConn.STREAMING else HueConn.REACHABLE
-                    updateHueConn(state, rtt)
+                    updateHueConn(state)
                 } else {
                     if (!hueController.isEnabled) {
                         updateHueConn(HueConn.PAIRED)
@@ -263,6 +265,7 @@ class MainActivity : AppCompatActivity() {
         wireMenuControls()
         wireHue()
         wireFirstBoot()
+        checkHdrSupport()
 
         ContextCompat.registerReceiver(
             this,
@@ -353,6 +356,8 @@ class MainActivity : AppCompatActivity() {
         btnPrivacyPolicy = findViewById(R.id.btn_privacy_policy)
         btnAbout = findViewById(R.id.btn_about)
         btnPerfOverlay = findViewById(R.id.btn_perf_overlay)
+        btnPeakLuminance = findViewById(R.id.btn_peak_luminance)
+        groupPeakLuminance = findViewById(R.id.group_peak_luminance)
         perfOverlay = findViewById(R.id.perf_overlay)
         tabBtnVisuals = findViewById(R.id.tab_btn_visuals)
         tabBtnLighting = findViewById(R.id.tab_btn_lighting)
@@ -592,6 +597,15 @@ class MainActivity : AppCompatActivity() {
         // Performance overlay toggle (persisted, default off).
         setPerfOverlay(prefs.getBoolean(KEY_PERF_OVERLAY, false))
         btnPerfOverlay.setOnClickListener { setPerfOverlay(!perfOverlayEnabled) }
+
+        // Peak luminance (HDR+) toggle (persisted, default off).
+        val peak = prefs.getBoolean(KEY_PEAK_LUMINANCE, false)
+        updatePeakLuminance(peak)
+        btnPeakLuminance.setOnClickListener {
+            val enabled = !prefs.getBoolean(KEY_PEAK_LUMINANCE, false)
+            prefs.edit().putBoolean(KEY_PEAK_LUMINANCE, enabled).apply()
+            updatePeakLuminance(enabled)
+        }
 
         // HDR bloom / glow strength (persisted).
         GlowSettings.strength = GlowSettings.Strength.fromKey(prefs.getString(KEY_GLOW, null))
@@ -900,6 +914,30 @@ class MainActivity : AppCompatActivity() {
         btnBurnin.setText(if (enabled) R.string.burnin_on else R.string.burnin_off)
     }
 
+    private fun updatePeakLuminance(enabled: Boolean) {
+        val d = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) display else windowManager.defaultDisplay
+        val isHdr = d?.isHdr == true
+
+        if (isHdr) {
+            btnPeakLuminance.setText(if (enabled) R.string.peak_luminance_on else R.string.peak_luminance_off)
+            findViewById<TextView>(R.id.peak_luminance_hint_text).setText(R.string.peak_luminance_hint)
+        } else {
+            btnPeakLuminance.setText(if (enabled) R.string.max_brightness_on else R.string.max_brightness_off)
+            findViewById<TextView>(R.id.peak_luminance_hint_text).setText(R.string.max_brightness_hint)
+        }
+        btnPeakLuminance.isSelected = enabled
+
+        val lp = window.attributes
+        lp.screenBrightness = if (enabled) 1.0f else WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+        window.attributes = lp
+
+        if (Build.VERSION.SDK_INT >= 35) {
+            // Android 15+ HDR headroom: 1.0 = no headroom, >1.0 = extra range.
+            // 10.0 is a safe "maximum" request for most OLED panels.
+            window.setDesiredHdrHeadroom(if (enabled) 10.0f else 1.0f)
+        }
+    }
+
     private fun setPerfOverlay(enabled: Boolean) {
         perfOverlayEnabled = enabled
         prefs.edit().putBoolean(KEY_PERF_OVERLAY, enabled).apply()
@@ -918,31 +956,79 @@ class MainActivity : AppCompatActivity() {
 
     private fun updatePerfOverlay() {
         if (!perfOverlayEnabled) return
-        val sb = StringBuilder()
 
         val fps = glView.rendererFps
         val frameMs = glView.rendererFrameTimeMs
-        sb.append("Render: %.1f fps · %.1fms/frame".format(fps, frameMs))
-
         val audioMs = NativeBridge.nativeGetAudioCallbackMs()
         val rate = NativeBridge.nativeGetSampleRate()
-        sb.append("\nAudio: %.1fms callback · %d Hz".format(audioMs, rate))
 
+        val sb = android.text.SpannableStringBuilder()
+
+        fun appendSection(label: String, value: String, color: Int = 0) {
+            val start = sb.length
+            sb.append(label.uppercase() + " ")
+            sb.setSpan(android.text.style.StyleSpan(android.graphics.Typeface.BOLD), start, sb.length, 0)
+            sb.setSpan(android.text.style.ForegroundColorSpan(getColor(R.color.text_dim)), start, sb.length, 0)
+            
+            val valStart = sb.length
+            sb.append(value)
+            if (color != 0) {
+                sb.setSpan(android.text.style.ForegroundColorSpan(color), valStart, sb.length, 0)
+            }
+            sb.append("\n")
+        }
+
+        // Engine / Visuals
+        val fpsColor = when {
+            fps < 50f -> 0xFFFF4444.toInt()
+            fps < 110f -> 0xFFFFBB33.toInt()
+            else -> 0xFF26FF8C.toInt()
+        }
+        appendSection("Engine", "%.1f fps · %.1fms".format(fps, frameMs), fpsColor)
+
+        // Hardware Load
+        val load = NativeBridge.nativeGetHardwareLoad()
+        val cpuMs = load[0] / 1000f
+        
+        // CPU Line (Headroom in the GL thread)
+        val cpuPercent = if (frameMs > 0) (cpuMs / frameMs * 100f).coerceIn(0f, 100f) else 0f
+        appendSection("CPU   ", "%.1fms (%.0f%%) load".format(cpuMs, cpuPercent))
+
+        // Audio Capture
+        appendSection("Audio ", "%dHz · %.1fms".format(rate, audioMs))
+
+        // System Audio / Jitter
+        if (systemAudioMode) {
+            val metrics = NativeBridge.nativeGetSystemAudioMetrics()
+            val jitter = metrics[1]
+            // System audio is inherently buffered by Android (often ~40ms blocks),
+            // so we use a neutral dimmed color and a descriptive status rather
+            // than alarmist traffic lights.
+            val status = if (jitter > 80f) "[BURSTY]" else "[BUFFERED]"
+            appendSection("Shared", "%.0fµs conv · %.1fms jitter %s".format(metrics[0], jitter, status))
+        }
+
+        // Ableton Link
         if (LinkSync.enabled) {
             val bpm = NativeBridge.nativeLinkTempo()
             val peers = NativeBridge.nativeLinkPeers()
-            sb.append("\nLink: %.0f bpm · %d peer%s".format(bpm, peers, if (peers == 1) "" else "s"))
+            appendSection("Link  ", "%.0f bpm · %d peer%s".format(bpm, peers, if (peers == 1) "" else "s"))
         }
 
+        // Philips Hue
         if (::hueController.isInitialized && hueController.isEnabled) {
             val sent = hueController.huePacketsSent
             val pps = ((sent - lastHuePackets) * 2).coerceAtLeast(0)
             lastHuePackets = sent
             val drops = hueController.huePacketsFailed
-            sb.append("\nHue: %d pps · %d drop%s".format(pps, drops, if (drops == 1L) "" else "s"))
+            val hueColor = if (drops > 0) 0xFFFFBB33.toInt() else 0xFF26FF8C.toInt()
+            appendSection("Hue   ", "%d pps · %d drops".format(pps, drops), hueColor)
         }
 
-        perfOverlay.text = sb.toString()
+        // Trim the last newline
+        if (sb.isNotEmpty()) sb.delete(sb.length - 1, sb.length)
+
+        perfOverlay.text = sb
     }
 
     private fun setGlow(s: GlowSettings.Strength) {
@@ -1058,7 +1144,7 @@ class MainActivity : AppCompatActivity() {
             updateHueConn(HueConn.CHECKING)
             hueController.setup.pingBridge(savedCreds) { rtt ->
                 if (rtt != null) {
-                    updateHueConn(HueConn.REACHABLE, rtt)
+                    updateHueConn(HueConn.REACHABLE)
                     hueStatus.text = getString(R.string.hue_status_ready)
                     startHuePingPoller()
                     loadHueAreas()
@@ -1080,7 +1166,7 @@ class MainActivity : AppCompatActivity() {
             hueController.setup.pingBridge(existing) { rtt ->
                 if (rtt != null) {
                     btnHueConnect.isEnabled = true
-                    updateHueConn(HueConn.REACHABLE, rtt)
+                    updateHueConn(HueConn.REACHABLE)
                     hueStatus.text = getString(R.string.hue_status_ready)
                     startHuePingPoller()
                     loadHueAreas()
@@ -1148,7 +1234,7 @@ class MainActivity : AppCompatActivity() {
             hueController.setup.pingBridge(updatedCreds) { rtt ->
                 btnHueConnect.isEnabled = true
                 if (rtt != null) {
-                    updateHueConn(HueConn.REACHABLE, rtt)
+                    updateHueConn(HueConn.REACHABLE)
                     hueStatus.text = getString(R.string.hue_status_ready)
                     startHuePingPoller()
                     loadHueAreas()
@@ -1391,11 +1477,8 @@ class MainActivity : AppCompatActivity() {
 
     private enum class HueConn { DISCONNECTED, SEARCHING, CHECKING, PAIRED, REACHABLE, STREAMING }
 
-    private var lastHueRtt: Long = 0
-
     /** Update the colored connection-state dot + label in the Lighting tab. */
-    private fun updateHueConn(state: HueConn, rttMs: Long = lastHueRtt) {
-        lastHueRtt = rttMs
+    private fun updateHueConn(state: HueConn) {
         currentHueState = state
         val colorRes: Int
         when (state) {
@@ -1416,11 +1499,11 @@ class MainActivity : AppCompatActivity() {
                 colorRes = R.color.hue_pending
             }
             HueConn.REACHABLE -> {
-                hueConn.text = getString(R.string.hue_conn_reachable, rttMs.toInt())
+                hueConn.setText(R.string.hue_conn_reachable)
                 colorRes = R.color.hue_connected
             }
             HueConn.STREAMING -> {
-                hueConn.text = getString(R.string.hue_conn_streaming, rttMs.toInt())
+                hueConn.setText(R.string.hue_conn_streaming)
                 colorRes = R.color.hue_connected
             }
         }
@@ -1655,6 +1738,11 @@ class MainActivity : AppCompatActivity() {
         Log.i(TAG, "Display HDR capable=$isHdr (types: $types)")
     }
 
+    private fun checkHdrSupport() {
+        // The toggle is now always visible, but its text is initialized based on support.
+        updatePeakLuminance(prefs.getBoolean(KEY_PEAK_LUMINANCE, false))
+    }
+
     /** Choose the display mode with the highest refresh rate at native resolution. */
     @Suppress("DEPRECATION")   // windowManager.defaultDisplay is the pre-R fallback only
     private fun selectHighestRefreshRate() {
@@ -1680,6 +1768,7 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         glView.onResume()
+        updatePeakLuminance(prefs.getBoolean(KEY_PEAK_LUMINANCE, false))
         if (!systemAudioMode) ensureMicAndStart()
         if (::hueController.isInitialized) hueController.paused = false
         if (LinkSync.enabled) {
@@ -1696,7 +1785,7 @@ class MainActivity : AppCompatActivity() {
             val creds = hueStore.loadCredentials() ?: return
             hueController.setup.pingBridge(creds) { rtt ->
                 if (rtt != null) {
-                    updateHueConn(HueConn.REACHABLE, rtt)
+                    updateHueConn(HueConn.REACHABLE)
                     hueStatus.text = getString(R.string.hue_status_ready)
                     startHuePingPoller()
                     if (hueAreas.isEmpty()) loadHueAreas()
@@ -1753,6 +1842,7 @@ class MainActivity : AppCompatActivity() {
         private const val BASS_LP_A = 0.03f       // one-pole low-pass coeff (~230 Hz @ 48 kHz)
         private const val MIC_NOISE_FLOOR = 0.006f // below this mic peak, treat as silence
         private const val KEY_PERF_OVERLAY = "perf_overlay_enabled"
+        private const val KEY_PEAK_LUMINANCE = "peak_luminance_enabled"
         private const val KEY_FAVOURITES = "favourite_scenes"
         private const val KEY_SCREENSHARE_RATIONALE = "screenshare_rationale_shown"
         private const val SWIPE_DOWN_VELOCITY = 1200f

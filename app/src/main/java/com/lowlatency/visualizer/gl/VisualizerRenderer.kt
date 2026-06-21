@@ -57,7 +57,12 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
     private val pcm = FloatArray(POINTS)
     private val bands = FloatArray(3)
 
-    private val scenes = arrayOf<GlScene>(
+    // Shared buffer for zero-copy audio transfer to scenes/GPU.
+    private val sharedAudioBuffer = java.nio.ByteBuffer.allocateDirect(POINTS * 4)
+        .order(java.nio.ByteOrder.nativeOrder())
+    val sharedAudioFloatBuffer: java.nio.FloatBuffer = sharedAudioBuffer.asFloatBuffer()
+
+    private val scenes = arrayOf(
         OscilloscopeScene(),       // 0
         TunnelScene(),             // 1
         FluidScene(),              // 2
@@ -83,7 +88,7 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
         StrangeAttractorScene(),   // 22 — Aizawa attractor particle cloud (compute)
         PlasmaStormScene(),        // 23 — "Plasma Storm" curl-noise flow field (compute)
         AuroraDriftScene(),        // 24 — "Aurora Drift" Tetris-Effect-style flow streams
-        OdysseyScene()             // 25 — "Odyssey" flagship morphing journey
+        OdysseyScene(),             // 25 — "Odyssey" flagship morphing journey
     )
     private var current = DEFAULT_SCENE
     private var target = DEFAULT_SCENE
@@ -131,6 +136,9 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
     private var lastActiveSec = 0f
     private var burnInAlpha = 1f
 
+    // Hardware load measurement
+    private var cpuThreadTimeStart = 0L
+
     // First-run intro (VELO particle cloud). Set before the surface is created;
     // read on the GL thread. When disabled (reduced-motion) the app boots
     // straight into the visualizer.
@@ -162,6 +170,8 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
         GLES20.glClearColor(0f, 0f, 0f, 1f)     // pure black
         startNanos = System.nanoTime()
+        NativeBridge.nativeInitializeSharedBuffer(sharedAudioBuffer)
+
         post.onCreated()
         scenes.forEach { it.onCreated() }
         introActive = introEnabled && !introPlayedThisProcess
@@ -188,22 +198,31 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
     }
 
     override fun onDrawFrame(gl: GL10?) {
-        // Pull the freshest audio data from the native ring buffer + FFT.
-        NativeBridge.fillLatestAudioBuffer(pcm)
-        NativeBridge.fillLatestFrequencyBands(bands)
+        cpuThreadTimeStart = android.os.SystemClock.currentThreadTimeMillis()
+
+        // Pull the freshest audio data from the native ring buffer.
+        NativeBridge.fillSharedAudioBuffer()
+
+        // Populate the legacy PCM array for sinks/scenes that still need it.
+        sharedAudioFloatBuffer.position(0)
+        sharedAudioFloatBuffer.get(pcm, 0, pcm.size)
+
+        val t = nowSec()
+        val dt = (t - lastFrameSec).coerceIn(0f, 0.1f)
+        lastFrameSec = t
+
+        // Single FFT: bands + 128-bin spectrum in one native call.
+        SpectrumData.sharedBuffer = sharedAudioBuffer
+        NativeBridge.fillLatestAll(bands, SpectrumData.magnitudes, SpectrumData.peaks, dt)
 
         // Forward the bands to any tap (Hue light sync) — cheap, non-blocking.
         bandsSink?.invoke(bands[0], bands[1], bands[2])
         // Forward raw PCM to the beat tap (haptics) for bass-onset detection.
         pcmBeatSink?.invoke(pcm)
 
-        val t = nowSec()
-        val dt = (t - lastFrameSec).coerceIn(0f, 0.1f)
-        lastFrameSec = t
-
         if (dt > 0f) {
             frameTimeMs = dt * 1000f
-            fps = fps * 0.9f + (1f / dt) * 0.1f
+            fps = (fps * 0.9f) + ((1f / dt) * 0.1f)
         }
 
         // First-run intro owns the frame until the VELO cloud has shattered into
@@ -268,6 +287,10 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
                 theme.hueShift, theme.saturation, theme.tintR, theme.tintG, theme.tintB,
             )
         }
+
+        // Finalise load measurements
+        val cpuWorkUs = (android.os.SystemClock.currentThreadTimeMillis() - cpuThreadTimeStart) * 1000L
+        NativeBridge.nativeUpdateHardwareLoad(cpuWorkUs, 0, false)
     }
 
     /**

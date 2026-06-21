@@ -176,10 +176,7 @@ class AudioCaptureService : Service() {
             while (capturing) {
                 val read = record?.read(buf, 0, buf.size) ?: -1
                 if (read > 0) {
-                    for (i in 0 until read) {
-                        buf[i] = (buf[i] * SYSTEM_AUDIO_GAIN).toInt().toShort()
-                    }
-                    NativeBridge.nativePushPcm(buf, read / CHANNELS, CHANNELS)
+                    NativeBridge.nativePushPcm(buf, read / CHANNELS, CHANNELS, SYSTEM_AUDIO_GAIN)
                 } else if (read < 0) {
                     Log.e(TAG, "AudioRecord.read error: $read")
                     break

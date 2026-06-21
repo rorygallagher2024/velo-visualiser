@@ -1,6 +1,8 @@
 package com.lowlatency.visualizer.gl
 
 import android.opengl.GLES20
+import android.opengl.GLES30
+import android.util.Log
 import com.lowlatency.visualizer.BeatPulse
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -20,14 +22,36 @@ import java.nio.FloatBuffer
  *   - treble adds a fine sparkle to the emissive rim.
  *
  * All audio params are smoothed on the CPU side so motion stays graceful.
+ *
+ * Renders at half resolution into an FP16 FBO and upscales with linear
+ * filtering — ~4x cheaper than full-res marching.
  */
 class MandelboxScene : GlScene {
 
     companion object {
+        private const val TAG = "Mandelbox"
+
         private const val VERT = """#version 300 es
 layout(location = 0) in vec2 aPos;
 void main() { gl_Position = vec4(aPos, 0.0, 1.0); }
 """
+
+        private const val FULLSCREEN_VS = """#version 300 es
+            out vec2 v_uv;
+            void main() {
+                vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2));
+                v_uv = p;
+                gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
+            }
+        """
+
+        private const val BLIT_FS = """#version 300 es
+            precision highp float;
+            in vec2 v_uv;
+            uniform sampler2D u_tex;
+            out vec4 o;
+            void main() { o = vec4(texture(u_tex, v_uv).rgb, 1.0); }
+        """
 
         // ITER  — fold iterations (fractal detail vs. cost)
         // MARCH — ray-march steps (silhouette accuracy vs. cost)
@@ -197,6 +221,7 @@ void main() {
         .apply { put(floatArrayOf(-1f, -1f, 1f, -1f, -1f, 1f, 1f, 1f)); position(0) }
 
     private var program = 0
+    private var blitProg = 0
     private var aPos = 0
     private var uResolution = 0
     private var uTime = 0
@@ -206,9 +231,15 @@ void main() {
     private var uEmit = 0
     private var uSpark = 0
     private var uHue = 0
+    private var uBlitTex = 0
 
+    private var iw = 1; private var ih = 1
     private var w = 1f
     private var h = 1f
+
+    private var halfW = 1; private var halfH = 1
+    private var halfFbo = 0; private var halfTex = 0
+    private var halfReady = false
 
     // Smoothed audio-reactive state (kept off the raw per-frame band values so
     // the geometry breathes gracefully).
@@ -228,10 +259,22 @@ void main() {
         uEmit = GLES20.glGetUniformLocation(program, "u_emit")
         uSpark = GLES20.glGetUniformLocation(program, "u_spark")
         uHue = GLES20.glGetUniformLocation(program, "u_hue")
+
+        try {
+            blitProg = ShaderUtil.buildProgram(FULLSCREEN_VS, BLIT_FS)
+        } catch (e: RuntimeException) {
+            Log.e(TAG, "Blit shader build failed; half-res disabled.", e)
+        }
+        if (blitProg != 0) {
+            uBlitTex = GLES20.glGetUniformLocation(blitProg, "u_tex")
+        }
     }
 
     override fun onResize(width: Int, height: Int, aspect: Float) {
-        w = width.toFloat(); h = height.toFloat()
+        iw = width.coerceAtLeast(1); ih = height.coerceAtLeast(1)
+        w = iw.toFloat(); h = ih.toFloat()
+        halfW = (iw / 2).coerceAtLeast(1); halfH = (ih / 2).coerceAtLeast(1)
+        if (blitProg != 0) allocateHalf()
     }
 
     override fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
@@ -240,25 +283,41 @@ void main() {
         val high = bands[2]
         val env = BeatPulse.envelope
 
-        // Bass breathes the fold scale around 2.0 (range ~1.88..2.10). Small
-        // window: the mandelbox DE is sensitive, so we keep the morph subtle and
-        // heavily smoothed to avoid march artifacts and visual jitter.
         val targetScale = 1.9f + 0.18f * low
         scale += (targetScale - scale) * 0.04f
 
-        // Emission: a baseline driven by overall energy, punched by the beat.
         val targetEmit = 0.15f * mid + 0.6f * env
         emit += (targetEmit - emit) * 0.2f
 
-        // Treble sparkle, lightly smoothed.
         spark += (high - spark) * 0.25f
 
-        // Continuous slow hue drift, gently advanced by treble energy.
         hue += (0.012f + high * 0.04f) * 0.016f
 
         GLES20.glDisable(GLES20.GL_BLEND)
+
+        if (halfReady) {
+            val target = IntArray(1)
+            GLES20.glGetIntegerv(GLES20.GL_FRAMEBUFFER_BINDING, target, 0)
+
+            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, halfFbo)
+            GLES20.glViewport(0, 0, halfW, halfH)
+            renderMarch(halfW.toFloat(), halfH.toFloat(), timeSec, dim, env)
+
+            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, target[0])
+            GLES20.glViewport(0, 0, iw, ih)
+            GLES20.glUseProgram(blitProg)
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, halfTex)
+            GLES20.glUniform1i(uBlitTex, 0)
+            GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, 3)
+        } else {
+            renderMarch(w, h, timeSec, dim, env)
+        }
+    }
+
+    private fun renderMarch(rw: Float, rh: Float, timeSec: Float, dim: Float, env: Float) {
         GLES20.glUseProgram(program)
-        GLES20.glUniform2f(uResolution, w, h)
+        GLES20.glUniform2f(uResolution, rw, rh)
         GLES20.glUniform1f(uTime, timeSec)
         GLES20.glUniform1f(uDim, dim)
         GLES20.glUniform1f(uEnv, env)
@@ -271,5 +330,38 @@ void main() {
         GLES20.glVertexAttribPointer(aPos, 2, GLES20.GL_FLOAT, false, 0, quad)
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
         GLES20.glDisableVertexAttribArray(aPos)
+    }
+
+    private fun allocateHalf() {
+        releaseHalf()
+        val tex = IntArray(1)
+        GLES20.glGenTextures(1, tex, 0)
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, tex[0])
+        GLES30.glTexImage2D(
+            GLES20.GL_TEXTURE_2D, 0, GLES30.GL_RGBA16F, halfW, halfH, 0,
+            GLES20.GL_RGBA, GLES30.GL_HALF_FLOAT, null
+        )
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE)
+        halfTex = tex[0]
+
+        val fbo = IntArray(1)
+        GLES20.glGenFramebuffers(1, fbo, 0)
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, fbo[0])
+        GLES20.glFramebufferTexture2D(
+            GLES20.GL_FRAMEBUFFER, GLES20.GL_COLOR_ATTACHMENT0, GLES20.GL_TEXTURE_2D, halfTex, 0
+        )
+        halfReady = GLES20.glCheckFramebufferStatus(GLES20.GL_FRAMEBUFFER) == GLES20.GL_FRAMEBUFFER_COMPLETE
+        halfFbo = fbo[0]
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0)
+    }
+
+    private fun releaseHalf() {
+        if (halfTex != 0) GLES20.glDeleteTextures(1, intArrayOf(halfTex), 0)
+        if (halfFbo != 0) GLES20.glDeleteFramebuffers(1, intArrayOf(halfFbo), 0)
+        halfTex = 0; halfFbo = 0; halfReady = false
     }
 }

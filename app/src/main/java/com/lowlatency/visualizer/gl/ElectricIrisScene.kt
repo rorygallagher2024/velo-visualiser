@@ -115,7 +115,6 @@ class ElectricIrisScene : GlScene {
         """
     }
 
-    private val analyzer = SpectrumAnalyzer(bins = BINS)
     private val upload: FloatBuffer = ByteBuffer
         .allocateDirect(BINS * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
 
@@ -137,7 +136,6 @@ class ElectricIrisScene : GlScene {
     private var specTex = 0
     private var width = 1f
     private var height = 1f
-    private var lastTime = -1f
 
     override fun onCreated() {
         program = ShaderUtil.buildProgram(VERTEX_SHADER, FRAGMENT_SHADER)
@@ -172,12 +170,8 @@ class ElectricIrisScene : GlScene {
     }
 
     override fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
-        val dt = if (lastTime < 0f) 0.016f else (timeSec - lastTime).coerceIn(0f, 0.05f)
-        lastTime = timeSec
-
-        analyzer.update(pcm, dt)
         upload.clear()
-        upload.put(analyzer.magnitudes)
+        upload.put(SpectrumData.magnitudes)
         upload.position(0)
 
         GLES20.glDisable(GLES20.GL_BLEND)

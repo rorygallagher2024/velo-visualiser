@@ -79,7 +79,6 @@ class LedMatrixScene : GlScene {
         """
     }
 
-    private val analyzer = SpectrumAnalyzer(bins = COLS)
     private val upload: FloatBuffer = ByteBuffer
         .allocateDirect(COLS * 2 * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
 
@@ -96,7 +95,6 @@ class LedMatrixScene : GlScene {
     private var specTex = 0
     private var width = 1f
     private var height = 1f
-    private var lastTime = -1f
 
     override fun onCreated() {
         program = ShaderUtil.buildProgram(VERTEX_SHADER, FRAGMENT_SHADER)
@@ -126,13 +124,25 @@ class LedMatrixScene : GlScene {
     }
 
     override fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
-        val dt = if (lastTime < 0f) 0.016f else (timeSec - lastTime).coerceIn(0f, 0.05f)
-        lastTime = timeSec
-
-        analyzer.update(pcm, dt)
+        val magnitudes = SpectrumData.magnitudes
+        val peaks = SpectrumData.peaks
         upload.clear()
-        upload.put(analyzer.magnitudes)      // row 0
-        upload.put(analyzer.peaks)           // row 1
+        for (i in 0 until COLS) {
+            val lo = i * 128 / COLS
+            val hi = (i + 1) * 128 / COLS
+            val n = (hi - lo).coerceAtLeast(1)
+            var sum = 0f
+            for (j in lo until lo + n) sum += magnitudes[j.coerceAtMost(127)]
+            upload.put(sum / n)
+        }
+        for (i in 0 until COLS) {
+            val lo = i * 128 / COLS
+            val hi = (i + 1) * 128 / COLS
+            val n = (hi - lo).coerceAtLeast(1)
+            var sum = 0f
+            for (j in lo until lo + n) sum += peaks[j.coerceAtMost(127)]
+            upload.put(sum / n)
+        }
         upload.position(0)
 
         GLES20.glDisable(GLES20.GL_BLEND)    // opaque full-screen pass

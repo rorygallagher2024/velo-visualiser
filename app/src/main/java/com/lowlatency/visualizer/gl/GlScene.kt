@@ -17,10 +17,10 @@ interface GlScene {
 
     /**
      * Draw one frame.
-     * @param pcm   latest PCM window (length = render window)
-     * @param bands [low, mid, high] FFT energies, each 0..1
+     * @param pcm     latest PCM window
+     * @param bands   [low, mid, high] FFT energies, each 0..1
      * @param timeSec elapsed seconds since start (for animation)
-     * @param dim   global brightness 0..1 (transition fade)
+     * @param dim     global brightness 0..1 (transition fade)
      */
     fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float)
 

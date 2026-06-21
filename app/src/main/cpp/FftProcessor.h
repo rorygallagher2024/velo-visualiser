@@ -25,6 +25,7 @@ class FftProcessor {
 public:
     static constexpr int kFftSize = 1024;   // matches the render PCM window
     static constexpr int kBands   = 3;
+    static constexpr int kFullBins = 128;
 
     FftProcessor();
     ~FftProcessor();
@@ -32,16 +33,30 @@ public:
     FftProcessor(const FftProcessor &) = delete;
     FftProcessor &operator=(const FftProcessor &) = delete;
 
-    // `pcm` must point to at least kFftSize samples. Writes kBands values
-    // (low, mid, high), each in [0, 1], into `outBands`.
+    // Aggregate 3-band analysis for light-sync/beat.
     void process(const float *pcm, int sampleRate, float *outBands) noexcept;
 
+    // Full 128-bin log-frequency spectrum for visualizers.
+    void processFullSpectrum(const float *pcm, int sampleRate, float *outMagnitudes, float *outPeaks, float dt) noexcept;
+
+    // Single-FFT combined path: bands + full spectrum from one transform.
+    void processAll(const float *pcm, int sampleRate, float *outBands,
+                    float *outMagnitudes, float *outPeaks, float dt) noexcept;
+
 private:
+    void runFft(const float *pcm) noexcept;
+    void computeBands(int sampleRate, float *outBands) noexcept;
+    void computeFullSpectrum(float *outMagnitudes, float *outPeaks, float dt) noexcept;
+
     kiss_fftr_cfg mCfg;
     std::vector<float> mWindow;                 // Hann coefficients
     std::vector<float> mWindowed;               // scratch (windowed PCM)
     std::vector<kiss_fft_cpx> mSpectrum;        // kFftSize/2 + 1 bins
     float mSmoothed[kBands] = {0.f, 0.f, 0.f};
+
+    // Full spectrum state
+    float mFullMagnitudes[kFullBins] = {0.f};
+    float mFullPeaks[kFullBins] = {0.f};
 };
 
 #endif // LLV_FFT_PROCESSOR_H
