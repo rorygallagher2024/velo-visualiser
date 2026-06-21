@@ -67,6 +67,8 @@ Feel free to connect:
 * **LinkedIn:** [linkedin.com/in/rory-gallagher-51822532](https://www.linkedin.com/in/rory-gallagher-51822532)
 * **YouTube:** [youtube.com/@rorygallagher-redslug](https://www.youtube.com/@rorygallagher-redslug)
 
+---
+
 ## Why Velo is Fast
 
 Many Android visualizers suffer from inherent 100ms+ delays due to their reliance on high-level Java APIs. Velo eliminates these bottlenecks by operating at the OS hardware floor.
