@@ -4,7 +4,7 @@
 
 ## Velo: Low Latency Visualiser
 
-Velo is a professional-grade Android audio visualiser engineered around one primary objective: **low latency**. 
+Velo is a Android audio visualiser engineered around one primary objective: **low latency**. 
 
 When you open Velo, you'll see the default oscilloscope visualisation which responds to microphone input in **less than 10ms**. That is faster than:
 * **The blink of an eye** (which takes 100–400 ms).
