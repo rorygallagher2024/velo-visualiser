@@ -137,11 +137,14 @@
     <string name="tab_settings">Settings</string>
 
     <!-- Smart lighting (Philips Hue) -->
-    <string name="hue_header_title">Philips Hue Sync</string>
-    <string name="hue_prerequisites">Requires:\n• Philips Hue Bridge (v2)\n• Philips Hue Color Lights\n• Entertainment Area (configured in the official Hue app)</string>
+    <string name="hue_header_title">Philips Hue</string>
+    <string name="hue_section_bridge">Bridge</string>
+    <string name="hue_section_areas">Entertainment Area</string>
+    <string name="hue_section_sync">Audio Sync</string>
+    <string name="hue_prerequisites">Requires a Philips Hue Bridge (v2), Color Lights, and an Entertainment Area configured in the official Hue app. Your phone and bridge must be on the same Wi-Fi.</string>
     <string name="hue_section_label">Smart Lighting</string>
     <string name="hue_connect">Connect Hue Bridge</string>
-    <string name="hue_reconnect">Reconnect / Refresh Areas</string>
+    <string name="hue_reconnect">Reconnect</string>
     <string name="hue_sync_on">Light Sync: On</string>
     <string name="hue_sync_off">Light Sync: Off</string>
     <string name="hue_local_note">Works over your local Wi-Fi only — your phone and Hue Bridge must be on the same network. No Hue cloud account is used. Light sync uses the Microphone source.</string>

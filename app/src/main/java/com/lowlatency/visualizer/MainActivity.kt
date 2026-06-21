@@ -132,8 +132,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var hueAreaContainer: LinearLayout
     private lateinit var btnHueSync: Button
     private lateinit var btnHueForget: Button
-    private lateinit var hueForgetDivider: View
     private lateinit var huePrerequisites: View
+    private lateinit var hueAreaSection: LinearLayout
+    private lateinit var hueSyncSection: LinearLayout
     private lateinit var hueStatus: TextView
     private lateinit var hueConn: TextView
     private lateinit var hueController: HueLightController
@@ -339,8 +340,9 @@ class MainActivity : AppCompatActivity() {
         hueStatus = findViewById(R.id.hue_status)
         hueConn = findViewById(R.id.hue_conn)
         btnHueForget = findViewById(R.id.btn_hue_forget)
-        hueForgetDivider = findViewById(R.id.hue_forget_divider)
         huePrerequisites = findViewById(R.id.hue_prerequisites)
+        hueAreaSection = findViewById(R.id.hue_section_areas)
+        hueSyncSection = findViewById(R.id.hue_section_sync)
         prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         optionsSheet.visibility = View.GONE
     }
@@ -1003,7 +1005,6 @@ class MainActivity : AppCompatActivity() {
             huePrerequisites.visibility = View.GONE
             btnHueConnect.setText(R.string.hue_reconnect)
             btnHueForget.visibility = View.VISIBLE
-            hueForgetDivider.visibility = View.VISIBLE
             updateHueConn(HueConn.CHECKING)
             hueController.setup.pingBridge(savedCreds) { rtt ->
                 if (rtt != null) {
@@ -1060,7 +1061,6 @@ class MainActivity : AppCompatActivity() {
                     btnHueConnect.isEnabled = true
                     btnHueConnect.setText(R.string.hue_reconnect)
                     btnHueForget.visibility = View.VISIBLE
-            hueForgetDivider.visibility = View.VISIBLE
                     startHuePingPoller()
                     loadHueAreas()
                 },
@@ -1120,13 +1120,11 @@ class MainActivity : AppCompatActivity() {
         selectedArea = null
         hueAreas = emptyList()
         hueAreaContainer.removeAllViews()
-        hueAreaContainer.visibility = View.GONE
         huePrerequisites.visibility = View.VISIBLE
         btnHueConnect.setText(R.string.hue_connect)
         btnHueConnect.isEnabled = true
         btnHueSync.isEnabled = false
         btnHueForget.visibility = View.GONE
-        hueForgetDivider.visibility = View.GONE
         updateHueConn(HueConn.DISCONNECTED)
         hueStatus.setText(R.string.hue_status_idle)
     }
@@ -1153,7 +1151,7 @@ class MainActivity : AppCompatActivity() {
         hueAreaContainer.removeAllViews()
         if (areas.isEmpty()) {
             hueStatus.text = getString(R.string.hue_status_no_bridge)
-            hueAreaContainer.visibility = View.GONE
+            updateHueSections()
             return
         }
         val h = resources.displayMetrics.density * 40
@@ -1175,14 +1173,13 @@ class MainActivity : AppCompatActivity() {
             }
             hueAreaContainer.addView(b)
         }
-        hueAreaContainer.visibility = View.VISIBLE
-
         val saved = areas.firstOrNull { it.id == hueStore.selectedAreaId }
         if (saved != null) {
             selectHueArea(saved)
             hueStatus.text = getString(R.string.hue_status_ready)
         } else {
             hueStatus.setText(R.string.hue_select_area)
+            updateHueSections()
         }
     }
 
@@ -1193,7 +1190,7 @@ class MainActivity : AppCompatActivity() {
             hueAreaContainer.getChildAt(i).isSelected = (hueAreas.getOrNull(i)?.id == area.id)
         }
         btnHueSync.isEnabled = true
-        updateLightControlVisibility()
+        updateHueSections()
     }
 
     private fun onHueSyncToggle() {
@@ -1202,7 +1199,7 @@ class MainActivity : AppCompatActivity() {
             updateHueSyncButton(false)
             updateHueConn(HueConn.REACHABLE)
             hueStatus.setText(R.string.hue_status_ready)
-            updateLightControlVisibility()
+            updateHueSections()
             return
         }
         // Light sync is currently microphone-only: internal (system) audio drives
@@ -1221,7 +1218,7 @@ class MainActivity : AppCompatActivity() {
             updateHueSyncButton(ok)
             updateHueConn(if (ok) HueConn.STREAMING else HueConn.REACHABLE)
             hueStatus.text = if (ok) getString(R.string.hue_status_synced) else (err ?: "Failed to sync.")
-            updateLightControlVisibility()
+            updateHueSections()
         }
     }
 
@@ -1334,10 +1331,12 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun updateLightControlVisibility() {
+    private fun updateHueSections() {
         if (!::lightControlSection.isInitialized) return
-        val show = currentHueState == HueConn.REACHABLE && selectedArea != null
-        lightControlSection.visibility = if (show) View.VISIBLE else View.GONE
+        val reachable = currentHueState == HueConn.REACHABLE || currentHueState == HueConn.STREAMING
+        hueAreaSection.visibility = if (reachable && hueAreas.isNotEmpty()) View.VISIBLE else View.GONE
+        lightControlSection.visibility = if (currentHueState == HueConn.REACHABLE && selectedArea != null) View.VISIBLE else View.GONE
+        hueSyncSection.visibility = if (reachable && selectedArea != null) View.VISIBLE else View.GONE
     }
 
     private enum class HueConn { DISCONNECTED, SEARCHING, CHECKING, PAIRED, REACHABLE, STREAMING }
@@ -1376,7 +1375,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
         hueConn.setTextColor(ContextCompat.getColor(this, colorRes))
-        updateLightControlVisibility()
+        updateHueSections()
     }
 
     private fun startHuePingPoller() {
