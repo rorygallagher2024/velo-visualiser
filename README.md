@@ -6,11 +6,10 @@ A bare-metal C++/Oboe audio engine and custom OpenGL ES 3.1 shaders bypass stand
 
 The stand-out features:
 1. **The MOST reactive visualiser** with sub 10ms latency from microphone to pixel
-2. **Two audio sources** supporting microphone and device audio
-3. **HDR capable 3D visuals** targeting 120+ fps for most visuals (Device and visual preset dependent)
-4. **Ableton Link support** so you can supplement the visuals with reliable beat detection coming directly from music & DJ software
-5. **Philips Hue Lighting Support** for reactive room lighting powered by a low Latency lighting integration
-6. **No nonsense**. This app is local only with no data collection, and no ads. I don't want your data and none of us want ads.
+2. **HDR capable 3D visuals** targeting 120+ fps for most visuals (Device and visual preset dependent)
+3. **Ableton Link support** so you can supplement the visuals with reliable beat detection coming directly from music & DJ software
+4. **Philips Hue Lighting Support** for reactive room lighting powered by a low Latency lighting integration
+5. **No nonsense**. This app is local only with no data collection, and no ads. I don't want your data and none of us want ads.
 
 ## Demo
 
