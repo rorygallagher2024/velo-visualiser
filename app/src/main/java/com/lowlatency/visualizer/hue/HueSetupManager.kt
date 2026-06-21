@@ -44,6 +44,10 @@ class HueSetupManager(context: Context) {
     private val store = HueCredentialStore(context)
 
     private val http: OkHttpClient = buildLanTrustingClient()
+    private val pingClient: OkHttpClient = http.newBuilder()
+        .connectTimeout(2, TimeUnit.SECONDS)
+        .readTimeout(2, TimeUnit.SECONDS)
+        .build()
 
     // ---------------------------------------------------------------- discovery
 
@@ -258,6 +262,27 @@ class HueSetupManager(context: Context) {
         } catch (t: Throwable) {
             Log.w(TAG, "setStreamActiveSync($active) failed: ${t.message}")
             false
+        }
+    }
+
+    /**
+     * Quick reachability check + round-trip latency measurement.  Hits the
+     * bridge's CLIP v2 root (lightweight JSON) and returns the wall-clock RTT
+     * in milliseconds, or null if the bridge is unreachable.
+     */
+    fun pingBridge(creds: HueCredentials, onResult: (rttMs: Long?) -> Unit) {
+        thread(name = "hue-ping") {
+            val rtt = try {
+                val req = Request.Builder()
+                    .url("https://${creds.bridgeIp}/clip/v2/resource/bridge")
+                    .header("hue-application-key", creds.username)
+                    .get().build()
+                val t0 = System.nanoTime()
+                pingClient.newCall(req).execute().use { resp ->
+                    if (resp.isSuccessful) (System.nanoTime() - t0) / 1_000_000L else null
+                }
+            } catch (_: Throwable) { null }
+            main.post { onResult(rtt) }
         }
     }
 

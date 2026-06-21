@@ -172,6 +172,27 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private val huePingHandler = Handler(Looper.getMainLooper())
+    private var huePingPollerRunning = false
+    private val huePingPoller = object : Runnable {
+        override fun run() {
+            val creds = hueStore.loadCredentials() ?: return
+            hueController.setup.pingBridge(creds) { rtt ->
+                if (!huePingPollerRunning) return@pingBridge
+                if (rtt != null) {
+                    val state = if (hueController.isEnabled) HueConn.STREAMING else HueConn.REACHABLE
+                    updateHueConn(state, rtt)
+                } else {
+                    if (!hueController.isEnabled) {
+                        updateHueConn(HueConn.PAIRED)
+                        stopHuePingPoller()
+                    }
+                }
+                if (huePingPollerRunning) huePingHandler.postDelayed(this, 5000L)
+            }
+        }
+    }
+
     private val requestPermissions = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { grants ->
@@ -958,12 +979,21 @@ class MainActivity : AppCompatActivity() {
         btnHueConnect.setOnClickListener { onHueConnectClicked() }
         btnHueSync.setOnClickListener { onHueSyncToggle() }
 
-        // If we already paired in a previous session, the bridge is remembered:
-        // reflect that and relabel Connect as a refresh action.
-        if (hueStore.loadCredentials() != null) {
-            updateHueConn(HueConn.PAIRED)
-            hueStatus.text = getString(R.string.hue_status_paired)
+        val savedCreds = hueStore.loadCredentials()
+        if (savedCreds != null) {
             btnHueConnect.setText(R.string.hue_reconnect)
+            updateHueConn(HueConn.CHECKING)
+            hueController.setup.pingBridge(savedCreds) { rtt ->
+                if (rtt != null) {
+                    updateHueConn(HueConn.REACHABLE, rtt)
+                    hueStatus.text = getString(R.string.hue_status_paired)
+                    startHuePingPoller()
+                } else {
+                    updateHueConn(HueConn.PAIRED)
+                    hueStatus.text = getString(R.string.hue_status_unreachable)
+                    btnHueConnect.isEnabled = true
+                }
+            }
         } else {
             updateHueConn(HueConn.DISCONNECTED)
         }
@@ -972,8 +1002,20 @@ class MainActivity : AppCompatActivity() {
     private fun onHueConnectClicked() {
         val existing = hueStore.loadCredentials()
         if (existing != null) {
-            hueStatus.text = getString(R.string.hue_status_paired)
-            loadHueAreas()
+            btnHueConnect.isEnabled = false
+            updateHueConn(HueConn.CHECKING)
+            hueController.setup.pingBridge(existing) { rtt ->
+                btnHueConnect.isEnabled = true
+                if (rtt != null) {
+                    updateHueConn(HueConn.REACHABLE, rtt)
+                    hueStatus.text = getString(R.string.hue_status_paired)
+                    startHuePingPoller()
+                    loadHueAreas()
+                } else {
+                    updateHueConn(HueConn.PAIRED)
+                    hueStatus.text = getString(R.string.hue_status_unreachable)
+                }
+            }
             return
         }
         hueStatus.setText(R.string.hue_status_searching)
@@ -992,9 +1034,10 @@ class MainActivity : AppCompatActivity() {
                 onCountdown = { s -> hueStatus.text = getString(R.string.hue_status_press_button, s) },
                 onSuccess = {
                     hueStatus.setText(R.string.hue_status_paired)
-                    updateHueConn(HueConn.PAIRED)
+                    updateHueConn(HueConn.REACHABLE)
                     btnHueConnect.isEnabled = true
                     btnHueConnect.setText(R.string.hue_reconnect)
+                    startHuePingPoller()
                     loadHueAreas()
                 },
                 onError = { msg ->
@@ -1011,7 +1054,11 @@ class MainActivity : AppCompatActivity() {
         hueController.setup.listEntertainmentAreas(
             creds = creds,
             onResult = { areas -> showHueAreas(areas) },
-            onError = { msg -> hueStatus.text = msg },
+            onError = { msg ->
+                hueStatus.text = msg
+                updateHueConn(HueConn.PAIRED)
+                stopHuePingPoller()
+            },
         )
     }
 
@@ -1060,7 +1107,7 @@ class MainActivity : AppCompatActivity() {
         if (hueController.isEnabled) {
             hueController.disable()
             updateHueSyncButton(false)
-            updateHueConn(HueConn.PAIRED)
+            updateHueConn(HueConn.REACHABLE)
             hueStatus.text = getString(R.string.hue_sync_off)
             return
         }
@@ -1078,7 +1125,7 @@ class MainActivity : AppCompatActivity() {
         hueController.enable(area) { ok, err ->
             btnHueSync.isEnabled = true
             updateHueSyncButton(ok)
-            updateHueConn(if (ok) HueConn.STREAMING else HueConn.PAIRED)
+            updateHueConn(if (ok) HueConn.STREAMING else HueConn.REACHABLE)
             hueStatus.text = if (ok) getString(R.string.hue_status_synced) else (err ?: "Failed to sync.")
         }
     }
@@ -1098,23 +1145,52 @@ class MainActivity : AppCompatActivity() {
         btnAdvanced.visibility = if (relevant) View.VISIBLE else View.GONE
     }
 
-    private enum class HueConn { DISCONNECTED, SEARCHING, PAIRED, STREAMING }
+    private enum class HueConn { DISCONNECTED, SEARCHING, CHECKING, PAIRED, REACHABLE, STREAMING }
+
+    private var lastHueRtt: Long = 0
 
     /** Update the colored connection-state dot + label in the Lighting tab. */
-    private fun updateHueConn(state: HueConn) {
-        val textRes = when (state) {
-            HueConn.DISCONNECTED -> R.string.hue_conn_disconnected
-            HueConn.SEARCHING -> R.string.hue_conn_searching
-            HueConn.PAIRED -> R.string.hue_conn_paired
-            HueConn.STREAMING -> R.string.hue_conn_streaming
+    private fun updateHueConn(state: HueConn, rttMs: Long = lastHueRtt) {
+        lastHueRtt = rttMs
+        val colorRes: Int
+        when (state) {
+            HueConn.DISCONNECTED -> {
+                hueConn.setText(R.string.hue_conn_disconnected)
+                colorRes = R.color.hue_disconnected
+            }
+            HueConn.SEARCHING -> {
+                hueConn.setText(R.string.hue_conn_searching)
+                colorRes = R.color.hue_pending
+            }
+            HueConn.CHECKING -> {
+                hueConn.setText(R.string.hue_conn_checking)
+                colorRes = R.color.hue_pending
+            }
+            HueConn.PAIRED -> {
+                hueConn.setText(R.string.hue_conn_paired)
+                colorRes = R.color.hue_pending
+            }
+            HueConn.REACHABLE -> {
+                hueConn.text = getString(R.string.hue_conn_reachable, rttMs.toInt())
+                colorRes = R.color.hue_connected
+            }
+            HueConn.STREAMING -> {
+                hueConn.text = getString(R.string.hue_conn_streaming, rttMs.toInt())
+                colorRes = R.color.hue_connected
+            }
         }
-        val colorRes = when (state) {
-            HueConn.DISCONNECTED -> R.color.hue_disconnected
-            HueConn.SEARCHING, HueConn.PAIRED -> R.color.hue_pending
-            HueConn.STREAMING -> R.color.hue_connected
-        }
-        hueConn.setText(textRes)
         hueConn.setTextColor(ContextCompat.getColor(this, colorRes))
+    }
+
+    private fun startHuePingPoller() {
+        if (huePingPollerRunning) return
+        huePingPollerRunning = true
+        huePingHandler.postDelayed(huePingPoller, 5000L)
+    }
+
+    private fun stopHuePingPoller() {
+        huePingPollerRunning = false
+        huePingHandler.removeCallbacks(huePingPoller)
     }
 
     private fun syncMenuState() {
@@ -1369,6 +1445,10 @@ class MainActivity : AppCompatActivity() {
             linkHandler.post(linkStatusPoller)
         }
         if (perfOverlayEnabled) perfHandler.post(perfPoller)
+        if (huePingPollerRunning) {
+            huePingHandler.removeCallbacks(huePingPoller)
+            huePingHandler.post(huePingPoller)
+        }
     }
 
     override fun onPause() {
@@ -1377,6 +1457,7 @@ class MainActivity : AppCompatActivity() {
         if (!systemAudioMode) NativeBridge.nativeStop()
         if (::hueController.isInitialized) hueController.paused = true
         perfHandler.removeCallbacks(perfPoller)
+        huePingHandler.removeCallbacks(huePingPoller)
         linkHandler.removeCallbacks(linkStatusPoller)
         if (LinkSync.enabled) {
             NativeBridge.nativeLinkSetEnabled(false)
@@ -1385,6 +1466,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        stopHuePingPoller()
         perfHandler.removeCallbacks(perfPoller)
         if (::hueController.isInitialized) hueController.disable()
         if (::hapticController.isInitialized) hapticController.release()
