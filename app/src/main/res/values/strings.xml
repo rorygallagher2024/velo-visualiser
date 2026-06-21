@@ -178,8 +178,8 @@
     <string name="hue_conn_disconnected">●  Disconnected</string>
     <string name="hue_conn_searching">●  Searching…</string>
     <string name="hue_conn_paired">●  Bridge paired · not reachable</string>
-    <string name="hue_conn_reachable">●  Bridge connected · %1$d ms</string>
-    <string name="hue_conn_streaming">●  Connected — syncing lights · %1$d ms</string>
+    <string name="hue_conn_reachable">●  Bridge connected</string>
+    <string name="hue_conn_streaming">●  Connected — syncing lights</string>
     <string name="hue_conn_checking">●  Checking bridge…</string>
 
     <!-- Internal-audio screen-capture rationale (shown once) -->

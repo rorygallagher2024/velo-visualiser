@@ -193,7 +193,7 @@ class MainActivity : AppCompatActivity() {
                 if (!huePingPollerRunning) return@pingBridge
                 if (rtt != null) {
                     val state = if (hueController.isEnabled) HueConn.STREAMING else HueConn.REACHABLE
-                    updateHueConn(state, rtt)
+                    updateHueConn(state)
                 } else {
                     if (!hueController.isEnabled) {
                         updateHueConn(HueConn.PAIRED)
@@ -1144,7 +1144,7 @@ class MainActivity : AppCompatActivity() {
             updateHueConn(HueConn.CHECKING)
             hueController.setup.pingBridge(savedCreds) { rtt ->
                 if (rtt != null) {
-                    updateHueConn(HueConn.REACHABLE, rtt)
+                    updateHueConn(HueConn.REACHABLE)
                     hueStatus.text = getString(R.string.hue_status_ready)
                     startHuePingPoller()
                     loadHueAreas()
@@ -1166,7 +1166,7 @@ class MainActivity : AppCompatActivity() {
             hueController.setup.pingBridge(existing) { rtt ->
                 if (rtt != null) {
                     btnHueConnect.isEnabled = true
-                    updateHueConn(HueConn.REACHABLE, rtt)
+                    updateHueConn(HueConn.REACHABLE)
                     hueStatus.text = getString(R.string.hue_status_ready)
                     startHuePingPoller()
                     loadHueAreas()
@@ -1234,7 +1234,7 @@ class MainActivity : AppCompatActivity() {
             hueController.setup.pingBridge(updatedCreds) { rtt ->
                 btnHueConnect.isEnabled = true
                 if (rtt != null) {
-                    updateHueConn(HueConn.REACHABLE, rtt)
+                    updateHueConn(HueConn.REACHABLE)
                     hueStatus.text = getString(R.string.hue_status_ready)
                     startHuePingPoller()
                     loadHueAreas()
@@ -1477,11 +1477,8 @@ class MainActivity : AppCompatActivity() {
 
     private enum class HueConn { DISCONNECTED, SEARCHING, CHECKING, PAIRED, REACHABLE, STREAMING }
 
-    private var lastHueRtt: Long = 0
-
     /** Update the colored connection-state dot + label in the Lighting tab. */
-    private fun updateHueConn(state: HueConn, rttMs: Long = lastHueRtt) {
-        lastHueRtt = rttMs
+    private fun updateHueConn(state: HueConn) {
         currentHueState = state
         val colorRes: Int
         when (state) {
@@ -1502,11 +1499,11 @@ class MainActivity : AppCompatActivity() {
                 colorRes = R.color.hue_pending
             }
             HueConn.REACHABLE -> {
-                hueConn.text = getString(R.string.hue_conn_reachable, rttMs.toInt())
+                hueConn.setText(R.string.hue_conn_reachable)
                 colorRes = R.color.hue_connected
             }
             HueConn.STREAMING -> {
-                hueConn.text = getString(R.string.hue_conn_streaming, rttMs.toInt())
+                hueConn.setText(R.string.hue_conn_streaming)
                 colorRes = R.color.hue_connected
             }
         }
@@ -1788,7 +1785,7 @@ class MainActivity : AppCompatActivity() {
             val creds = hueStore.loadCredentials() ?: return
             hueController.setup.pingBridge(creds) { rtt ->
                 if (rtt != null) {
-                    updateHueConn(HueConn.REACHABLE, rtt)
+                    updateHueConn(HueConn.REACHABLE)
                     hueStatus.text = getString(R.string.hue_status_ready)
                     startHuePingPoller()
                     if (hueAreas.isEmpty()) loadHueAreas()

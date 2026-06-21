@@ -1135,12 +1135,13 @@
                 android:id="@+id/btn_hue_forget"
                 android:layout_width="match_parent"
                 android:layout_height="36dp"
+                android:layout_marginTop="8dp"
                 android:layout_marginBottom="4dp"
                 android:background="@android:color/transparent"
                 android:text="@string/hue_forget"
-                android:textColor="@color/text_dim"
+                android:textColor="@color/text_destructive"
                 android:textAllCaps="false"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 android:visibility="gone"
                 android:stateListAnimator="@null" />
 

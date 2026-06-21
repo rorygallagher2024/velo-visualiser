@@ -21,4 +21,7 @@
     <color name="hue_connected">#FF26FF8C</color>
     <color name="hue_pending">#FFFFC107</color>
     <color name="hue_disconnected">#80FFFFFF</color>
+
+    <!-- Destructive action text (muted red, not alarming but clearly distinct) -->
+    <color name="text_destructive">#FFB85450</color>
 </resources>
