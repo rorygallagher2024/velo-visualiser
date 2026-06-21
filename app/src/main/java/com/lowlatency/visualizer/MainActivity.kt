@@ -132,6 +132,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var hueAreaContainer: LinearLayout
     private lateinit var btnHueSync: Button
     private lateinit var btnHueForget: Button
+    private lateinit var hueForgetDivider: View
     private lateinit var huePrerequisites: View
     private lateinit var hueStatus: TextView
     private lateinit var hueConn: TextView
@@ -338,6 +339,7 @@ class MainActivity : AppCompatActivity() {
         hueStatus = findViewById(R.id.hue_status)
         hueConn = findViewById(R.id.hue_conn)
         btnHueForget = findViewById(R.id.btn_hue_forget)
+        hueForgetDivider = findViewById(R.id.hue_forget_divider)
         huePrerequisites = findViewById(R.id.hue_prerequisites)
         prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         optionsSheet.visibility = View.GONE
@@ -1001,6 +1003,7 @@ class MainActivity : AppCompatActivity() {
             huePrerequisites.visibility = View.GONE
             btnHueConnect.setText(R.string.hue_reconnect)
             btnHueForget.visibility = View.VISIBLE
+            hueForgetDivider.visibility = View.VISIBLE
             updateHueConn(HueConn.CHECKING)
             hueController.setup.pingBridge(savedCreds) { rtt ->
                 if (rtt != null) {
@@ -1057,6 +1060,7 @@ class MainActivity : AppCompatActivity() {
                     btnHueConnect.isEnabled = true
                     btnHueConnect.setText(R.string.hue_reconnect)
                     btnHueForget.visibility = View.VISIBLE
+            hueForgetDivider.visibility = View.VISIBLE
                     startHuePingPoller()
                     loadHueAreas()
                 },
@@ -1122,6 +1126,7 @@ class MainActivity : AppCompatActivity() {
         btnHueConnect.isEnabled = true
         btnHueSync.isEnabled = false
         btnHueForget.visibility = View.GONE
+        hueForgetDivider.visibility = View.GONE
         updateHueConn(HueConn.DISCONNECTED)
         hueStatus.setText(R.string.hue_status_idle)
     }

@@ -1117,21 +1117,32 @@
                 android:text="@string/hue_brightness_label"
                 android:textColor="@color/text_primary"
                 android:textSize="12sp"
-                android:layout_marginTop="8dp"
-                android:layout_marginBottom="2dp" />
+                android:layout_marginTop="10dp"
+                android:layout_marginBottom="8dp" />
 
             <SeekBar
                 android:id="@+id/hue_brightness"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:minHeight="48dp"
                 android:max="100"
                 android:progress="100"
                 android:progressTint="@color/accent"
                 android:progressBackgroundTint="@color/text_dim"
                 android:thumbTint="@color/accent"
-                android:layout_marginBottom="8dp" />
+                android:layout_marginBottom="4dp" />
 
         </LinearLayout>
+
+        <View
+            android:id="@+id/hue_forget_divider"
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/text_dim"
+            android:alpha="0.25"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="12dp"
+            android:visibility="gone" />
 
         <Button
             android:id="@+id/btn_hue_forget"
