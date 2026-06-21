@@ -69,7 +69,7 @@
         android:background="@drawable/sheet_background"
         android:clickable="true"
         android:focusable="true"
-        android:fillViewport="false"
+        android:fillViewport="true"
         android:scrollbars="none">
 
         <LinearLayout
@@ -1005,6 +1005,7 @@
             android:layout_marginBottom="12dp" />
 
         <TextView
+            android:id="@+id/hue_prerequisites"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/hue_prerequisites"

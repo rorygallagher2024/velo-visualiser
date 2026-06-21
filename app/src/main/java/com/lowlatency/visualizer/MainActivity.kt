@@ -121,9 +121,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tabBtnVisuals: Button
     private lateinit var tabBtnLighting: Button
     private lateinit var tabBtnSettings: Button
-    private lateinit var tabVisualizers: View
-    private lateinit var tabLighting: View
-    private lateinit var tabSettings: View
+    private lateinit var tabVisualizers: LinearLayout
+    private lateinit var tabLighting: LinearLayout
+    private lateinit var tabSettings: LinearLayout
     private lateinit var internalAudioWarning: TextView
 
     // --- Smart lighting (Philips Hue) ---
@@ -131,6 +131,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var hueAreaContainer: LinearLayout
     private lateinit var btnHueSync: Button
     private lateinit var btnHueForget: Button
+    private lateinit var huePrerequisites: View
     private lateinit var hueStatus: TextView
     private lateinit var hueConn: TextView
     private lateinit var hueController: HueLightController
@@ -231,7 +232,7 @@ class MainActivity : AppCompatActivity() {
             if (::hueController.isInitialized && hueController.isEnabled) {
                 hueController.disable()
                 updateHueSyncButton(false)
-                updateHueConn(HueConn.PAIRED)
+                updateHueConn(HueConn.REACHABLE)
                 hueStatus.setText(R.string.hue_mic_only)
             }
         } else {
@@ -336,6 +337,7 @@ class MainActivity : AppCompatActivity() {
         hueStatus = findViewById(R.id.hue_status)
         hueConn = findViewById(R.id.hue_conn)
         btnHueForget = findViewById(R.id.btn_hue_forget)
+        huePrerequisites = findViewById(R.id.hue_prerequisites)
         prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         optionsSheet.visibility = View.GONE
     }
@@ -431,9 +433,18 @@ class MainActivity : AppCompatActivity() {
         tabBtnVisuals.isSelected = tab == TAB_VISUALS
         tabBtnLighting.isSelected = tab == TAB_LIGHTING
         tabBtnSettings.isSelected = tab == TAB_SETTINGS
-        tabVisualizers.visibility = if (tab == TAB_VISUALS) View.VISIBLE else View.GONE
-        tabLighting.visibility = if (tab == TAB_LIGHTING) View.VISIBLE else View.GONE
-        tabSettings.visibility = if (tab == TAB_SETTINGS) View.VISIBLE else View.GONE
+        for ((view, id) in listOf(
+            tabVisualizers to TAB_VISUALS,
+            tabLighting to TAB_LIGHTING,
+            tabSettings to TAB_SETTINGS,
+        )) {
+            val active = tab == id
+            view.visibility = if (active) View.VISIBLE else View.GONE
+            (view.layoutParams as LinearLayout.LayoutParams).apply {
+                weight = if (active) 1f else 0f
+                height = if (active) 0 else LinearLayout.LayoutParams.WRAP_CONTENT
+            }
+        }
     }
 
     private fun showMenu() {
@@ -981,10 +992,11 @@ class MainActivity : AppCompatActivity() {
 
         btnHueConnect.setOnClickListener { onHueConnectClicked() }
         btnHueSync.setOnClickListener { onHueSyncToggle() }
-        btnHueForget.setOnClickListener { forgetHueBridge() }
+        btnHueForget.setOnClickListener { confirmForgetBridge() }
 
         val savedCreds = hueStore.loadCredentials()
         if (savedCreds != null) {
+            huePrerequisites.visibility = View.GONE
             btnHueConnect.setText(R.string.hue_reconnect)
             btnHueForget.visibility = View.VISIBLE
             updateHueConn(HueConn.CHECKING)
@@ -1037,6 +1049,7 @@ class MainActivity : AppCompatActivity() {
                 bridgeIp = bridge.ip,
                 onCountdown = { s -> hueStatus.text = getString(R.string.hue_status_press_button, s) },
                 onSuccess = {
+                    huePrerequisites.visibility = View.GONE
                     hueStatus.setText(R.string.hue_status_paired)
                     updateHueConn(HueConn.REACHABLE)
                     btnHueConnect.isEnabled = true
@@ -1052,6 +1065,15 @@ class MainActivity : AppCompatActivity() {
                 }
             )
         }
+    }
+
+    private fun confirmForgetBridge() {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.hue_forget_title)
+            .setMessage(R.string.hue_forget_message)
+            .setPositiveButton(android.R.string.ok) { _, _ -> forgetHueBridge() }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     private fun rediscoverBridge(oldCreds: HueCredentials) {
@@ -1093,6 +1115,7 @@ class MainActivity : AppCompatActivity() {
         hueAreas = emptyList()
         hueAreaContainer.removeAllViews()
         hueAreaContainer.visibility = View.GONE
+        huePrerequisites.visibility = View.VISIBLE
         btnHueConnect.setText(R.string.hue_connect)
         btnHueConnect.isEnabled = true
         btnHueSync.isEnabled = false
@@ -1167,10 +1190,21 @@ class MainActivity : AppCompatActivity() {
 
     private fun onHueSyncToggle() {
         if (hueController.isEnabled) {
-            hueController.disable()
-            updateHueSyncButton(false)
-            updateHueConn(HueConn.REACHABLE)
-            hueStatus.text = getString(R.string.hue_sync_off)
+            AlertDialog.Builder(this)
+                .setTitle(R.string.hue_stop_title)
+                .setItems(arrayOf(
+                    getString(R.string.hue_stop_white),
+                    getString(R.string.hue_stop_off),
+                )) { _, which ->
+                    val mode = if (which == 0) HueLightController.StopMode.WHITE
+                               else HueLightController.StopMode.OFF
+                    hueController.disable(mode)
+                    updateHueSyncButton(false)
+                    updateHueConn(HueConn.REACHABLE)
+                    hueStatus.text = getString(R.string.hue_sync_off)
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
             return
         }
         // Light sync is currently microphone-only: internal (system) audio drives
