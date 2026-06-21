@@ -216,7 +216,13 @@ class HueSetupManager(context: Context) {
                         for (c in 0 until chArr.length()) {
                             channels.add(HueChannel(chArr.getJSONObject(c).optInt("channel_id")))
                         }
-                        areas.add(HueEntertainmentArea(id, name, channels))
+                        val lsArr = o.optJSONArray("light_services") ?: JSONArray()
+                        val lightIds = ArrayList<String>(lsArr.length())
+                        for (ls in 0 until lsArr.length()) {
+                            lsArr.getJSONObject(ls).optString("rid").takeIf { it.isNotBlank() }
+                                ?.let { lightIds.add(it) }
+                        }
+                        areas.add(HueEntertainmentArea(id, name, channels, lightIds))
                     }
                     main.post { onResult(areas) }
                 }
@@ -270,6 +276,39 @@ class HueSetupManager(context: Context) {
         } catch (t: Throwable) {
             Log.w(TAG, "setStreamActiveSync($active) failed: ${t.message}")
             false
+        }
+    }
+
+    /**
+     * Set light state for all lights in [lightIds] via CLIP v2 REST.
+     * Pass only the properties you want to change; omitted ones stay as-is.
+     */
+    fun controlLights(
+        creds: HueCredentials,
+        lightIds: List<String>,
+        on: Boolean? = null,
+        brightness: Int? = null,
+        mirek: Int? = null,
+        x: Double? = null,
+        y: Double? = null,
+    ) {
+        thread(name = "hue-control") {
+            val body = JSONObject()
+            if (on != null) body.put("on", JSONObject().put("on", on))
+            if (brightness != null) body.put("dimming", JSONObject().put("brightness", brightness))
+            if (mirek != null) body.put("color_temperature", JSONObject().put("mirek", mirek))
+            if (x != null && y != null) body.put("color", JSONObject().put("xy", JSONObject().put("x", x).put("y", y)))
+            val bodyStr = body.toString()
+            for (id in lightIds) {
+                try {
+                    val req = Request.Builder()
+                        .url("https://${creds.bridgeIp}/clip/v2/resource/light/$id")
+                        .header("hue-application-key", creds.username)
+                        .put(bodyStr.toRequestBody(JSON))
+                        .build()
+                    pingClient.newCall(req).execute().close()
+                } catch (_: Throwable) {}
+            }
         }
     }
 

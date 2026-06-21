@@ -36,6 +36,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.text.HtmlCompat
+import android.graphics.drawable.GradientDrawable
 import com.lowlatency.visualizer.hue.HueCredentialStore
 import com.lowlatency.visualizer.hue.HueCredentials
 import com.lowlatency.visualizer.hue.HueEntertainmentArea
@@ -993,6 +994,7 @@ class MainActivity : AppCompatActivity() {
         btnHueConnect.setOnClickListener { onHueConnectClicked() }
         btnHueSync.setOnClickListener { onHueSyncToggle() }
         btnHueForget.setOnClickListener { confirmForgetBridge() }
+        buildLightControlUI()
 
         val savedCreds = hueStore.loadCredentials()
         if (savedCreds != null) {
@@ -1003,7 +1005,7 @@ class MainActivity : AppCompatActivity() {
             hueController.setup.pingBridge(savedCreds) { rtt ->
                 if (rtt != null) {
                     updateHueConn(HueConn.REACHABLE, rtt)
-                    hueStatus.text = getString(R.string.hue_status_paired)
+                    hueStatus.text = getString(R.string.hue_status_ready)
                     startHuePingPoller()
                     loadHueAreas()
                 } else {
@@ -1025,7 +1027,7 @@ class MainActivity : AppCompatActivity() {
                 if (rtt != null) {
                     btnHueConnect.isEnabled = true
                     updateHueConn(HueConn.REACHABLE, rtt)
-                    hueStatus.text = getString(R.string.hue_status_paired)
+                    hueStatus.text = getString(R.string.hue_status_ready)
                     startHuePingPoller()
                     loadHueAreas()
                 } else {
@@ -1050,7 +1052,7 @@ class MainActivity : AppCompatActivity() {
                 onCountdown = { s -> hueStatus.text = getString(R.string.hue_status_press_button, s) },
                 onSuccess = {
                     huePrerequisites.visibility = View.GONE
-                    hueStatus.setText(R.string.hue_status_paired)
+                    hueStatus.setText(R.string.hue_status_ready)
                     updateHueConn(HueConn.REACHABLE)
                     btnHueConnect.isEnabled = true
                     btnHueConnect.setText(R.string.hue_reconnect)
@@ -1093,7 +1095,7 @@ class MainActivity : AppCompatActivity() {
                 btnHueConnect.isEnabled = true
                 if (rtt != null) {
                     updateHueConn(HueConn.REACHABLE, rtt)
-                    hueStatus.text = getString(R.string.hue_status_paired)
+                    hueStatus.text = getString(R.string.hue_status_ready)
                     startHuePingPoller()
                     loadHueAreas()
                 } else {
@@ -1173,7 +1175,7 @@ class MainActivity : AppCompatActivity() {
         val saved = areas.firstOrNull { it.id == hueStore.selectedAreaId }
         if (saved != null) {
             selectHueArea(saved)
-            hueStatus.text = getString(R.string.hue_status_paired)
+            hueStatus.text = getString(R.string.hue_status_ready)
         } else {
             hueStatus.setText(R.string.hue_select_area)
         }
@@ -1186,25 +1188,16 @@ class MainActivity : AppCompatActivity() {
             hueAreaContainer.getChildAt(i).isSelected = (hueAreas.getOrNull(i)?.id == area.id)
         }
         btnHueSync.isEnabled = true
+        updateLightControlVisibility()
     }
 
     private fun onHueSyncToggle() {
         if (hueController.isEnabled) {
-            AlertDialog.Builder(this)
-                .setTitle(R.string.hue_stop_title)
-                .setItems(arrayOf(
-                    getString(R.string.hue_stop_white),
-                    getString(R.string.hue_stop_off),
-                )) { _, which ->
-                    val mode = if (which == 0) HueLightController.StopMode.WHITE
-                               else HueLightController.StopMode.OFF
-                    hueController.disable(mode)
-                    updateHueSyncButton(false)
-                    updateHueConn(HueConn.REACHABLE)
-                    hueStatus.text = getString(R.string.hue_sync_off)
-                }
-                .setNegativeButton(android.R.string.cancel, null)
-                .show()
+            hueController.disable()
+            updateHueSyncButton(false)
+            updateHueConn(HueConn.REACHABLE)
+            hueStatus.setText(R.string.hue_status_ready)
+            updateLightControlVisibility()
             return
         }
         // Light sync is currently microphone-only: internal (system) audio drives
@@ -1223,6 +1216,7 @@ class MainActivity : AppCompatActivity() {
             updateHueSyncButton(ok)
             updateHueConn(if (ok) HueConn.STREAMING else HueConn.REACHABLE)
             hueStatus.text = if (ok) getString(R.string.hue_status_synced) else (err ?: "Failed to sync.")
+            updateLightControlVisibility()
         }
     }
 
@@ -1241,6 +1235,106 @@ class MainActivity : AppCompatActivity() {
         btnAdvanced.visibility = if (relevant) View.VISIBLE else View.GONE
     }
 
+    // ----- Light control (scene presets + brightness) -----
+
+    private data class LightScene(
+        val label: String, val dotColor: Int, val on: Boolean,
+        val mirek: Int? = null, val x: Double? = null, val y: Double? = null,
+    )
+
+    private val lightScenes = listOf(
+        LightScene("Off",        0xFF666666.toInt(), on = false),
+        LightScene("Cool White", 0xFFD4E4FF.toInt(), on = true, mirek = 250),
+        LightScene("Warm White", 0xFFFFDEA0.toInt(), on = true, mirek = 370),
+        LightScene("Candlelight",0xFFFFB050.toInt(), on = true, mirek = 454),
+        LightScene("Red",        0xFFFF3030.toInt(), on = true, x = 0.675, y = 0.322),
+        LightScene("Blue",       0xFF3060FF.toInt(), on = true, x = 0.167, y = 0.04),
+        LightScene("Green",      0xFF30DD60.toInt(), on = true, x = 0.2, y = 0.68),
+        LightScene("Purple",     0xFF9030FF.toInt(), on = true, x = 0.27, y = 0.12),
+    )
+
+    private lateinit var lightControlSection: LinearLayout
+    private lateinit var sceneGrid: LinearLayout
+    private lateinit var brightnessSlider: SeekBar
+    private var currentHueState = HueConn.DISCONNECTED
+
+    private fun buildLightControlUI() {
+        lightControlSection = findViewById(R.id.hue_light_control)
+        sceneGrid = findViewById(R.id.hue_scene_grid)
+        brightnessSlider = findViewById(R.id.hue_brightness)
+
+        val dp = resources.displayMetrics.density
+        val h = (dp * 40).toInt()
+        val gap = (dp * 6).toInt()
+
+        for (i in lightScenes.indices step 2) {
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { bottomMargin = gap }
+            }
+            for (j in i until minOf(i + 2, lightScenes.size)) {
+                val scene = lightScenes[j]
+                val dot = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setSize((dp * 10).toInt(), (dp * 10).toInt())
+                    setColor(scene.dotColor)
+                }
+                val btn = Button(this).apply {
+                    text = scene.label
+                    isAllCaps = false
+                    textSize = 12f
+                    setTextColor(ContextCompat.getColorStateList(this@MainActivity, R.color.btn_text))
+                    setBackgroundResource(R.drawable.pill_button_bg)
+                    stateListAnimator = null
+                    setCompoundDrawablesRelativeWithIntrinsicBounds(dot, null, null, null)
+                    compoundDrawablePadding = (dp * 8).toInt()
+                    setPaddingRelative((dp * 16).toInt(), 0, (dp * 12).toInt(), 0)
+                    layoutParams = LinearLayout.LayoutParams(0, h, 1f).apply {
+                        if (j == i) marginEnd = gap / 2 else marginStart = gap / 2
+                    }
+                    setOnClickListener { applyLightScene(scene) }
+                }
+                row.addView(btn)
+            }
+            sceneGrid.addView(row)
+        }
+
+        brightnessSlider.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(s: SeekBar, progress: Int, fromUser: Boolean) {}
+            override fun onStartTrackingTouch(s: SeekBar) {}
+            override fun onStopTrackingTouch(s: SeekBar) {
+                val area = selectedArea ?: return
+                val creds = hueStore.loadCredentials() ?: return
+                val bri = s.progress.coerceIn(1, 100)
+                hueController.setup.controlLights(creds, area.lightIds, on = true, brightness = bri)
+            }
+        })
+    }
+
+    private fun applyLightScene(scene: LightScene) {
+        val area = selectedArea ?: return
+        val creds = hueStore.loadCredentials() ?: return
+        if (!scene.on) {
+            hueController.setup.controlLights(creds, area.lightIds, on = false)
+        } else {
+            hueController.setup.controlLights(
+                creds, area.lightIds,
+                on = true,
+                brightness = brightnessSlider.progress.coerceIn(1, 100),
+                mirek = scene.mirek, x = scene.x, y = scene.y,
+            )
+        }
+    }
+
+    private fun updateLightControlVisibility() {
+        if (!::lightControlSection.isInitialized) return
+        val show = currentHueState == HueConn.REACHABLE && selectedArea != null
+        lightControlSection.visibility = if (show) View.VISIBLE else View.GONE
+    }
+
     private enum class HueConn { DISCONNECTED, SEARCHING, CHECKING, PAIRED, REACHABLE, STREAMING }
 
     private var lastHueRtt: Long = 0
@@ -1248,6 +1342,7 @@ class MainActivity : AppCompatActivity() {
     /** Update the colored connection-state dot + label in the Lighting tab. */
     private fun updateHueConn(state: HueConn, rttMs: Long = lastHueRtt) {
         lastHueRtt = rttMs
+        currentHueState = state
         val colorRes: Int
         when (state) {
             HueConn.DISCONNECTED -> {
@@ -1276,6 +1371,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
         hueConn.setTextColor(ContextCompat.getColor(this, colorRes))
+        updateLightControlVisibility()
     }
 
     private fun startHuePingPoller() {
@@ -1550,7 +1646,7 @@ class MainActivity : AppCompatActivity() {
             hueController.setup.pingBridge(creds) { rtt ->
                 if (rtt != null) {
                     updateHueConn(HueConn.REACHABLE, rtt)
-                    hueStatus.text = getString(R.string.hue_status_paired)
+                    hueStatus.text = getString(R.string.hue_status_ready)
                     startHuePingPoller()
                     if (hueAreas.isEmpty()) loadHueAreas()
                 }

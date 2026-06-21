@@ -149,7 +149,7 @@
     <string name="hue_status_idle">Tap “Connect Hue Bridge” to begin.</string>
     <string name="hue_status_searching">Searching for a Hue Bridge on your network…</string>
     <string name="hue_status_press_button">Press the button on your Hue Bridge… %1$d s</string>
-    <string name="hue_status_paired">Bridge paired. Choose an Entertainment Area.</string>
+    <string name="hue_status_ready">Ready to sync.</string>
     <string name="hue_status_no_bridge">No bridge found. Make sure your phone and Hue Bridge are on the same Wi-Fi, then try again.</string>
     <string name="hue_status_unreachable">Bridge not reachable. Check you\'re on the same Wi-Fi as your Hue Bridge.</string>
     <string name="hue_forget">Forget Bridge</string>
@@ -157,9 +157,8 @@
     <string name="hue_forget_message">You\'ll need to press the bridge button again to re-pair.</string>
     <string name="hue_area_lights">%1$s (%2$d lights)</string>
     <string name="hue_status_auth_expired">Bridge credentials expired. Please re-pair.</string>
-    <string name="hue_stop_title">Stop light sync</string>
-    <string name="hue_stop_white">Set lights to white</string>
-    <string name="hue_stop_off">Turn lights off</string>
+    <string name="hue_light_control_label">Light Control</string>
+    <string name="hue_brightness_label">Brightness</string>
     <string name="hue_status_synced">Light sync active.</string>
     <string name="hue_select_area">Select an Entertainment Area:</string>
 

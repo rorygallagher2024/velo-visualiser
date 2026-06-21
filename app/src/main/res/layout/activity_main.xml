@@ -63,7 +63,7 @@
     <ScrollView
         android:id="@+id/options_sheet"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="match_parent"
         android:layout_gravity="bottom"
         android:layout_marginTop="72dp"
         android:background="@drawable/sheet_background"
@@ -1078,6 +1078,60 @@
             android:textColor="@color/text_dim"
             android:textSize="11sp"
             android:layout_marginBottom="16dp" />
+
+        <!-- Light Control: scene presets + brightness (visible when connected, not streaming) -->
+        <LinearLayout
+            android:id="@+id/hue_light_control"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/text_dim"
+                android:alpha="0.25"
+                android:layout_marginBottom="14dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/hue_light_control_label"
+                android:textColor="@color/accent"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textAllCaps="true"
+                android:letterSpacing="0.05"
+                android:layout_marginBottom="12dp" />
+
+            <LinearLayout
+                android:id="@+id/hue_scene_grid"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/hue_brightness_label"
+                android:textColor="@color/text_primary"
+                android:textSize="12sp"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="2dp" />
+
+            <SeekBar
+                android:id="@+id/hue_brightness"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="100"
+                android:progress="100"
+                android:progressTint="@color/accent"
+                android:progressBackgroundTint="@color/text_dim"
+                android:thumbTint="@color/accent"
+                android:layout_marginBottom="8dp" />
+
+        </LinearLayout>
 
         <Button
             android:id="@+id/btn_hue_forget"

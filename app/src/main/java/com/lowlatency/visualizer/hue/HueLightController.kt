@@ -37,7 +37,6 @@ class HueLightController(context: Context) {
     @Volatile var paused = false        // true while app is backgrounded; sender drops to 1 Hz keepalive
     private var senderThread: Thread? = null
     private var client: HueStreamClient? = null
-    private var lastArea: HueEntertainmentArea? = null
 
     val isEnabled: Boolean get() = running
     val huePacketsSent: Long get() = client?.packetsSent ?: 0L
@@ -88,45 +87,24 @@ class HueLightController(context: Context) {
         if (area.channels.isEmpty()) { onResult(false, "Area has no light channels."); return }
 
         store.selectedAreaId = area.id
-        lastArea = area
         setup.setStreamActive(creds, area.id, active = true) { ok ->
             if (!ok) { onResult(false, "Could not start the entertainment stream."); return@setStreamActive }
             startSender(creds, area, onResult)
         }
     }
 
-    enum class StopMode { WHITE, OFF }
-
     /** Stop the sender loop, close DTLS, and deactivate the stream. */
-    fun disable(stopMode: StopMode? = StopMode.WHITE) {
+    fun disable() {
         if (!running && senderThread == null) return
         running = false
         senderThread?.let { runCatching { it.join(500) } }
         senderThread = null
-
-        val c = client
-        val creds = store.loadCredentials()
-        val areaId = store.selectedAreaId
-
-        if (c != null && creds != null && areaId != null && stopMode != null) {
-            val channelIds = store.let {
-                val area = lastArea
-                if (area != null) IntArray(area.channels.size) { area.channels[it].channelId }
-                else null
-            }
-            if (channelIds != null) {
-                val rgb = FloatArray(channelIds.size * 3)
-                if (stopMode == StopMode.WHITE) {
-                    for (i in rgb.indices) rgb[i] = 1f
-                }
-                c.send(channelIds, rgb)
-            }
-        }
-
-        c?.close()
+        client?.close()
         client = null
         store.syncEnabled = false
 
+        val creds = store.loadCredentials()
+        val areaId = store.selectedAreaId
         if (creds != null && areaId != null) {
             setup.setStreamActive(creds, areaId, active = false) { }
         }
@@ -257,7 +235,6 @@ class HueLightController(context: Context) {
                     catch (_: InterruptedException) { break }
                 }
             }
-            runCatching { c.close() }
         }
     }
 
