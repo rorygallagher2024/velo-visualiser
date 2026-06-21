@@ -57,10 +57,6 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
     private val pcm = FloatArray(POINTS)
     private val bands = FloatArray(3)
 
-    // Native spectrum data (replaces SpectrumAnalyzer.kt)
-    private val magnitudes = FloatArray(128)
-    private val peaks = FloatArray(128)
-
     // Shared buffer for zero-copy audio transfer to scenes/GPU.
     private val sharedAudioBuffer = java.nio.ByteBuffer.allocateDirect(POINTS * 4)
         .order(java.nio.ByteOrder.nativeOrder())
@@ -216,7 +212,8 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
         lastFrameSec = t
 
         // Single FFT: bands + 128-bin spectrum in one native call.
-        NativeBridge.fillLatestAll(bands, magnitudes, peaks, dt)
+        SpectrumData.sharedBuffer = sharedAudioBuffer
+        NativeBridge.fillLatestAll(bands, SpectrumData.magnitudes, SpectrumData.peaks, dt)
 
         // Forward the bands to any tap (Hue light sync) — cheap, non-blocking.
         bandsSink?.invoke(bands[0], bands[1], bands[2])
@@ -279,7 +276,7 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
         resetGlState()
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
 
-        scene.draw(pcm, bands, magnitudes, peaks, t, dim, sharedAudioBuffer)
+        scene.draw(pcm, bands, t, dim)
 
         if (usePost) {
             // Bloom carries the punch (0 when glow is off); exposure lifts gently.
@@ -352,7 +349,7 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
 
         // Reveal the visualizer behind the falling letters during the shatter.
         if (disperse > 0f) {
-            scenes[DEFAULT_SCENE].draw(pcm, bands, magnitudes, peaks, t, disperse * disperse, sharedAudioBuffer)
+            scenes[DEFAULT_SCENE].draw(pcm, bands, t, disperse * disperse)
             resetGlState()
         }
 

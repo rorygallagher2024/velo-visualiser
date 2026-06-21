@@ -135,15 +135,9 @@ class BarSpectrumScene : GlScene {
         this.height = height.toFloat()
     }
 
-    override fun draw(
-        pcm: FloatArray,
-        bands: FloatArray,
-        magnitudes: FloatArray,
-        peaks: FloatArray,
-        timeSec: Float,
-        dim: Float,
-        sharedBuffer: ByteBuffer?
-    ) {
+    override fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
+        val magnitudes = SpectrumData.magnitudes
+        val peaks = SpectrumData.peaks
         upload.clear()
         for (i in 0 until BINS) {
             val lo = i * 128 / BINS

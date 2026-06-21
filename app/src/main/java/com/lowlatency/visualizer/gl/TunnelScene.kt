@@ -167,7 +167,7 @@ class TunnelScene : GlScene {
         this.aspect = aspect
     }
 
-    override fun draw(pcm: FloatArray, bands: FloatArray, magnitudes: FloatArray, peaks: FloatArray, timeSec: Float, dim: Float, sharedBuffer: java.nio.ByteBuffer?) {
+    override fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
         // Opaque fullscreen pass — no blending needed.
         GLES20.glDisable(GLES20.GL_BLEND)
         GLES20.glUseProgram(program)

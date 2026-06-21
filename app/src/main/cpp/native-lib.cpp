@@ -1,9 +1,7 @@
 #include <jni.h>
 #include <vector>
 #include <android/log.h>
-#if defined(__ARM_NEON) || defined(__aarch64__)
 #include <arm_neon.h>
-#endif
 #include "AudioEngine.h"
 #include "LinkController.h"
 
@@ -196,7 +194,6 @@ Java_com_lowlatency_visualizer_NativeBridge_nativePushPcm(JNIEnv *env, jobject,
     if (channels == 2) {
         const float kInvStereo = (1.0f / (32768.0f * 2.0f)) * gain;
         int f = 0;
-#if defined(__ARM_NEON) || defined(__aarch64__)
         for (; f <= frames - 4; f += 4) {
             int16x8_t stereo = vld1q_s16(&src[f * 2]);
             int32x4_t sum = vpaddlq_s16(stereo);
@@ -204,7 +201,6 @@ Java_com_lowlatency_visualizer_NativeBridge_nativePushPcm(JNIEnv *env, jobject,
             float32x4_t res = vmulq_n_f32(fsum, kInvStereo);
             vst1q_f32(&mono[f], res);
         }
-#endif
         for (; f < frames; ++f) {
             mono[f] = (static_cast<float>(src[f * 2]) + static_cast<float>(src[f * 2 + 1])) * kInvStereo;
         }

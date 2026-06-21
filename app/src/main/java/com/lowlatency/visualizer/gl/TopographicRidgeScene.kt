@@ -171,16 +171,8 @@ class TopographicRidgeScene : GlScene {
         this.aspect = aspect
     }
 
-    override fun draw(
-        pcm: FloatArray,
-        bands: FloatArray,
-        magnitudes: FloatArray,
-        peaks: FloatArray,
-        timeSec: Float,
-        dim: Float,
-        sharedBuffer: java.nio.ByteBuffer?
-    ) {
-        specUpload.clear(); specUpload.put(magnitudes).position(0)
+    override fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
+        specUpload.clear(); specUpload.put(SpectrumData.magnitudes).position(0)
 
         GLES20.glEnable(GLES20.GL_BLEND)
         GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE)   // additive wireframe

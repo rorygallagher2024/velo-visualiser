@@ -169,17 +169,9 @@ class ElectricIrisScene : GlScene {
         this.height = height.toFloat()
     }
 
-    override fun draw(
-        pcm: FloatArray,
-        bands: FloatArray,
-        magnitudes: FloatArray,
-        peaks: FloatArray,
-        timeSec: Float,
-        dim: Float,
-        sharedBuffer: java.nio.ByteBuffer?
-    ) {
+    override fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
         upload.clear()
-        upload.put(magnitudes)
+        upload.put(SpectrumData.magnitudes)
         upload.position(0)
 
         GLES20.glDisable(GLES20.GL_BLEND)

@@ -226,27 +226,19 @@ class OscilloscopeScene : GlScene {
         this.aspect = aspect
     }
 
-    override fun draw(
-        pcm: FloatArray,
-        bands: FloatArray,
-        magnitudes: FloatArray,
-        peaks: FloatArray,
-        timeSec: Float,
-        dim: Float,
-        sharedBuffer: ByteBuffer?
-    ) {
+    override fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
         GLES20.glDisable(GLES20.GL_BLEND)   // opaque full-screen pass
         GLES20.glUseProgram(program)
 
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, texId)
-        
-        // Zero-copy upload: use the DirectByteBuffer directly if available.
-        if (sharedBuffer != null) {
-            sharedBuffer.position(0)
+
+        val buf = SpectrumData.sharedBuffer
+        if (buf != null) {
+            buf.position(0)
             GLES20.glTexSubImage2D(
                 GLES20.GL_TEXTURE_2D, 0, 0, 0, POINTS, 1,
-                GLES30.GL_RED, GLES20.GL_FLOAT, sharedBuffer
+                GLES30.GL_RED, GLES20.GL_FLOAT, buf
             )
         } else {
             upload.clear()

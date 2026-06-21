@@ -120,7 +120,7 @@ class LaserArrayScene : GlScene {
         this.aspect = aspect
     }
 
-    override fun draw(pcm: FloatArray, bands: FloatArray, magnitudes: FloatArray, peaks: FloatArray, timeSec: Float, dim: Float, sharedBuffer: java.nio.ByteBuffer?) {
+    override fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
         GLES20.glDisable(GLES20.GL_BLEND)          // opaque full-screen pass
         GLES20.glUseProgram(program)
         GLES20.glUniform2f(uResolution, width, height)

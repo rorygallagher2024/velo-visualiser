@@ -114,7 +114,7 @@ class BeatPulseScene : GlScene {
         this.height = height.toFloat()
     }
 
-    override fun draw(pcm: FloatArray, bands: FloatArray, magnitudes: FloatArray, peaks: FloatArray, timeSec: Float, dim: Float, sharedBuffer: java.nio.ByteBuffer?) {
+    override fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
         // Record a fresh ring whenever the global beat counter ticks.
         val count = BeatPulse.beatCount
         if (count != lastBeatCount) {

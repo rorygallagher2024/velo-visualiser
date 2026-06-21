@@ -135,24 +135,17 @@ void main() {
         w = width.toFloat(); h = height.toFloat()
     }
 
-    override fun draw(
-        pcm: FloatArray,
-        bands: FloatArray,
-        magnitudes: FloatArray,
-        peaks: FloatArray,
-        timeSec: Float,
-        dim: Float,
-        sharedBuffer: java.nio.ByteBuffer?
-    ) {
+    override fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
+        val mags = SpectrumData.magnitudes
         // Dominant bin = loudest spectrum bin (skip the lowest couple to ignore
         // DC / rumble). Its position is the "pitch" that drives the plate modes.
         var peakBin = 0
         var peakVal = 0f
-        for (i in 2 until magnitudes.size) {
-            if (magnitudes[i] > peakVal) { peakVal = magnitudes[i]; peakBin = i }
+        for (i in 2 until mags.size) {
+            if (mags[i] > peakVal) { peakVal = mags[i]; peakBin = i }
         }
         if (peakVal > 0.08f) {          // only track when there's real signal
-            val target = peakBin.toFloat() / (magnitudes.size - 1)
+            val target = peakBin.toFloat() / (mags.size - 1)
             pitch += (target - pitch) * 0.04f
         }
         // Loudness follower: fast attack, slow decay → smooth settle in silence.

@@ -234,7 +234,7 @@ void main() {
         w = width.toFloat(); h = height.toFloat()
     }
 
-    override fun draw(pcm: FloatArray, bands: FloatArray, magnitudes: FloatArray, peaks: FloatArray, timeSec: Float, dim: Float, sharedBuffer: java.nio.ByteBuffer?) {
+    override fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
         val low = bands[0]
         val mid = bands[1]
         val high = bands[2]

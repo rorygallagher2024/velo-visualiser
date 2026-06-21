@@ -171,7 +171,7 @@ class AuroraDriftScene : GlScene {
         this.height = height.toFloat()
     }
 
-    override fun draw(pcm: FloatArray, bands: FloatArray, magnitudes: FloatArray, peaks: FloatArray, timeSec: Float, dim: Float, sharedBuffer: java.nio.ByteBuffer?) {
+    override fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
         val low = bands[0]; val mid = bands[1]
         // Smooth the bass-driven flow so the current eases rather than jerks.
         speed += (low * 0.10f - speed) * 0.08f

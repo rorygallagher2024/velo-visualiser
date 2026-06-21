@@ -96,16 +96,8 @@ class SpectrogramScene : GlScene {
 
     override fun onResize(width: Int, height: Int, aspect: Float) {}
 
-    override fun draw(
-        pcm: FloatArray,
-        bands: FloatArray,
-        magnitudes: FloatArray,
-        peaks: FloatArray,
-        timeSec: Float,
-        dim: Float,
-        sharedBuffer: java.nio.ByteBuffer?
-    ) {
-        column.clear(); column.put(magnitudes).position(0)
+    override fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
+        column.clear(); column.put(SpectrumData.magnitudes).position(0)
 
         GLES20.glDisable(GLES20.GL_BLEND)
         GLES20.glUseProgram(program)

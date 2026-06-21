@@ -17,23 +17,12 @@ interface GlScene {
 
     /**
      * Draw one frame.
-     * @param pcm          latest PCM window (legacy array)
-     * @param bands        [low, mid, high] FFT energies
-     * @param magnitudes   128-bin spectrum magnitudes
-     * @param peaks        128-bin spectrum peaks
-     * @param timeSec      elapsed seconds
-     * @param dim          global brightness 0..1
-     * @param sharedBuffer shared DirectByteBuffer containing the PCM window (zero-copy)
+     * @param pcm     latest PCM window
+     * @param bands   [low, mid, high] FFT energies, each 0..1
+     * @param timeSec elapsed seconds since start (for animation)
+     * @param dim     global brightness 0..1 (transition fade)
      */
-    fun draw(
-        pcm: FloatArray,
-        bands: FloatArray,
-        magnitudes: FloatArray,
-        peaks: FloatArray,
-        timeSec: Float,
-        dim: Float,
-        sharedBuffer: java.nio.ByteBuffer? = null
-    )
+    fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float)
 
     /**
      * Called once when the renderer transitions away from this scene. Scenes

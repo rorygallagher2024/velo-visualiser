@@ -123,15 +123,9 @@ class LedMatrixScene : GlScene {
         this.height = height.toFloat()
     }
 
-    override fun draw(
-        pcm: FloatArray,
-        bands: FloatArray,
-        magnitudes: FloatArray,
-        peaks: FloatArray,
-        timeSec: Float,
-        dim: Float,
-        sharedBuffer: java.nio.ByteBuffer?
-    ) {
+    override fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
+        val magnitudes = SpectrumData.magnitudes
+        val peaks = SpectrumData.peaks
         upload.clear()
         for (i in 0 until COLS) {
             val lo = i * 128 / COLS

@@ -227,7 +227,7 @@ void main() {
         GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, 3)
     }
 
-    override fun draw(pcm: FloatArray, bands: FloatArray, magnitudes: FloatArray, peaks: FloatArray, timeSec: Float, dim: Float, sharedBuffer: java.nio.ByteBuffer?) {
+    override fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
         if (!ready) return
         val low = bands[0]; val mid = bands[1]; val high = bands[2]
 

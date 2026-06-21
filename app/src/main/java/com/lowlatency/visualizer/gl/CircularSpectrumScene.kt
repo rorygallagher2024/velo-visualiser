@@ -138,18 +138,10 @@ class CircularSpectrumScene : GlScene {
         this.height = height.toFloat()
     }
 
-    override fun draw(
-        pcm: FloatArray,
-        bands: FloatArray,
-        magnitudes: FloatArray,
-        peaks: FloatArray,
-        timeSec: Float,
-        dim: Float,
-        sharedBuffer: java.nio.ByteBuffer?
-    ) {
+    override fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
         upload.clear()
-        upload.put(magnitudes)               // row 0
-        upload.put(peaks)                    // row 1
+        upload.put(SpectrumData.magnitudes)  // row 0
+        upload.put(SpectrumData.peaks)       // row 1
         upload.position(0)
 
         GLES20.glDisable(GLES20.GL_BLEND)    // opaque full-screen pass
