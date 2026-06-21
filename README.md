@@ -81,6 +81,8 @@ While the app's calculation is near-instant, total physical time to change a lig
 | Wi-Fi LAN hop to the bridge | ~1–5 ms |
 | Bridge → Zigbee mesh → physical bulb | ~25 ms |
 
+As part of the roadmap, I intend to add support for ESP32 WLED based lights, which will be even faster.
+
 ---
 
 ## Smart Lighting (Philips Hue Sync)
