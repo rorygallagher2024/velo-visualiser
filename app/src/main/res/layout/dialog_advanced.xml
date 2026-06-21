@@ -21,10 +21,10 @@
             android:layout_height="wrap_content"
             android:text="@string/adv_title"
             android:textColor="@color/text_primary"
-            android:textSize="16sp"
+            android:textSize="18sp"
             android:textStyle="bold"
             android:letterSpacing="0.08"
-            android:layout_marginBottom="4dp" />
+            android:layout_marginBottom="8dp" />
 
         <TextView
             android:id="@+id/adv_hint_text"
@@ -32,9 +32,9 @@
             android:layout_height="wrap_content"
             android:text="@string/adv_hint_link"
             android:textColor="@color/text_dim"
-            android:textSize="11sp"
+            android:textSize="12sp"
             android:lineSpacingMultiplier="1.2"
-            android:layout_marginBottom="18dp" />
+            android:layout_marginBottom="24dp" />
 
         <!-- ===== Group: Ableton Link beat-strobe ===== -->
         <LinearLayout
@@ -48,10 +48,10 @@
                 android:layout_height="wrap_content"
                 android:text="@string/adv_meter_level"
                 android:textColor="@color/text_dim"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:letterSpacing="0.12"
                 android:textAllCaps="true"
-                android:layout_marginBottom="4dp" />
+                android:layout_marginBottom="6dp" />
 
             <FrameLayout
                 android:layout_width="match_parent"
@@ -81,10 +81,10 @@
                 android:layout_height="wrap_content"
                 android:text="@string/adv_meter_bass"
                 android:textColor="@color/text_dim"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:letterSpacing="0.12"
                 android:textAllCaps="true"
-                android:layout_marginBottom="4dp" />
+                android:layout_marginBottom="6dp" />
 
             <FrameLayout
                 android:layout_width="match_parent"
@@ -114,10 +114,10 @@
                 android:layout_height="wrap_content"
                 android:text="@string/adv_sensitivity"
                 android:textColor="@color/text_dim"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:letterSpacing="0.12"
                 android:textAllCaps="true"
-                android:layout_marginBottom="2dp" />
+                android:layout_marginBottom="4dp" />
 
             <SeekBar
                 android:id="@+id/seek_sensitivity"
@@ -134,10 +134,10 @@
                 android:layout_height="wrap_content"
                 android:text="@string/adv_colour"
                 android:textColor="@color/text_dim"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:letterSpacing="0.12"
                 android:textAllCaps="true"
-                android:layout_marginBottom="2dp" />
+                android:layout_marginBottom="4dp" />
 
             <SeekBar
                 android:id="@+id/seek_colour"
@@ -154,10 +154,10 @@
                 android:layout_height="wrap_content"
                 android:text="@string/adv_glow"
                 android:textColor="@color/text_dim"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:letterSpacing="0.12"
                 android:textAllCaps="true"
-                android:layout_marginBottom="2dp" />
+                android:layout_marginBottom="4dp" />
 
             <SeekBar
                 android:id="@+id/seek_glow"
@@ -181,7 +181,7 @@
                     android:layout_weight="1"
                     android:text="@string/adv_hue_lookahead"
                     android:textColor="@color/text_dim"
-                    android:textSize="11sp"
+                    android:textSize="12sp"
                     android:letterSpacing="0.12"
                     android:textAllCaps="true" />
 
@@ -191,7 +191,7 @@
                     android:layout_height="wrap_content"
                     android:text="Off"
                     android:textColor="@color/text_dim"
-                    android:textSize="11sp" />
+                    android:textSize="12sp" />
             </LinearLayout>
 
             <TextView
@@ -199,9 +199,9 @@
                 android:layout_height="wrap_content"
                 android:text="@string/adv_hue_lookahead_hint"
                 android:textColor="@color/text_dim"
-                android:textSize="10sp"
+                android:textSize="11sp"
                 android:lineSpacingMultiplier="1.2"
-                android:layout_marginBottom="6dp" />
+                android:layout_marginBottom="8dp" />
 
             <SeekBar
                 android:id="@+id/seek_lookahead"
@@ -227,10 +227,10 @@
                 android:layout_height="wrap_content"
                 android:text="@string/adv_audio_brightness"
                 android:textColor="@color/text_dim"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:letterSpacing="0.12"
                 android:textAllCaps="true"
-                android:layout_marginBottom="2dp" />
+                android:layout_marginBottom="4dp" />
 
             <SeekBar
                 android:id="@+id/seek_audio_brightness"
@@ -247,10 +247,10 @@
                 android:layout_height="wrap_content"
                 android:text="@string/adv_audio_flash"
                 android:textColor="@color/text_dim"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:letterSpacing="0.12"
                 android:textAllCaps="true"
-                android:layout_marginBottom="2dp" />
+                android:layout_marginBottom="4dp" />
 
             <SeekBar
                 android:id="@+id/seek_audio_flash"
@@ -267,10 +267,10 @@
                 android:layout_height="wrap_content"
                 android:text="@string/adv_audio_sens"
                 android:textColor="@color/text_dim"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:letterSpacing="0.12"
                 android:textAllCaps="true"
-                android:layout_marginBottom="2dp" />
+                android:layout_marginBottom="4dp" />
 
             <SeekBar
                 android:id="@+id/seek_audio_sens"
@@ -291,27 +291,27 @@
             <Button
                 android:id="@+id/btn_adv_reset"
                 android:layout_width="0dp"
-                android:layout_height="44dp"
+                android:layout_height="48dp"
                 android:layout_weight="1"
-                android:layout_marginEnd="6dp"
+                android:layout_marginEnd="4dp"
                 android:background="@drawable/pill_button_bg"
                 android:text="@string/adv_reset"
                 android:textColor="@color/btn_text"
                 android:textAllCaps="false"
-                android:textSize="13sp"
+                android:textSize="14sp"
                 android:stateListAnimator="@null" />
 
             <Button
                 android:id="@+id/btn_adv_done"
                 android:layout_width="0dp"
-                android:layout_height="44dp"
+                android:layout_height="48dp"
                 android:layout_weight="1"
-                android:layout_marginStart="6dp"
+                android:layout_marginStart="4dp"
                 android:background="@drawable/pill_button_bg"
                 android:text="@string/adv_done"
                 android:textColor="@color/btn_text"
                 android:textAllCaps="false"
-                android:textSize="13sp"
+                android:textSize="14sp"
                 android:stateListAnimator="@null" />
         </LinearLayout>
     </LinearLayout>
