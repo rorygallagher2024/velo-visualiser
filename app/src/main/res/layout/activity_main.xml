@@ -1078,6 +1078,19 @@
             android:textSize="11sp"
             android:layout_marginBottom="16dp" />
 
+        <Button
+            android:id="@+id/btn_hue_forget"
+            android:layout_width="match_parent"
+            android:layout_height="36dp"
+            android:layout_marginBottom="12dp"
+            android:background="@android:color/transparent"
+            android:text="@string/hue_forget"
+            android:textColor="@color/text_dim"
+            android:textAllCaps="false"
+            android:textSize="12sp"
+            android:visibility="gone"
+            android:stateListAnimator="@null" />
+
         <!-- Advanced light tuning (shown only while Hue sync is active). -->
         <Button
             android:id="@+id/btn_advanced"

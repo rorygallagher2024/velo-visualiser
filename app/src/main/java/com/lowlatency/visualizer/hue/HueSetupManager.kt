@@ -186,6 +186,7 @@ class HueSetupManager(context: Context) {
         creds: HueCredentials,
         onResult: (List<HueEntertainmentArea>) -> Unit,
         onError: (String) -> Unit,
+        onAuthError: (() -> Unit)? = null,
     ) {
         thread(name = "hue-areas") {
             try {
@@ -195,7 +196,14 @@ class HueSetupManager(context: Context) {
                     .get()
                     .build()
                 http.newCall(req).execute().use { resp ->
-                    if (!resp.isSuccessful) { main.post { onError("HTTP ${resp.code}") }; return@thread }
+                    if (!resp.isSuccessful) {
+                        if (resp.code in listOf(401, 403) && onAuthError != null) {
+                            main.post { onAuthError() }
+                        } else {
+                            main.post { onError("HTTP ${resp.code}") }
+                        }
+                        return@thread
+                    }
                     val root = JSONObject(resp.body?.string().orEmpty())
                     val data = root.optJSONArray("data") ?: JSONArray()
                     val areas = ArrayList<HueEntertainmentArea>(data.length())
