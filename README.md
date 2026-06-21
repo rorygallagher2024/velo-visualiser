@@ -6,7 +6,7 @@
 
 Velo is a professional-grade Android audio visualiser engineered around one primary objective: **low latency**. 
 
-When you open Velo, you get an oscilloscope that responds to microphone input in less than 10ms. That is faster than:
+When you open Velo, you'll see the default oscilloscope visualisation which responds to microphone input in **less than 10ms**. That is faster than:
 * **The blink of an eye** (which takes 100–400 ms).
 * **Human tactile perception** (the 20–30 ms it takes your brain to register touching a drum pad).
 * **The physical speed of sound** travelling from speakers on one side of the room to another (3.4 metres in 10 ms).
@@ -32,7 +32,7 @@ A bare-metal C++/Oboe audio engine and custom OpenGL ES 3.1 shaders bypass stand
 
 ## The full feature list
 
-- **25 audio-reactive visualizers**: Waveforms, spectra, particle fluids, scrolling spectrograms, dot-matrix LED meters, and more.
+- **25 audio and beat reactive visualizers**: Waveforms, spectra, particle fluids, scrolling spectrograms, dot-matrix LED meters, and more.
 - **HDR Effects**: Including post-processing for real luminous glow on capable HDR displays and a selectable glow strength.
 - **Ableton Link sync**: Lock beat-driven effects to Traktor, Ableton Live, and other Link software over Wi-Fi; the mic still drives the visuals while Link sets the beat.
 - **Real-time Philips Hue Sync Integration**: Direct local UDP streaming over the Hue Entertainment API. Also works in co-ordination with Ableton Link to drive a sychronised beat to the bulbs. Includes lighting controls, advanced controls for calibration and the ability to send Ableton Link beats early for perfect synchronisation.
