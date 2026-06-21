@@ -13,6 +13,9 @@ app/release/
 # Java class files
 *.class
 
+# Release output directory (APKs, mapping, metadata)
+app/release/
+
 # Generated files
 bin/
 gen/
