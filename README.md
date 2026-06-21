@@ -121,7 +121,7 @@ Open in Android Studio (Meerkat 2024.3.1 or higher):
 
 ## Contributing
 
-Contributions are welcome — bug reports, fixes, and new visualizers especially.
+Contributions are welcome. Bug reports, fixes, and new visualizers especially.
 Open an issue to discuss larger changes first. New scenes implement the
 `GlScene` interface (`app/src/main/java/com/lowlatency/visualizer/gl/`) and are
 registered in `VisualizerRenderer`.
@@ -131,9 +131,9 @@ By contributing, you agree your contributions are licensed under GPLv3.
 ## Acknowledgements
 
 Velo stands on excellent open source work:
-- [Oboe](https://github.com/google/oboe) — low-latency audio (Apache-2.0)
-- [Ableton Link](https://github.com/Ableton/link) — tempo sync (GPLv2+)
-- [KissFFT](https://github.com/mborgerding/kissfft) — FFT (BSD-3-Clause)
-- [OkHttp](https://square.github.io/okhttp/) — Hue REST (Apache-2.0)
-- [Bouncy Castle](https://www.bouncycastle.org/) — DTLS-PSK (MIT-style)
-- [Space Mono](https://fonts.google.com/specimen/Space+Mono) — UI typeface (OFL)
+- [Oboe](https://github.com/google/oboe). Low-latency audio
+- [Ableton Link](https://github.com/Ableton/link). Tempo sync
+- [KissFFT](https://github.com/mborgerding/kissfft). FFT
+- [OkHttp](https://square.github.io/okhttp/). Hue REST
+- [Bouncy Castle](https://www.bouncycastle.org/). DTLS-PSK
+- [Space Mono](https://fonts.google.com/specimen/Space+Mono). UI typeface
