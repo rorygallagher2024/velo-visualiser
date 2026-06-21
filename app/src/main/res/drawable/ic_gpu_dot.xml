@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Small filled circle used as an inline "GPU-intensive" indicator on
+     heavy visuals. Tinted to the warm accent so it reads as a caution
+     marker without clashing with the button text. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <solid android:color="@color/accent" />
+    <size android:width="8dp" android:height="8dp" />
+</shape>

@@ -181,8 +181,6 @@
     <string name="screenshare_continue">Continue</string>
     <string name="internal_audio_latency_warning">Internal audio has higher latency due to system buffering. For the best low-latency experience, use the Microphone.</string>
 
-    <!-- Splash -->
-    <string name="splash_tagline">V I S U A L I S E R</string>
 
     <!-- First-boot overlay -->
     <string name="welcome_title">Welcome to Velo</string>

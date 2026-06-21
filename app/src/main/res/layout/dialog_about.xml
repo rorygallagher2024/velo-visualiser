@@ -6,11 +6,15 @@
     android:orientation="vertical"
     android:padding="24dp">
 
-    <com.lowlatency.visualizer.AsciiLogoView
+    <ImageView
         android:id="@+id/about_logo"
-        android:layout_width="wrap_content"
+        android:layout_width="200dp"
         android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal" />
+        android:adjustViewBounds="true"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginBottom="8dp"
+        android:importantForAccessibility="no"
+        android:src="@drawable/velo_logo" />
 
     <ScrollView
         android:layout_width="match_parent"

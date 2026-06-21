@@ -1,4 +1,8 @@
-# Velo Visualiser
+<p align="center">
+  <img src="app/src/main/res/drawable-nodpi/velo_logo.png" alt="Velo Visualiser" width="420">
+</p>
+
+<h1 align="center">Velo Visualiser</h1>
 
 Velo visualiser is a professional-grade android audio visualiser engineered around one primary objective: **low latency**. 
 

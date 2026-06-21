@@ -1568,9 +1568,6 @@ class MainActivity : AppCompatActivity() {
     private fun showAboutDialog() {
         val dialog = Dialog(this)
         val view = layoutInflater.inflate(R.layout.dialog_about, null)
-        
-        val logo = view.findViewById<AsciiLogoView>(R.id.about_logo)
-        logo.asciiText = LOGO_ASCII
 
         view.findViewById<TextView>(R.id.about_version).text = getString(R.string.version_fmt, appVersionName())
         
@@ -1763,14 +1760,5 @@ class MainActivity : AppCompatActivity() {
         private const val SPLASH_FADE_MS = 350L
         private const val INTRO_HINT_DURATION_MS = 5000L
         private const val PERMISSION_FALLBACK_MS = 6000L  // ask anyway if intro never finishes
-
-        private val LOGO_ASCII = listOf(
-            " _     _  _______  _        _______ ",
-            "| |   | ||  _____|| |      |  ___  |",
-            "| |   | || |____  | |      | |   | |",
-            "| |   | ||  ____| | |      | |   | |",
-            " \\ \\ / / | |____  | |_____ | |___| |",
-            "  \\___/  |_______||_______||_______|",
-        ).joinToString("\n") { it.padEnd(36) }
     }
 }
