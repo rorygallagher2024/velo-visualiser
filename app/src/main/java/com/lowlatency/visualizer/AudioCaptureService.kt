@@ -106,7 +106,7 @@ class AudioCaptureService : Service() {
 
         val notification: Notification = Notification.Builder(this, CHANNEL_ID)
             .setContentTitle("Visualizing system audio")
-            .setSmallIcon(android.R.drawable.ic_media_play)
+            .setSmallIcon(R.drawable.ic_notification)
             .setOngoing(true)
             .addAction(
                 Notification.Action.Builder(

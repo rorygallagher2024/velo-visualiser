@@ -1363,7 +1363,12 @@ class MainActivity : AppCompatActivity() {
         glView.onResume()
         if (!systemAudioMode) ensureMicAndStart()
         if (::hueController.isInitialized) hueController.paused = false
-        if (LinkSync.enabled) linkHandler.post(linkStatusPoller)
+        if (LinkSync.enabled) {
+            NativeBridge.nativeLinkSetEnabled(true)
+            acquireMulticastLock()
+            linkHandler.post(linkStatusPoller)
+        }
+        if (perfOverlayEnabled) perfHandler.post(perfPoller)
     }
 
     override fun onPause() {
@@ -1371,7 +1376,12 @@ class MainActivity : AppCompatActivity() {
         glView.onPause()
         if (!systemAudioMode) NativeBridge.nativeStop()
         if (::hueController.isInitialized) hueController.paused = true
+        perfHandler.removeCallbacks(perfPoller)
         linkHandler.removeCallbacks(linkStatusPoller)
+        if (LinkSync.enabled) {
+            NativeBridge.nativeLinkSetEnabled(false)
+            releaseMulticastLock()
+        }
     }
 
     override fun onDestroy() {
