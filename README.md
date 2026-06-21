@@ -65,7 +65,7 @@ like to chip in for coffee, it's hugely appreciated:
 
 ## Why Velo is Fast (The Architecture)
 
-Most Android visualizers suffer from inherent 100ms+ delays due to their reliance on high-level Java APIs like `AudioFlinger` or `android.media.audiofx.Visualizer`. Velo eliminates these bottlenecks by operating at the OS hardware floor.
+Many visualizers suffer from inherent 100ms+ delays due to their reliance on high-level Java APIs like `AudioFlinger` or `android.media.audiofx.Visualizer`. Velo eliminates these bottlenecks by operating at the OS hardware floor.
 
 1. **Direct-to-Metal Audio (AAudio/Oboe):** The app bypasses the Android system mixer. Using Oboe in `LowLatency · Exclusive · Unprocessed` mode, the C++ engine reads raw PCM float data directly from the ALSA hardware driver.
 2. **Zero Garbage Collection (GC) Stutters:** Audio processing, FFT analysis (KissFFT), and IoT networking execute entirely within a native C++ loop using a lock-free, single-producer/single-consumer (SPSC) ring buffer. No Java memory is allocated during the render loop.
