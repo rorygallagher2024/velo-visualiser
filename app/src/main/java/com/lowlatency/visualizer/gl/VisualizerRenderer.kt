@@ -181,9 +181,19 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
         startNanos = System.nanoTime()
         NativeBridge.nativeInitializeSharedBuffer(sharedAudioBuffer)
 
-        // Check for GPU timer query support
-        val exts = GLES20.glGetString(GLES20.GL_EXTENSIONS) ?: ""
-        gpuExtAvailable = exts.contains("GL_EXT_disjoint_timer_query")
+        // Correct GLES 3.0+ way to check for extensions.
+        // glGetString(GL_EXTENSIONS) is deprecated and often empty on modern drivers.
+        val numExts = IntArray(1)
+        GLES30.glGetIntegerv(GLES30.GL_NUM_EXTENSIONS, numExts, 0)
+        gpuExtAvailable = false
+        for (i in 0 until numExts[0]) {
+            val ext = GLES30.glGetStringi(GLES30.GL_EXTENSIONS, i)
+            if (ext == "GL_EXT_disjoint_timer_query") {
+                gpuExtAvailable = true
+                break
+            }
+        }
+
         if (gpuExtAvailable) {
             GLES30.glGenQueries(1, gpuQuery, 0)
         }
