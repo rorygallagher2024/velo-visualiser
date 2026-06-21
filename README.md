@@ -23,14 +23,9 @@ Beyond its absolute speed and zero-lag smart lighting integration, Velo is great
 
 ## Demo
 
-**Velo Visualiser Demo Video**
-[![Velo Demo](https://img.youtube.com/vi/J6lmJJCc-Lo/maxresdefault.jpg)](https://youtu.be/J6lmJJCc-Lo)
+**Velo: Low Latency Music Visualiser Demo Video**
+[![Velo Demo](https://img.youtube.com/vi/pm8hr4DMiY8/maxresdefault.jpg)](https://youtu.be/pm8hr4DMiY8)
 `▶ Watch on YouTube`
-
-**Velo Visualiser: Ableton Link & Philips Hue Lighting Integration**
-[![Velo Lighting Demo](https://img.youtube.com/vi/DZwIyPs-1f8/maxresdefault.jpg)](https://www.youtube.com/watch?v=DZwIyPs-1f8)
-`▶ Watch on YouTube`
-
 
 ## The full feature list
 
