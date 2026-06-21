@@ -4,6 +4,7 @@
 
     <!-- Options menu -->
     <string name="menu_title">Settings</string>
+    <string name="section_audio">Audio</string>
     <string name="source_label">Audio Source</string>
     <string name="source_mic">Microphone</string>
     <string name="source_internal">Internal Audio</string>
@@ -38,6 +39,7 @@
     <string name="cat_instruments">Instruments</string>
     <string name="cat_reactive">Reactive</string>
     <string name="cat_immersive">Immersive</string>
+    <string name="section_visuals">Visuals</string>
     <string name="display_label">Display</string>
     <string name="burnin_on">Burn-in Protection: On</string>
     <string name="burnin_off">Burn-in Protection: Off</string>
@@ -52,7 +54,7 @@
     <string name="theme_warm">Warm</string>
     <string name="theme_cool">Cool</string>
     <string name="theme_mono">Mono</string>
-    <string name="privacy_policy_label">Privacy &amp; Data Safety</string>
+    <string name="section_about">About</string>
     <string name="btn_privacy_policy">View Privacy Policy</string>
     <string name="btn_about">About &amp; Licenses</string>
     <string name="about_title">About</string>
