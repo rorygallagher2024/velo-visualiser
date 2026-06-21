@@ -27,7 +27,7 @@ class MechanicalMeterScene : GlScene {
             const vec3  BG     = vec3(0.106, 0.102, 0.090);
             const vec3  INK    = vec3(0.945, 0.933, 0.902);
             const vec3  ACCENT = vec3(0.941, 0.325, 0.110);
-            const vec3  DIM    = vec3(0.18, 0.17, 0.15);
+            const vec3  DDIM   = vec3(0.18, 0.17, 0.15);
 
             const vec2  HUB   = vec2(0.0, -0.72);
             const float R_ARC = 1.22;
@@ -39,6 +39,33 @@ class MechanicalMeterScene : GlScene {
                 vec2 pa = p - a, ba = b - a;
                 float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
                 return length(pa - ba * h);
+            }
+
+            vec3 evalTick(vec2 uv, float px, int idx, vec3 col) {
+                float t = float(idx) / 20.0;
+                float ta = (t * 2.0 - 1.0) * SWEEP;
+                bool major = (idx % 5 == 0);
+                float il = major ? 0.10 : 0.045;
+                float ol = major ? 0.035 : 0.012;
+                float tw = major ? 0.0035 : 0.0018;
+                vec2 dir = vec2(sin(ta), cos(ta));
+                float sd = sdSeg(uv, HUB + dir * (R_ARC - il), HUB + dir * (R_ARC + ol));
+                vec3 tc = t >= HOT ? ACCENT : INK;
+                float talpha = major ? 0.85 : 0.3;
+                return mix(col, tc * talpha, smoothstep(tw + px, tw - px, sd));
+            }
+
+            vec3 evalLed(vec2 uv, float px, int idx, float bar, vec3 col) {
+                float t = (float(idx) + 0.5) / 16.0;
+                float la = (t * 2.0 - 1.0) * SWEEP;
+                vec2 lp = HUB + vec2(sin(la), cos(la)) * R_LED;
+                float ld = length(uv - lp);
+                float lit = smoothstep(t - 0.02, t + 0.02, bar);
+                bool hot = (t >= HOT);
+                vec3 onCol = hot ? ACCENT * 1.8 : INK * 0.7;
+                col = mix(col, mix(DDIM * 0.3, onCol, lit), smoothstep(0.022 + px, 0.022 - px, ld));
+                col += (hot ? ACCENT : INK * 0.4) * smoothstep(0.06, 0.025, ld) * lit * 0.05;
+                return col;
             }
 
             void main() {
@@ -55,40 +82,23 @@ class MechanicalMeterScene : GlScene {
                 col = mix(col, INK * 0.25, smoothstep(px * 1.5, 0.0, abs(dist - R_ARC)) * inArc);
 
                 // Inner reference arc
-                col = mix(col, DIM * 0.3, smoothstep(px * 1.5, 0.0, abs(dist - R_LED)) * inArc);
+                col = mix(col, DDIM * 0.3, smoothstep(px * 1.5, 0.0, abs(dist - R_LED)) * inArc);
 
                 // Hot zone overlay on outer arc
                 float hotAng = (HOT * 2.0 - 1.0) * SWEEP;
                 float inHot = step(hotAng, ang) * step(ang, SWEEP + 0.01);
                 col = mix(col, ACCENT * 0.45, smoothstep(px * 2.0, 0.0, abs(dist - R_ARC) - 0.006) * inHot);
 
-                // Tick marks
-                for (int i = 0; i <= 20; i++) {
-                    float t = float(i) / 20.0;
-                    float ta = (t * 2.0 - 1.0) * SWEEP;
-                    bool major = (i % 5 == 0);
-                    float il = major ? 0.10 : 0.045;
-                    float ol = major ? 0.035 : 0.012;
-                    float w = major ? 0.0035 : 0.0018;
-                    vec2 dir = vec2(sin(ta), cos(ta));
-                    float sd = sdSeg(uv, HUB + dir * (R_ARC - il), HUB + dir * (R_ARC + ol));
-                    vec3 tc = t >= HOT ? ACCENT : INK;
-                    float talpha = major ? 0.85 : 0.3;
-                    col = mix(col, tc * talpha, smoothstep(w + px, w - px, sd));
-                }
+                // Tick marks — nearest 2 only (was 21)
+                float tickNorm = (ang / SWEEP + 1.0) * 0.5;
+                int ti = clamp(int(floor(tickNorm * 20.0)), 0, 20);
+                col = evalTick(uv, px, ti, col);
+                if (ti < 20) col = evalTick(uv, px, ti + 1, col);
 
-                // LED dots
-                for (int i = 0; i < 16; i++) {
-                    float t = (float(i) + 0.5) / 16.0;
-                    float la = (t * 2.0 - 1.0) * SWEEP;
-                    vec2 lp = HUB + vec2(sin(la), cos(la)) * R_LED;
-                    float ld = length(uv - lp);
-                    float lit = smoothstep(t - 0.02, t + 0.02, u_bar);
-                    bool hot = (t >= HOT);
-                    vec3 onCol = hot ? ACCENT * 1.8 : INK * 0.7;
-                    col = mix(col, mix(DIM * 0.3, onCol, lit), smoothstep(0.022 + px, 0.022 - px, ld));
-                    col += (hot ? ACCENT : INK * 0.4) * smoothstep(0.06, 0.025, ld) * lit * 0.05;
-                }
+                // LED dots — nearest 2 only (was 16)
+                int li = clamp(int(floor(tickNorm * 16.0 - 0.5)), 0, 15);
+                col = evalLed(uv, px, li, u_bar, col);
+                if (li < 15) col = evalLed(uv, px, li + 1, u_bar, col);
 
                 // Needle
                 float na = (u_needle * 2.0 - 1.0) * SWEEP;

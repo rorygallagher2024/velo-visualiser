@@ -59,18 +59,18 @@ class LaserArrayScene : GlScene {
 
                 vec3 col = vec3(0.0);
                 float t = 0.2;
-                // Raymarch: accumulate beam emission through the volume.
-                for (int i = 0; i < 40; i++) {
+                float invW2 = 1.0 / (width * width + 1e-6);
+                for (int i = 0; i < 20; i++) {
                     vec3 p = ro + rd * t;
-                    vec2 q = R * p.xy;                    // rotate the beam field
+                    vec2 q = R * p.xy;
                     float ang = atan(q.y, q.x);
                     float seg = ang / 6.28318 * BEAMS;
-                    float d = abs(fract(seg) - 0.5) * 2.0;       // 0 at a beam centre
-                    float beam = exp(-pow(d / max(width, 1e-3), 2.0));
-                    float radial = exp(-length(q) * 0.6);        // shafts fade outward
+                    float d = abs(fract(seg) - 0.5) * 2.0;
+                    float beam = exp(-d * d * invW2);
+                    float radial = exp(-length(q) * 0.6);
                     float dens = beam * radial;
-                    col += palette(ang * 0.15 + u_time * 0.05) * dens * opacity * 0.05;
-                    t += 0.12;
+                    col += palette(ang * 0.15 + u_time * 0.05) * dens * opacity * 0.10;
+                    t += 0.24;
                 }
 
                 // Central vanishing-point flare (highs brighten the core) — kept
