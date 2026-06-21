@@ -204,7 +204,18 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
         GLES20.glClearColor(0f, 0f, 0f, 1f)     // pure black
         startNanos = System.nanoTime()
+        lastFrameSec = 0f
+        lastActiveSec = 0f
+        transitionStart = -1f
+        swapped = false
+        loadFrameCounter = 0
+        hdrPunch = 0f
+
         NativeBridge.nativeInitializeSharedBuffer(sharedAudioBuffer)
+
+        // Clear existing scenes to force them to re-initialize their GL resources
+        // (programs, VBOs) in getOrInitScene now that the context is new.
+        scenes.fill(null)
 
         post.onCreated()
         introActive = introEnabled && !introPlayedThisProcess
