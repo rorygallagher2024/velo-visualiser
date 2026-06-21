@@ -41,7 +41,31 @@ class VisualizerSurfaceView @JvmOverloads constructor(
     /** The ordered list of scene indices matching the menu UI. */
     var sceneOrder: List<Int> = emptyList()
 
-    private val renderer = VisualizerRenderer()
+    private val renderer = VisualizerRenderer(context)
+
+    /** Enable/disable the first-run VELO intro (off => boot straight to visuals). */
+    var introEnabled: Boolean
+        get() = renderer.introEnabled
+        set(value) { renderer.introEnabled = value }
+
+    /** True while the intro animation is still playing. */
+    val introActive: Boolean get() = renderer.introActive
+
+    /** True if the intro will run on the next surface creation (cold start). */
+    val willPlayIntro: Boolean get() = renderer.willPlayIntro()
+
+    /**
+     * Invoked when the intro finishes (or is skipped/disabled). Delivered on the
+     * main thread — the renderer fires it on the GL thread and we hop here.
+     */
+    var onIntroFinished: (() -> Unit)? = null
+        set(value) {
+            field = value
+            renderer.onIntroFinished = { post { value?.invoke() } }
+        }
+
+    /** Fast-forward the intro to its dissolve. Safe to call any time. */
+    fun skipIntro() = queueEvent { renderer.skipIntro() }
 
     private val gestureDetector = GestureDetector(
         context,
@@ -49,6 +73,7 @@ class VisualizerSurfaceView @JvmOverloads constructor(
             override fun onDown(e: MotionEvent) = true   // required to receive flings
 
             override fun onSingleTapUp(e: MotionEvent): Boolean {
+                if (renderer.introActive) { skipIntro(); return true }
                 onTap?.invoke()
                 return true
             }

@@ -17,6 +17,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 import android.util.Log
 import android.util.TypedValue
 import android.view.GestureDetector
@@ -59,7 +60,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var optionsSheet: View
     private lateinit var firstBootOverlay: View
     private lateinit var splashOverlay: View
-    private lateinit var splashLogo: AsciiLogoView
     private lateinit var introHint: View
     private lateinit var segMic: Button
     private lateinit var segInternal: Button
@@ -86,6 +86,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnReactionDiffusion: Button
     private lateinit var btnCymatics: Button
     private lateinit var btnStrangeAttractor: Button
+    private lateinit var btnPlasmaStorm: Button
+    private lateinit var btnAuroraDrift: Button
     private lateinit var btnBurnin: Button
     private lateinit var btnGlowOff: Button
     private lateinit var btnGlowSubtle: Button
@@ -132,8 +134,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var hueAreaContainer: LinearLayout
     private lateinit var btnHueSync: Button
     private lateinit var btnHueForget: Button
-    private lateinit var hueForgetDivider: View
     private lateinit var huePrerequisites: View
+    private lateinit var hueAreaSection: LinearLayout
+    private lateinit var hueSyncSection: LinearLayout
     private lateinit var hueStatus: TextView
     private lateinit var hueConn: TextView
     private lateinit var hueController: HueLightController
@@ -143,6 +146,7 @@ class MainActivity : AppCompatActivity() {
 
     private var systemAudioMode = false
     private var menuOpen = false
+    private var deferredPermissionRequest = false
     private var bassLpState = 0f   // one-pole low-pass state for the bass/treble split
     private var perfOverlayEnabled = false
     private var lastHuePackets = 0L
@@ -266,6 +270,27 @@ class MainActivity : AppCompatActivity() {
             ContextCompat.RECEIVER_NOT_EXPORTED
         )
 
+        // Hold the runtime-permission dialog back until the intro has finished, but
+        // only when it would actually appear — i.e. a first launch (mic not yet
+        // granted) where the intro is going to play. If the mic is already granted
+        // the request is invisible, so fire it now and let audio be live behind the
+        // shatter. wireSplash() fires the deferred request from onIntroFinished.
+        val hasMic = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
+            PackageManager.PERMISSION_GRANTED
+        if (glView.willPlayIntro && !hasMic) {
+            deferredPermissionRequest = true
+            // Safety net: if the intro never reports finished (e.g. surface never
+            // created), still ask after a delay so the app isn't stuck without audio.
+            glView.postDelayed({ fireDeferredPermissionRequest() }, PERMISSION_FALLBACK_MS)
+        } else {
+            requestPermissions.launch(buildPermissionList())
+        }
+    }
+
+    /** Launch the deferred permission request exactly once. */
+    private fun fireDeferredPermissionRequest() {
+        if (!deferredPermissionRequest) return
+        deferredPermissionRequest = false
         requestPermissions.launch(buildPermissionList())
     }
 
@@ -275,7 +300,6 @@ class MainActivity : AppCompatActivity() {
         optionsSheet = findViewById(R.id.options_sheet)
         firstBootOverlay = findViewById(R.id.first_boot_overlay)
         splashOverlay = findViewById(R.id.splash_overlay)
-        splashLogo = findViewById(R.id.splash_logo)
         introHint = findViewById(R.id.intro_hint)
         segMic = findViewById(R.id.seg_mic)
         segInternal = findViewById(R.id.seg_internal)
@@ -302,6 +326,8 @@ class MainActivity : AppCompatActivity() {
         btnReactionDiffusion = findViewById(R.id.btn_reaction_diffusion)
         btnCymatics = findViewById(R.id.btn_cymatics)
         btnStrangeAttractor = findViewById(R.id.btn_strange_attractor)
+        btnPlasmaStorm = findViewById(R.id.btn_plasma_storm)
+        btnAuroraDrift = findViewById(R.id.btn_aurora_drift)
         btnBurnin = findViewById(R.id.btn_burnin)
         btnGlowOff = findViewById(R.id.btn_glow_off)
         btnGlowSubtle = findViewById(R.id.btn_glow_subtle)
@@ -339,8 +365,9 @@ class MainActivity : AppCompatActivity() {
         hueStatus = findViewById(R.id.hue_status)
         hueConn = findViewById(R.id.hue_conn)
         btnHueForget = findViewById(R.id.btn_hue_forget)
-        hueForgetDivider = findViewById(R.id.hue_forget_divider)
         huePrerequisites = findViewById(R.id.hue_prerequisites)
+        hueAreaSection = findViewById(R.id.hue_section_areas)
+        hueSyncSection = findViewById(R.id.hue_section_sync)
         prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         optionsSheet.visibility = View.GONE
     }
@@ -352,17 +379,37 @@ class MainActivity : AppCompatActivity() {
         "?"
     }
 
-    /** Show the ASCII "VELO" logo on startup, then fade it out. */
+    /**
+     * The VELO wordmark is now an HDR particle cloud rendered by the GL engine
+     * itself (see [VisualizerSurfaceView] / IntroLogoScene). This overlay is just
+     * a brief black mask over GL initialisation — fade it out fast, then let the
+     * GL intro play and surface the gesture hint once it dissolves.
+     */
     private fun wireSplash() {
-        splashLogo.asciiText = LOGO_ASCII
-        
+        // Honour the system "remove animations" accessibility setting.
+        glView.introEnabled = !isReducedMotion()
+
         splashOverlay.postDelayed({
             splashOverlay.animate().alpha(0f).setDuration(SPLASH_FADE_MS)
-                .withEndAction { 
-                    splashOverlay.visibility = View.GONE 
-                    showIntroHint()
-                }.start()
-        }, SPLASH_HOLD_MS)
+                .withEndAction { splashOverlay.visibility = View.GONE }
+                .start()
+        }, SPLASH_MASK_MS)
+
+        if (glView.introEnabled) {
+            glView.onIntroFinished = {
+                showIntroHint()
+                fireDeferredPermissionRequest()
+            }
+        } else {
+            splashOverlay.postDelayed({ showIntroHint() }, SPLASH_MASK_MS + SPLASH_FADE_MS)
+        }
+    }
+
+    /** True when the OS "remove animations" setting is on (animator scale 0). */
+    private fun isReducedMotion(): Boolean = try {
+        Settings.Global.getFloat(contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
+    } catch (_: Exception) {
+        false
     }
 
     /** Show a brief, non-blocking gesture hint after the splash fades. */
@@ -501,6 +548,7 @@ class MainActivity : AppCompatActivity() {
             Triple(btnStarscape, 7, btnStarscape.text.toString()),
             Triple(btnBloom, 6, btnBloom.text.toString()),
             Triple(btnElectricIris, 12, btnElectricIris.text.toString()),
+            Triple(btnAuroraDrift, 24, btnAuroraDrift.text.toString()),
             // Immersive
             Triple(btnTunnel, 1, btnTunnel.text.toString()),
             Triple(btnFluid, 2, btnFluid.text.toString()),
@@ -512,6 +560,7 @@ class MainActivity : AppCompatActivity() {
             Triple(btnMandelbox, 19, btnMandelbox.text.toString()),
             Triple(btnReactionDiffusion, 20, btnReactionDiffusion.text.toString()),
             Triple(btnStrangeAttractor, 22, btnStrangeAttractor.text.toString()),
+            Triple(btnPlasmaStorm, 23, btnPlasmaStorm.text.toString()),
         )
         glView.sceneOrder = visButtons.map { it.second }
         glView.onSceneChanged = { updateVisualizerSelection() }
@@ -1003,7 +1052,6 @@ class MainActivity : AppCompatActivity() {
             huePrerequisites.visibility = View.GONE
             btnHueConnect.setText(R.string.hue_reconnect)
             btnHueForget.visibility = View.VISIBLE
-            hueForgetDivider.visibility = View.VISIBLE
             updateHueConn(HueConn.CHECKING)
             hueController.setup.pingBridge(savedCreds) { rtt ->
                 if (rtt != null) {
@@ -1060,7 +1108,6 @@ class MainActivity : AppCompatActivity() {
                     btnHueConnect.isEnabled = true
                     btnHueConnect.setText(R.string.hue_reconnect)
                     btnHueForget.visibility = View.VISIBLE
-            hueForgetDivider.visibility = View.VISIBLE
                     startHuePingPoller()
                     loadHueAreas()
                 },
@@ -1120,13 +1167,11 @@ class MainActivity : AppCompatActivity() {
         selectedArea = null
         hueAreas = emptyList()
         hueAreaContainer.removeAllViews()
-        hueAreaContainer.visibility = View.GONE
         huePrerequisites.visibility = View.VISIBLE
         btnHueConnect.setText(R.string.hue_connect)
         btnHueConnect.isEnabled = true
         btnHueSync.isEnabled = false
         btnHueForget.visibility = View.GONE
-        hueForgetDivider.visibility = View.GONE
         updateHueConn(HueConn.DISCONNECTED)
         hueStatus.setText(R.string.hue_status_idle)
     }
@@ -1153,7 +1198,7 @@ class MainActivity : AppCompatActivity() {
         hueAreaContainer.removeAllViews()
         if (areas.isEmpty()) {
             hueStatus.text = getString(R.string.hue_status_no_bridge)
-            hueAreaContainer.visibility = View.GONE
+            updateHueSections()
             return
         }
         val h = resources.displayMetrics.density * 40
@@ -1175,14 +1220,13 @@ class MainActivity : AppCompatActivity() {
             }
             hueAreaContainer.addView(b)
         }
-        hueAreaContainer.visibility = View.VISIBLE
-
         val saved = areas.firstOrNull { it.id == hueStore.selectedAreaId }
         if (saved != null) {
             selectHueArea(saved)
             hueStatus.text = getString(R.string.hue_status_ready)
         } else {
             hueStatus.setText(R.string.hue_select_area)
+            updateHueSections()
         }
     }
 
@@ -1193,7 +1237,7 @@ class MainActivity : AppCompatActivity() {
             hueAreaContainer.getChildAt(i).isSelected = (hueAreas.getOrNull(i)?.id == area.id)
         }
         btnHueSync.isEnabled = true
-        updateLightControlVisibility()
+        updateHueSections()
     }
 
     private fun onHueSyncToggle() {
@@ -1202,7 +1246,7 @@ class MainActivity : AppCompatActivity() {
             updateHueSyncButton(false)
             updateHueConn(HueConn.REACHABLE)
             hueStatus.setText(R.string.hue_status_ready)
-            updateLightControlVisibility()
+            updateHueSections()
             return
         }
         // Light sync is currently microphone-only: internal (system) audio drives
@@ -1221,7 +1265,7 @@ class MainActivity : AppCompatActivity() {
             updateHueSyncButton(ok)
             updateHueConn(if (ok) HueConn.STREAMING else HueConn.REACHABLE)
             hueStatus.text = if (ok) getString(R.string.hue_status_synced) else (err ?: "Failed to sync.")
-            updateLightControlVisibility()
+            updateHueSections()
         }
     }
 
@@ -1334,10 +1378,12 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun updateLightControlVisibility() {
+    private fun updateHueSections() {
         if (!::lightControlSection.isInitialized) return
-        val show = currentHueState == HueConn.REACHABLE && selectedArea != null
-        lightControlSection.visibility = if (show) View.VISIBLE else View.GONE
+        val reachable = currentHueState == HueConn.REACHABLE || currentHueState == HueConn.STREAMING
+        hueAreaSection.visibility = if (reachable && hueAreas.isNotEmpty()) View.VISIBLE else View.GONE
+        lightControlSection.visibility = if (currentHueState == HueConn.REACHABLE && selectedArea != null) View.VISIBLE else View.GONE
+        hueSyncSection.visibility = if (reachable && selectedArea != null) View.VISIBLE else View.GONE
     }
 
     private enum class HueConn { DISCONNECTED, SEARCHING, CHECKING, PAIRED, REACHABLE, STREAMING }
@@ -1376,7 +1422,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
         hueConn.setTextColor(ContextCompat.getColor(this, colorRes))
-        updateLightControlVisibility()
+        updateHueSections()
     }
 
     private fun startHuePingPoller() {
@@ -1522,9 +1568,6 @@ class MainActivity : AppCompatActivity() {
     private fun showAboutDialog() {
         val dialog = Dialog(this)
         val view = layoutInflater.inflate(R.layout.dialog_about, null)
-        
-        val logo = view.findViewById<AsciiLogoView>(R.id.about_logo)
-        logo.asciiText = LOGO_ASCII
 
         view.findViewById<TextView>(R.id.about_version).text = getString(R.string.version_fmt, appVersionName())
         
@@ -1713,17 +1756,9 @@ class MainActivity : AppCompatActivity() {
         private const val TAB_VISUALS = 0
         private const val TAB_LIGHTING = 1
         private const val TAB_SETTINGS = 2
-        private const val SPLASH_HOLD_MS = 3300L
-        private const val SPLASH_FADE_MS = 700L
+        private const val SPLASH_MASK_MS = 120L    // black mask over GL init, then fade
+        private const val SPLASH_FADE_MS = 350L
         private const val INTRO_HINT_DURATION_MS = 5000L
-
-        private val LOGO_ASCII = listOf(
-            " _     _  _______  _        _______ ",
-            "| |   | ||  _____|| |      |  ___  |",
-            "| |   | || |____  | |      | |   | |",
-            "| |   | ||  ____| | |      | |   | |",
-            " \\ \\ / / | |____  | |_____ | |___| |",
-            "  \\___/  |_______||_______||_______|",
-        ).joinToString("\n") { it.padEnd(36) }
+        private const val PERMISSION_FALLBACK_MS = 6000L  // ask anyway if intro never finishes
     }
 }

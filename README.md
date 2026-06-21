@@ -1,3 +1,6 @@
+<p align="center">
+  <img src="app/src/main/res/drawable-nodpi/velo_logo.png" alt="Velo Visualiser" width="420">
+</p>
 # Velo: Low Latency Visualiser
 
 Velo is a professional-grade Android audio visualiser engineered around one primary objective: **low latency**. 

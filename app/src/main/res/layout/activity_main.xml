@@ -352,6 +352,18 @@
                 android:textSize="13sp"
                 android:stateListAnimator="@null" />
 
+            <Button
+                android:id="@+id/btn_aurora_drift"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_aurora_drift"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+
             <!-- ===== Category: Immersive (rich generative, heavier GPU) ===== -->
             <View
                 android:layout_width="match_parent"
@@ -490,6 +502,18 @@
                 android:layout_marginBottom="8dp"
                 android:background="@drawable/pill_button_bg"
                 android:text="@string/vis_strange_attractor"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_plasma_storm"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_plasma_storm"
                 android:textColor="@color/btn_text"
                 android:textAllCaps="false"
                 android:textSize="13sp"
@@ -992,7 +1016,6 @@
             android:orientation="vertical"
             android:visibility="gone">
 
-        <!-- Philips Hue Branding and Prerequisites -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -1002,84 +1025,120 @@
             android:textStyle="bold"
             android:textAllCaps="true"
             android:letterSpacing="0.05"
-            android:layout_marginBottom="12dp" />
-
-        <TextView
-            android:id="@+id/hue_prerequisites"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/hue_prerequisites"
-            android:textColor="@color/text_primary"
-            android:textSize="12sp"
-            android:lineSpacingMultiplier="1.2"
-            android:padding="12dp"
-            android:background="@drawable/segment_button_bg"
             android:layout_marginBottom="16dp" />
 
-        <!-- Live connection-state indicator (dot colored in code) -->
-        <TextView
-            android:id="@+id/hue_conn"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/hue_conn_disconnected"
-            android:textColor="@color/text_dim"
-            android:textSize="14sp"
-            android:layout_marginBottom="6dp" />
-
-        <!-- Local-only note -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/hue_local_note"
-            android:textColor="@color/text_dim"
-            android:textSize="11sp"
-            android:lineSpacingMultiplier="1.2"
-            android:layout_marginBottom="16dp" />
-
-        <Button
-            android:id="@+id/btn_hue_connect"
-            android:layout_width="match_parent"
-            android:layout_height="44dp"
-            android:layout_marginBottom="8dp"
-            android:background="@drawable/pill_button_bg"
-            android:text="@string/hue_connect"
-            android:textColor="@color/btn_text"
-            android:textAllCaps="false"
-            android:textSize="13sp"
-            android:stateListAnimator="@null" />
-
-        <!-- Dynamically populated list of Entertainment Areas -->
+        <!-- ── SECTION: BRIDGE ── -->
         <LinearLayout
-            android:id="@+id/hue_area_container"
+            android:id="@+id/hue_section_bridge"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/hue_section_bridge"
+                android:textColor="@color/text_dim"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:textAllCaps="true"
+                android:letterSpacing="0.08"
+                android:layout_marginBottom="10dp" />
+
+            <TextView
+                android:id="@+id/hue_prerequisites"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/hue_prerequisites"
+                android:textColor="@color/text_primary"
+                android:textSize="12sp"
+                android:lineSpacingMultiplier="1.2"
+                android:padding="12dp"
+                android:background="@drawable/segment_button_bg"
+                android:layout_marginBottom="12dp" />
+
+            <TextView
+                android:id="@+id/hue_conn"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/hue_conn_disconnected"
+                android:textColor="@color/text_dim"
+                android:textSize="14sp"
+                android:layout_marginBottom="10dp" />
+
+            <Button
+                android:id="@+id/btn_hue_connect"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/hue_connect"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+
+            <TextView
+                android:id="@+id/hue_status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:text="@string/hue_status_idle"
+                android:textColor="@color/text_dim"
+                android:textSize="11sp"
+                android:layout_marginBottom="6dp" />
+
+            <Button
+                android:id="@+id/btn_hue_forget"
+                android:layout_width="match_parent"
+                android:layout_height="36dp"
+                android:layout_marginBottom="4dp"
+                android:background="@android:color/transparent"
+                android:text="@string/hue_forget"
+                android:textColor="@color/text_dim"
+                android:textAllCaps="false"
+                android:textSize="12sp"
+                android:visibility="gone"
+                android:stateListAnimator="@null" />
+
+        </LinearLayout>
+
+        <!-- ── SECTION: ENTERTAINMENT AREA ── -->
+        <LinearLayout
+            android:id="@+id/hue_section_areas"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:visibility="gone" />
+            android:visibility="gone">
 
-        <Button
-            android:id="@+id/btn_hue_sync"
-            android:layout_width="match_parent"
-            android:layout_height="44dp"
-            android:layout_marginBottom="8dp"
-            android:background="@drawable/pill_button_bg"
-            android:text="@string/hue_sync_off"
-            android:textColor="@color/btn_text"
-            android:textAllCaps="false"
-            android:textSize="13sp"
-            android:enabled="false"
-            android:stateListAnimator="@null" />
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/text_dim"
+                android:alpha="0.25"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="14dp" />
 
-        <TextView
-            android:id="@+id/hue_status"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center"
-            android:text="@string/hue_status_idle"
-            android:textColor="@color/text_dim"
-            android:textSize="11sp"
-            android:layout_marginBottom="16dp" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/hue_section_areas"
+                android:textColor="@color/text_dim"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:textAllCaps="true"
+                android:letterSpacing="0.08"
+                android:layout_marginBottom="10dp" />
 
-        <!-- Light Control: scene presets + brightness (visible when connected, not streaming) -->
+            <LinearLayout
+                android:id="@+id/hue_area_container"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+
+        </LinearLayout>
+
+        <!-- ── SECTION: LIGHT CONTROL ── -->
         <LinearLayout
             android:id="@+id/hue_light_control"
             android:layout_width="match_parent"
@@ -1092,18 +1151,19 @@
                 android:layout_height="1dp"
                 android:background="@color/text_dim"
                 android:alpha="0.25"
+                android:layout_marginTop="8dp"
                 android:layout_marginBottom="14dp" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/hue_light_control_label"
-                android:textColor="@color/accent"
-                android:textSize="14sp"
+                android:textColor="@color/text_dim"
+                android:textSize="11sp"
                 android:textStyle="bold"
                 android:textAllCaps="true"
-                android:letterSpacing="0.05"
-                android:layout_marginBottom="12dp" />
+                android:letterSpacing="0.08"
+                android:layout_marginBottom="10dp" />
 
             <LinearLayout
                 android:id="@+id/hue_scene_grid"
@@ -1134,42 +1194,60 @@
 
         </LinearLayout>
 
-        <View
-            android:id="@+id/hue_forget_divider"
+        <!-- ── SECTION: AUDIO SYNC ── -->
+        <LinearLayout
+            android:id="@+id/hue_section_sync"
             android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:background="@color/text_dim"
-            android:alpha="0.25"
-            android:layout_marginTop="8dp"
-            android:layout_marginBottom="12dp"
-            android:visibility="gone" />
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
 
-        <Button
-            android:id="@+id/btn_hue_forget"
-            android:layout_width="match_parent"
-            android:layout_height="36dp"
-            android:layout_marginBottom="12dp"
-            android:background="@android:color/transparent"
-            android:text="@string/hue_forget"
-            android:textColor="@color/text_dim"
-            android:textAllCaps="false"
-            android:textSize="12sp"
-            android:visibility="gone"
-            android:stateListAnimator="@null" />
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/text_dim"
+                android:alpha="0.25"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="14dp" />
 
-        <!-- Advanced light tuning (shown only while Hue sync is active). -->
-        <Button
-            android:id="@+id/btn_advanced"
-            android:layout_width="match_parent"
-            android:layout_height="44dp"
-            android:layout_marginBottom="20dp"
-            android:background="@drawable/pill_button_bg"
-            android:text="@string/adv_button"
-            android:textColor="@color/btn_text"
-            android:textAllCaps="false"
-            android:textSize="13sp"
-            android:visibility="gone"
-            android:stateListAnimator="@null" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/hue_section_sync"
+                android:textColor="@color/text_dim"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:textAllCaps="true"
+                android:letterSpacing="0.08"
+                android:layout_marginBottom="10dp" />
+
+            <Button
+                android:id="@+id/btn_hue_sync"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/hue_sync_off"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:enabled="false"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_advanced"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="20dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/adv_button"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:visibility="gone"
+                android:stateListAnimator="@null" />
+
+        </LinearLayout>
 
         </LinearLayout>
         <!-- /TAB 2 -->
@@ -1234,34 +1312,13 @@
         </LinearLayout>
     </FrameLayout>
 
-    <!-- Startup splash: ASCII-style VELO logo over black; fades out (topmost) -->
-    <LinearLayout
+    <!-- Startup mask: plain black over GL init; fades out fast so the GL-rendered
+         VELO particle intro (IntroLogoScene) is visible from ignition. -->
+    <View
         android:id="@+id/splash_overlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="#FF000000"
-        android:clickable="true"
-        android:focusable="true"
-        android:orientation="vertical"
-        android:gravity="center"
-        android:paddingHorizontal="32dp">
-
-        <com.lowlatency.visualizer.AsciiLogoView
-            android:id="@+id/splash_logo"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center_horizontal" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/splash_tagline"
-            android:textColor="@color/text_dim"
-            android:textSize="12sp"
-            android:letterSpacing="0.12"
-            android:layout_marginTop="12dp" />
-
-    </LinearLayout>
+        android:background="#FF000000" />
 
     <!-- Brief intro hint (fades out after a few seconds) -->
     <LinearLayout
