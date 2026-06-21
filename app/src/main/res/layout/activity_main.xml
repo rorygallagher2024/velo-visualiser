@@ -262,18 +262,6 @@
                 android:textSize="13sp"
                 android:stateListAnimator="@null" />
 
-            <Button
-                android:id="@+id/btn_cymatics"
-                android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_cymatics"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="13sp"
-                android:stateListAnimator="@null" />
-
             <!-- ===== Category: Reactive (beat / energy driven) ===== -->
             <View
                 android:layout_width="match_parent"
@@ -291,6 +279,18 @@
                 android:letterSpacing="0.1"
                 android:textAllCaps="true"
                 android:layout_marginBottom="8dp" />
+
+            <Button
+                android:id="@+id/btn_cymatics"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_cymatics"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
 
             <Button
                 android:id="@+id/btn_beat_pulse"
@@ -364,24 +364,6 @@
                 android:textSize="13sp"
                 android:stateListAnimator="@null" />
 
-            <!-- ===== Category: Immersive (rich generative, heavier GPU) ===== -->
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:layout_marginTop="8dp"
-                android:layout_marginBottom="16dp"
-                android:background="@color/sheet_stroke" />
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/cat_immersive"
-                android:textColor="@color/text_dim"
-                android:textSize="12sp"
-                android:letterSpacing="0.1"
-                android:textAllCaps="true"
-                android:layout_marginBottom="8dp" />
-
             <Button
                 android:id="@+id/btn_tunnel"
                 android:layout_width="match_parent"
@@ -389,18 +371,6 @@
                 android:layout_marginBottom="8dp"
                 android:background="@drawable/pill_button_bg"
                 android:text="@string/vis_tunnel"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="13sp"
-                android:stateListAnimator="@null" />
-
-            <Button
-                android:id="@+id/btn_fluid"
-                android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_fluid"
                 android:textColor="@color/btn_text"
                 android:textAllCaps="false"
                 android:textSize="13sp"
@@ -467,6 +437,48 @@
                 android:stateListAnimator="@null" />
 
             <Button
+                android:id="@+id/btn_strange_attractor"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_strange_attractor"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+
+            <!-- ===== Category: Immersive (rich generative, heavier GPU) ===== -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="16dp"
+                android:background="@color/sheet_stroke" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/cat_immersive"
+                android:textColor="@color/text_dim"
+                android:textSize="12sp"
+                android:letterSpacing="0.1"
+                android:textAllCaps="true"
+                android:layout_marginBottom="8dp" />
+
+            <Button
+                android:id="@+id/btn_fluid"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_fluid"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+
+            <Button
                 android:id="@+id/btn_mandelbox"
                 android:layout_width="match_parent"
                 android:layout_height="44dp"
@@ -490,18 +502,6 @@
                 android:layout_marginBottom="8dp"
                 android:background="@drawable/pill_button_bg"
                 android:text="@string/vis_reaction_diffusion"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="13sp"
-                android:stateListAnimator="@null" />
-
-            <Button
-                android:id="@+id/btn_strange_attractor"
-                android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_strange_attractor"
                 android:textColor="@color/btn_text"
                 android:textAllCaps="false"
                 android:textSize="13sp"
