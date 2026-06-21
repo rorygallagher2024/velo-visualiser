@@ -1,15 +1,19 @@
-# Velo Visualiser
+# Velo: Low Latency Visualiser
 
-Velo visualiser is a professional-grade android audio visualiser engineered around one primary objective: **low latency**. 
+Velo is a professional-grade Android audio visualiser engineered around one primary objective: **low latency**. 
+
+When you open Velo, you get an oscilloscope that responds to microphone input in less than 10ms. That is faster than:
+* **The blink of an eye** (which takes 100–400 ms).
+* **Human tactile perception** (the 20–30 ms it takes your brain to register touching a drum pad).
+* **The physical speed of sound** travelling from your monitors to the other side of the room (3.4 metres in 10 ms).
 
 A bare-metal C++/Oboe audio engine and custom OpenGL ES 3.1 shaders bypass standard Android bottlenecks to deliver sub-10 ms audio-to-pixel response, while driving Philips Hue lights and device haptics in real-time.
 
-The stand-out features:
-1. **The MOST reactive visualiser** with sub 10ms latency from microphone to pixel
-2. **HDR capable 3D visuals** targeting 120+ fps for most visuals (Device and visual preset dependent)
-3. **Ableton Link support** so you can supplement the visuals with reliable beat detection coming directly from music & DJ software
-4. **Philips Hue Lighting Support** for reactive room lighting powered by a low Latency lighting integration
-5. **No nonsense**. This app is local only with no data collection, and no ads. I don't want your data and none of us want ads.
+## Core Features
+* **High-FPS, HDR-Capable 3D Visuals:** Targets 120+ fps for fluid, tear-free rendering (device and preset dependent).
+* **Ableton Link Integration:** Supplement the microphone input with perfect phase-synchronization and predictive beat detection broadcast directly from your DJ software (Traktor, Live, Serato).
+* **Philips Hue Sync:** Drive your physical room lighting with the exact same zero-lag transient detection used for the on-screen visuals.
+* **No Nonsense:** 100% local processing. No data collection. No ads. I don't want your data, and nobody wants ads.
 
 ## Demo
 
@@ -26,12 +30,12 @@ The stand-out features:
 
 - **22 audio-reactive visualizers**: Waveforms, spectra, particle fluids, scrolling spectrograms, dot-matrix LED meters, and more.
 - **HDR Effects**: Including post-processing for real luminous glow on capable HDR displays and a selectable glow strength.
-- **Real-time Philips Hue Sync Integration**: Direct local UDP streaming over the Hue Entertainment API. Also works in co-ordination with Ableton Link to drive a sychronised beat to the bulbs. Includes lighting controls, advanced controls for calibration and the ability to send Ableton Link beats early for perfect synchronisation.
 - **Ableton Link sync**: Lock beat-driven effects to Traktor, Ableton Live, and other Link software over Wi-Fi; the mic still drives the visuals while Link sets the beat.
+- **Real-time Philips Hue Sync Integration**: Direct local UDP streaming over the Hue Entertainment API. Also works in co-ordination with Ableton Link to drive a sychronised beat to the bulbs. Includes lighting controls, advanced controls for calibration and the ability to send Ableton Link beats early for perfect synchronisation.
 - **Two audio sources**: Raw low-latency microphone capture or internal/system audio via screen-share (Warning: Low latency not supported via screen-sharing).
 - **Global colour themes**: Re-tint visuals to your desired colour scheme (Neon, Warm, Cool, Mono…).
 - **Vibrate-on-beat haptics**: Bass-onset detection triggers physical pulses.
-- **Foldable & Resizable Support**: The render loop survives screen state changes without recreating.
+- **Foldable & Tablet Support**: Open a foldable phone and the render loop will survive the screen state changes without recreating.
 - **Diagnostics Overlay Toggle**: Displays FPS, audio latency, Ableton link status, Hue drop rates and more.
 
 ## License
