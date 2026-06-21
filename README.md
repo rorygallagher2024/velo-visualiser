@@ -13,7 +13,7 @@ When you open Velo, you'll see the default oscilloscope visualisation which resp
 
 A bare-metal C++/Oboe audio engine and custom OpenGL ES 3.1 shaders bypass standard Android bottlenecks to deliver sub-10 ms audio-to-pixel response, while driving Philips Hue lights and device haptics in real-time.
 
-Beyond its absolute speed and zero-lag smart lighting integration, Velo is great showcase for premium Android hardware because it can push modern flagship devices to their limits combining 120Hz tear-free OLED motion, true HDR luminance, and supports dynamic scaling for the large displays tablets and foldables.
+Beyond its absolute speed and zero-lag smart lighting integration, Velo is great showcase for premium Android hardware because it can push modern flagship devices to their limits combining 120Hz tear-free OLED motion, true HDR luminance, and dynamic scaling for the large displays tablets and foldables.
 
 ## Core Features
 * **High-FPS, HDR-Capable 3D Visuals:** Targets 120+ fps for fluid, tear-free rendering (device and preset dependent).
