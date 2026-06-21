@@ -982,8 +982,8 @@ class MainActivity : AppCompatActivity() {
 
         // Engine / Visuals
         val fpsColor = when {
-            fps < 50f -> 0xFFFF4444.toInt()
-            fps < 110f -> 0xFFFFBB33.toInt()
+            fps < 30f -> 0xFFFF4444.toInt()
+            fps < 55f -> 0xFFFFBB33.toInt()
             else -> 0xFF26FF8C.toInt()
         }
         appendSection("Engine", "%.1f fps · %.1fms".format(fps, frameMs), fpsColor)
