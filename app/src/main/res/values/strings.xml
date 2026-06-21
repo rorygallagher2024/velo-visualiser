@@ -7,7 +7,7 @@
     <string name="section_audio">Audio</string>
     <string name="source_label">Audio Source</string>
     <string name="source_mic">Microphone</string>
-    <string name="source_internal">Internal Audio</string>
+    <string name="source_internal">System Audio</string>
     <string name="hint_long_press_fav">Long-press to favorite ★</string>
     <string name="vis_oscilloscope">Hardware Oscilloscope</string>
     <string name="vis_tunnel">Deep Tunnel</string>
@@ -43,7 +43,7 @@
     <string name="display_label">Display</string>
     <string name="burnin_on">Burn-in Protection: On</string>
     <string name="burnin_off">Burn-in Protection: Off</string>
-    <string name="glow_label">Glow (Bloom)</string>
+    <string name="glow_label">Bloom Intensity</string>
     <string name="glow_off">Off</string>
     <string name="glow_subtle">Subtle</string>
     <string name="glow_standard">Standard</string>
@@ -95,8 +95,8 @@
         We may update our Privacy Policy from time to time.\n\n
         <b>5. Contact Us</b>\n
         If you have any questions about this Privacy Policy, please contact us via our GitHub repository.</string>
-    <string name="haptics_on">Vibrate on Beat: On</string>
-    <string name="haptics_off">Vibrate on Beat: Off</string>
+    <string name="haptics_on">Haptic Feedback: On</string>
+    <string name="haptics_off">Haptic Feedback: Off</string>
     <string name="beat_sens_label">Beat Sensitivity</string>
     <string name="beat_sens_low">Low</string>
     <string name="beat_sens_standard">Standard</string>
@@ -131,8 +131,8 @@
     <string name="adv_done">Done</string>
     <string name="perf_overlay_on">Performance Overlay: On</string>
     <string name="perf_overlay_off">Performance Overlay: Off</string>
-    <string name="peak_luminance_on">Peak Luminance: Max (HDR+)</string>
-    <string name="peak_luminance_off">Peak Luminance: Default</string>
+    <string name="peak_luminance_on">HDR Performance: Max</string>
+    <string name="peak_luminance_off">HDR Performance: Default</string>
     <string name="peak_luminance_hint">Forces the display to maximum brightness and dynamic range for the best HDR punch. May increase heat and battery drain.</string>
     <string name="max_brightness_on">Full Brightness: On</string>
     <string name="max_brightness_off">Full Brightness: Default</string>

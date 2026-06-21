@@ -13,7 +13,7 @@ android {
         targetSdk 37         // Android 17 — latest target
         // Bump the minor version on each change; shown at the bottom of the menu.
         versionCode 49
-        versionName "1.57"
+        versionName "1.58"
 
         // --- NDK / native build ---
         ndk {
