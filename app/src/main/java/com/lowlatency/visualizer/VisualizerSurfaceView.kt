@@ -51,6 +51,9 @@ class VisualizerSurfaceView @JvmOverloads constructor(
     /** True while the intro animation is still playing. */
     val introActive: Boolean get() = renderer.introActive
 
+    /** True if the intro will run on the next surface creation (cold start). */
+    val willPlayIntro: Boolean get() = renderer.willPlayIntro()
+
     /**
      * Invoked when the intro finishes (or is skipped/disabled). Delivered on the
      * main thread — the renderer fires it on the GL thread and we hop here.

@@ -81,7 +81,8 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
         ReactionDiffusionScene(),  // 20 — Gray-Scott Turing patterns (FBO ping-pong)
         ChladniPlateScene(),       // 21 — "Cymatics" dominant-frequency Chladni plate
         StrangeAttractorScene(),   // 22 — Aizawa attractor particle cloud (compute)
-        PlasmaStormScene()         // 23 — "Plasma Storm" curl-noise flow field (compute)
+        PlasmaStormScene(),        // 23 — "Plasma Storm" curl-noise flow field (compute)
+        AuroraDriftScene()         // 24 — "Aurora Drift" Tetris-Effect-style flow streams
     )
     private var current = DEFAULT_SCENE
     private var target = DEFAULT_SCENE
@@ -267,6 +268,14 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
             )
         }
     }
+
+    /**
+     * Whether the intro will actually run on the next surface creation — true on a
+     * cold start with the intro enabled, false on a warm resume (already played
+     * this process) or when reduced-motion disabled it. Lets the Activity decide
+     * to hold the runtime-permission dialog back until the intro has finished.
+     */
+    fun willPlayIntro(): Boolean = introEnabled && !introPlayedThisProcess
 
     /**
      * Skip the intro: jump straight to the shatter phase so the dissolve still

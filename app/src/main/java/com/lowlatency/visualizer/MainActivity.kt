@@ -87,6 +87,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnCymatics: Button
     private lateinit var btnStrangeAttractor: Button
     private lateinit var btnPlasmaStorm: Button
+    private lateinit var btnAuroraDrift: Button
     private lateinit var btnBurnin: Button
     private lateinit var btnGlowOff: Button
     private lateinit var btnGlowSubtle: Button
@@ -145,6 +146,7 @@ class MainActivity : AppCompatActivity() {
 
     private var systemAudioMode = false
     private var menuOpen = false
+    private var deferredPermissionRequest = false
     private var bassLpState = 0f   // one-pole low-pass state for the bass/treble split
     private var perfOverlayEnabled = false
     private var lastHuePackets = 0L
@@ -268,6 +270,27 @@ class MainActivity : AppCompatActivity() {
             ContextCompat.RECEIVER_NOT_EXPORTED
         )
 
+        // Hold the runtime-permission dialog back until the intro has finished, but
+        // only when it would actually appear — i.e. a first launch (mic not yet
+        // granted) where the intro is going to play. If the mic is already granted
+        // the request is invisible, so fire it now and let audio be live behind the
+        // shatter. wireSplash() fires the deferred request from onIntroFinished.
+        val hasMic = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
+            PackageManager.PERMISSION_GRANTED
+        if (glView.willPlayIntro && !hasMic) {
+            deferredPermissionRequest = true
+            // Safety net: if the intro never reports finished (e.g. surface never
+            // created), still ask after a delay so the app isn't stuck without audio.
+            glView.postDelayed({ fireDeferredPermissionRequest() }, PERMISSION_FALLBACK_MS)
+        } else {
+            requestPermissions.launch(buildPermissionList())
+        }
+    }
+
+    /** Launch the deferred permission request exactly once. */
+    private fun fireDeferredPermissionRequest() {
+        if (!deferredPermissionRequest) return
+        deferredPermissionRequest = false
         requestPermissions.launch(buildPermissionList())
     }
 
@@ -304,6 +327,7 @@ class MainActivity : AppCompatActivity() {
         btnCymatics = findViewById(R.id.btn_cymatics)
         btnStrangeAttractor = findViewById(R.id.btn_strange_attractor)
         btnPlasmaStorm = findViewById(R.id.btn_plasma_storm)
+        btnAuroraDrift = findViewById(R.id.btn_aurora_drift)
         btnBurnin = findViewById(R.id.btn_burnin)
         btnGlowOff = findViewById(R.id.btn_glow_off)
         btnGlowSubtle = findViewById(R.id.btn_glow_subtle)
@@ -372,7 +396,10 @@ class MainActivity : AppCompatActivity() {
         }, SPLASH_MASK_MS)
 
         if (glView.introEnabled) {
-            glView.onIntroFinished = { showIntroHint() }
+            glView.onIntroFinished = {
+                showIntroHint()
+                fireDeferredPermissionRequest()
+            }
         } else {
             splashOverlay.postDelayed({ showIntroHint() }, SPLASH_MASK_MS + SPLASH_FADE_MS)
         }
@@ -521,6 +548,7 @@ class MainActivity : AppCompatActivity() {
             Triple(btnStarscape, 7, btnStarscape.text.toString()),
             Triple(btnBloom, 6, btnBloom.text.toString()),
             Triple(btnElectricIris, 12, btnElectricIris.text.toString()),
+            Triple(btnAuroraDrift, 24, btnAuroraDrift.text.toString()),
             // Immersive
             Triple(btnTunnel, 1, btnTunnel.text.toString()),
             Triple(btnFluid, 2, btnFluid.text.toString()),
@@ -1734,6 +1762,7 @@ class MainActivity : AppCompatActivity() {
         private const val SPLASH_MASK_MS = 120L    // black mask over GL init, then fade
         private const val SPLASH_FADE_MS = 350L
         private const val INTRO_HINT_DURATION_MS = 5000L
+        private const val PERMISSION_FALLBACK_MS = 6000L  // ask anyway if intro never finishes
 
         private val LOGO_ASCII = listOf(
             " _     _  _______  _        _______ ",
