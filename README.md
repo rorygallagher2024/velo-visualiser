@@ -9,7 +9,7 @@ Velo is a professional-grade Android audio visualiser engineered around one prim
 When you open Velo, you get an oscilloscope that responds to microphone input in less than 10ms. That is faster than:
 * **The blink of an eye** (which takes 100–400 ms).
 * **Human tactile perception** (the 20–30 ms it takes your brain to register touching a drum pad).
-* **The physical speed of sound** travelling from your monitors to the other side of the room (3.4 metres in 10 ms).
+* **The physical speed of sound** travelling from speakers on one side of the room to another (3.4 metres in 10 ms).
 
 A bare-metal C++/Oboe audio engine and custom OpenGL ES 3.1 shaders bypass standard Android bottlenecks to deliver sub-10 ms audio-to-pixel response, while driving Philips Hue lights and device haptics in real-time.
 
