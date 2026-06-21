@@ -1362,12 +1362,16 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         glView.onResume()
         if (!systemAudioMode) ensureMicAndStart()
+        if (::hueController.isInitialized) hueController.paused = false
+        if (LinkSync.enabled) linkHandler.post(linkStatusPoller)
     }
 
     override fun onPause() {
         super.onPause()
         glView.onPause()
         if (!systemAudioMode) NativeBridge.nativeStop()
+        if (::hueController.isInitialized) hueController.paused = true
+        linkHandler.removeCallbacks(linkStatusPoller)
     }
 
     override fun onDestroy() {
