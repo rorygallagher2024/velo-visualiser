@@ -22,7 +22,6 @@ Beyond its absolute speed and zero-lag smart lighting integration, Velo is great
 * **No Nonsense:** 100% local processing. No data collection. No ads. I don't want your data, and nobody wants ads.
 
 ## Demo
-https://youtu.be/
 **Velo: Low Latency Music Visualiser Demo Video**
 [![Velo Demo](https://img.youtube.com/vi/ql0CwtlYDyI/maxresdefault.jpg)](https://youtu.be/ql0CwtlYDyI)
 `▶ Watch on YouTube`
