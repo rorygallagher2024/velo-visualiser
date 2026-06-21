@@ -133,7 +133,7 @@ Java_com_lowlatency_visualizer_NativeBridge_nativeInitializeSharedBuffer(JNIEnv 
 JNIEXPORT jint JNICALL
 Java_com_lowlatency_visualizer_NativeBridge_fillSharedAudioBuffer(JNIEnv *, jobject) {
     if (!gSharedBufferPtr) return 0;
-    jlong len = gSharedBufferSize / sizeof(float);
+    auto len = static_cast<jlong>(gSharedBufferSize / sizeof(float));
     if (len > kRenderWindow) len = kRenderWindow;
     AudioEngine::instance().copyLatest(static_cast<float*>(gSharedBufferPtr), static_cast<size_t>(len));
     return static_cast<jint>(len);
@@ -186,7 +186,7 @@ Java_com_lowlatency_visualizer_NativeBridge_nativePushPcm(JNIEnv *env, jobject,
         }
     } else {
         // Generic fallback for mono or surround
-        const float kInv = (1.0f / (32768.0f * channels)) * gain;
+        const float kInv = (1.0f / (32768.0f * static_cast<float>(channels))) * gain;
         for (jint f = 0; f < frames; ++f) {
             float acc = 0.0f;
             for (jint c = 0; c < channels; ++c) {

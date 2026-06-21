@@ -66,7 +66,7 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
         .order(java.nio.ByteOrder.nativeOrder())
     val sharedAudioFloatBuffer: java.nio.FloatBuffer = sharedAudioBuffer.asFloatBuffer()
 
-    private val scenes = arrayOf<GlScene>(
+    private val scenes = arrayOf(
         OscilloscopeScene(),       // 0
         TunnelScene(),             // 1
         FluidScene(),              // 2
@@ -92,7 +92,7 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
         StrangeAttractorScene(),   // 22 — Aizawa attractor particle cloud (compute)
         PlasmaStormScene(),        // 23 — "Plasma Storm" curl-noise flow field (compute)
         AuroraDriftScene(),        // 24 — "Aurora Drift" Tetris-Effect-style flow streams
-        OdysseyScene()             // 25 — "Odyssey" flagship morphing journey
+        OdysseyScene(),             // 25 — "Odyssey" flagship morphing journey
     )
     private var current = DEFAULT_SCENE
     private var target = DEFAULT_SCENE
@@ -204,7 +204,7 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
 
         // Populate the legacy PCM array for sinks/scenes that still need it.
         sharedAudioFloatBuffer.position(0)
-        sharedAudioFloatBuffer.get(pcm)
+        sharedAudioFloatBuffer.get(pcm, 0, pcm.size)
 
         val t = nowSec()
         val dt = (t - lastFrameSec).coerceIn(0f, 0.1f)
@@ -219,7 +219,7 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
 
         if (dt > 0f) {
             frameTimeMs = dt * 1000f
-            fps = fps * 0.9f + (1f / dt) * 0.1f
+            fps = (fps * 0.9f) + ((1f / dt) * 0.1f)
         }
 
         // First-run intro owns the frame until the VELO cloud has shattered into

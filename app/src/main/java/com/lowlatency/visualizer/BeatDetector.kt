@@ -18,8 +18,8 @@ import kotlin.math.sqrt
  * flux spike above an adaptive baseline, gated by a silence floor and a
  * refractory period.
  *
- * Operates purely on the raw waveform — it never touches the FFT bands or
- * SpectrumAnalyzer the visuals use, so their tuning is unaffected.
+ * Operates purely on the raw waveform — it never touches the native FFT bands
+ * or the full 128-bin spectrum the visuals use, so their tuning is unaffected.
  */
 class BeatDetector(
     private val lpAlpha: Float = 0.025f,     // one-pole LP coeff (~180 Hz @ 48 kHz)

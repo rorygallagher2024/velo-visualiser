@@ -78,13 +78,28 @@ class RawScopeScene : GlScene {
         // A 1D trace needs no aspect correction: x spans the full width, y is amplitude.
     }
 
-    override fun draw(pcm: FloatArray, bands: FloatArray, magnitudes: FloatArray, peaks: FloatArray, timeSec: Float, dim: Float, sharedBuffer: java.nio.ByteBuffer?) {
+    override fun draw(
+        pcm: FloatArray,
+        bands: FloatArray,
+        magnitudes: FloatArray,
+        peaks: FloatArray,
+        timeSec: Float,
+        dim: Float,
+        sharedBuffer: java.nio.ByteBuffer?
+    ) {
         val n = minOf(pcm.size, POINTS)
-        buffer.clear(); buffer.put(pcm, 0, n); buffer.position(0)
 
         GLES20.glUseProgram(program)
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, vbo)
-        GLES20.glBufferSubData(GLES20.GL_ARRAY_BUFFER, 0, n * 4, buffer)
+        
+        if (sharedBuffer != null) {
+            sharedBuffer.position(0)
+            GLES20.glBufferSubData(GLES20.GL_ARRAY_BUFFER, 0, n * 4, sharedBuffer)
+        } else {
+            buffer.clear(); buffer.put(pcm, 0, n); buffer.position(0)
+            GLES20.glBufferSubData(GLES20.GL_ARRAY_BUFFER, 0, n * 4, buffer)
+        }
+
         GLES20.glEnableVertexAttribArray(aSample)
         GLES20.glVertexAttribPointer(aSample, 1, GLES20.GL_FLOAT, false, 0, 0)
 

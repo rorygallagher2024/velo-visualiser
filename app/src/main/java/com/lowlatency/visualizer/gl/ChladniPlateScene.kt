@@ -14,8 +14,8 @@ import kotlin.math.sin
  * pitch rises the mode numbers climb and the pattern grows finer; louder tones
  * make the sand settle tighter and brighter.
  *
- * Unlike the band-driven scenes, this is tied to the actual peak frequency: a
- * CPU FFT ([SpectrumAnalyzer]) finds the loudest bin each frame, which maps to
+ * Unlike the band-driven scenes, this is tied to the actual peak frequency: the
+ * native FFT finds the loudest bin each frame, which maps to
  * the plate's two vibration modes. The figure morphs continuously with pitch and
  * drifts slowly over time so it stays alive on sustained notes.
  */

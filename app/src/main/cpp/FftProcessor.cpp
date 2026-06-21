@@ -22,13 +22,13 @@ inline float clamp01(float v) { return v < 0.f ? 0.f : (v > 1.f ? 1.f : v); }
 } // namespace
 
 FftProcessor::FftProcessor()
-        : mCfg(kiss_fftr_alloc(kFftSize, /*inverse=*/0, nullptr, nullptr)),
+        : mCfg(kiss_fftr_alloc(kFftSize, /*inverse_fft=*/0, nullptr, nullptr)),
           mWindow(kFftSize),
           mWindowed(kFftSize),
           mSpectrum(kFftSize / 2 + 1) {
     // Precompute the Hann window once.
     for (int i = 0; i < kFftSize; ++i) {
-        mWindow[i] = 0.5f * (1.0f - std::cos(2.0f * static_cast<float>(M_PI) * i /
+        mWindow[i] = 0.5f * (1.0f - std::cos(2.0f * static_cast<float>(M_PI) * static_cast<float>(i) /
                                              (kFftSize - 1)));
     }
 }
@@ -89,7 +89,7 @@ void FftProcessor::processFullSpectrum(const float *pcm, int sampleRate, float *
 
     // 3. Log-frequency binning.
     const int half = kFftSize / 2;
-    const float logSpan = static_cast<float>(half);
+    const auto logSpan = static_cast<float>(half);
     const float ampNorm = 4.0f / kFftSize;
 
     // Constants from SpectrumAnalyzer.kt
