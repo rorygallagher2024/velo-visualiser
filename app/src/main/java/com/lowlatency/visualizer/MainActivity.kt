@@ -88,6 +88,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnStrangeAttractor: Button
     private lateinit var btnPlasmaStorm: Button
     private lateinit var btnAuroraDrift: Button
+    private lateinit var btnOdyssey: Button
     private lateinit var btnBurnin: Button
     private lateinit var btnGlowOff: Button
     private lateinit var btnGlowSubtle: Button
@@ -328,6 +329,7 @@ class MainActivity : AppCompatActivity() {
         btnStrangeAttractor = findViewById(R.id.btn_strange_attractor)
         btnPlasmaStorm = findViewById(R.id.btn_plasma_storm)
         btnAuroraDrift = findViewById(R.id.btn_aurora_drift)
+        btnOdyssey = findViewById(R.id.btn_odyssey)
         btnBurnin = findViewById(R.id.btn_burnin)
         btnGlowOff = findViewById(R.id.btn_glow_off)
         btnGlowSubtle = findViewById(R.id.btn_glow_subtle)
@@ -561,6 +563,7 @@ class MainActivity : AppCompatActivity() {
             Triple(btnReactionDiffusion, 20, btnReactionDiffusion.text.toString()),
             Triple(btnStrangeAttractor, 22, btnStrangeAttractor.text.toString()),
             Triple(btnPlasmaStorm, 23, btnPlasmaStorm.text.toString()),
+            Triple(btnOdyssey, 25, btnOdyssey.text.toString()),
         )
         glView.sceneOrder = visButtons.map { it.second }
         glView.onSceneChanged = { updateVisualizerSelection() }

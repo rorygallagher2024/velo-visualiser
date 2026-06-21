@@ -82,7 +82,8 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
         ChladniPlateScene(),       // 21 — "Cymatics" dominant-frequency Chladni plate
         StrangeAttractorScene(),   // 22 — Aizawa attractor particle cloud (compute)
         PlasmaStormScene(),        // 23 — "Plasma Storm" curl-noise flow field (compute)
-        AuroraDriftScene()         // 24 — "Aurora Drift" Tetris-Effect-style flow streams
+        AuroraDriftScene(),        // 24 — "Aurora Drift" Tetris-Effect-style flow streams
+        OdysseyScene()             // 25 — "Odyssey" flagship morphing journey
     )
     private var current = DEFAULT_SCENE
     private var target = DEFAULT_SCENE

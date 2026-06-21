@@ -34,6 +34,7 @@
     <string name="vis_strange_attractor">Strange Attractor</string>
     <string name="vis_plasma_storm">Plasma Storm</string>
     <string name="vis_aurora_drift">Aurora Drift</string>
+    <string name="vis_odyssey">Odyssey</string>
     <string name="cat_instruments">Instruments</string>
     <string name="cat_reactive">Reactive</string>
     <string name="cat_immersive">Immersive</string>
