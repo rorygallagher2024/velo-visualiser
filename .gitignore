@@ -50,6 +50,9 @@ obj/
 # Logs
 *.log
 
+# Artifacts
+.artifacts/
+
 # OS files
 .DS_Store
 Thumbs.db
