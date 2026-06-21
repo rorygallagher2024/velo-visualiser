@@ -1,7 +1,9 @@
 #include <jni.h>
 #include <vector>
 #include <android/log.h>
+#if defined(__ARM_NEON) || defined(__aarch64__)
 #include <arm_neon.h>
+#endif
 #include "AudioEngine.h"
 #include "LinkController.h"
 
@@ -125,6 +127,26 @@ Java_com_lowlatency_visualizer_NativeBridge_fillLatestSpectrum(JNIEnv *env, jobj
     return 128;
 }
 
+JNIEXPORT jint JNICALL
+Java_com_lowlatency_visualizer_NativeBridge_fillLatestAll(JNIEnv *env, jobject,
+                                                          jfloatArray bandsOut,
+                                                          jfloatArray magnitudes,
+                                                          jfloatArray peaks,
+                                                          jfloat dt) {
+    if (bandsOut == nullptr || magnitudes == nullptr || peaks == nullptr) return 0;
+    jfloat *b = env->GetFloatArrayElements(bandsOut, nullptr);
+    jfloat *m = env->GetFloatArrayElements(magnitudes, nullptr);
+    jfloat *p = env->GetFloatArrayElements(peaks, nullptr);
+    if (!b || !m || !p) return 0;
+
+    AudioEngine::instance().computeAll(b, m, p, dt);
+
+    env->ReleaseFloatArrayElements(bandsOut, b, 0);
+    env->ReleaseFloatArrayElements(magnitudes, m, 0);
+    env->ReleaseFloatArrayElements(peaks, p, 0);
+    return 128;
+}
+
 JNIEXPORT void JNICALL
 Java_com_lowlatency_visualizer_NativeBridge_nativeInitializeSharedBuffer(JNIEnv *env, jobject, jobject buffer) {
     if (gSharedBuffer) {
@@ -158,9 +180,8 @@ Java_com_lowlatency_visualizer_NativeBridge_nativePushPcm(JNIEnv *env, jobject,
                                                           jfloat gain) {
     if (pcm == nullptr || frames <= 0 || channels <= 0) return;
 
-    auto start = std::chrono::high_resolution_clock::now();
-    auto now = std::chrono::steady_clock::now().time_since_epoch();
-    long long nowNs = std::chrono::duration_cast<std::chrono::nanoseconds>(now).count();
+    auto start = std::chrono::steady_clock::now();
+    long long nowNs = std::chrono::duration_cast<std::chrono::nanoseconds>(start.time_since_epoch()).count();
     long long lastNs = gSystemAudioLastPushNs.exchange(nowNs);
     if (lastNs > 0) {
         gSystemAudioLastIntervalMs.store(static_cast<float>(nowNs - lastNs) / 1000000.0f);
@@ -173,19 +194,17 @@ Java_com_lowlatency_visualizer_NativeBridge_nativePushPcm(JNIEnv *env, jobject,
     if (mono.size() < static_cast<size_t>(frames)) mono.resize(frames);
 
     if (channels == 2) {
-        // Optimized NEON path for stereo: (L+R)/2 * gain
         const float kInvStereo = (1.0f / (32768.0f * 2.0f)) * gain;
         int f = 0;
-        // Process 4 stereo pairs (8 shorts) at a time.
+#if defined(__ARM_NEON) || defined(__aarch64__)
         for (; f <= frames - 4; f += 4) {
             int16x8_t stereo = vld1q_s16(&src[f * 2]);
-            // vpaddlq_s16 adds adjacent pairs: [L0+R0, L1+R1, L2+R2, L3+R3] as int32x4
             int32x4_t sum = vpaddlq_s16(stereo);
             float32x4_t fsum = vcvtq_f32_s32(sum);
             float32x4_t res = vmulq_n_f32(fsum, kInvStereo);
             vst1q_f32(&mono[f], res);
         }
-        // Remainder
+#endif
         for (; f < frames; ++f) {
             mono[f] = (static_cast<float>(src[f * 2]) + static_cast<float>(src[f * 2 + 1])) * kInvStereo;
         }
@@ -204,7 +223,7 @@ Java_com_lowlatency_visualizer_NativeBridge_nativePushPcm(JNIEnv *env, jobject,
     AudioEngine::instance().pushExternalPcm(mono.data(), static_cast<size_t>(frames));
     env->ReleaseShortArrayElements(pcm, src, JNI_ABORT); // read-only, no copy-back
 
-    auto end = std::chrono::high_resolution_clock::now();
+    auto end = std::chrono::steady_clock::now();
     gSystemAudioConvTimeUs.store(std::chrono::duration_cast<std::chrono::microseconds>(end - start).count());
 }
 

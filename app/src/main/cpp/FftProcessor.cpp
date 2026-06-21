@@ -37,36 +37,33 @@ FftProcessor::~FftProcessor() {
     kiss_fftr_free(mCfg);
 }
 
-void FftProcessor::process(const float *pcm, int sampleRate, float *outBands) noexcept {
-    // 1. Window.
+void FftProcessor::runFft(const float *pcm) noexcept {
     for (int i = 0; i < kFftSize; ++i) {
         mWindowed[i] = pcm[i] * mWindow[i];
     }
-
-    // 2. Real FFT.
     kiss_fftr(mCfg, mWindowed.data(), mSpectrum.data());
+}
 
-    // 3. Accumulate magnitudes per band.
+void FftProcessor::computeBands(int sampleRate, float *outBands) noexcept {
     const int bins = kFftSize / 2 + 1;
     const float binHz = static_cast<float>(sampleRate) / kFftSize;
 
     float sum[kBands] = {0.f, 0.f, 0.f};
     int count[kBands] = {0, 0, 0};
 
-    for (int b = 1; b < bins; ++b) {          // skip DC (b == 0)
+    for (int b = 1; b < bins; ++b) {
         const float freq = b * binHz;
         int band;
         if (freq < kLowMax)       band = 0;
         else if (freq < kMidMax)  band = 1;
         else if (freq < kHighMax) band = 2;
-        else break;                            // bins only increase in freq
+        else break;
 
         const kiss_fft_cpx &c = mSpectrum[b];
         sum[band] += std::sqrt(c.r * c.r + c.i * c.i);
         ++count[band];
     }
 
-    // 4. Normalize (dB scale) + asymmetric smoothing.
     for (int k = 0; k < kBands; ++k) {
         const float avg = count[k] > 0 ? sum[k] / count[k] : 0.f;
         const float db = 20.0f * std::log10(avg + 1e-6f);
@@ -78,25 +75,15 @@ void FftProcessor::process(const float *pcm, int sampleRate, float *outBands) no
     }
 }
 
-void FftProcessor::processFullSpectrum(const float *pcm, int sampleRate, float *outMagnitudes, float *outPeaks, float dt) noexcept {
-    // 1. Window.
-    for (int i = 0; i < kFftSize; ++i) {
-        mWindowed[i] = pcm[i] * mWindow[i];
-    }
-
-    // 2. Real FFT.
-    kiss_fftr(mCfg, mWindowed.data(), mSpectrum.data());
-
-    // 3. Log-frequency binning.
+void FftProcessor::computeFullSpectrum(float *outMagnitudes, float *outPeaks, float dt) noexcept {
     const int half = kFftSize / 2;
     const auto logSpan = static_cast<float>(half);
     const float ampNorm = 4.0f / kFftSize;
 
-    // Constants from SpectrumAnalyzer.kt
-    constexpr float kFloorDb = -88.0f;
-    constexpr float kCeilDb = -12.0f;
+    constexpr float kFloorDbFull = -88.0f;
+    constexpr float kCeilDbFull = -12.0f;
     constexpr float kTiltDbPerOct = 3.0f;
-    constexpr float kTiltRefBin = 20.0;
+    constexpr float kTiltRefBin = 20.0f;
     constexpr float kPeakFall = 0.4f;
 
     auto magAt = [&](int k) {
@@ -136,7 +123,7 @@ void FftProcessor::processFullSpectrum(const float *pcm, int sampleRate, float *
         float centerBin = std::pow(logSpan, (b + 0.5f) / kFullBins);
         float tilt = kTiltDbPerOct * std::log2(centerBin / kTiltRefBin);
         float db = 20.0f * std::log10(avg * ampNorm + 1e-9f) + tilt;
-        float target = clamp01((db - kFloorDb) / (kCeilDb - kFloorDb));
+        float target = clamp01((db - kFloorDbFull) / (kCeilDbFull - kFloorDbFull));
 
         float cur = mFullMagnitudes[b];
         float coeff = (target > cur) ? 0.6f : 0.2f;
@@ -148,4 +135,21 @@ void FftProcessor::processFullSpectrum(const float *pcm, int sampleRate, float *
         outMagnitudes[b] = mFullMagnitudes[b];
         outPeaks[b] = mFullPeaks[b];
     }
+}
+
+void FftProcessor::process(const float *pcm, int sampleRate, float *outBands) noexcept {
+    runFft(pcm);
+    computeBands(sampleRate, outBands);
+}
+
+void FftProcessor::processFullSpectrum(const float *pcm, int sampleRate, float *outMagnitudes, float *outPeaks, float dt) noexcept {
+    runFft(pcm);
+    computeFullSpectrum(outMagnitudes, outPeaks, dt);
+}
+
+void FftProcessor::processAll(const float *pcm, int sampleRate, float *outBands,
+                              float *outMagnitudes, float *outPeaks, float dt) noexcept {
+    runFft(pcm);
+    computeBands(sampleRate, outBands);
+    computeFullSpectrum(outMagnitudes, outPeaks, dt);
 }

@@ -204,9 +204,8 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
     override fun onDrawFrame(gl: GL10?) {
         cpuThreadTimeStart = android.os.SystemClock.currentThreadTimeMillis()
 
-        // Pull the freshest audio data from the native ring buffer + FFT.
+        // Pull the freshest audio data from the native ring buffer.
         NativeBridge.fillSharedAudioBuffer()
-        NativeBridge.fillLatestFrequencyBands(bands)
 
         // Populate the legacy PCM array for sinks/scenes that still need it.
         sharedAudioFloatBuffer.position(0)
@@ -216,7 +215,8 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
         val dt = (t - lastFrameSec).coerceIn(0f, 0.1f)
         lastFrameSec = t
 
-        NativeBridge.fillLatestSpectrum(magnitudes, peaks, dt)
+        // Single FFT: bands + 128-bin spectrum in one native call.
+        NativeBridge.fillLatestAll(bands, magnitudes, peaks, dt)
 
         // Forward the bands to any tap (Hue light sync) — cheap, non-blocking.
         bandsSink?.invoke(bands[0], bands[1], bands[2])

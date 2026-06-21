@@ -39,7 +39,15 @@ public:
     // Full 128-bin log-frequency spectrum for visualizers.
     void processFullSpectrum(const float *pcm, int sampleRate, float *outMagnitudes, float *outPeaks, float dt) noexcept;
 
+    // Single-FFT combined path: bands + full spectrum from one transform.
+    void processAll(const float *pcm, int sampleRate, float *outBands,
+                    float *outMagnitudes, float *outPeaks, float dt) noexcept;
+
 private:
+    void runFft(const float *pcm) noexcept;
+    void computeBands(int sampleRate, float *outBands) noexcept;
+    void computeFullSpectrum(float *outMagnitudes, float *outPeaks, float dt) noexcept;
+
     kiss_fftr_cfg mCfg;
     std::vector<float> mWindow;                 // Hann coefficients
     std::vector<float> mWindowed;               // scratch (windowed PCM)

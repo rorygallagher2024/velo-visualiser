@@ -250,7 +250,7 @@ class OscilloscopeScene : GlScene {
             )
         } else {
             upload.clear()
-            for (i in 0 until POINTS) { upload.put(0.5f + 0.5f * pcm[i].coerceIn(-1f, 1f)) }
+            for (i in 0 until POINTS) { upload.put(pcm[i].coerceIn(-1f, 1f)) }
             upload.position(0)
             GLES20.glTexSubImage2D(
                 GLES20.GL_TEXTURE_2D, 0, 0, 0, POINTS, 1,

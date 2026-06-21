@@ -65,6 +65,13 @@ object NativeBridge {
     external fun fillLatestSpectrum(magnitudes: FloatArray, peaks: FloatArray, dt: Float): Int
 
     /**
+     * Single-FFT combined path: fills 3 bands + 128 magnitudes + 128 peaks
+     * from one transform. Preferred over calling [fillLatestFrequencyBands]
+     * and [fillLatestSpectrum] separately.
+     */
+    external fun fillLatestAll(bands: FloatArray, magnitudes: FloatArray, peaks: FloatArray, dt: Float): Int
+
+    /**
      * System-audio push path. Called from [AudioCaptureService] with 16-bit
      * interleaved PCM read off an AudioPlaybackCapture-configured AudioRecord.
      * [gain] is applied in the native layer (SIMD optimized).

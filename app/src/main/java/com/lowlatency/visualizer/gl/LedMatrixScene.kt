@@ -133,14 +133,21 @@ class LedMatrixScene : GlScene {
         sharedBuffer: java.nio.ByteBuffer?
     ) {
         upload.clear()
-        // Map 128-bin global spectrum to the 24 columns this scene expects.
         for (i in 0 until COLS) {
-            val src = (i * 128) / COLS
-            upload.put(magnitudes[src])
+            val lo = i * 128 / COLS
+            val hi = (i + 1) * 128 / COLS
+            val n = (hi - lo).coerceAtLeast(1)
+            var sum = 0f
+            for (j in lo until lo + n) sum += magnitudes[j.coerceAtMost(127)]
+            upload.put(sum / n)
         }
         for (i in 0 until COLS) {
-            val src = (i * 128) / COLS
-            upload.put(peaks[src])
+            val lo = i * 128 / COLS
+            val hi = (i + 1) * 128 / COLS
+            val n = (hi - lo).coerceAtLeast(1)
+            var sum = 0f
+            for (j in lo until lo + n) sum += peaks[j.coerceAtMost(127)]
+            upload.put(sum / n)
         }
         upload.position(0)
 

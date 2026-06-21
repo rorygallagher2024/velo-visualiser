@@ -59,6 +59,9 @@ public:
     // Full 128-bin spectrum for visuals.
     void computeFullSpectrum(float *outMagnitudes, float *outPeaks, float dt) noexcept;
 
+    // Single-FFT combined path: bands + full spectrum from one transform.
+    void computeAll(float *outBands, float *outMagnitudes, float *outPeaks, float dt) noexcept;
+
     int sampleRate() const { return mSampleRate.load(std::memory_order_relaxed); }
     float callbackPeriodMs() const { return mCallbackPeriodMs.load(std::memory_order_relaxed); }
 
