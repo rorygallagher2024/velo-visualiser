@@ -17,6 +17,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 import android.util.Log
 import android.util.TypedValue
 import android.view.GestureDetector
@@ -59,7 +60,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var optionsSheet: View
     private lateinit var firstBootOverlay: View
     private lateinit var splashOverlay: View
-    private lateinit var splashLogo: AsciiLogoView
     private lateinit var introHint: View
     private lateinit var segMic: Button
     private lateinit var segInternal: Button
@@ -86,6 +86,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnReactionDiffusion: Button
     private lateinit var btnCymatics: Button
     private lateinit var btnStrangeAttractor: Button
+    private lateinit var btnPlasmaStorm: Button
     private lateinit var btnBurnin: Button
     private lateinit var btnGlowOff: Button
     private lateinit var btnGlowSubtle: Button
@@ -276,7 +277,6 @@ class MainActivity : AppCompatActivity() {
         optionsSheet = findViewById(R.id.options_sheet)
         firstBootOverlay = findViewById(R.id.first_boot_overlay)
         splashOverlay = findViewById(R.id.splash_overlay)
-        splashLogo = findViewById(R.id.splash_logo)
         introHint = findViewById(R.id.intro_hint)
         segMic = findViewById(R.id.seg_mic)
         segInternal = findViewById(R.id.seg_internal)
@@ -303,6 +303,7 @@ class MainActivity : AppCompatActivity() {
         btnReactionDiffusion = findViewById(R.id.btn_reaction_diffusion)
         btnCymatics = findViewById(R.id.btn_cymatics)
         btnStrangeAttractor = findViewById(R.id.btn_strange_attractor)
+        btnPlasmaStorm = findViewById(R.id.btn_plasma_storm)
         btnBurnin = findViewById(R.id.btn_burnin)
         btnGlowOff = findViewById(R.id.btn_glow_off)
         btnGlowSubtle = findViewById(R.id.btn_glow_subtle)
@@ -354,17 +355,34 @@ class MainActivity : AppCompatActivity() {
         "?"
     }
 
-    /** Show the ASCII "VELO" logo on startup, then fade it out. */
+    /**
+     * The VELO wordmark is now an HDR particle cloud rendered by the GL engine
+     * itself (see [VisualizerSurfaceView] / IntroLogoScene). This overlay is just
+     * a brief black mask over GL initialisation — fade it out fast, then let the
+     * GL intro play and surface the gesture hint once it dissolves.
+     */
     private fun wireSplash() {
-        splashLogo.asciiText = LOGO_ASCII
-        
+        // Honour the system "remove animations" accessibility setting.
+        glView.introEnabled = !isReducedMotion()
+
         splashOverlay.postDelayed({
             splashOverlay.animate().alpha(0f).setDuration(SPLASH_FADE_MS)
-                .withEndAction { 
-                    splashOverlay.visibility = View.GONE 
-                    showIntroHint()
-                }.start()
-        }, SPLASH_HOLD_MS)
+                .withEndAction { splashOverlay.visibility = View.GONE }
+                .start()
+        }, SPLASH_MASK_MS)
+
+        if (glView.introEnabled) {
+            glView.onIntroFinished = { showIntroHint() }
+        } else {
+            splashOverlay.postDelayed({ showIntroHint() }, SPLASH_MASK_MS + SPLASH_FADE_MS)
+        }
+    }
+
+    /** True when the OS "remove animations" setting is on (animator scale 0). */
+    private fun isReducedMotion(): Boolean = try {
+        Settings.Global.getFloat(contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
+    } catch (_: Exception) {
+        false
     }
 
     /** Show a brief, non-blocking gesture hint after the splash fades. */
@@ -514,6 +532,7 @@ class MainActivity : AppCompatActivity() {
             Triple(btnMandelbox, 19, btnMandelbox.text.toString()),
             Triple(btnReactionDiffusion, 20, btnReactionDiffusion.text.toString()),
             Triple(btnStrangeAttractor, 22, btnStrangeAttractor.text.toString()),
+            Triple(btnPlasmaStorm, 23, btnPlasmaStorm.text.toString()),
         )
         glView.sceneOrder = visButtons.map { it.second }
         glView.onSceneChanged = { updateVisualizerSelection() }
@@ -1712,8 +1731,8 @@ class MainActivity : AppCompatActivity() {
         private const val TAB_VISUALS = 0
         private const val TAB_LIGHTING = 1
         private const val TAB_SETTINGS = 2
-        private const val SPLASH_HOLD_MS = 3300L
-        private const val SPLASH_FADE_MS = 700L
+        private const val SPLASH_MASK_MS = 120L    // black mask over GL init, then fade
+        private const val SPLASH_FADE_MS = 350L
         private const val INTRO_HINT_DURATION_MS = 5000L
 
         private val LOGO_ASCII = listOf(

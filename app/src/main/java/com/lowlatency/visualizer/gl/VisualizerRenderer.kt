@@ -1,5 +1,6 @@
 package com.lowlatency.visualizer.gl
 
+import android.content.Context
 import android.opengl.GLES20
 import android.opengl.GLSurfaceView
 import android.util.Log
@@ -20,7 +21,9 @@ import kotlin.math.abs
  * native engine (zero-alloc fills), then renders the active scene. A swipe
  * triggers a short, smooth fade-out → swap → fade-in transition between scenes.
  */
-class VisualizerRenderer : GLSurfaceView.Renderer {
+class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
+
+    private val appContext = context.applicationContext
 
     companion object {
         private const val TAG = "VisualizerRenderer"
@@ -28,6 +31,18 @@ class VisualizerRenderer : GLSurfaceView.Renderer {
         private const val POINTS = 1024
         private const val TRANSITION_SEC = 0.45f   // total fade duration
         private const val PUNCH_FALL = 3.5f        // HDR beat-punch decay rate (~0.3 s)
+
+        // First-run intro timeline (VELO particle ignite → breathe → shatter).
+        private const val INTRO_IGNITE_SEC = 1.1f
+        private const val INTRO_HOLD_SEC = 1.0f
+        private const val INTRO_SHATTER_SEC = 1.2f
+        private const val INTRO_TOTAL_SEC = INTRO_IGNITE_SEC + INTRO_HOLD_SEC + INTRO_SHATTER_SEC
+        private const val INTRO_BLOOM = 1.5f       // forced glow during the intro
+
+        // Process-static: the intro plays once per cold start. It survives surface
+        // recreation (warm resume, rotation) so returning to a still-resident app
+        // skips it, but resets when the process is killed and relaunched.
+        @Volatile private var introPlayedThisProcess = false
 
         // OLED burn-in idle gate (deliberately gentle — the UNPROCESSED mic is
         // quiet, so the threshold sits just above its noise floor and the delay
@@ -65,7 +80,8 @@ class VisualizerRenderer : GLSurfaceView.Renderer {
         MandelboxScene(),          // 19 — "Fractal Cathedral" ray-marched mandelbox
         ReactionDiffusionScene(),  // 20 — Gray-Scott Turing patterns (FBO ping-pong)
         ChladniPlateScene(),       // 21 — "Cymatics" dominant-frequency Chladni plate
-        StrangeAttractorScene()    // 22 — Aizawa attractor particle cloud (compute)
+        StrangeAttractorScene(),   // 22 — Aizawa attractor particle cloud (compute)
+        PlasmaStormScene()         // 23 — "Plasma Storm" curl-noise flow field (compute)
     )
     private var current = DEFAULT_SCENE
     private var target = DEFAULT_SCENE
@@ -113,6 +129,18 @@ class VisualizerRenderer : GLSurfaceView.Renderer {
     private var lastActiveSec = 0f
     private var burnInAlpha = 1f
 
+    // First-run intro (VELO particle cloud). Set before the surface is created;
+    // read on the GL thread. When disabled (reduced-motion) the app boots
+    // straight into the visualizer.
+    @Volatile var introEnabled = true
+    // Fired once on the GL thread when the intro completes (or is skipped/disabled).
+    @Volatile var onIntroFinished: (() -> Unit)? = null
+    @Volatile var introActive = false
+        private set
+    private val introScene = IntroLogoScene(appContext)
+    private var introStartSec = -1f
+    private var introNotified = false
+
     /** Number of selectable scenes (for index wrapping by the view). */
     val sceneCount: Int get() = scenes.size
 
@@ -134,6 +162,13 @@ class VisualizerRenderer : GLSurfaceView.Renderer {
         startNanos = System.nanoTime()
         post.onCreated()
         scenes.forEach { it.onCreated() }
+        introActive = introEnabled && !introPlayedThisProcess
+        introStartSec = -1f
+        introNotified = false
+        if (introActive) {
+            introPlayedThisProcess = true
+            introScene.onCreated()
+        }
         Log.i(TAG, "Surface created. Sample rate=${NativeBridge.nativeGetSampleRate()}")
     }
 
@@ -146,6 +181,7 @@ class VisualizerRenderer : GLSurfaceView.Renderer {
         GLES20.glViewport(0, 0, width, height)
         post.resize(width, height)
         scenes.forEach { it.onResize(width, height, aspect) }
+        introScene.onResize(width, height, aspect)
         Log.i(TAG, "Surface resized to ${width}x$height (aspect=$aspect)")
     }
 
@@ -166,6 +202,13 @@ class VisualizerRenderer : GLSurfaceView.Renderer {
         if (dt > 0f) {
             frameTimeMs = dt * 1000f
             fps = fps * 0.9f + (1f / dt) * 0.1f
+        }
+
+        // First-run intro owns the frame until the VELO cloud has shattered into
+        // the live visualizer; everything below is the normal render path.
+        if (introActive) {
+            drawIntro(t)
+            return
         }
 
         // HDR beat-punch envelope (spikes on a beat, decays smoothly). The beat
@@ -222,6 +265,80 @@ class VisualizerRenderer : GLSurfaceView.Renderer {
                 bloomI, exposure,
                 theme.hueShift, theme.saturation, theme.tintR, theme.tintG, theme.tintB,
             )
+        }
+    }
+
+    /**
+     * Skip the intro: jump straight to the shatter phase so the dissolve still
+     * plays briefly, then hands off to the visualizer. Runs on the GL thread.
+     */
+    fun skipIntro() {
+        if (!introActive) return
+        val t = nowSec()
+        introStartSec = t - (INTRO_IGNITE_SEC + INTRO_HOLD_SEC)
+    }
+
+    /**
+     * Drive one intro frame: ignite (chaos → glyph) → breathe → shatter. During
+     * the shatter phase the live default scene fades up behind the particles, so
+     * the wordmark literally dissolves into the visualizer. Forces the HDR bloom
+     * path on regardless of the user's glow setting.
+     */
+    private fun drawIntro(t: Float) {
+        if (introStartSec < 0f) introStartSec = t
+        val e = t - introStartSec
+
+        val assembleRaw = (e / INTRO_IGNITE_SEC).coerceIn(0f, 1f)
+        val inv = 1f - assembleRaw
+        val assemble = 1f - inv * inv * inv                       // easeOutCubic
+        val disperse = ((e - INTRO_IGNITE_SEC - INTRO_HOLD_SEC) / INTRO_SHATTER_SEC).coerceIn(0f, 1f)
+
+        val holdAmt = when {
+            e < INTRO_IGNITE_SEC -> 0f
+            e < INTRO_IGNITE_SEC + INTRO_HOLD_SEC -> 1f
+            else -> 1f - disperse
+        }
+        val intensity = when {
+            e < INTRO_IGNITE_SEC -> assembleRaw
+            e < INTRO_IGNITE_SEC + INTRO_HOLD_SEC -> 1f + 0.10f * kotlin.math.sin(e * 3.0f)
+            else -> (1f - disperse) * (1f + 0.7f * kotlin.math.exp(-disperse * 5f))  // flash then fade
+        }
+
+        val usePost = post.isReady
+        if (usePost) {
+            post.beginScene()
+        } else {
+            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
+            GLES20.glViewport(0, 0, surfaceW, surfaceH)
+        }
+        resetGlState()
+        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
+
+        // Reveal the visualizer behind the falling letters during the shatter.
+        if (disperse > 0f) {
+            scenes[DEFAULT_SCENE].draw(pcm, bands, t, disperse * disperse)
+            resetGlState()
+        }
+
+        introScene.draw(assemble, holdAmt, disperse, intensity, t)
+
+        if (usePost) {
+            val theme = ThemeSettings.preset
+            post.present(
+                INTRO_BLOOM, 1f,
+                theme.hueShift, theme.saturation, theme.tintR, theme.tintG, theme.tintB,
+            )
+        }
+
+        if (e >= INTRO_TOTAL_SEC) {
+            introActive = false
+            current = DEFAULT_SCENE
+            target = DEFAULT_SCENE
+            introScene.release()
+            if (!introNotified) {
+                introNotified = true
+                onIntroFinished?.invoke()
+            }
         }
     }
 
