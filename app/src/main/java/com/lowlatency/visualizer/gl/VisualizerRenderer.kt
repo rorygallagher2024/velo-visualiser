@@ -62,34 +62,68 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
         .order(java.nio.ByteOrder.nativeOrder())
     val sharedAudioFloatBuffer: java.nio.FloatBuffer = sharedAudioBuffer.asFloatBuffer()
 
-    private val scenes = arrayOf(
-        OscilloscopeScene(),       // 0
-        TunnelScene(),             // 1
-        FluidScene(),              // 2
-        LaserArrayScene(),         // 3
-        CircularSpectrumScene(),   // 4
-        BarSpectrumScene(),        // 5
-        SpectralBloomScene(),      // 6
-        StarscapeScene(),          // 7
-        RawScopeScene(),           // 8
-        SpectrogramScene(),        // 9
-        BeatFireworksScene(),      // 10
-        PhyllotaxisScene(),        // 11
-        ElectricIrisScene(),       // 12
-        MandalaPulseScene(),       // 13
-        AudioWebScene(),           // 14
-        TopographicRidgeScene(),   // 15
-        LedMatrixScene(),          // 16 — TE "Pocket LED" dot-matrix spectrum
-        MechanicalMeterScene(),    // 17 — TE "Mechanical Meter" analog needle
-        BeatPulseScene(),          // 18 — beat-emphasis demo (Ableton Link)
-        MandelboxScene(),          // 19 — "Fractal Cathedral" ray-marched mandelbox
-        ReactionDiffusionScene(),  // 20 — Gray-Scott Turing patterns (FBO ping-pong)
-        ChladniPlateScene(),       // 21 — "Cymatics" dominant-frequency Chladni plate
-        StrangeAttractorScene(),   // 22 — Aizawa attractor particle cloud (compute)
-        PlasmaStormScene(),        // 23 — "Plasma Storm" curl-noise flow field (compute)
-        AuroraDriftScene(),        // 24 — "Aurora Drift" Tetris-Effect-style flow streams
-        OdysseyScene(),             // 25 — "Odyssey" flagship morphing journey
-    )
+    private val scenes = arrayOfNulls<GlScene>(26)
+    private val scenesToLoad = mutableListOf<Int>()
+    private var loadFrameCounter = 0
+
+    private fun createScene(index: Int): GlScene {
+        return when (index) {
+            0 -> OscilloscopeScene()
+            1 -> TunnelScene()
+            2 -> FluidScene()
+            3 -> LaserArrayScene()
+            4 -> CircularSpectrumScene()
+            5 -> BarSpectrumScene()
+            6 -> SpectralBloomScene()
+            7 -> StarscapeScene()
+            8 -> RawScopeScene()
+            9 -> SpectrogramScene()
+            10 -> BeatFireworksScene()
+            11 -> PhyllotaxisScene()
+            12 -> ElectricIrisScene()
+            13 -> MandalaPulseScene()
+            14 -> AudioWebScene()
+            15 -> TopographicRidgeScene()
+            16 -> LedMatrixScene()
+            17 -> MechanicalMeterScene()
+            18 -> BeatPulseScene()
+            19 -> MandelboxScene()
+            20 -> ReactionDiffusionScene()
+            21 -> ChladniPlateScene()
+            22 -> StrangeAttractorScene()
+            23 -> PlasmaStormScene()
+            24 -> AuroraDriftScene()
+            25 -> OdysseyScene()
+            else -> RawScopeScene()
+        }
+    }
+
+    private fun getOrInitScene(index: Int): GlScene {
+        val idx = index.coerceIn(0, scenes.size - 1)
+        return scenes[idx] ?: createScene(idx).also {
+            it.onCreated()
+            it.onResize(surfaceW, surfaceH, aspect)
+            scenes[idx] = it
+            scenesToLoad.remove(idx)
+        }
+    }
+
+    private fun tryBackgroundLoad() {
+        // NEW: Never load in the background while the intro is playing to ensure 0ms impact on animation
+        if (scenesToLoad.isEmpty() || introActive) return
+
+        // Slow cadence: one scene every 8 frames (~5ms work every 66ms @ 120Hz)
+        if (++loadFrameCounter % 8 != 0) return
+
+        val idx = scenesToLoad.removeAt(0)
+        if (scenes[idx] == null) {
+            scenes[idx] = createScene(idx).also {
+                it.onCreated()
+                it.onResize(surfaceW, surfaceH, aspect)
+            }
+        }
+    }
+
     private var current = DEFAULT_SCENE
     private var target = DEFAULT_SCENE
 
@@ -173,7 +207,6 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
         NativeBridge.nativeInitializeSharedBuffer(sharedAudioBuffer)
 
         post.onCreated()
-        scenes.forEach { it.onCreated() }
         introActive = introEnabled && !introPlayedThisProcess
         introStartSec = -1f
         introNotified = false
@@ -192,7 +225,14 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
         aspect = width.toFloat() / height.toFloat()
         GLES20.glViewport(0, 0, width, height)
         post.resize(width, height)
-        scenes.forEach { it.onResize(width, height, aspect) }
+        
+        // Re-populate background load queue on surface reset
+        scenesToLoad.clear()
+        for (i in scenes.indices) {
+            if (scenes[i] == null) scenesToLoad.add(i)
+            else scenes[i]?.onResize(width, height, aspect)
+        }
+
         introScene.onResize(width, height, aspect)
         Log.i(TAG, "Surface resized to ${width}x$height (aspect=$aspect)")
     }
@@ -256,7 +296,7 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
         // final color uniformly (incl. any static baseline) with no extra plumbing.
         // NB: updateTransition may swap `current`, so resolve the scene afterward.
         val dim = updateTransition(t) * updateBurnInGate(t)
-        val scene = scenes[current]
+        val scene = getOrInitScene(current)
 
         val glow = GlowSettings.strength
         val theme = ThemeSettings.preset
@@ -277,6 +317,9 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
 
         scene.draw(pcm, bands, t, dim)
+
+        // Slowly warm up the other scenes in the background (only after intro)
+        tryBackgroundLoad()
 
         if (usePost) {
             // Bloom carries the punch (0 when glow is off); exposure lifts gently.
@@ -349,9 +392,12 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
 
         // Reveal the visualizer behind the falling letters during the shatter.
         if (disperse > 0f) {
-            scenes[DEFAULT_SCENE].draw(pcm, bands, t, disperse * disperse)
+            getOrInitScene(DEFAULT_SCENE).draw(pcm, bands, t, disperse * disperse)
             resetGlState()
         }
+
+        // Background loading is deferred until AFTER intro finishes (handled in tryBackgroundLoad)
+        tryBackgroundLoad()
 
         introScene.draw(assemble, holdAmt, disperse, intensity, t)
 
@@ -424,7 +470,7 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
             elapsed < half -> 1f - elapsed / half          // fade out outgoing
             elapsed < TRANSITION_SEC -> {
                 if (!swapped) {
-                    scenes[current].onDeactivate()         // explicit cleanup of the outgoing scene
+                    scenes[current]?.onDeactivate()         // explicit cleanup of the outgoing scene
                     current = target
                     swapped = true
                 }
