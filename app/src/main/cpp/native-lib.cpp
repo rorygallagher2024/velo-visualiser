@@ -1,6 +1,7 @@
 #include <jni.h>
 #include <vector>
 #include <android/log.h>
+#include <arm_neon.h>
 #include "AudioEngine.h"
 #include "LinkController.h"
 
@@ -10,6 +11,16 @@
 // Number of samples handed to the GPU per frame for the oscilloscope sweep.
 // One screen-width worth of the most recent audio.
 static constexpr jsize kRenderWindow = 1024;
+
+// Shared DirectByteBuffer for zero-copy audio transfer to Java/GL.
+static jobject gSharedBuffer = nullptr;
+static void *gSharedBufferPtr = nullptr;
+static jlong gSharedBufferSize = 0;
+
+// System audio benchmarking metrics
+static std::atomic<long long> gSystemAudioConvTimeUs{0};
+static std::atomic<long long> gSystemAudioLastPushNs{0};
+static std::atomic<float> gSystemAudioLastIntervalMs{0};
 
 extern "C" {
 
@@ -92,17 +103,63 @@ Java_com_lowlatency_visualizer_NativeBridge_fillLatestFrequencyBands(JNIEnv *env
     return 3;
 }
 
+JNIEXPORT jint JNICALL
+Java_com_lowlatency_visualizer_NativeBridge_fillLatestSpectrum(JNIEnv *env, jobject,
+                                                               jfloatArray magnitudes,
+                                                               jfloatArray peaks,
+                                                               jfloat dt) {
+    if (magnitudes == nullptr || peaks == nullptr) return 0;
+    jfloat *m = env->GetFloatArrayElements(magnitudes, nullptr);
+    jfloat *p = env->GetFloatArrayElements(peaks, nullptr);
+    if (!m || !p) return 0;
+
+    AudioEngine::instance().computeFullSpectrum(m, p, dt);
+
+    env->ReleaseFloatArrayElements(magnitudes, m, 0);
+    env->ReleaseFloatArrayElements(peaks, p, 0);
+    return 128;
+}
+
+JNIEXPORT void JNICALL
+Java_com_lowlatency_visualizer_NativeBridge_nativeInitializeSharedBuffer(JNIEnv *env, jobject, jobject buffer) {
+    if (gSharedBuffer) {
+        env->DeleteGlobalRef(gSharedBuffer);
+    }
+    gSharedBuffer = env->NewGlobalRef(buffer);
+    gSharedBufferPtr = env->GetDirectBufferAddress(buffer);
+    gSharedBufferSize = env->GetDirectBufferCapacity(buffer);
+}
+
+JNIEXPORT jint JNICALL
+Java_com_lowlatency_visualizer_NativeBridge_fillSharedAudioBuffer(JNIEnv *, jobject) {
+    if (!gSharedBufferPtr) return 0;
+    jlong len = gSharedBufferSize / sizeof(float);
+    if (len > kRenderWindow) len = kRenderWindow;
+    AudioEngine::instance().copyLatest(static_cast<float*>(gSharedBufferPtr), static_cast<size_t>(len));
+    return static_cast<jint>(len);
+}
+
 // ---------------------------------------------------------------------------
 // System-audio (AudioPlaybackCapture) push path. Kotlin reads 16-bit PCM from
 // an AudioRecord backed by a MediaProjection token and forwards it here. We
 // downmix to mono float and feed the same ring buffer the renderer consumes.
+// Optimized with ARM NEON for common stereo downmixing and gain scaling.
 // ---------------------------------------------------------------------------
 JNIEXPORT void JNICALL
 Java_com_lowlatency_visualizer_NativeBridge_nativePushPcm(JNIEnv *env, jobject,
                                                           jshortArray pcm,
                                                           jint frames,
-                                                          jint channels) {
+                                                          jint channels,
+                                                          jfloat gain) {
     if (pcm == nullptr || frames <= 0 || channels <= 0) return;
+
+    auto start = std::chrono::high_resolution_clock::now();
+    auto now = std::chrono::steady_clock::now().time_since_epoch();
+    long long nowNs = std::chrono::duration_cast<std::chrono::nanoseconds>(now).count();
+    long long lastNs = gSystemAudioLastPushNs.exchange(nowNs);
+    if (lastNs > 0) {
+        gSystemAudioLastIntervalMs.store(static_cast<float>(nowNs - lastNs) / 1000000.0f);
+    }
 
     jshort *src = env->GetShortArrayElements(pcm, nullptr);
     if (src == nullptr) return;
@@ -110,17 +167,51 @@ Java_com_lowlatency_visualizer_NativeBridge_nativePushPcm(JNIEnv *env, jobject,
     static thread_local std::vector<float> mono;
     if (mono.size() < static_cast<size_t>(frames)) mono.resize(frames);
 
-    constexpr float kInv = 1.0f / 32768.0f;
-    for (jint f = 0; f < frames; ++f) {
-        float acc = 0.0f;
-        for (jint c = 0; c < channels; ++c) {
-            acc += static_cast<float>(src[f * channels + c]) * kInv;
+    if (channels == 2) {
+        // Optimized NEON path for stereo: (L+R)/2 * gain
+        const float kInvStereo = (1.0f / (32768.0f * 2.0f)) * gain;
+        int f = 0;
+        // Process 4 stereo pairs (8 shorts) at a time.
+        for (; f <= frames - 4; f += 4) {
+            int16x8_t stereo = vld1q_s16(&src[f * 2]);
+            // vpaddlq_s16 adds adjacent pairs: [L0+R0, L1+R1, L2+R2, L3+R3] as int32x4
+            int32x4_t sum = vpaddlq_s16(stereo);
+            float32x4_t fsum = vcvtq_f32_s32(sum);
+            float32x4_t res = vmulq_n_f32(fsum, kInvStereo);
+            vst1q_f32(&mono[f], res);
         }
-        mono[f] = acc / static_cast<float>(channels);
+        // Remainder
+        for (; f < frames; ++f) {
+            mono[f] = (static_cast<float>(src[f * 2]) + static_cast<float>(src[f * 2 + 1])) * kInvStereo;
+        }
+    } else {
+        // Generic fallback for mono or surround
+        const float kInv = (1.0f / (32768.0f * channels)) * gain;
+        for (jint f = 0; f < frames; ++f) {
+            float acc = 0.0f;
+            for (jint c = 0; c < channels; ++c) {
+                acc += static_cast<float>(src[f * channels + c]);
+            }
+            mono[f] = acc * kInv;
+        }
     }
 
     AudioEngine::instance().pushExternalPcm(mono.data(), static_cast<size_t>(frames));
     env->ReleaseShortArrayElements(pcm, src, JNI_ABORT); // read-only, no copy-back
+
+    auto end = std::chrono::high_resolution_clock::now();
+    gSystemAudioConvTimeUs.store(std::chrono::duration_cast<std::chrono::microseconds>(end - start).count());
+}
+
+JNIEXPORT jfloatArray JNICALL
+Java_com_lowlatency_visualizer_NativeBridge_nativeGetSystemAudioMetrics(JNIEnv *env, jobject) {
+    jfloatArray result = env->NewFloatArray(2);
+    if (result == nullptr) return nullptr;
+    float metrics[2];
+    metrics[0] = static_cast<float>(gSystemAudioConvTimeUs.load());
+    metrics[1] = gSystemAudioLastIntervalMs.load();
+    env->SetFloatArrayRegion(result, 0, 2, metrics);
+    return result;
 }
 
 // ---------------------------------------------------------------------------

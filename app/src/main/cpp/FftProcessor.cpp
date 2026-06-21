@@ -77,3 +77,75 @@ void FftProcessor::process(const float *pcm, int sampleRate, float *outBands) no
         outBands[k] = mSmoothed[k];
     }
 }
+
+void FftProcessor::processFullSpectrum(const float *pcm, int sampleRate, float *outMagnitudes, float *outPeaks, float dt) noexcept {
+    // 1. Window.
+    for (int i = 0; i < kFftSize; ++i) {
+        mWindowed[i] = pcm[i] * mWindow[i];
+    }
+
+    // 2. Real FFT.
+    kiss_fftr(mCfg, mWindowed.data(), mSpectrum.data());
+
+    // 3. Log-frequency binning.
+    const int half = kFftSize / 2;
+    const float logSpan = static_cast<float>(half);
+    const float ampNorm = 4.0f / kFftSize;
+
+    // Constants from SpectrumAnalyzer.kt
+    constexpr float kFloorDb = -88.0f;
+    constexpr float kCeilDb = -12.0f;
+    constexpr float kTiltDbPerOct = 3.0f;
+    constexpr float kTiltRefBin = 20.0;
+    constexpr float kPeakFall = 0.4f;
+
+    auto magAt = [&](int k) {
+        const kiss_fft_cpx &c = mSpectrum[k];
+        return std::sqrt(c.r * c.r + c.i * c.i);
+    };
+
+    auto magInterp = [&](double pos) {
+        int i0 = std::max(1, std::min(static_cast<int>(pos), half - 1));
+        int i1 = std::min(i0 + 1, half - 1);
+        float w = std::max(0.0f, std::min(static_cast<float>(pos - i0), 1.0f));
+        return magAt(i0) * (1.0f - w) + magAt(i1) * w;
+    };
+
+    for (int b = 0; b < kFullBins; b++) {
+        float posLo = std::pow(logSpan, static_cast<float>(b) / kFullBins);
+        float posHi = std::pow(logSpan, static_cast<float>(b + 1) / kFullBins);
+        int iLo = static_cast<int>(std::floor(posLo));
+        int iHi = static_cast<int>(std::floor(posHi));
+
+        float avg;
+        if (iHi > iLo) {
+            float sum = 0.0f;
+            int count = 0;
+            int k = std::max(iLo, 1);
+            int end = std::min(iHi, half - 1);
+            while (k <= end) {
+                sum += magAt(k);
+                count++;
+                k++;
+            }
+            avg = (count > 0) ? (sum / count) : magInterp((posLo + posHi) * 0.5);
+        } else {
+            avg = magInterp((posLo + posHi) * 0.5);
+        }
+
+        float centerBin = std::pow(logSpan, (b + 0.5f) / kFullBins);
+        float tilt = kTiltDbPerOct * std::log2(centerBin / kTiltRefBin);
+        float db = 20.0f * std::log10(avg * ampNorm + 1e-9f) + tilt;
+        float target = clamp01((db - kFloorDb) / (kCeilDb - kFloorDb));
+
+        float cur = mFullMagnitudes[b];
+        float coeff = (target > cur) ? 0.6f : 0.2f;
+        mFullMagnitudes[b] = cur + (target - cur) * coeff;
+
+        mFullPeaks[b] = (mFullMagnitudes[b] >= mFullPeaks[b]) ? mFullMagnitudes[b]
+                                                              : std::max(mFullMagnitudes[b], mFullPeaks[b] - kPeakFall * dt);
+
+        outMagnitudes[b] = mFullMagnitudes[b];
+        outPeaks[b] = mFullPeaks[b];
+    }
+}

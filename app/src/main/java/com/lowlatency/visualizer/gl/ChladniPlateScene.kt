@@ -100,8 +100,6 @@ void main() {
         .allocateDirect(8 * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
         .apply { put(floatArrayOf(-1f, -1f, 1f, -1f, -1f, 1f, 1f, 1f)); position(0) }
 
-    private val analyzer = SpectrumAnalyzer(bins = BINS)
-
     private var program = 0
     private var aPos = 0
     private var uResolution = 0
@@ -116,7 +114,6 @@ void main() {
     private var w = 1f
     private var h = 1f
 
-    private var lastTime = -1f
     private var pitch = 0.3f       // smoothed dominant pitch 0..1
     private var amp = 0f           // smoothed dominant-tone loudness
     private var hue = 0f
@@ -138,21 +135,24 @@ void main() {
         w = width.toFloat(); h = height.toFloat()
     }
 
-    override fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
-        val dt = if (lastTime < 0f) 0.016f else (timeSec - lastTime).coerceIn(0f, 0.05f)
-        lastTime = timeSec
-        analyzer.update(pcm, dt)
-
+    override fun draw(
+        pcm: FloatArray,
+        bands: FloatArray,
+        magnitudes: FloatArray,
+        peaks: FloatArray,
+        timeSec: Float,
+        dim: Float,
+        sharedBuffer: java.nio.ByteBuffer?
+    ) {
         // Dominant bin = loudest spectrum bin (skip the lowest couple to ignore
         // DC / rumble). Its position is the "pitch" that drives the plate modes.
-        val mags = analyzer.magnitudes
         var peakBin = 0
         var peakVal = 0f
-        for (i in 2 until mags.size) {
-            if (mags[i] > peakVal) { peakVal = mags[i]; peakBin = i }
+        for (i in 2 until magnitudes.size) {
+            if (magnitudes[i] > peakVal) { peakVal = magnitudes[i]; peakBin = i }
         }
         if (peakVal > 0.08f) {          // only track when there's real signal
-            val target = peakBin.toFloat() / (mags.size - 1)
+            val target = peakBin.toFloat() / (magnitudes.size - 1)
             pitch += (target - pitch) * 0.04f
         }
         // Loudness follower: fast attack, slow decay → smooth settle in silence.

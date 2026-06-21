@@ -75,7 +75,8 @@ class OscilloscopeScene : GlScene {
             // quiet signals and smoothly limits loud transients (claps) to +/-1.
             float sampleY(int i) {
                 float u = (float(i) + 0.5) / N;
-                float raw = texture2D(u_wave, vec2(u, 0.5)).r * 2.0 - 1.0;
+                // The texture now holds raw PCM [-1, 1] directly from the native buffer.
+                float raw = texture2D(u_wave, vec2(u, 0.5)).r;
                 return softClip(raw * SENSITIVITY);
             }
 
@@ -170,6 +171,7 @@ class OscilloscopeScene : GlScene {
         .allocateDirect(8 * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
         .apply { put(floatArrayOf(-1f, -1f, 1f, -1f, -1f, 1f, 1f, 1f)); position(0) }
 
+    private val vbo = IntArray(1)
     private var program = 0
     private var aPos = 0
     private var uWave = 0
@@ -196,8 +198,13 @@ class OscilloscopeScene : GlScene {
         uGain = GLES20.glGetUniformLocation(program, "u_gain")
         uTime = GLES20.glGetUniformLocation(program, "u_time")
 
-        // 1-row float texture holding the PCM window (requires OES_texture_float,
-        // universally available on the GLES3-class GPUs we target).
+        // Static VBO for the full-screen quad.
+        GLES20.glGenBuffers(1, vbo, 0)
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, vbo[0])
+        GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, quad.capacity() * 4, quad, GLES20.GL_STATIC_DRAW)
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
+
+        // 1-row float texture holding the PCM window.
         val tex = IntArray(1)
         GLES20.glGenTextures(1, tex, 0)
         texId = tex[0]
@@ -219,24 +226,37 @@ class OscilloscopeScene : GlScene {
         this.aspect = aspect
     }
 
-    override fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
-        // Upload waveform (encode to [0,1] so it survives any LUMINANCE clamping).
-        upload.clear()
-        for (i in 0 until POINTS) {
-            val s = pcm[i].coerceIn(-1f, 1f)
-            upload.put(0.5f + 0.5f * s)
-        }
-        upload.position(0)
-
+    override fun draw(
+        pcm: FloatArray,
+        bands: FloatArray,
+        magnitudes: FloatArray,
+        peaks: FloatArray,
+        timeSec: Float,
+        dim: Float,
+        sharedBuffer: ByteBuffer?
+    ) {
         GLES20.glDisable(GLES20.GL_BLEND)   // opaque full-screen pass
         GLES20.glUseProgram(program)
 
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, texId)
-        GLES20.glTexSubImage2D(
-            GLES20.GL_TEXTURE_2D, 0, 0, 0, POINTS, 1,
-            GLES30.GL_RED, GLES20.GL_FLOAT, upload
-        )
+        
+        // Zero-copy upload: use the DirectByteBuffer directly if available.
+        if (sharedBuffer != null) {
+            sharedBuffer.position(0)
+            GLES20.glTexSubImage2D(
+                GLES20.GL_TEXTURE_2D, 0, 0, 0, POINTS, 1,
+                GLES30.GL_RED, GLES20.GL_FLOAT, sharedBuffer
+            )
+        } else {
+            upload.clear()
+            for (i in 0 until POINTS) { upload.put(0.5f + 0.5f * pcm[i].coerceIn(-1f, 1f)) }
+            upload.position(0)
+            GLES20.glTexSubImage2D(
+                GLES20.GL_TEXTURE_2D, 0, 0, 0, POINTS, 1,
+                GLES30.GL_RED, GLES20.GL_FLOAT, upload
+            )
+        }
         GLES20.glUniform1i(uWave, 0)
 
         GLES20.glUniform2f(uResolution, width, height)
@@ -246,9 +266,11 @@ class OscilloscopeScene : GlScene {
         GLES20.glUniform1f(uGain, 0.85f)
         GLES20.glUniform1f(uTime, timeSec)
 
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, vbo[0])
         GLES20.glEnableVertexAttribArray(aPos)
-        GLES20.glVertexAttribPointer(aPos, 2, GLES20.GL_FLOAT, false, 0, quad)
+        GLES20.glVertexAttribPointer(aPos, 2, GLES20.GL_FLOAT, false, 0, 0)
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
         GLES20.glDisableVertexAttribArray(aPos)
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
     }
 }

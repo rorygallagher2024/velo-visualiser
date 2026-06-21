@@ -57,6 +57,15 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
     private val pcm = FloatArray(POINTS)
     private val bands = FloatArray(3)
 
+    // Native spectrum data (replaces SpectrumAnalyzer.kt)
+    private val magnitudes = FloatArray(128)
+    private val peaks = FloatArray(128)
+
+    // Shared buffer for zero-copy audio transfer to scenes/GPU.
+    private val sharedAudioBuffer = java.nio.ByteBuffer.allocateDirect(POINTS * 4)
+        .order(java.nio.ByteOrder.nativeOrder())
+    val sharedAudioFloatBuffer: java.nio.FloatBuffer = sharedAudioBuffer.asFloatBuffer()
+
     private val scenes = arrayOf<GlScene>(
         OscilloscopeScene(),       // 0
         TunnelScene(),             // 1
@@ -162,6 +171,7 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
         GLES20.glClearColor(0f, 0f, 0f, 1f)     // pure black
         startNanos = System.nanoTime()
+        NativeBridge.nativeInitializeSharedBuffer(sharedAudioBuffer)
         post.onCreated()
         scenes.forEach { it.onCreated() }
         introActive = introEnabled && !introPlayedThisProcess
@@ -189,17 +199,23 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
 
     override fun onDrawFrame(gl: GL10?) {
         // Pull the freshest audio data from the native ring buffer + FFT.
-        NativeBridge.fillLatestAudioBuffer(pcm)
+        NativeBridge.fillSharedAudioBuffer()
         NativeBridge.fillLatestFrequencyBands(bands)
+
+        // Populate the legacy PCM array for sinks/scenes that still need it.
+        sharedAudioFloatBuffer.position(0)
+        sharedAudioFloatBuffer.get(pcm)
+
+        val t = nowSec()
+        val dt = (t - lastFrameSec).coerceIn(0f, 0.1f)
+        lastFrameSec = t
+
+        NativeBridge.fillLatestSpectrum(magnitudes, peaks, dt)
 
         // Forward the bands to any tap (Hue light sync) — cheap, non-blocking.
         bandsSink?.invoke(bands[0], bands[1], bands[2])
         // Forward raw PCM to the beat tap (haptics) for bass-onset detection.
         pcmBeatSink?.invoke(pcm)
-
-        val t = nowSec()
-        val dt = (t - lastFrameSec).coerceIn(0f, 0.1f)
-        lastFrameSec = t
 
         if (dt > 0f) {
             frameTimeMs = dt * 1000f
@@ -257,7 +273,7 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
         resetGlState()
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
 
-        scene.draw(pcm, bands, t, dim)
+        scene.draw(pcm, bands, magnitudes, peaks, t, dim, sharedAudioBuffer)
 
         if (usePost) {
             // Bloom carries the punch (0 when glow is off); exposure lifts gently.
@@ -326,7 +342,7 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
 
         // Reveal the visualizer behind the falling letters during the shatter.
         if (disperse > 0f) {
-            scenes[DEFAULT_SCENE].draw(pcm, bands, t, disperse * disperse)
+            scenes[DEFAULT_SCENE].draw(pcm, bands, magnitudes, peaks, t, disperse * disperse, sharedAudioBuffer)
             resetGlState()
         }
 

@@ -918,31 +918,71 @@ class MainActivity : AppCompatActivity() {
 
     private fun updatePerfOverlay() {
         if (!perfOverlayEnabled) return
-        val sb = StringBuilder()
 
         val fps = glView.rendererFps
         val frameMs = glView.rendererFrameTimeMs
-        sb.append("Render: %.1f fps · %.1fms/frame".format(fps, frameMs))
-
         val audioMs = NativeBridge.nativeGetAudioCallbackMs()
         val rate = NativeBridge.nativeGetSampleRate()
-        sb.append("\nAudio: %.1fms callback · %d Hz".format(audioMs, rate))
 
+        val sb = android.text.SpannableStringBuilder()
+
+        fun appendSection(label: String, value: String, color: Int = 0) {
+            val start = sb.length
+            sb.append(label.uppercase() + " ")
+            sb.setSpan(android.text.style.StyleSpan(android.graphics.Typeface.BOLD), start, sb.length, 0)
+            sb.setSpan(android.text.style.ForegroundColorSpan(getColor(R.color.text_dim)), start, sb.length, 0)
+            
+            val valStart = sb.length
+            sb.append(value)
+            if (color != 0) {
+                sb.setSpan(android.text.style.ForegroundColorSpan(color), valStart, sb.length, 0)
+            }
+            sb.append("\n")
+        }
+
+        // Engine / Visuals
+        val fpsColor = when {
+            fps < 50f -> 0xFFFF4444.toInt()
+            fps < 110f -> 0xFFFFBB33.toInt()
+            else -> 0xFF26FF8C.toInt()
+        }
+        appendSection("Engine", "%.1f fps · %.1fms".format(fps, frameMs), fpsColor)
+
+        // Audio Capture
+        appendSection("Audio ", "%dHz · %.1fms".format(rate, audioMs))
+
+        // System Audio / Jitter
+        if (systemAudioMode) {
+            val metrics = NativeBridge.nativeGetSystemAudioMetrics()
+            val jitter = metrics[1]
+            // System audio is inherently buffered by Android (often ~40ms blocks),
+            // so we use a neutral dimmed color and a descriptive status rather
+            // than alarmist traffic lights.
+            val status = if (jitter > 80f) "[BURSTY]" else "[BUFFERED]"
+            appendSection("Shared", "%.0fµs conv · %.1fms jitter %s".format(metrics[0], jitter, status))
+        }
+
+        // Ableton Link
         if (LinkSync.enabled) {
             val bpm = NativeBridge.nativeLinkTempo()
             val peers = NativeBridge.nativeLinkPeers()
-            sb.append("\nLink: %.0f bpm · %d peer%s".format(bpm, peers, if (peers == 1) "" else "s"))
+            appendSection("Link  ", "%.0f bpm · %d peer%s".format(bpm, peers, if (peers == 1) "" else "s"))
         }
 
+        // Philips Hue
         if (::hueController.isInitialized && hueController.isEnabled) {
             val sent = hueController.huePacketsSent
             val pps = ((sent - lastHuePackets) * 2).coerceAtLeast(0)
             lastHuePackets = sent
             val drops = hueController.huePacketsFailed
-            sb.append("\nHue: %d pps · %d drop%s".format(pps, drops, if (drops == 1L) "" else "s"))
+            val hueColor = if (drops > 0) 0xFFFFBB33.toInt() else 0xFF26FF8C.toInt()
+            appendSection("Hue   ", "%d pps · %d drops".format(pps, drops), hueColor)
         }
 
-        perfOverlay.text = sb.toString()
+        // Trim the last newline
+        if (sb.isNotEmpty()) sb.delete(sb.length - 1, sb.length)
+
+        perfOverlay.text = sb
     }
 
     private fun setGlow(s: GlowSettings.Strength) {

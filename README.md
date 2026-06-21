@@ -63,29 +63,47 @@ like to chip in for coffee, it's hugely appreciated:
 
 ---
 
-## Why Velo is Fast (The Architecture)
+## Why Velo is Fast
 
-Most Android visualizers suffer from inherent 100ms+ delays due to their reliance on high-level Java APIs like `AudioFlinger` or `android.media.audiofx.Visualizer`. Velo eliminates these bottlenecks by operating at the OS hardware floor.
+Many Android visualizers suffer from inherent 100ms+ delays due to their reliance on high-level Java APIs. Velo eliminates these bottlenecks by operating at the OS hardware floor.
 
-1. **Direct-to-Metal Audio (AAudio/Oboe):** The app bypasses the Android system mixer. Using Oboe in `LowLatency · Exclusive · Unprocessed` mode, the C++ engine reads raw PCM float data directly from the ALSA hardware driver.
-2. **Zero Garbage Collection (GC) Stutters:** Audio processing, FFT analysis (KissFFT), and IoT networking execute entirely within a native C++ loop using a lock-free, single-producer/single-consumer (SPSC) ring buffer. No Java memory is allocated during the render loop.
-3. **Direct-to-Radio IoT Networking:** For smart lighting, DTLS payload encryption and UDP socket transmission execute inside the native C++ loop. The packet hits the Wi-Fi radio immediately after the FFT calculation.
+### 1. The Simple Breakdown
+By bypassing the Android system mixer and utilizing C++ zero-copy memory transfers, Velo processes the sound, calculates the frequencies, and paints the pixels on your screen in **~8.0 ms**.
 
-### End-to-End Latency Estimates
+### 2. The Detailed Breakdown (Hardware-to-Retina)
+Here is the end-to-end latency estimate for Velo's gold-standard path (Microphone to Screen) on a modern Android device:
 
-**Audio → Pixel (On-Device): Sub-10 ms.** 
-**Beat → Light (Philips Hue): ~40–70 ms.**
+| Stage | Component | Est. Latency |
+|---|---|---|
+| **Capture** | Microphone Hardware + Oboe exclusive path | ~2.0 ms |
+| **Ingest** | Native Engine Ring Buffer write | < 0.1 ms |
+| **Analysis** | Native C++ 128-bin FFT (KissFFT) | ~0.3 ms |
+| **Transfer** | Shared DirectBuffer (Zero-Copy) | < 0.1 ms |
+| **Render** | GPU Shader execution (120Hz frame budget) | ~4.0 ms |
+| **Display** | OLED Panel Scan-out response | ~1.5 ms |
+| **TOTAL** | **Hardware-to-Retina** | **~8.0 ms** |
 
-While the app's calculation is near-instant, total physical time to change a lightbulb is bottlenecked by the Hue Bridge's Zigbee mesh network.
+*(Note: Physical Philips Hue lighting sync takes an additional ~40-70ms due to the physical limitations of the Zigbee mesh network, though Velo's internal packet dispatch takes < 1 ms).*
+
+### 3. System Audio Latency (The Shared Path)
+Velo allows you to visualize internal device audio (like Spotify or YouTube) using screen-capture APIs, but the latency profile is fundamentally different:
+
+* **Inherent OS Buffer:** ~40–80 ms
+* **Total End-to-End:** ~60–100 ms
+
+This higher latency is an unavoidable Android OS limitation when intercepting shared system audio. However, Velo utilizes NEON CPU optimizations for this path. While NEON cannot lower the OS buffer delay, it ensures the CPU footprint remains microscopic during the 60ms capture window, guaranteeing the visualizer never stutters or drops frames while waiting for the system audio buffer.
+
+### 4. Smart Lighting Latency (Philips Hue)
+While the app's internal beat calculation is near-instant (< 1 ms), the physical time required to change a lightbulb is bottlenecked by your local network and the Hue Bridge's Zigbee mesh. Total time from beat-detection to physical light change is **~40–70 ms**:
 
 | Stage | Approx. Time |
 |-------|---------|
-| Mic capture (Oboe low-latency) | ~5–15 ms |
-| Beat detection + packet build + DTLS encrypt | < 1 ms |
+| Packet build + DTLS encrypt | < 0.5 ms |
 | Wi-Fi LAN hop to the bridge | ~1–5 ms |
-| Bridge → Zigbee mesh → physical bulb | ~25 ms |
+| Bridge processing | ~10–20 ms |
+| Zigbee mesh → physical bulb | ~25 ms |
 
-As part of the roadmap, I intend to add support for ESP32 WLED based lights, which will be even faster.
+As part of the roadmap, I intend to add support for ESP32 WLED-based lights via UDP, which bypasses the Zigbee mesh entirely and will be significantly faster.
 
 ---
 

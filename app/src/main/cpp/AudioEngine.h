@@ -56,6 +56,9 @@ public:
     // (low, mid, high), each in [0, 1], into `outBands`. GL thread only.
     void computeBands(float *outBands) noexcept;
 
+    // Full 128-bin spectrum for visuals.
+    void computeFullSpectrum(float *outMagnitudes, float *outPeaks, float dt) noexcept;
+
     int sampleRate() const { return mSampleRate.load(std::memory_order_relaxed); }
     float callbackPeriodMs() const { return mCallbackPeriodMs.load(std::memory_order_relaxed); }
 

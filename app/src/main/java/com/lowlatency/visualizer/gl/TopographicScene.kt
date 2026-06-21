@@ -88,7 +88,6 @@ class TopographicScene : GlScene {
         """
     }
 
-    private val analyzer = SpectrumAnalyzer(bins = BINS)
     private val specUpload: FloatBuffer = ByteBuffer
         .allocateDirect(BINS * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
 
@@ -104,7 +103,6 @@ class TopographicScene : GlScene {
     private var indexCount = 0
     private var specTex = 0
     private var aspect = 1f
-    private var lastTime = -1f
 
     override fun onCreated() {
         program = ShaderUtil.buildProgram(VERTEX_SHADER, FRAGMENT_SHADER)
@@ -175,12 +173,16 @@ class TopographicScene : GlScene {
         this.aspect = aspect
     }
 
-    override fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
-        val dt = if (lastTime < 0f) 0.016f else (timeSec - lastTime).coerceIn(0f, 0.05f)
-        lastTime = timeSec
-
-        analyzer.update(pcm, dt)
-        specUpload.clear(); specUpload.put(analyzer.magnitudes).position(0)
+    override fun draw(
+        pcm: FloatArray,
+        bands: FloatArray,
+        magnitudes: FloatArray,
+        peaks: FloatArray,
+        timeSec: Float,
+        dim: Float,
+        sharedBuffer: java.nio.ByteBuffer?
+    ) {
+        specUpload.clear(); specUpload.put(magnitudes).position(0)
 
         GLES20.glEnable(GLES20.GL_BLEND)
         GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE)   // additive wireframe

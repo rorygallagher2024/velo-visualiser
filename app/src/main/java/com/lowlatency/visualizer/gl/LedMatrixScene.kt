@@ -79,7 +79,6 @@ class LedMatrixScene : GlScene {
         """
     }
 
-    private val analyzer = SpectrumAnalyzer(bins = COLS)
     private val upload: FloatBuffer = ByteBuffer
         .allocateDirect(COLS * 2 * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
 
@@ -96,7 +95,6 @@ class LedMatrixScene : GlScene {
     private var specTex = 0
     private var width = 1f
     private var height = 1f
-    private var lastTime = -1f
 
     override fun onCreated() {
         program = ShaderUtil.buildProgram(VERTEX_SHADER, FRAGMENT_SHADER)
@@ -125,14 +123,25 @@ class LedMatrixScene : GlScene {
         this.height = height.toFloat()
     }
 
-    override fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
-        val dt = if (lastTime < 0f) 0.016f else (timeSec - lastTime).coerceIn(0f, 0.05f)
-        lastTime = timeSec
-
-        analyzer.update(pcm, dt)
+    override fun draw(
+        pcm: FloatArray,
+        bands: FloatArray,
+        magnitudes: FloatArray,
+        peaks: FloatArray,
+        timeSec: Float,
+        dim: Float,
+        sharedBuffer: java.nio.ByteBuffer?
+    ) {
         upload.clear()
-        upload.put(analyzer.magnitudes)      // row 0
-        upload.put(analyzer.peaks)           // row 1
+        // Map 128-bin global spectrum to the 24 columns this scene expects.
+        for (i in 0 until COLS) {
+            val src = (i * 128) / COLS
+            upload.put(magnitudes[src])
+        }
+        for (i in 0 until COLS) {
+            val src = (i * 128) / COLS
+            upload.put(peaks[src])
+        }
         upload.position(0)
 
         GLES20.glDisable(GLES20.GL_BLEND)    // opaque full-screen pass

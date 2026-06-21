@@ -78,7 +78,7 @@ class RawScopeScene : GlScene {
         // A 1D trace needs no aspect correction: x spans the full width, y is amplitude.
     }
 
-    override fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
+    override fun draw(pcm: FloatArray, bands: FloatArray, magnitudes: FloatArray, peaks: FloatArray, timeSec: Float, dim: Float, sharedBuffer: java.nio.ByteBuffer?) {
         val n = minOf(pcm.size, POINTS)
         buffer.clear(); buffer.put(pcm, 0, n); buffer.position(0)
 

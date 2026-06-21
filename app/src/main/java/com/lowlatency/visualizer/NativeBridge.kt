@@ -35,6 +35,17 @@ object NativeBridge {
     external fun fillLatestAudioBuffer(out: FloatArray): Int
 
     /**
+     * One-time initialization of the shared DirectByteBuffer. Call this
+     * at startup so the native layer can store the address.
+     */
+    external fun nativeInitializeSharedBuffer(buffer: java.nio.ByteBuffer)
+
+    /**
+     * Fills the shared buffer with the latest PCM window. Returns the count.
+     */
+    external fun fillSharedAudioBuffer(): Int
+
+    /**
      * Spec method: latest FFT band energies as a fresh array of 3 floats —
      * [0]=Lows, [1]=Mids, [2]=Highs, each in 0..1. Prefer the fill variant
      * below in the render loop.
@@ -48,10 +59,22 @@ object NativeBridge {
     external fun fillLatestFrequencyBands(out: FloatArray): Int
 
     /**
+     * Zero-allocation spectrum fill. Writes 128 magnitudes and 128 peaks.
+     * [dt] is the frame delta time for peak-fall physics.
+     */
+    external fun fillLatestSpectrum(magnitudes: FloatArray, peaks: FloatArray, dt: Float): Int
+
+    /**
      * System-audio push path. Called from [AudioCaptureService] with 16-bit
      * interleaved PCM read off an AudioPlaybackCapture-configured AudioRecord.
+     * [gain] is applied in the native layer (SIMD optimized).
      */
-    external fun nativePushPcm(pcm: ShortArray, frames: Int, channels: Int)
+    external fun nativePushPcm(pcm: ShortArray, frames: Int, channels: Int, gain: Float)
+
+    /**
+     * Returns [avgConvTimeUs, lastIntervalMs].
+     */
+    external fun nativeGetSystemAudioMetrics(): FloatArray
 
     // --- Diagnostics ---
 

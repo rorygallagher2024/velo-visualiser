@@ -115,6 +115,11 @@ void AudioEngine::computeBands(float *outBands) noexcept {
     mFft->process(mFftScratch.data(), sampleRate(), outBands);
 }
 
+void AudioEngine::computeFullSpectrum(float *outMagnitudes, float *outPeaks, float dt) noexcept {
+    mBuffer->readLatest(mFftScratch.data(), FftProcessor::kFftSize);
+    mFft->processFullSpectrum(mFftScratch.data(), sampleRate(), outMagnitudes, outPeaks, dt);
+}
+
 void AudioEngine::onErrorAfterClose(oboe::AudioStream * /*stream*/, oboe::Result error) {
     // Typical cause: route change (e.g. headset unplug) or device disconnect.
     // The stream is already closed by Oboe here; transparently reopen the mic.
