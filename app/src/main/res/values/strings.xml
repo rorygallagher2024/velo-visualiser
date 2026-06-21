@@ -28,7 +28,7 @@
     <string name="vis_mechanical_meter">Mechanical Meter</string>
     <string name="vis_beat_pulse">Beat Pulse</string>
     <string name="vis_mandelbox">Fractal Cathedral</string>
-    <string name="vis_mandelbox_warning">Requires a high-end device</string>
+    <string name="vis_gpu_intensive_legend">GPU intensive — may reduce performance on some devices</string>
     <string name="vis_reaction_diffusion">Reaction Diffusion</string>
     <string name="vis_cymatics">Cymatics</string>
     <string name="vis_strange_attractor">Strange Attractor</string>

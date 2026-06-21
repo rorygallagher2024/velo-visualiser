@@ -303,8 +303,12 @@ class PostProcessor {
                 col = hueRotate(col, u_hueShift);
                 col *= u_tint;
 
-                col += (hash(gl_FragCoord.xy) - 0.5) / 255.0;   // dither
-                o = vec4(col, 1.0);  // HDR (>1.0) for the FP16 surface; SDR clamps
+                col = max(col, 0.0);
+                // Dither only above true black so OLED pixels stay fully off.
+                float peak = max(col.r, max(col.g, col.b));
+                if (peak > 0.5 / 255.0)
+                    col += (hash(gl_FragCoord.xy) - 0.5) / 255.0;
+                o = vec4(col, 1.0);
             }
         """
     }
