@@ -557,7 +557,7 @@
         </LinearLayout>
         <!-- /TAB 1: Visuals -->
 
-        <!-- ===== TAB 3: Settings (audio source · display · beat sensitivity) ===== -->
+        <!-- ===== TAB 3: Settings ===== -->
         <LinearLayout
             android:id="@+id/tab_settings"
             android:layout_width="match_parent"
@@ -565,23 +565,31 @@
             android:orientation="vertical"
             android:visibility="gone">
 
-        <!-- ===== Group: Audio & Beat ===== -->
+        <!-- ===== Group: Audio ===== -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/section_audio"
+            android:textColor="@color/text_dim"
+            android:textSize="12sp"
+            android:letterSpacing="0.1"
+            android:textAllCaps="true"
+            android:layout_marginBottom="14dp" />
+
+        <!-- Audio source segmented toggle -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/source_label"
             android:textColor="@color/text_dim"
-            android:textSize="12sp"
-            android:letterSpacing="0.1"
-            android:textAllCaps="true"
-            android:layout_marginBottom="8dp" />
+            android:textSize="11sp"
+            android:layout_marginBottom="6dp" />
 
-        <!-- Audio source segmented toggle -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginBottom="20dp">
+            android:layout_marginBottom="16dp">
 
             <Button
                 android:id="@+id/seg_mic"
@@ -613,29 +621,27 @@
             android:id="@+id/internal_audio_warning"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="20dp"
+            android:layout_marginBottom="16dp"
             android:text="@string/internal_audio_latency_warning"
             android:textColor="@color/text_dim"
             android:textSize="11sp"
             android:lineSpacingMultiplier="1.2"
             android:visibility="gone" />
 
-        <!-- Beat sensitivity (drives fireworks, haptics, starscape flashes) -->
+        <!-- Beat sensitivity -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/beat_sens_label"
             android:textColor="@color/text_dim"
-            android:textSize="12sp"
-            android:letterSpacing="0.1"
-            android:textAllCaps="true"
-            android:layout_marginBottom="8dp" />
+            android:textSize="11sp"
+            android:layout_marginBottom="6dp" />
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginBottom="20dp">
+            android:layout_marginBottom="16dp">
 
             <Button
                 android:id="@+id/btn_sens_low"
@@ -681,7 +687,7 @@
             android:id="@+id/btn_haptics"
             android:layout_width="match_parent"
             android:layout_height="44dp"
-            android:layout_marginBottom="20dp"
+            android:layout_marginBottom="8dp"
             android:background="@drawable/pill_button_bg"
             android:text="@string/haptics_off"
             android:textColor="@color/btn_text"
@@ -689,7 +695,15 @@
             android:textSize="13sp"
             android:stateListAnimator="@null" />
 
-        <!-- Ableton Link wireless tempo/beat sync -->
+        <!-- ───── divider: Audio / Ableton Link ───── -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="16dp"
+            android:background="@color/sheet_stroke" />
+
+        <!-- ===== Group: Ableton Link ===== -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -698,7 +712,7 @@
             android:textSize="12sp"
             android:letterSpacing="0.1"
             android:textAllCaps="true"
-            android:layout_marginBottom="8dp" />
+            android:layout_marginBottom="14dp" />
 
         <Button
             android:id="@+id/btn_link_sync"
@@ -734,7 +748,7 @@
             android:textSize="11sp"
             android:layout_marginBottom="6dp" />
 
-        <!-- Diagnostic beat light: pulses on every Link beat. -->
+        <!-- Diagnostic beat light -->
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -770,7 +784,7 @@
             android:lineSpacingMultiplier="1.2"
             android:layout_marginBottom="8dp" />
 
-        <!-- ───── divider: Audio & Beat / Display ───── -->
+        <!-- ───── divider: Ableton Link / Visuals ───── -->
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
@@ -778,23 +792,31 @@
             android:layout_marginBottom="16dp"
             android:background="@color/sheet_stroke" />
 
-        <!-- ===== Group: Display ===== -->
+        <!-- ===== Group: Visuals ===== -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/section_visuals"
+            android:textColor="@color/text_dim"
+            android:textSize="12sp"
+            android:letterSpacing="0.1"
+            android:textAllCaps="true"
+            android:layout_marginBottom="14dp" />
+
         <!-- HDR bloom / glow strength -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/glow_label"
             android:textColor="@color/text_dim"
-            android:textSize="12sp"
-            android:letterSpacing="0.1"
-            android:textAllCaps="true"
-            android:layout_marginBottom="8dp" />
+            android:textSize="11sp"
+            android:layout_marginBottom="6dp" />
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginBottom="20dp">
+            android:layout_marginBottom="16dp">
 
             <Button
                 android:id="@+id/btn_glow_off"
@@ -851,23 +873,21 @@
                 android:stateListAnimator="@null" />
         </LinearLayout>
 
-        <!-- Theme (global colour grade applied to every visual) -->
+        <!-- Theme (global colour grade) -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/theme_label"
             android:textColor="@color/text_dim"
-            android:textSize="12sp"
-            android:letterSpacing="0.1"
-            android:textAllCaps="true"
-            android:layout_marginBottom="8dp" />
+            android:textSize="11sp"
+            android:layout_marginBottom="6dp" />
 
         <LinearLayout
             android:id="@+id/theme_row"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginBottom="20dp">
+            android:layout_marginBottom="8dp">
 
             <Button
                 android:id="@+id/btn_theme_spectrum"
@@ -938,6 +958,15 @@
                 android:stateListAnimator="@null" />
         </LinearLayout>
 
+        <!-- ───── divider: Visuals / Display ───── -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="16dp"
+            android:background="@color/sheet_stroke" />
+
+        <!-- ===== Group: Display ===== -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -946,7 +975,7 @@
             android:textSize="12sp"
             android:letterSpacing="0.1"
             android:textAllCaps="true"
-            android:layout_marginBottom="8dp" />
+            android:layout_marginBottom="14dp" />
 
         <!-- OLED burn-in protection toggle -->
         <Button
@@ -1017,12 +1046,12 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/privacy_policy_label"
+            android:text="@string/section_about"
             android:textColor="@color/text_dim"
             android:textSize="12sp"
             android:letterSpacing="0.1"
             android:textAllCaps="true"
-            android:layout_marginBottom="8dp" />
+            android:layout_marginBottom="14dp" />
 
         <Button
             android:id="@+id/btn_privacy_policy"
