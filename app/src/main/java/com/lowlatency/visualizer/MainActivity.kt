@@ -948,6 +948,21 @@ class MainActivity : AppCompatActivity() {
         }
         appendSection("Engine", "%.1f fps · %.1fms".format(fps, frameMs), fpsColor)
 
+        // Hardware Load
+        val load = NativeBridge.nativeGetHardwareLoad()
+        val cpuMs = load[0] / 1000f
+        val gpuMs = load[1]
+        
+        // CPU Line
+        val cpuPercent = if (frameMs > 0) (cpuMs / frameMs * 100f).coerceIn(0f, 100f) else 0f
+        appendSection("CPU   ", "%.1fms (%.0f%%) load".format(cpuMs, cpuPercent))
+
+        // GPU Line (Only if supported/reporting)
+        if (gpuMs >= 0) {
+            val gpuPercent = if (frameMs > 0) (gpuMs / frameMs * 100f).coerceIn(0f, 100f) else 0f
+            appendSection("GPU   ", "%.1fms (%.0f%%) load".format(gpuMs, gpuPercent))
+        }
+
         // Audio Capture
         appendSection("Audio ", "%dHz · %.1fms".format(rate, audioMs))
 

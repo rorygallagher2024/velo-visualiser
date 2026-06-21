@@ -76,6 +76,18 @@ object NativeBridge {
      */
     external fun nativeGetSystemAudioMetrics(): FloatArray
 
+    /**
+     * Report GL thread performance metrics.
+     * [cpuWorkTimeUs]: thread-time spent on the CPU.
+     * [gpuTaskTimeNs]: time-elapsed on the GPU (if available).
+     */
+    external fun nativeUpdateHardwareLoad(cpuWorkTimeUs: Long, gpuTaskTimeNs: Long, gpuAvailable: Boolean)
+
+    /**
+     * Returns [cpuWorkTimeUs, gpuTaskTimeMs].
+     */
+    external fun nativeGetHardwareLoad(): FloatArray
+
     // --- Diagnostics ---
 
     /** Measured period between Oboe audio callbacks in milliseconds. */

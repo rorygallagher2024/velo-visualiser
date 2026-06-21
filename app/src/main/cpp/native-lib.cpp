@@ -22,6 +22,11 @@ static std::atomic<long long> gSystemAudioConvTimeUs{0};
 static std::atomic<long long> gSystemAudioLastPushNs{0};
 static std::atomic<float> gSystemAudioLastIntervalMs{0};
 
+// Hardware Load Metrics
+static std::atomic<long long> gGlThreadWorkTimeUs{0};
+static std::atomic<long long> gGpuTaskTimeNs{0};
+static std::atomic<bool> gGpuTimeAvailable{false};
+
 extern "C" {
 
 // ---------------------------------------------------------------------------
@@ -210,6 +215,25 @@ Java_com_lowlatency_visualizer_NativeBridge_nativeGetSystemAudioMetrics(JNIEnv *
     float metrics[2];
     metrics[0] = static_cast<float>(gSystemAudioConvTimeUs.load());
     metrics[1] = gSystemAudioLastIntervalMs.load();
+    env->SetFloatArrayRegion(result, 0, 2, metrics);
+    return result;
+}
+
+JNIEXPORT void JNICALL
+Java_com_lowlatency_visualizer_NativeBridge_nativeUpdateHardwareLoad(JNIEnv *, jobject,
+                                                                      jlong cpuUs, jlong gpuNs, jboolean gpuAvail) {
+    gGlThreadWorkTimeUs.store(cpuUs);
+    gGpuTaskTimeNs.store(gpuNs);
+    gGpuTimeAvailable.store(gpuAvail == JNI_TRUE);
+}
+
+JNIEXPORT jfloatArray JNICALL
+Java_com_lowlatency_visualizer_NativeBridge_nativeGetHardwareLoad(JNIEnv *env, jobject) {
+    jfloatArray result = env->NewFloatArray(2);
+    if (result == nullptr) return nullptr;
+    float metrics[2];
+    metrics[0] = static_cast<float>(gGlThreadWorkTimeUs.load());
+    metrics[1] = gGpuTimeAvailable.load() ? static_cast<float>(gGpuTaskTimeNs.load()) / 1000000.0f : -1.0f;
     env->SetFloatArrayRegion(result, 0, 2, metrics);
     return result;
 }
