@@ -630,7 +630,7 @@ class MainActivity : AppCompatActivity() {
             override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
                 if (fromUser) {
                     HueStrobeSettings.hueLookaheadMs = progress.toFloat()
-                    labelLookahead.text = if (progress == 0) "Off" else "$progress ms"
+                    labelLookahead.text = if (progress == 0) "Off" else "-${progress} ms"
                     prefs.edit().putFloat(KEY_ADV_HUE_LOOKAHEAD, progress.toFloat()).apply()
                 }
             }
