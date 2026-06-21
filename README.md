@@ -32,7 +32,7 @@ A bare-metal C++/Oboe audio engine and custom OpenGL ES 3.1 shaders bypass stand
 
 ## The full feature list
 
-- **22 audio-reactive visualizers**: Waveforms, spectra, particle fluids, scrolling spectrograms, dot-matrix LED meters, and more.
+- **23 audio-reactive visualizers**: Waveforms, spectra, particle fluids, scrolling spectrograms, dot-matrix LED meters, and more.
 - **HDR Effects**: Including post-processing for real luminous glow on capable HDR displays and a selectable glow strength.
 - **Ableton Link sync**: Lock beat-driven effects to Traktor, Ableton Live, and other Link software over Wi-Fi; the mic still drives the visuals while Link sets the beat.
 - **Real-time Philips Hue Sync Integration**: Direct local UDP streaming over the Hue Entertainment API. Also works in co-ordination with Ableton Link to drive a sychronised beat to the bulbs. Includes lighting controls, advanced controls for calibration and the ability to send Ableton Link beats early for perfect synchronisation.
