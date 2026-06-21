@@ -112,6 +112,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnPrivacyPolicy: Button
     private lateinit var btnAbout: Button
     private lateinit var btnPerfOverlay: Button
+    private lateinit var btnPeakLuminance: Button
+    private lateinit var groupPeakLuminance: View
     private lateinit var perfOverlay: TextView
     private lateinit var hapticController: HapticController
     private lateinit var prefs: SharedPreferences
@@ -263,6 +265,7 @@ class MainActivity : AppCompatActivity() {
         wireMenuControls()
         wireHue()
         wireFirstBoot()
+        checkHdrSupport()
 
         ContextCompat.registerReceiver(
             this,
@@ -353,6 +356,8 @@ class MainActivity : AppCompatActivity() {
         btnPrivacyPolicy = findViewById(R.id.btn_privacy_policy)
         btnAbout = findViewById(R.id.btn_about)
         btnPerfOverlay = findViewById(R.id.btn_perf_overlay)
+        btnPeakLuminance = findViewById(R.id.btn_peak_luminance)
+        groupPeakLuminance = findViewById(R.id.group_peak_luminance)
         perfOverlay = findViewById(R.id.perf_overlay)
         tabBtnVisuals = findViewById(R.id.tab_btn_visuals)
         tabBtnLighting = findViewById(R.id.tab_btn_lighting)
@@ -592,6 +597,15 @@ class MainActivity : AppCompatActivity() {
         // Performance overlay toggle (persisted, default off).
         setPerfOverlay(prefs.getBoolean(KEY_PERF_OVERLAY, false))
         btnPerfOverlay.setOnClickListener { setPerfOverlay(!perfOverlayEnabled) }
+
+        // Peak luminance (HDR+) toggle (persisted, default off).
+        val peak = prefs.getBoolean(KEY_PEAK_LUMINANCE, false)
+        updatePeakLuminance(peak)
+        btnPeakLuminance.setOnClickListener {
+            val enabled = !prefs.getBoolean(KEY_PEAK_LUMINANCE, false)
+            prefs.edit().putBoolean(KEY_PEAK_LUMINANCE, enabled).apply()
+            updatePeakLuminance(enabled)
+        }
 
         // HDR bloom / glow strength (persisted).
         GlowSettings.strength = GlowSettings.Strength.fromKey(prefs.getString(KEY_GLOW, null))
@@ -898,6 +912,21 @@ class MainActivity : AppCompatActivity() {
     private fun updateBurnInButton(enabled: Boolean) {
         btnBurnin.isSelected = enabled
         btnBurnin.setText(if (enabled) R.string.burnin_on else R.string.burnin_off)
+    }
+
+    private fun updatePeakLuminance(enabled: Boolean) {
+        btnPeakLuminance.isSelected = enabled
+        btnPeakLuminance.setText(if (enabled) R.string.peak_luminance_on else R.string.peak_luminance_off)
+
+        val lp = window.attributes
+        lp.screenBrightness = if (enabled) 1.0f else WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+        window.attributes = lp
+
+        if (Build.VERSION.SDK_INT >= 35) {
+            // Android 15+ HDR headroom: 1.0 = no headroom, >1.0 = extra range.
+            // 10.0 is a safe "maximum" request for most OLED panels.
+            window.setDesiredHdrHeadroom(if (enabled) 10.0f else 1.0f)
+        }
     }
 
     private fun setPerfOverlay(enabled: Boolean) {
@@ -1703,6 +1732,12 @@ class MainActivity : AppCompatActivity() {
         Log.i(TAG, "Display HDR capable=$isHdr (types: $types)")
     }
 
+    private fun checkHdrSupport() {
+        val d = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) display else windowManager.defaultDisplay
+        val isHdr = d?.isHdr == true
+        groupPeakLuminance.visibility = if (isHdr) View.VISIBLE else View.GONE
+    }
+
     /** Choose the display mode with the highest refresh rate at native resolution. */
     @Suppress("DEPRECATION")   // windowManager.defaultDisplay is the pre-R fallback only
     private fun selectHighestRefreshRate() {
@@ -1728,6 +1763,7 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         glView.onResume()
+        updatePeakLuminance(prefs.getBoolean(KEY_PEAK_LUMINANCE, false))
         if (!systemAudioMode) ensureMicAndStart()
         if (::hueController.isInitialized) hueController.paused = false
         if (LinkSync.enabled) {
@@ -1801,6 +1837,7 @@ class MainActivity : AppCompatActivity() {
         private const val BASS_LP_A = 0.03f       // one-pole low-pass coeff (~230 Hz @ 48 kHz)
         private const val MIC_NOISE_FLOOR = 0.006f // below this mic peak, treat as silence
         private const val KEY_PERF_OVERLAY = "perf_overlay_enabled"
+        private const val KEY_PEAK_LUMINANCE = "peak_luminance_enabled"
         private const val KEY_FAVOURITES = "favourite_scenes"
         private const val KEY_SCREENSHARE_RATIONALE = "screenshare_rationale_shown"
         private const val SWIPE_DOWN_VELOCITY = 1200f

@@ -974,6 +974,37 @@
             android:textSize="13sp"
             android:stateListAnimator="@null" />
 
+        <!-- Peak luminance (HDR+) toggle group -->
+        <LinearLayout
+            android:id="@+id/group_peak_luminance"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <Button
+                android:id="@+id/btn_peak_luminance"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="6dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/peak_luminance_off"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/peak_luminance_hint"
+                android:textColor="@color/text_dim"
+                android:textSize="10sp"
+                android:lineSpacingMultiplier="1.2"
+                android:layout_marginBottom="8dp" />
+
+        </LinearLayout>
+
         <!-- ───── divider: Display / About ───── -->
         <View
             android:layout_width="match_parent"
