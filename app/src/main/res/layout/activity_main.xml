@@ -974,13 +974,12 @@
             android:textSize="13sp"
             android:stateListAnimator="@null" />
 
-        <!-- Peak luminance (HDR+) toggle group -->
+        <!-- Peak luminance (HDR+) / Max brightness toggle group -->
         <LinearLayout
             android:id="@+id/group_peak_luminance"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:visibility="gone">
+            android:orientation="vertical">
 
             <Button
                 android:id="@+id/btn_peak_luminance"
@@ -995,6 +994,7 @@
                 android:stateListAnimator="@null" />
 
             <TextView
+                android:id="@+id/peak_luminance_hint_text"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/peak_luminance_hint"

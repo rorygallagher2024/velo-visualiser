@@ -915,8 +915,17 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updatePeakLuminance(enabled: Boolean) {
+        val d = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) display else windowManager.defaultDisplay
+        val isHdr = d?.isHdr == true
+
+        if (isHdr) {
+            btnPeakLuminance.setText(if (enabled) R.string.peak_luminance_on else R.string.peak_luminance_off)
+            findViewById<TextView>(R.id.peak_luminance_hint_text).setText(R.string.peak_luminance_hint)
+        } else {
+            btnPeakLuminance.setText(if (enabled) R.string.max_brightness_on else R.string.max_brightness_off)
+            findViewById<TextView>(R.id.peak_luminance_hint_text).setText(R.string.max_brightness_hint)
+        }
         btnPeakLuminance.isSelected = enabled
-        btnPeakLuminance.setText(if (enabled) R.string.peak_luminance_on else R.string.peak_luminance_off)
 
         val lp = window.attributes
         lp.screenBrightness = if (enabled) 1.0f else WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
@@ -1733,9 +1742,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun checkHdrSupport() {
-        val d = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) display else windowManager.defaultDisplay
-        val isHdr = d?.isHdr == true
-        groupPeakLuminance.visibility = if (isHdr) View.VISIBLE else View.GONE
+        // The toggle is now always visible, but its text is initialized based on support.
+        updatePeakLuminance(prefs.getBoolean(KEY_PEAK_LUMINANCE, false))
     }
 
     /** Choose the display mode with the highest refresh rate at native resolution. */
