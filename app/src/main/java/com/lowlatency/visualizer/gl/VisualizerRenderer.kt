@@ -2,7 +2,6 @@ package com.lowlatency.visualizer.gl
 
 import android.content.Context
 import android.opengl.GLES20
-import android.opengl.GLES30
 import android.opengl.GLSurfaceView
 import android.util.Log
 import com.lowlatency.visualizer.BeatDetector
@@ -143,10 +142,6 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
 
     // Hardware load measurement
     private var cpuThreadTimeStart = 0L
-    private val gpuQuery = IntArray(1)
-    private var gpuQueryActive = false
-    private var gpuExtAvailable = false
-    private val GL_TIME_ELAPSED_EXT = 0x88BF
 
     // First-run intro (VELO particle cloud). Set before the surface is created;
     // read on the GL thread. When disabled (reduced-motion) the app boots
@@ -181,23 +176,6 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
         startNanos = System.nanoTime()
         NativeBridge.nativeInitializeSharedBuffer(sharedAudioBuffer)
 
-        // Correct GLES 3.0+ way to check for extensions.
-        // glGetString(GL_EXTENSIONS) is deprecated and often empty on modern drivers.
-        val numExts = IntArray(1)
-        GLES30.glGetIntegerv(GLES30.GL_NUM_EXTENSIONS, numExts, 0)
-        gpuExtAvailable = false
-        for (i in 0 until numExts[0]) {
-            val ext = GLES30.glGetStringi(GLES30.GL_EXTENSIONS, i)
-            if (ext == "GL_EXT_disjoint_timer_query") {
-                gpuExtAvailable = true
-                break
-            }
-        }
-
-        if (gpuExtAvailable) {
-            GLES30.glGenQueries(1, gpuQuery, 0)
-        }
-
         post.onCreated()
         scenes.forEach { it.onCreated() }
         introActive = introEnabled && !introPlayedThisProcess
@@ -225,10 +203,6 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
 
     override fun onDrawFrame(gl: GL10?) {
         cpuThreadTimeStart = android.os.SystemClock.currentThreadTimeMillis()
-        if (gpuExtAvailable && !gpuQueryActive) {
-            GLES30.glBeginQuery(GL_TIME_ELAPSED_EXT, gpuQuery[0])
-            gpuQueryActive = true
-        }
 
         // Pull the freshest audio data from the native ring buffer + FFT.
         NativeBridge.fillSharedAudioBuffer()
@@ -318,34 +292,8 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
         }
 
         // Finalise load measurements
-        if (gpuQueryActive) {
-            GLES30.glEndQuery(GL_TIME_ELAPSED_EXT)
-            gpuQueryActive = false
-
-            // Try to pull the last frame's result (async, so we don't block the pipeline)
-            val available = IntArray(1)
-            GLES30.glGetQueryObjectuiv(gpuQuery[0], GLES30.GL_QUERY_RESULT_AVAILABLE, available, 0)
-            
-            val cpuWorkUs = (android.os.SystemClock.currentThreadTimeMillis() - cpuThreadTimeStart) * 1000L
-            
-            if (available[0] != 0) {
-                val duration = IntArray(1)
-                GLES30.glGetQueryObjectuiv(gpuQuery[0], GLES30.GL_QUERY_RESULT, duration, 0)
-                // Convert unsigned int to long correctly. If duration[0] is negative,
-                // it's actually a large unsigned value.
-                val durationNs = if (duration[0] < 0) {
-                    (duration[0].toLong() and 0xFFFFFFFFL)
-                } else {
-                    duration[0].toLong()
-                }
-                NativeBridge.nativeUpdateHardwareLoad(cpuWorkUs, durationNs, true)
-            } else {
-                NativeBridge.nativeUpdateHardwareLoad(cpuWorkUs, 0, false)
-            }
-        } else {
-            val cpuWorkUs = (android.os.SystemClock.currentThreadTimeMillis() - cpuThreadTimeStart) * 1000L
-            NativeBridge.nativeUpdateHardwareLoad(cpuWorkUs, 0, false)
-        }
+        val cpuWorkUs = (android.os.SystemClock.currentThreadTimeMillis() - cpuThreadTimeStart) * 1000L
+        NativeBridge.nativeUpdateHardwareLoad(cpuWorkUs, 0, false)
     }
 
     /**
