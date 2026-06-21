@@ -85,7 +85,7 @@ Here is the end-to-end latency estimate for Velo's gold-standard path (Microphon
 | **Display** | OLED Panel Scan-out response | ~1.5 ms |
 | **TOTAL** | **Hardware-to-Retina** | **~8.0 ms** |
 
-*(Note: Physical Philips Hue lighting sync takes an additional ~40-70ms due to the physical limitations of the Zigbee mesh network, though Velo's internal packet dispatch takes < 1 ms).*
+Many visualizers suffer from inherent 100ms+ delays due to their reliance on high-level Java APIs like `AudioFlinger` or `android.media.audiofx.Visualizer`. Velo eliminates these bottlenecks by operating at the OS hardware floor.
 
 ### 3. System Audio Latency (The Shared Path)
 Velo allows you to visualize internal device audio (like Spotify or YouTube) using screen-capture APIs, but the latency profile is fundamentally different:
