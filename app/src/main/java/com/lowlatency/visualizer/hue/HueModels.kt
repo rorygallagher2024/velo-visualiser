@@ -20,6 +20,7 @@ data class HueEntertainmentArea(
     val id: String,            // 36-char UUID — also goes in the stream header
     val name: String,
     val channels: List<HueChannel>,
+    val lightIds: List<String> = emptyList(),
 )
 
 /** Persisted pairing credentials for one bridge. */

@@ -34,6 +34,7 @@ class HueLightController(context: Context) {
     @Volatile private var high = 0f
 
     @Volatile private var running = false
+    @Volatile var paused = false        // true while app is backgrounded; sender drops to 1 Hz keepalive
     private var senderThread: Thread? = null
     private var client: HueStreamClient? = null
 
@@ -148,6 +149,15 @@ class HueLightController(context: Context) {
 
             while (running) {
                 val t0 = System.nanoTime()
+
+                if (paused) {
+                    // App is backgrounded — send a silent frame at 1 Hz to keep DTLS alive.
+                    for (i in rgb.indices) rgb[i] = 0f
+                    c.send(channelIds, rgb)
+                    try { Thread.sleep(1000) } catch (_: InterruptedException) { break }
+                    continue
+                }
+
                 val l = low; val m = mid; val h = high
 
                 if (LinkSync.enabled) {
@@ -225,7 +235,6 @@ class HueLightController(context: Context) {
                     catch (_: InterruptedException) { break }
                 }
             }
-            runCatching { c.close() }
         }
     }
 

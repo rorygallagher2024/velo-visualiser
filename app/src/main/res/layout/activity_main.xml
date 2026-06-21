@@ -63,13 +63,13 @@
     <ScrollView
         android:id="@+id/options_sheet"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="match_parent"
         android:layout_gravity="bottom"
         android:layout_marginTop="72dp"
         android:background="@drawable/sheet_background"
         android:clickable="true"
         android:focusable="true"
-        android:fillViewport="false"
+        android:fillViewport="true"
         android:scrollbars="none">
 
         <LinearLayout
@@ -458,31 +458,23 @@
                 android:id="@+id/btn_mandelbox"
                 android:layout_width="match_parent"
                 android:layout_height="44dp"
-                android:layout_marginBottom="3dp"
+                android:layout_marginBottom="8dp"
                 android:background="@drawable/pill_button_bg"
                 android:text="@string/vis_mandelbox"
                 android:textColor="@color/btn_text"
                 android:textAllCaps="false"
                 android:textSize="13sp"
+                android:drawableStart="@drawable/ic_gpu_dot_invisible"
+                android:drawableEnd="@drawable/ic_gpu_dot"
+                android:drawablePadding="8dp"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
                 android:stateListAnimator="@null" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center_horizontal"
-                android:layout_marginTop="2dp"
-                android:background="@drawable/chip_bg"
-                android:paddingHorizontal="8dp"
-                android:paddingVertical="3dp"
-                android:text="@string/vis_mandelbox_warning"
-                android:textColor="@color/text_dim"
-                android:textSize="9sp" />
 
             <Button
                 android:id="@+id/btn_reaction_diffusion"
                 android:layout_width="match_parent"
                 android:layout_height="44dp"
-                android:layout_marginTop="8dp"
                 android:layout_marginBottom="8dp"
                 android:background="@drawable/pill_button_bg"
                 android:text="@string/vis_reaction_diffusion"
@@ -495,12 +487,35 @@
                 android:id="@+id/btn_strange_attractor"
                 android:layout_width="match_parent"
                 android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
                 android:background="@drawable/pill_button_bg"
                 android:text="@string/vis_strange_attractor"
                 android:textColor="@color/btn_text"
                 android:textAllCaps="false"
                 android:textSize="13sp"
                 android:stateListAnimator="@null" />
+
+            <!-- GPU-intensive legend -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <View
+                    android:layout_width="8dp"
+                    android:layout_height="8dp"
+                    android:background="@drawable/ic_gpu_dot"
+                    android:layout_marginEnd="6dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/vis_gpu_intensive_legend"
+                    android:textColor="@color/text_dim"
+                    android:textSize="10sp" />
+            </LinearLayout>
         </LinearLayout>
 
         </LinearLayout>
@@ -990,6 +1005,7 @@
             android:layout_marginBottom="12dp" />
 
         <TextView
+            android:id="@+id/hue_prerequisites"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/hue_prerequisites"
@@ -1062,6 +1078,84 @@
             android:textColor="@color/text_dim"
             android:textSize="11sp"
             android:layout_marginBottom="16dp" />
+
+        <!-- Light Control: scene presets + brightness (visible when connected, not streaming) -->
+        <LinearLayout
+            android:id="@+id/hue_light_control"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/text_dim"
+                android:alpha="0.25"
+                android:layout_marginBottom="14dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/hue_light_control_label"
+                android:textColor="@color/accent"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textAllCaps="true"
+                android:letterSpacing="0.05"
+                android:layout_marginBottom="12dp" />
+
+            <LinearLayout
+                android:id="@+id/hue_scene_grid"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/hue_brightness_label"
+                android:textColor="@color/text_primary"
+                android:textSize="12sp"
+                android:layout_marginTop="10dp"
+                android:layout_marginBottom="8dp" />
+
+            <SeekBar
+                android:id="@+id/hue_brightness"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
+                android:max="100"
+                android:progress="100"
+                android:progressTint="@color/accent"
+                android:progressBackgroundTint="@color/text_dim"
+                android:thumbTint="@color/accent"
+                android:layout_marginBottom="4dp" />
+
+        </LinearLayout>
+
+        <View
+            android:id="@+id/hue_forget_divider"
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/text_dim"
+            android:alpha="0.25"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="12dp"
+            android:visibility="gone" />
+
+        <Button
+            android:id="@+id/btn_hue_forget"
+            android:layout_width="match_parent"
+            android:layout_height="36dp"
+            android:layout_marginBottom="12dp"
+            android:background="@android:color/transparent"
+            android:text="@string/hue_forget"
+            android:textColor="@color/text_dim"
+            android:textAllCaps="false"
+            android:textSize="12sp"
+            android:visibility="gone"
+            android:stateListAnimator="@null" />
 
         <!-- Advanced light tuning (shown only while Hue sync is active). -->
         <Button

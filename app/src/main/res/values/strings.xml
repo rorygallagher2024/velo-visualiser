@@ -28,7 +28,7 @@
     <string name="vis_mechanical_meter">Mechanical Meter</string>
     <string name="vis_beat_pulse">Beat Pulse</string>
     <string name="vis_mandelbox">Fractal Cathedral</string>
-    <string name="vis_mandelbox_warning">Requires a high-end device</string>
+    <string name="vis_gpu_intensive_legend">GPU intensive — may reduce performance on some devices</string>
     <string name="vis_reaction_diffusion">Reaction Diffusion</string>
     <string name="vis_cymatics">Cymatics</string>
     <string name="vis_strange_attractor">Strange Attractor</string>
@@ -149,16 +149,26 @@
     <string name="hue_status_idle">Tap “Connect Hue Bridge” to begin.</string>
     <string name="hue_status_searching">Searching for a Hue Bridge on your network…</string>
     <string name="hue_status_press_button">Press the button on your Hue Bridge… %1$d s</string>
-    <string name="hue_status_paired">Bridge paired. Choose an Entertainment Area.</string>
+    <string name="hue_status_ready">Ready to sync.</string>
     <string name="hue_status_no_bridge">No bridge found. Make sure your phone and Hue Bridge are on the same Wi-Fi, then try again.</string>
+    <string name="hue_status_unreachable">Bridge not reachable. Check you\'re on the same Wi-Fi as your Hue Bridge.</string>
+    <string name="hue_forget">Forget Bridge</string>
+    <string name="hue_forget_title">Forget this bridge?</string>
+    <string name="hue_forget_message">You\'ll need to press the bridge button again to re-pair.</string>
+    <string name="hue_area_lights">%1$s (%2$d lights)</string>
+    <string name="hue_status_auth_expired">Bridge credentials expired. Please re-pair.</string>
+    <string name="hue_light_control_label">Light Control</string>
+    <string name="hue_brightness_label">Brightness</string>
     <string name="hue_status_synced">Light sync active.</string>
     <string name="hue_select_area">Select an Entertainment Area:</string>
 
     <!-- Hue connection-state indicator -->
     <string name="hue_conn_disconnected">●  Disconnected</string>
     <string name="hue_conn_searching">●  Searching…</string>
-    <string name="hue_conn_paired">●  Bridge connected</string>
-    <string name="hue_conn_streaming">●  Connected — syncing lights</string>
+    <string name="hue_conn_paired">●  Bridge paired · not reachable</string>
+    <string name="hue_conn_reachable">●  Bridge connected · %1$d ms</string>
+    <string name="hue_conn_streaming">●  Connected — syncing lights · %1$d ms</string>
+    <string name="hue_conn_checking">●  Checking bridge…</string>
 
     <!-- Internal-audio screen-capture rationale (shown once) -->
     <string name="screenshare_title">Why screen capture?</string>
