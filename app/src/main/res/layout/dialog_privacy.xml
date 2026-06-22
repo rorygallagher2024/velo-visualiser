@@ -17,7 +17,7 @@
         android:textAllCaps="true"
         android:textColor="@color/accent"
         android:textSize="18sp"
-        android:textStyle="bold" />
+        android:textStyle="normal" />
 
     <!-- Scrollable content -->
     <ScrollView

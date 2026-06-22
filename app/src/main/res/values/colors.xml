@@ -7,8 +7,8 @@
 
     <!-- UI overlay palette — warm charcoal panel,
          off-white "ink", monochrome inverted selection (no colour accent). -->
-    <color name="accent">#FFF0531C</color>          <!-- TE / OP-1 orange — selected fill + brand pop -->
-    <color name="accent_pressed">#FFFF6A35</color>  <!-- brighter orange — momentary press feedback -->
+    <color name="accent">#FFF4F4F2</color>          <!-- mono brand white — selected/active fill (OP-1 keycap inversion) -->
+    <color name="accent_pressed">#FFFFFFFF</color>  <!-- pure white — momentary press feedback -->
     <color name="ink_invert">#FF1B1A17</color>      <!-- text on a selected (light) fill -->
     <color name="sheet_fill">#F21B1A17</color>      <!-- warm charcoal, ~95% -->
     <color name="sheet_stroke">#26FFFFFF</color>    <!-- hairline -->

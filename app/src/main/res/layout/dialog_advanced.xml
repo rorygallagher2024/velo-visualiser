@@ -22,7 +22,7 @@
             android:text="@string/adv_title"
             android:textColor="@color/text_primary"
             android:textSize="18sp"
-            android:textStyle="bold"
+            android:textStyle="normal"
             android:letterSpacing="0.08"
             android:layout_marginBottom="8dp" />
 
