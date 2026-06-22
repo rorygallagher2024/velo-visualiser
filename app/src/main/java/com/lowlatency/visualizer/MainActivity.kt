@@ -17,6 +17,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.provider.Settings
 import android.util.Log
 import android.util.TypedValue
@@ -119,7 +120,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnPerfOverlay: Button
     private lateinit var btnPeakLuminance: Button
     private lateinit var groupPeakLuminance: View
-    private lateinit var perfOverlay: TextView
+    private lateinit var perfOverlay: View
+    private lateinit var perfFpsValue: TextView
+    private lateinit var perfFrameMs: TextView
+    private lateinit var perfDetail: TextView
+    private var displayedFps = 0f
     private lateinit var heroVisName: TextView
     private lateinit var btnSceneLabel: Button
     private lateinit var sceneLabel: TextView
@@ -164,6 +169,7 @@ class MainActivity : AppCompatActivity() {
     private var lastHuePackets = 0L
     private var lastPeerCount = 0
     private var linkNotifyRunnable: Runnable? = null
+    private var backgroundedAtMs = 0L
 
     private val captureStopReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -190,6 +196,15 @@ class MainActivity : AppCompatActivity() {
         override fun run() {
             updatePerfOverlay()
             perfHandler.postDelayed(this, 500L)
+        }
+    }
+    // Smoothly eases the hero FPS readout toward the live value (~20 Hz) so the
+    // giant number counts fluidly rather than snapping with the 500 ms data poll.
+    private val perfFpsTicker = object : Runnable {
+        override fun run() {
+            displayedFps += (glView.rendererFps - displayedFps) * 0.22f
+            renderHeroFps()
+            perfHandler.postDelayed(this, 50L)
         }
     }
 
@@ -381,6 +396,9 @@ class MainActivity : AppCompatActivity() {
         btnPeakLuminance = findViewById(R.id.btn_peak_luminance)
         groupPeakLuminance = findViewById(R.id.group_peak_luminance)
         perfOverlay = findViewById(R.id.perf_overlay)
+        perfFpsValue = findViewById(R.id.perf_fps_value)
+        perfFrameMs = findViewById(R.id.perf_frame_ms)
+        perfDetail = findViewById(R.id.perf_detail)
         tabBtnVisuals = findViewById(R.id.tab_btn_visuals)
         tabBtnLighting = findViewById(R.id.tab_btn_lighting)
         tabBtnSettings = findViewById(R.id.tab_btn_settings)
@@ -1049,11 +1067,15 @@ class MainActivity : AppCompatActivity() {
         if (enabled) {
             perfOverlay.visibility = View.VISIBLE
             lastHuePackets = if (::hueController.isInitialized) hueController.huePacketsSent else 0L
+            displayedFps = 0f          // count up from zero — a small flourish on open
             perfHandler.removeCallbacks(perfPoller)
+            perfHandler.removeCallbacks(perfFpsTicker)
             perfHandler.post(perfPoller)
+            perfHandler.post(perfFpsTicker)
         } else {
             perfOverlay.visibility = View.GONE
             perfHandler.removeCallbacks(perfPoller)
+            perfHandler.removeCallbacks(perfFpsTicker)
         }
     }
 
@@ -1076,6 +1098,14 @@ class MainActivity : AppCompatActivity() {
         val name = heroVisName.text
         if (name.isNullOrBlank()) return
         sceneLabel.text = name
+        // Drop below the performance overlay when it's showing, so they never clash.
+        val d = resources.displayMetrics.density
+        val lp = sceneLabel.layoutParams as android.view.ViewGroup.MarginLayoutParams
+        lp.topMargin = if (perfOverlayEnabled && perfOverlay.height > 0)
+            perfOverlay.bottom + (d * 12).toInt()
+        else
+            (d * 72).toInt()
+        sceneLabel.layoutParams = lp
         sceneLabelRunnable?.let { sceneLabel.removeCallbacks(it) }
         sceneLabel.animate().cancel()
         sceneLabel.visibility = View.VISIBLE
@@ -1092,78 +1122,82 @@ class MainActivity : AppCompatActivity() {
     private fun updatePerfOverlay() {
         if (!perfOverlayEnabled) return
 
-        val fps = glView.rendererFps
-        val frameMs = glView.rendererFrameTimeMs
         val audioMs = NativeBridge.nativeGetAudioCallbackMs()
         val rate = NativeBridge.nativeGetSampleRate()
+        // Derive frame time from the (already EMA-smoothed) fps so the readout is
+        // calm and consistent with the hero number, instead of the raw per-frame
+        // dt which flickers every frame. Updated on the slow 500 ms cadence.
+        val frameMs = if (displayedFps > 1f) 1000f / displayedFps else glView.rendererFrameTimeMs
+        perfFrameMs.text = "%.1f ms".format(frameMs)
 
         val sb = android.text.SpannableStringBuilder()
+        val dim = getColor(R.color.text_dim)
+        val amber = 0xFFFFBB33.toInt()
 
-        fun appendSection(label: String, value: String, color: Int = 0) {
+        // Each row: a dim mono label padded to a fixed column, then the value.
+        fun appendRow(label: String, value: String, valueColor: Int = 0) {
             val start = sb.length
-            sb.append(label.uppercase() + " ")
-            sb.setSpan(android.text.style.StyleSpan(android.graphics.Typeface.BOLD), start, sb.length, 0)
-            sb.setSpan(android.text.style.ForegroundColorSpan(getColor(R.color.text_dim)), start, sb.length, 0)
-            
-            val valStart = sb.length
+            sb.append(label.uppercase().padEnd(7))
+            sb.setSpan(android.text.style.ForegroundColorSpan(dim), start, sb.length, 0)
+            val vStart = sb.length
             sb.append(value)
-            if (color != 0) {
-                sb.setSpan(android.text.style.ForegroundColorSpan(color), valStart, sb.length, 0)
+            if (valueColor != 0) {
+                sb.setSpan(android.text.style.ForegroundColorSpan(valueColor), vStart, sb.length, 0)
             }
             sb.append("\n")
         }
 
-        // Engine / Visuals
-        val fpsColor = when {
-            fps < 30f -> 0xFFFF4444.toInt()
-            fps < 55f -> 0xFFFFBB33.toInt()
-            else -> 0xFF26FF8C.toInt()
-        }
-        appendSection("Engine", "%.1f fps · %.1fms".format(fps, frameMs), fpsColor)
-
-        // Hardware Load
+        // Hardware load → CPU time within the GL frame.
         val load = NativeBridge.nativeGetHardwareLoad()
         val cpuMs = load[0] / 1000f
-        
-        // CPU Line (Headroom in the GL thread)
         val cpuPercent = if (frameMs > 0) (cpuMs / frameMs * 100f).coerceIn(0f, 100f) else 0f
-        appendSection("CPU   ", "%.1fms (%.0f%%) load".format(cpuMs, cpuPercent))
+        appendRow("CPU", "%.1f ms · %.0f%%".format(cpuMs, cpuPercent))
 
-        // Audio Capture
-        appendSection("Audio ", "%dHz · %.1fms".format(rate, audioMs))
+        // Audio capture.
+        appendRow("Audio", "%d Hz · %.1f ms".format(rate, audioMs))
 
-        // System Audio / Jitter
+        // System audio / jitter (internal-audio mode only).
         if (systemAudioMode) {
             val metrics = NativeBridge.nativeGetSystemAudioMetrics()
             val jitter = metrics[1]
             // System audio is inherently buffered by Android (often ~40ms blocks),
-            // so we use a neutral dimmed color and a descriptive status rather
-            // than alarmist traffic lights.
-            val status = if (jitter > 80f) "[BURSTY]" else "[BUFFERED]"
-            appendSection("Shared", "%.0fµs conv · %.1fms jitter %s".format(metrics[0], jitter, status))
+            // so we describe the state rather than raise an alarmist colour.
+            val status = if (jitter > 80f) "bursty" else "buffered"
+            appendRow("Shared", "%.1f ms · %s".format(jitter, status))
         }
 
-        // Ableton Link
+        // Ableton Link.
         if (LinkSync.enabled) {
             val bpm = NativeBridge.nativeLinkTempo()
             val peers = NativeBridge.nativeLinkPeers()
-            appendSection("Link  ", "%.0f bpm · %d peer%s".format(bpm, peers, if (peers == 1) "" else "s"))
+            appendRow("Link", "%.0f bpm · %d peer%s".format(bpm, peers, if (peers == 1) "" else "s"))
         }
 
-        // Philips Hue
+        // Philips Hue.
         if (::hueController.isInitialized && hueController.isEnabled) {
             val sent = hueController.huePacketsSent
-            val pps = ((sent - lastHuePackets) * 2).coerceAtLeast(0)
+            val pps = ((sent - lastHuePackets) * 2).coerceAtLeast(0)  // poll is 500ms → ×2
             lastHuePackets = sent
             val drops = hueController.huePacketsFailed
-            val hueColor = if (drops > 0) 0xFFFFBB33.toInt() else 0xFF26FF8C.toInt()
-            appendSection("Hue   ", "%d pps · %d drops".format(pps, drops), hueColor)
+            appendRow("Hue", "%d pps · %d drop".format(pps, drops), if (drops > 0) amber else 0)
         }
 
-        // Trim the last newline
+        // Trim the trailing newline.
         if (sb.isNotEmpty()) sb.delete(sb.length - 1, sb.length)
 
-        perfOverlay.text = sb
+        perfDetail.text = sb
+    }
+
+    /** Render the giant eased FPS number: brand white when healthy, amber/red when struggling. */
+    private fun renderHeroFps() {
+        perfFpsValue.text = Math.round(displayedFps).toString()
+        perfFpsValue.setTextColor(
+            when {
+                displayedFps < 30f -> 0xFFFF4444.toInt()
+                displayedFps < 55f -> 0xFFFFBB33.toInt()
+                else -> getColor(R.color.text_primary)
+            }
+        )
     }
 
     private fun setGlow(s: GlowSettings.Strength) {
@@ -1444,6 +1478,30 @@ class MainActivity : AppCompatActivity() {
         }
         btnHueSync.isEnabled = true
         updateHueSections()
+    }
+
+    /**
+     * Returning to the foreground: a light-sync stream that was running may have
+     * silently died while away (Wi-Fi sleep ends the bridge's entertainment
+     * session; UDP sends still "succeed" so the UI stays "synced"). If we were
+     * away long enough for that to happen, rebuild the stream so the lights
+     * actually respond again — and the UI reflects the true result.
+     */
+    private fun refreshHueAfterResume() {
+        if (!::hueController.isInitialized || !hueController.isEnabled) return
+        val area = selectedArea ?: return
+        val awayMs = SystemClock.elapsedRealtime() - backgroundedAtMs
+        if (backgroundedAtMs == 0L || awayMs < HUE_RESYNC_AWAY_MS) return  // quick glance: keepalive held
+
+        btnHueSync.isEnabled = false
+        hueStatus.setText(R.string.hue_status_ready)
+        hueController.restart(area) { ok, err ->
+            btnHueSync.isEnabled = true
+            updateHueSyncButton(ok)
+            updateHueConn(if (ok) HueConn.STREAMING else HueConn.REACHABLE)
+            hueStatus.text = if (ok) getString(R.string.hue_status_synced) else (err ?: getString(R.string.hue_status_ready))
+            updateHueSections()
+        }
     }
 
     private fun onHueSyncToggle() {
@@ -1873,12 +1931,16 @@ class MainActivity : AppCompatActivity() {
         updatePeakLuminance(prefs.getBoolean(KEY_PEAK_LUMINANCE, false))
         if (!systemAudioMode) ensureMicAndStart()
         if (::hueController.isInitialized) hueController.paused = false
+        refreshHueAfterResume()
         if (LinkSync.enabled) {
             NativeBridge.nativeLinkSetEnabled(true)
             acquireMulticastLock()
             linkHandler.post(linkStatusPoller)
         }
-        if (perfOverlayEnabled) perfHandler.post(perfPoller)
+        if (perfOverlayEnabled) {
+            perfHandler.post(perfPoller)
+            perfHandler.post(perfFpsTicker)
+        }
         if (huePingPollerRunning) {
             huePingHandler.removeCallbacks(huePingPoller)
             huePingHandler.post(huePingPoller)
@@ -1901,7 +1963,9 @@ class MainActivity : AppCompatActivity() {
         glView.onPause()
         if (!systemAudioMode) NativeBridge.nativeStop()
         if (::hueController.isInitialized) hueController.paused = true
+        backgroundedAtMs = SystemClock.elapsedRealtime()
         perfHandler.removeCallbacks(perfPoller)
+        perfHandler.removeCallbacks(perfFpsTicker)
         huePingHandler.removeCallbacks(huePingPoller)
         linkHandler.removeCallbacks(linkStatusPoller)
         if (LinkSync.enabled) {
@@ -1913,6 +1977,7 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         stopHuePingPoller()
         perfHandler.removeCallbacks(perfPoller)
+        perfHandler.removeCallbacks(perfFpsTicker)
         if (::hueController.isInitialized) hueController.disable()
         if (::hapticController.isInitialized) hapticController.release()
         linkHandler.removeCallbacks(linkStatusPoller)
@@ -1944,6 +2009,9 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_ADV_HUE_LOOKAHEAD = "adv_hue_lookahead"
         private const val KEY_PERF_OVERLAY = "perf_overlay_enabled"
         private const val KEY_SCENE_LABEL = "scene_label_enabled"
+        // Background longer than this and a Hue entertainment stream has likely
+        // timed out on the bridge, so we rebuild it on resume rather than trust it.
+        private const val HUE_RESYNC_AWAY_MS = 3000L
         private const val KEY_PEAK_LUMINANCE = "peak_luminance_enabled"
         private const val KEY_FAVOURITES = "favourite_scenes"
         private const val KEY_SCREENSHARE_RATIONALE = "screenshare_rationale_shown"

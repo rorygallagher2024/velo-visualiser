@@ -84,6 +84,23 @@ class HueLightController(context: Context) {
         }
     }
 
+    /**
+     * Tear down and re-establish the stream. A DTLS entertainment session dies
+     * while the app is backgrounded (Wi-Fi sleeps, the bridge times the session
+     * out after ~10s), but UDP sends keep "succeeding" locally — so neither the
+     * UI nor [packetsFailed] can tell it's dead. On return to the foreground we
+     * rebuild it unconditionally. No-op if nothing was running. [onResult] is
+     * posted on the main thread.
+     */
+    fun restart(area: HueEntertainmentArea, onResult: (Boolean, String?) -> Unit) {
+        if (!running && senderThread == null) { main.post { onResult(false, null) }; return }
+        thread(name = "hue-restart") {
+            disable()                                  // joins sender, closes DTLS, deactivates
+            try { Thread.sleep(250) } catch (_: InterruptedException) {}  // let deactivate land first
+            main.post { enable(area, onResult) }       // reactivate + fresh DTLS handshake
+        }
+    }
+
     /** Stop the sender loop, close DTLS, and deactivate the stream. */
     fun disable() {
         if (!running && senderThread == null) return

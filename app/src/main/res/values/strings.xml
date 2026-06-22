@@ -141,6 +141,7 @@
     <string name="adv_done">Done</string>
     <string name="perf_overlay_on">Performance Overlay: On</string>
     <string name="perf_overlay_off">Performance Overlay: Off</string>
+    <string name="perf_unit_fps">fps</string>
     <string name="scene_label_on">Name on Swipe: On</string>
     <string name="scene_label_off">Name on Swipe: Off</string>
     <string name="peak_luminance_on">HDR Performance: Max</string>
