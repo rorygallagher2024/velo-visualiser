@@ -99,6 +99,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnSensStandard: Button
     private lateinit var btnSensHigh: Button
     private lateinit var btnLinkSync: Button
+    private lateinit var linkSettingsGroup: View
     private lateinit var btnLinkNotify: Button
     private lateinit var btnLinkAnticipate: Button
     private lateinit var btnLinkDownbeat: Button
@@ -348,6 +349,7 @@ class MainActivity : AppCompatActivity() {
         btnSensStandard = findViewById(R.id.btn_sens_standard)
         btnSensHigh = findViewById(R.id.btn_sens_high)
         btnLinkSync = findViewById(R.id.btn_link_sync)
+        linkSettingsGroup = findViewById(R.id.link_settings_group)
         btnLinkNotify = findViewById(R.id.btn_link_notify)
         btnLinkAnticipate = findViewById(R.id.btn_link_anticipate)
         btnLinkDownbeat = findViewById(R.id.btn_link_downbeat)
@@ -872,6 +874,7 @@ class MainActivity : AppCompatActivity() {
 
         btnLinkSync.isSelected = enabled
         btnLinkSync.setText(if (enabled) R.string.link_sync_on else R.string.link_sync_off)
+        linkSettingsGroup.visibility = if (enabled) View.VISIBLE else View.GONE
         updateAdvancedVisibility()
 
         linkHandler.removeCallbacks(linkStatusPoller)

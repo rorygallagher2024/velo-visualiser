@@ -701,6 +701,13 @@
             android:textSize="14sp"
             android:stateListAnimator="@null" />
 
+        <LinearLayout
+            android:id="@+id/link_settings_group"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
         <Button
             android:id="@+id/btn_link_notify"
             android:layout_width="match_parent"
@@ -975,6 +982,8 @@
             android:textSize="11sp"
             android:lineSpacingMultiplier="1.2"
             android:layout_marginBottom="8dp" />
+
+        </LinearLayout>
 
         <!-- ───── divider: Ableton Link / Visuals ───── -->
         <View
