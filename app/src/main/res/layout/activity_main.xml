@@ -713,6 +713,38 @@
             android:textSize="14sp"
             android:stateListAnimator="@null" />
 
+        <!-- Anticipatory visual swell into each Link beat (visuals only). -->
+        <Button
+            android:id="@+id/btn_link_anticipate"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginBottom="6dp"
+            android:background="@drawable/pill_button_bg"
+            android:text="@string/link_anticipate_on"
+            android:textColor="@color/btn_text"
+            android:textAllCaps="false"
+            android:textSize="14sp"
+            android:stateListAnimator="@null" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/link_anticipate_help"
+            android:textColor="@color/text_dim"
+            android:textSize="11sp"
+            android:lineSpacingMultiplier="1.2"
+            android:layout_marginBottom="10dp" />
+
+        <!-- Which visuals take the Link enrichment. -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/link_enrich_help"
+            android:textColor="@color/text_dim"
+            android:textSize="11sp"
+            android:lineSpacingMultiplier="1.2"
+            android:layout_marginBottom="12dp" />
+
         <TextView
             android:id="@+id/link_status"
             android:layout_width="match_parent"
@@ -723,32 +755,114 @@
             android:textSize="12sp"
             android:layout_marginBottom="8dp" />
 
-        <!-- Diagnostic beat light -->
+        <!-- Diagnostic indicator lights: beat / bar (new phase) / drop -->
         <LinearLayout
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_gravity="center_horizontal"
             android:orientation="horizontal"
-            android:gravity="center_vertical"
+            android:layout_marginTop="4dp"
             android:layout_marginBottom="14dp">
 
-            <View
-                android:id="@+id/beat_dot"
-                android:layout_width="14dp"
-                android:layout_height="14dp"
-                android:alpha="0.18"
-                android:background="@drawable/beat_dot" />
-
-            <TextView
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:text="@string/link_beat_label"
-                android:textColor="@color/text_dim"
-                android:textSize="11sp"
-                android:letterSpacing="0.1"
-                android:textAllCaps="true"
-                android:layout_marginStart="10dp" />
+                android:layout_weight="1"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:layout_gravity="center_vertical">
+
+                <View
+                    android:id="@+id/beat_dot"
+                    android:layout_width="14dp"
+                    android:layout_height="14dp"
+                    android:alpha="0.18"
+                    android:background="@drawable/beat_dot" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/link_beat_label"
+                    android:textColor="@color/text_dim"
+                    android:textSize="11sp"
+                    android:letterSpacing="0.1"
+                    android:textAllCaps="true"
+                    android:layout_marginStart="8dp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:layout_gravity="center_vertical">
+
+                <View
+                    android:id="@+id/bar_dot"
+                    android:layout_width="14dp"
+                    android:layout_height="14dp"
+                    android:alpha="0.18"
+                    android:background="@drawable/beat_dot" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/link_bar_label"
+                    android:textColor="@color/text_dim"
+                    android:textSize="11sp"
+                    android:letterSpacing="0.1"
+                    android:textAllCaps="true"
+                    android:layout_marginStart="8dp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:layout_gravity="center_vertical">
+
+                <View
+                    android:id="@+id/drop_dot"
+                    android:layout_width="14dp"
+                    android:layout_height="14dp"
+                    android:alpha="0.18"
+                    android:background="@drawable/beat_dot" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/link_drop_label"
+                    android:textColor="@color/text_dim"
+                    android:textSize="11sp"
+                    android:letterSpacing="0.1"
+                    android:textAllCaps="true"
+                    android:layout_marginStart="8dp" />
+            </LinearLayout>
         </LinearLayout>
+
+        <!-- Manual downbeat alignment for the BAR light + bar-synced breath. -->
+        <Button
+            android:id="@+id/btn_link_downbeat"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginBottom="6dp"
+            android:background="@drawable/pill_button_bg"
+            android:text="@string/link_downbeat_nudge"
+            android:textColor="@color/btn_text"
+            android:textAllCaps="false"
+            android:textSize="14sp"
+            android:stateListAnimator="@null" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/link_downbeat_help"
+            android:textColor="@color/text_dim"
+            android:textSize="11sp"
+            android:lineSpacingMultiplier="1.2"
+            android:layout_marginBottom="12dp" />
 
         <TextView
             android:layout_width="match_parent"

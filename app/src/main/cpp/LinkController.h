@@ -27,6 +27,11 @@ double linkTempo();
 // Fractional phase within the current beat (0.0 to 1.0). Any-thread safe.
 double linkBeatPhase();
 
+// Fractional phase within the current bar (0.0 to 1.0), where one bar is the
+// shared quantum (4 beats). Lets visuals lock slow motion to the musical bar,
+// not just the beat. Any-thread safe.
+double linkBarPhase();
+
 // Number of other Ableton Link peers on the network. UI-thread safe.
 int linkNumPeers();
 

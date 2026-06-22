@@ -37,4 +37,18 @@ interface GlScene {
      * pixel-pure (e.g. the Raw Oscilloscope). Default: false (bloom applies).
      */
     val bypassPostProcessing: Boolean get() = false
+
+    /**
+     * Whether this scene receives the musical-accent layers the renderer adds on
+     * top of the raw audio: the beat-driven HDR punch, the drop/build surge, and
+     * the Ableton Link bar-synced "breath". Default: true.
+     *
+     * The faithful "instrument" scenes (oscilloscope, bars, spectrum, meter…) set
+     * this false so they stay an honest representation of the sound: their glow
+     * tracks the actual signal, never an imposed beat or grid — which matters most
+     * with Ableton Link, where the beat is a network clock, not the audio. In
+     * other words, this is the single flag that marks a scene as "enriched /
+     * reactive" versus "pure instrument".
+     */
+    val respondsToBeat: Boolean get() = true
 }

@@ -44,7 +44,6 @@ import com.lowlatency.visualizer.hue.HueCredentials
 import com.lowlatency.visualizer.hue.HueEntertainmentArea
 import com.lowlatency.visualizer.hue.HueLightController
 import kotlin.math.abs
-import kotlin.math.sqrt
 
 /**
  * UI shell. Hosts the OpenGL canvas plus a translucent overlay layer:
@@ -101,9 +100,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnSensHigh: Button
     private lateinit var btnLinkSync: Button
     private lateinit var btnLinkNotify: Button
+    private lateinit var btnLinkAnticipate: Button
+    private lateinit var btnLinkDownbeat: Button
     private lateinit var linkStatus: TextView
     private lateinit var linkNotification: TextView
     private lateinit var beatDot: View
+    private lateinit var barDot: View
+    private lateinit var dropDot: View
     private lateinit var btnAdvanced: Button
     private lateinit var btnThemeSpectrum: Button
     private lateinit var btnThemeNeon: Button
@@ -151,7 +154,6 @@ class MainActivity : AppCompatActivity() {
     private var systemAudioMode = false
     private var menuOpen = false
     private var deferredPermissionRequest = false
-    private var bassLpState = 0f   // one-pole low-pass state for the bass/treble split
     private var perfOverlayEnabled = false
     private var lastHuePackets = 0L
     private var lastPeerCount = 0
@@ -346,9 +348,13 @@ class MainActivity : AppCompatActivity() {
         btnSensHigh = findViewById(R.id.btn_sens_high)
         btnLinkSync = findViewById(R.id.btn_link_sync)
         btnLinkNotify = findViewById(R.id.btn_link_notify)
+        btnLinkAnticipate = findViewById(R.id.btn_link_anticipate)
+        btnLinkDownbeat = findViewById(R.id.btn_link_downbeat)
         linkStatus = findViewById(R.id.link_status)
         linkNotification = findViewById(R.id.link_notification)
         beatDot = findViewById(R.id.beat_dot)
+        barDot = findViewById(R.id.bar_dot)
+        dropDot = findViewById(R.id.drop_dot)
         btnAdvanced = findViewById(R.id.btn_advanced)
         btnThemeSpectrum = findViewById(R.id.btn_theme_spectrum)
         btnThemeNeon = findViewById(R.id.btn_theme_neon)
@@ -676,14 +682,33 @@ class MainActivity : AppCompatActivity() {
             updateLinkNotifyButton(enabled)
         }
 
+        // Anticipatory beat-swell for the visuals (persisted, default on).
+        LinkSync.anticipateBeat = prefs.getBoolean(KEY_LINK_ANTICIPATE, true)
+        updateLinkAnticipateButton(LinkSync.anticipateBeat)
+        btnLinkAnticipate.setOnClickListener {
+            val enabled = !LinkSync.anticipateBeat
+            LinkSync.anticipateBeat = enabled
+            prefs.edit().putBoolean(KEY_LINK_ANTICIPATE, enabled).apply()
+            updateLinkAnticipateButton(enabled)
+        }
+
+        // Manual downbeat alignment (persisted, default 0). Cycles 0→1→2→3 beats.
+        LinkSync.barOffsetBeats = prefs.getInt(KEY_LINK_BAR_OFFSET, 0).coerceIn(0, 3)
+        updateLinkDownbeatButton()
+        btnLinkDownbeat.setOnClickListener {
+            LinkSync.barOffsetBeats = (LinkSync.barOffsetBeats + 1) % 4
+            prefs.edit().putInt(KEY_LINK_BAR_OFFSET, LinkSync.barOffsetBeats).apply()
+            updateLinkDownbeatButton()
+        }
+
         // Advanced light-sync tuning (persisted). Restore saved slider positions
-        // into the strobe settings, then open the panel on tap.
-        HueStrobeSettings.micSensitivity = prefs.getFloat(KEY_ADV_SENS, HueStrobeSettings.micSensitivity)
+        // into the strobe settings, then open the panel on tap. Beat sensitivity is
+        // no longer here — it's the global Beat Sensitivity preset (BeatSettings).
+        HueStrobeSettings.linkBeatFlashEnabled = prefs.getBoolean(KEY_ADV_LINK_BEAT_FLASH, HueStrobeSettings.linkBeatFlashEnabled)
         HueStrobeSettings.colourSplit = prefs.getFloat(KEY_ADV_COLOUR, HueStrobeSettings.colourSplit)
         HueStrobeSettings.restingGlow = prefs.getFloat(KEY_ADV_GLOW, HueStrobeSettings.restingGlow)
         HueStrobeSettings.audioBrightness = prefs.getFloat(KEY_ADV_AUDIO_BRIGHT, HueStrobeSettings.audioBrightness)
         HueStrobeSettings.audioFlash = prefs.getFloat(KEY_ADV_AUDIO_FLASH, HueStrobeSettings.audioFlash)
-        HueStrobeSettings.audioSensitivity = prefs.getFloat(KEY_ADV_AUDIO_SENS, HueStrobeSettings.audioSensitivity)
         HueStrobeSettings.hueLookaheadMs = prefs.getFloat(KEY_ADV_HUE_LOOKAHEAD, HueStrobeSettings.hueLookaheadMs)
         btnAdvanced.setOnClickListener { showAdvancedDialog() }
     }
@@ -704,34 +729,43 @@ class MainActivity : AppCompatActivity() {
         view.findViewById<View>(R.id.group_link).visibility = if (linkMode) View.VISIBLE else View.GONE
         view.findViewById<View>(R.id.group_audio).visibility = if (linkMode) View.GONE else View.VISIBLE
 
-        val seekSens = view.findViewById<SeekBar>(R.id.seek_sensitivity)
+        val btnLinkBeatFlash = view.findViewById<Button>(R.id.btn_link_beat_flash)
         val seekColour = view.findViewById<SeekBar>(R.id.seek_colour)
         val seekGlow = view.findViewById<SeekBar>(R.id.seek_glow)
         val seekAudioBright = view.findViewById<SeekBar>(R.id.seek_audio_brightness)
         val seekAudioFlash = view.findViewById<SeekBar>(R.id.seek_audio_flash)
-        val seekAudioSens = view.findViewById<SeekBar>(R.id.seek_audio_sens)
 
         val seekLookahead = view.findViewById<SeekBar>(R.id.seek_lookahead)
         val labelLookahead = view.findViewById<TextView>(R.id.label_lookahead_value)
 
+        fun applyLinkBeatFlashLabel() {
+            btnLinkBeatFlash.setText(
+                if (HueStrobeSettings.linkBeatFlashEnabled) R.string.adv_link_beat_on
+                else R.string.adv_link_beat_off
+            )
+        }
+
         fun applyPositions() {
-            seekSens.progress = (HueStrobeSettings.micSensitivity * 100f).toInt()
+            applyLinkBeatFlashLabel()
             seekColour.progress = (HueStrobeSettings.colourSplit * 100f).toInt()
             seekGlow.progress = (HueStrobeSettings.restingGlow * 100f).toInt()
             seekAudioBright.progress = (HueStrobeSettings.audioBrightness * 100f).toInt()
             seekAudioFlash.progress = (HueStrobeSettings.audioFlash * 100f).toInt()
-            seekAudioSens.progress = (HueStrobeSettings.audioSensitivity * 100f).toInt()
             seekLookahead.progress = HueStrobeSettings.hueLookaheadMs.toInt()
             labelLookahead.text = if (seekLookahead.progress == 0) "Off" else "-${seekLookahead.progress} ms"
         }
         applyPositions()
 
-        seekSens.onProgress { v -> HueStrobeSettings.micSensitivity = v; prefs.edit().putFloat(KEY_ADV_SENS, v).apply() }
+        btnLinkBeatFlash.setOnClickListener {
+            val enabled = !HueStrobeSettings.linkBeatFlashEnabled
+            HueStrobeSettings.linkBeatFlashEnabled = enabled
+            prefs.edit().putBoolean(KEY_ADV_LINK_BEAT_FLASH, enabled).apply()
+            applyLinkBeatFlashLabel()
+        }
         seekColour.onProgress { v -> HueStrobeSettings.colourSplit = v; prefs.edit().putFloat(KEY_ADV_COLOUR, v).apply() }
         seekGlow.onProgress { v -> HueStrobeSettings.restingGlow = v; prefs.edit().putFloat(KEY_ADV_GLOW, v).apply() }
         seekAudioBright.onProgress { v -> HueStrobeSettings.audioBrightness = v; prefs.edit().putFloat(KEY_ADV_AUDIO_BRIGHT, v).apply() }
         seekAudioFlash.onProgress { v -> HueStrobeSettings.audioFlash = v; prefs.edit().putFloat(KEY_ADV_AUDIO_FLASH, v).apply() }
-        seekAudioSens.onProgress { v -> HueStrobeSettings.audioSensitivity = v; prefs.edit().putFloat(KEY_ADV_AUDIO_SENS, v).apply() }
         seekLookahead.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
                 if (fromUser) {
@@ -753,45 +787,49 @@ class MainActivity : AppCompatActivity() {
             applyPositions()
         }
 
-        // Live meters + trigger lines only apply to the Link beat-strobe.
-        if (linkMode) {
-            val meterLevel = view.findViewById<ProgressBar>(R.id.meter_level)
-            val meterBass = view.findViewById<ProgressBar>(R.id.meter_bass)
-            val markerLevel = view.findViewById<View>(R.id.marker_level)
-            val markerBass = view.findViewById<View>(R.id.marker_bass)
-            val poll = object : Runnable {
-                override fun run() {
+        // Live diagnostics poll. The "Lights" dot flashes whenever a beat is
+        // actually pushed to the bulbs (either mode); the meters + trigger lines
+        // only apply to the Link beat-strobe.
+        val lightsDot = view.findViewById<View>(R.id.lights_dot)
+        val meterLevel = view.findViewById<ProgressBar>(R.id.meter_level)
+        val meterBass = view.findViewById<ProgressBar>(R.id.meter_bass)
+        val markerLevel = view.findViewById<View>(R.id.marker_level)
+        val markerBass = view.findViewById<View>(R.id.marker_bass)
+        var lastLightBeat = hueController.lightBeatCount
+        val poll = object : Runnable {
+            override fun run() {
+                val lc = hueController.lightBeatCount
+                if (lc != lastLightBeat) { lastLightBeat = lc; flashDot(lightsDot) }
+                if (linkMode) {
                     // Scale the level bar so the mic peak that reaches FULL
                     // brightness sits at the top; the trigger point then sits at a
-                    // fixed 40% (levelBase / levelFull), marked by the line.
-                    val full = HueStrobeSettings.levelFull.coerceAtLeast(1e-4f)
+                    // fixed 40% (levelBase / levelFull), marked by the line. The
+                    // gate is the global Beat Sensitivity (shared with the visuals).
+                    val full = BeatSettings.levelFull.coerceAtLeast(1e-4f)
                     meterLevel.progress =
                         (hueController.currentMicLevel / full * 100f).toInt().coerceIn(0, 100)
                     meterBass.progress = (hueController.currentBassRatio * 100f).toInt().coerceIn(0, 100)
-                    val triggerFrac = (HueStrobeSettings.levelBase / full).coerceIn(0f, 1f)
+                    val triggerFrac = (BeatSettings.levelBase / full).coerceIn(0f, 1f)
                     markerLevel.translationX = triggerFrac * (meterLevel.width - markerLevel.width)
                     val splitMid = ((HueStrobeSettings.bassLo + HueStrobeSettings.bassHi) * 0.5f).coerceIn(0f, 1f)
                     markerBass.translationX = splitMid * (meterBass.width - markerBass.width)
-                    linkHandler.postDelayed(this, 50L)
                 }
+                linkHandler.postDelayed(this, 50L)
             }
-            dialog.setOnDismissListener { linkHandler.removeCallbacks(poll) }
-            dialog.show()
-            linkHandler.post(poll)
-        } else {
-            dialog.show()
         }
+        dialog.setOnDismissListener { linkHandler.removeCallbacks(poll) }
+        dialog.show()
+        linkHandler.post(poll)
     }
 
-    /** Persist every Advanced slider value (used after a reset). */
+    /** Persist every Advanced lighting value (used after a reset). */
     private fun persistAdvanced() {
         prefs.edit()
-            .putFloat(KEY_ADV_SENS, HueStrobeSettings.micSensitivity)
+            .putBoolean(KEY_ADV_LINK_BEAT_FLASH, HueStrobeSettings.linkBeatFlashEnabled)
             .putFloat(KEY_ADV_COLOUR, HueStrobeSettings.colourSplit)
             .putFloat(KEY_ADV_GLOW, HueStrobeSettings.restingGlow)
             .putFloat(KEY_ADV_AUDIO_BRIGHT, HueStrobeSettings.audioBrightness)
             .putFloat(KEY_ADV_AUDIO_FLASH, HueStrobeSettings.audioFlash)
-            .putFloat(KEY_ADV_AUDIO_SENS, HueStrobeSettings.audioSensitivity)
             .putFloat(KEY_ADV_HUE_LOOKAHEAD, HueStrobeSettings.hueLookaheadMs)
             .apply()
     }
@@ -825,10 +863,12 @@ class MainActivity : AppCompatActivity() {
         } else {
             lastPeerCount = 0
             linkStatus.setText(R.string.link_status_off)
-            beatDot.animate().cancel()
-            beatDot.alpha = 0.18f
-            beatDot.scaleX = 1f
-            beatDot.scaleY = 1f
+            for (dot in listOf(beatDot, barDot)) {
+                dot.animate().cancel()
+                dot.alpha = 0.18f
+                dot.scaleX = 1f
+                dot.scaleY = 1f
+            }
         }
     }
 
@@ -838,12 +878,25 @@ class MainActivity : AppCompatActivity() {
         btnLinkNotify.setText(if (enabled) R.string.link_notifications_on else R.string.link_notifications_off)
     }
 
-    private fun flashBeatDot() {
-        beatDot.animate().cancel()
-        beatDot.alpha = 1f
-        beatDot.scaleX = 1.35f
-        beatDot.scaleY = 1.35f
-        beatDot.animate().alpha(0.18f).scaleX(1f).scaleY(1f).setDuration(170L).start()
+    private fun updateLinkAnticipateButton(enabled: Boolean) {
+        btnLinkAnticipate.isSelected = enabled
+        btnLinkAnticipate.setText(if (enabled) R.string.link_anticipate_on else R.string.link_anticipate_off)
+    }
+
+    private fun updateLinkDownbeatButton() {
+        btnLinkDownbeat.isSelected = LinkSync.barOffsetBeats != 0
+        btnLinkDownbeat.text = getString(R.string.link_downbeat_nudge, LinkSync.barOffsetBeats)
+    }
+
+    private fun flashBeatDot() = flashDot(beatDot)
+
+    /** Pulse a diagnostic indicator light: snap bright + slightly larger, then ease back. */
+    private fun flashDot(dot: View) {
+        dot.animate().cancel()
+        dot.alpha = 1f
+        dot.scaleX = 1.35f
+        dot.scaleY = 1.35f
+        dot.animate().alpha(0.18f).scaleX(1f).scaleY(1f).setDuration(170L).start()
     }
 
 
@@ -1095,43 +1148,22 @@ class MainActivity : AppCompatActivity() {
         // Hue light sync reads the FFT bands; haptics runs bass-onset detection
         // on the raw PCM (a separate tap, so it can't affect any visual tuning).
         glView.bandsSink = { low, mid, high -> hueController.onBands(low, mid, high) }
-        glView.pcmBeatSink = { pcm ->
-            hapticController.onPcm(pcm)
-            // Feed the Hue Link strobe from raw PCM: absolute peak (brightness) +
-            // a volume-independent bass/treble balance (colour). We compute the
-            // balance here rather than from the FFT bands because the low band
-            // saturates at loud volume (pegs at 1.0) and can't tell bass from a
-            // bass-filtered breakdown.
-            var peak = 0f
-            var lp = bassLpState
-            var bassAcc = 0f
-            var trebAcc = 0f
-            for (s in pcm) {
-                val a = abs(s); if (a > peak) peak = a
-                lp += BASS_LP_A * (s - lp)          // one-pole low-pass (~230 Hz)
-                bassAcc += lp * lp
-                val tre = s - lp
-                trebAcc += tre * tre
-            }
-            bassLpState = lp
-            val n = pcm.size.toFloat()
-            val bassRms = sqrt(bassAcc / n)
-            val trebRms = sqrt(trebAcc / n)
-            hueController.onMicLevel(peak)
-            // The bass ratio is meaningless in silence (a ratio of two ~0 noise
-            // floors hovers around 0.5), so report 0 below a small noise floor.
-            val ratio = if (peak < MIC_NOISE_FLOOR) 0f else bassRms / (bassRms + trebRms + 1e-6f)
-            hueController.onBassRatio(ratio)
-        }
-        // When Ableton Link is on, the beat comes from Link's clock (mic still
-        // drives the visuals). Link beats fire haptics regardless of audio source,
-        // and flash the diagnostic beat light when the menu is open. The callback
-        // runs on the GL thread, so the light update hops to the UI thread.
+        // Haptics fire off the shared BeatBus, which the renderer updates just
+        // before this per-frame tap. Audio presence + bass balance (for the Hue
+        // strobe) are measured in the renderer too, so this tap is just the tick.
+        glView.pcmBeatSink = { pcm -> hapticController.onPcm(pcm) }
+        // Raw (ungated) Link beat: drives the Hue strobe timing (with lookahead)
+        // and flashes the diagnostic beat light when the menu is open. The visuals
+        // and haptics react to the *gated* beat via BeatBus instead. Runs on the
+        // GL thread, so the light update hops to the UI thread.
         glView.onLinkBeat = {
-            hapticController.onLinkBeat()
             hueController.onLinkBeat()
             if (menuOpen) beatDot.post { flashBeatDot() }
         }
+        // Diagnostic lights for the enriched-beat data: new bar (downbeat) and
+        // detected drop. Flashed only while the menu is open to stay cheap.
+        glView.onLinkBar = { if (menuOpen) barDot.post { flashDot(barDot) } }
+        glView.onDrop = { if (menuOpen) dropDot.post { flashDot(dropDot) } }
 
         btnHueConnect.setOnClickListener { onHueConnectClicked() }
         btnHueSync.setOnClickListener { onHueSyncToggle() }
@@ -1834,15 +1866,14 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_THEME = "color_theme"
         private const val KEY_LINK = "ableton_link_enabled"
         private const val KEY_LINK_NOTIFY = "ableton_link_notifications"
-        private const val KEY_ADV_SENS = "adv_mic_sensitivity"
+        private const val KEY_LINK_ANTICIPATE = "ableton_link_anticipate"
+        private const val KEY_LINK_BAR_OFFSET = "ableton_link_bar_offset"
+        private const val KEY_ADV_LINK_BEAT_FLASH = "adv_link_beat_flash"
         private const val KEY_ADV_COLOUR = "adv_colour_split"
         private const val KEY_ADV_GLOW = "adv_resting_glow"
         private const val KEY_ADV_AUDIO_BRIGHT = "adv_audio_brightness"
         private const val KEY_ADV_AUDIO_FLASH = "adv_audio_flash"
-        private const val KEY_ADV_AUDIO_SENS = "adv_audio_sensitivity"
         private const val KEY_ADV_HUE_LOOKAHEAD = "adv_hue_lookahead"
-        private const val BASS_LP_A = 0.03f       // one-pole low-pass coeff (~230 Hz @ 48 kHz)
-        private const val MIC_NOISE_FLOOR = 0.006f // below this mic peak, treat as silence
         private const val KEY_PERF_OVERLAY = "perf_overlay_enabled"
         private const val KEY_PEAK_LUMINANCE = "peak_luminance_enabled"
         private const val KEY_FAVOURITES = "favourite_scenes"

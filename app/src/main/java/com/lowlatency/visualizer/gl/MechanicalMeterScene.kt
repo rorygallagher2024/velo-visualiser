@@ -9,6 +9,9 @@ import kotlin.math.sqrt
 
 class MechanicalMeterScene : GlScene {
 
+    // Instrument readout — honest representation of the signal, no beat punch.
+    override val respondsToBeat get() = false
+
     companion object {
         private const val VERTEX_SHADER = """#version 300 es
             layout(location = 0) in vec2 aPos;
