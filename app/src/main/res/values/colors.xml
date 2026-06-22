@@ -2,10 +2,10 @@
 <resources>
     <color name="scope_background">#FF000000</color>
     <color name="scope_line">#FF26FF8C</color>
-    <color name="ic_launcher_background">#FF1B1A17</color>   <!-- warm charcoal — brand background -->
+    <color name="ic_launcher_background">#FF101010</color>   <!-- near-black — monochrome brand background -->
 
 
-    <!-- UI overlay palette — Teenage Engineering inspired: warm charcoal panel,
+    <!-- UI overlay palette — warm charcoal panel,
          off-white "ink", monochrome inverted selection (no colour accent). -->
     <color name="accent">#FFF0531C</color>          <!-- TE / OP-1 orange — selected fill + brand pop -->
     <color name="accent_pressed">#FFFF6A35</color>  <!-- brighter orange — momentary press feedback -->

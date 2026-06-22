@@ -7,10 +7,9 @@ import java.nio.ByteOrder
 import java.nio.FloatBuffer
 
 /**
- * Teenage-Engineering-inspired visual — "Pocket LED".
+ * "Pocket LED".
  *
- * A chunky dot-matrix LED spectrum analyzer, à la the Pocket Operator / OP-1
- * displays: a fixed grid of square cells, bottom-anchored bars built from
+ * A chunky dot-matrix LED spectrum analyzer. A fixed grid of square cells, bottom-anchored bars built from
  * stacked lit cells, a single bright "peak-hold" cell hovering above each
  * column, and the unlit cells left faintly glowing so the whole matrix reads
  * as a physical LED panel. Monochrome warm amber so it blooms cleanly on HDR.
