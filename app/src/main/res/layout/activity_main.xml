@@ -753,6 +753,7 @@
             android:text="@string/link_status_off"
             android:textColor="@color/text_dim"
             android:textSize="12sp"
+            android:fontFamily="@font/space_mono"
             android:layout_marginBottom="8dp" />
 
         <!-- Virtual bar: Link's position within the bar. The lit dot steps on each

@@ -5,9 +5,10 @@
         <item name="android:windowBackground">@color/scope_background</item>
         <item name="android:statusBarColor">@color/scope_background</item>
         <item name="android:navigationBarColor">@color/scope_background</item>
-        <!-- App-wide monospace. -->
-        <item name="android:fontFamily">@font/space_mono</item>
-        <item name="fontFamily">@font/space_mono</item>
+        <!-- App-wide grotesque (Inter). Space Mono is kept
+             for numeric/technical readouts (perf overlay, Link BPM/peers). -->
+        <item name="android:fontFamily">@font/inter</item>
+        <item name="fontFamily">@font/inter</item>
     </style>
 
     <!-- Immersive fullscreen variant for the visualizer surface. -->
@@ -23,7 +24,7 @@
         <item name="android:textColorPrimary">@color/text_primary</item>
         <item name="android:textColorSecondary">@color/text_dim</item>
         <item name="colorAccent">@color/accent</item>
-        <item name="android:fontFamily">@font/space_mono</item>
+        <item name="android:fontFamily">@font/inter</item>
     </style>
 
     <!-- Splash screen theme for Android 12+ compatibility. -->
