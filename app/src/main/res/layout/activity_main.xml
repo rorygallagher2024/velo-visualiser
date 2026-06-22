@@ -15,22 +15,91 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <!-- Performance diagnostics overlay (top-left, over GL view) -->
-    <TextView
+    <!-- Performance diagnostics overlay (top-left, over GL view). Typography as
+         spectacle: a giant ultra-light FPS readout over a compact mono data block. -->
+    <LinearLayout
         android:id="@+id/perf_overlay"
-        android:layout_width="wrap_content"
+        android:layout_width="240dp"
         android:layout_height="wrap_content"
         android:layout_gravity="top|start"
         android:layout_marginStart="16dp"
         android:layout_marginTop="48dp"
         android:background="@drawable/perf_overlay_bg"
-        android:paddingHorizontal="12dp"
-        android:paddingVertical="10dp"
-        android:textColor="@color/text_primary"
-        android:textSize="11sp"
-        android:fontFamily="@font/space_mono"
-        android:lineSpacingMultiplier="1.4"
-        android:visibility="gone" />
+        android:orientation="vertical"
+        android:paddingHorizontal="20dp"
+        android:paddingTop="14dp"
+        android:paddingBottom="16dp"
+        android:visibility="gone">
+
+        <!-- Hero FPS readout -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:baselineAligned="false">
+
+            <TextView
+                android:id="@+id/perf_fps_value"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/inter"
+                android:fontWeight="200"
+                android:fontFeatureSettings="tnum"
+                android:includeFontPadding="false"
+                android:letterSpacing="-0.03"
+                android:text="0"
+                android:textColor="@color/text_primary"
+                android:textSize="66sp" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="bottom"
+                android:layout_marginStart="10dp"
+                android:layout_marginBottom="12dp"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/perf_fps_unit"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="@font/space_mono"
+                    android:text="@string/perf_unit_fps"
+                    android:textColor="@color/text_dim"
+                    android:textSize="11sp"
+                    android:letterSpacing="0.3"
+                    android:textAllCaps="true" />
+
+                <TextView
+                    android:id="@+id/perf_frame_ms"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="@font/space_mono"
+                    android:text="—"
+                    android:textColor="@color/text_dim"
+                    android:textSize="11sp"
+                    android:layout_marginTop="2dp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Hairline divider -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="12dp"
+            android:layout_marginBottom="12dp"
+            android:background="@color/sheet_stroke" />
+
+        <!-- Technical data block (mono) -->
+        <TextView
+            android:id="@+id/perf_detail"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="@font/space_mono"
+            android:textColor="@color/text_primary"
+            android:textSize="11sp"
+            android:lineSpacingMultiplier="1.5" />
+    </LinearLayout>
 
     <!-- In-app Link notifications (top-center, briefly shown) -->
     <TextView
