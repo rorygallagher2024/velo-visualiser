@@ -102,11 +102,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnLinkNotify: Button
     private lateinit var btnLinkAnticipate: Button
     private lateinit var btnLinkDownbeat: Button
+    private lateinit var btnLinkExtras: Button
     private lateinit var linkStatus: TextView
     private lateinit var linkNotification: TextView
     private lateinit var beatDot: View
-    private lateinit var barDot: View
     private lateinit var dropDot: View
+    private lateinit var barCells: List<View>
     private lateinit var btnAdvanced: Button
     private lateinit var btnThemeSpectrum: Button
     private lateinit var btnThemeNeon: Button
@@ -350,11 +351,17 @@ class MainActivity : AppCompatActivity() {
         btnLinkNotify = findViewById(R.id.btn_link_notify)
         btnLinkAnticipate = findViewById(R.id.btn_link_anticipate)
         btnLinkDownbeat = findViewById(R.id.btn_link_downbeat)
+        btnLinkExtras = findViewById(R.id.btn_link_extras)
         linkStatus = findViewById(R.id.link_status)
         linkNotification = findViewById(R.id.link_notification)
         beatDot = findViewById(R.id.beat_dot)
-        barDot = findViewById(R.id.bar_dot)
         dropDot = findViewById(R.id.drop_dot)
+        barCells = listOf(
+            findViewById(R.id.bar_cell_1),
+            findViewById(R.id.bar_cell_2),
+            findViewById(R.id.bar_cell_3),
+            findViewById(R.id.bar_cell_4),
+        )
         btnAdvanced = findViewById(R.id.btn_advanced)
         btnThemeSpectrum = findViewById(R.id.btn_theme_spectrum)
         btnThemeNeon = findViewById(R.id.btn_theme_neon)
@@ -692,6 +699,17 @@ class MainActivity : AppCompatActivity() {
             updateLinkAnticipateButton(enabled)
         }
 
+        // Experimental bar + drop enrichment (persisted, default off so the
+        // out-of-the-box visuals only ride the reliable beat).
+        LinkSync.experimentalEnrich = prefs.getBoolean(KEY_LINK_EXTRAS, false)
+        updateLinkExtrasButton(LinkSync.experimentalEnrich)
+        btnLinkExtras.setOnClickListener {
+            val enabled = !LinkSync.experimentalEnrich
+            LinkSync.experimentalEnrich = enabled
+            prefs.edit().putBoolean(KEY_LINK_EXTRAS, enabled).apply()
+            updateLinkExtrasButton(enabled)
+        }
+
         // Manual downbeat alignment (persisted, default 0). Cycles 0→1→2→3 beats.
         LinkSync.barOffsetBeats = prefs.getInt(KEY_LINK_BAR_OFFSET, 0).coerceIn(0, 3)
         updateLinkDownbeatButton()
@@ -863,12 +881,11 @@ class MainActivity : AppCompatActivity() {
         } else {
             lastPeerCount = 0
             linkStatus.setText(R.string.link_status_off)
-            for (dot in listOf(beatDot, barDot)) {
-                dot.animate().cancel()
-                dot.alpha = 0.18f
-                dot.scaleX = 1f
-                dot.scaleY = 1f
-            }
+            beatDot.animate().cancel()
+            beatDot.alpha = 0.18f
+            beatDot.scaleX = 1f
+            beatDot.scaleY = 1f
+            for (cell in barCells) { cell.animate().cancel(); cell.alpha = 0.18f }
         }
     }
 
@@ -888,6 +905,11 @@ class MainActivity : AppCompatActivity() {
         btnLinkDownbeat.text = getString(R.string.link_downbeat_nudge, LinkSync.barOffsetBeats)
     }
 
+    private fun updateLinkExtrasButton(enabled: Boolean) {
+        btnLinkExtras.isSelected = enabled
+        btnLinkExtras.setText(if (enabled) R.string.link_extras_on else R.string.link_extras_off)
+    }
+
     private fun flashBeatDot() = flashDot(beatDot)
 
     /** Pulse a diagnostic indicator light: snap bright + slightly larger, then ease back. */
@@ -897,6 +919,14 @@ class MainActivity : AppCompatActivity() {
         dot.scaleX = 1.35f
         dot.scaleY = 1.35f
         dot.animate().alpha(0.18f).scaleX(1f).scaleY(1f).setDuration(170L).start()
+    }
+
+    /** Light the active cell of the virtual bar (Link's beat-in-bar, 0..3). */
+    private fun updateBarCells(active: Int) {
+        barCells.forEachIndexed { i, cell ->
+            cell.animate().cancel()
+            cell.alpha = if (i == active) 1f else 0.18f
+        }
     }
 
 
@@ -1158,11 +1188,14 @@ class MainActivity : AppCompatActivity() {
         // GL thread, so the light update hops to the UI thread.
         glView.onLinkBeat = {
             hueController.onLinkBeat()
-            if (menuOpen) beatDot.post { flashBeatDot() }
+            // Step the virtual bar to Link's current beat-in-bar (post-nudge) and
+            // pulse the beat dot. Only while the menu is open, to stay cheap.
+            if (menuOpen) {
+                val cell = (Math.round(BeatPulse.barPhase * 4f) % 4 + 4) % 4
+                beatDot.post { flashBeatDot(); updateBarCells(cell) }
+            }
         }
-        // Diagnostic lights for the enriched-beat data: new bar (downbeat) and
-        // detected drop. Flashed only while the menu is open to stay cheap.
-        glView.onLinkBar = { if (menuOpen) barDot.post { flashDot(barDot) } }
+        // Drop diagnostic light (detected energy surge); flashed while menu open.
         glView.onDrop = { if (menuOpen) dropDot.post { flashDot(dropDot) } }
 
         btnHueConnect.setOnClickListener { onHueConnectClicked() }
@@ -1868,6 +1901,7 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_LINK_NOTIFY = "ableton_link_notifications"
         private const val KEY_LINK_ANTICIPATE = "ableton_link_anticipate"
         private const val KEY_LINK_BAR_OFFSET = "ableton_link_bar_offset"
+        private const val KEY_LINK_EXTRAS = "ableton_link_experimental_extras"
         private const val KEY_ADV_LINK_BEAT_FLASH = "adv_link_beat_flash"
         private const val KEY_ADV_COLOUR = "adv_colour_split"
         private const val KEY_ADV_GLOW = "adv_resting_glow"

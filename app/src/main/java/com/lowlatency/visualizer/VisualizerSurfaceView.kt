@@ -121,11 +121,6 @@ class VisualizerSurfaceView @JvmOverloads constructor(
         get() = renderer.onLinkBeat
         set(value) { renderer.onLinkBeat = value }
 
-    /** Fired on the GL thread on each new musical bar / downbeat (Link only). */
-    var onLinkBar: (() -> Unit)?
-        get() = renderer.onLinkBar
-        set(value) { renderer.onLinkBar = value }
-
     /** Fired on the GL thread when a drop/build surge is detected (any mode). */
     var onDrop: (() -> Unit)?
         get() = renderer.onDrop

@@ -755,12 +755,118 @@
             android:textSize="12sp"
             android:layout_marginBottom="8dp" />
 
-        <!-- Diagnostic indicator lights: beat / bar (new phase) / drop -->
+        <!-- Virtual bar: Link's position within the bar. The lit dot steps on each
+             beat (1→2→3→4); cell 1 is the downbeat. Use the Downbeat nudge below
+             so the "1" lands where you hear your downbeat. -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:layout_marginTop="4dp"
+            android:layout_marginBottom="12dp">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center">
+
+                <View
+                    android:id="@+id/bar_cell_1"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:alpha="0.18"
+                    android:background="@drawable/beat_dot" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="1"
+                    android:textColor="@color/accent"
+                    android:textSize="10sp"
+                    android:letterSpacing="0.1"
+                    android:layout_marginTop="5dp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center">
+
+                <View
+                    android:id="@+id/bar_cell_2"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:alpha="0.18"
+                    android:background="@drawable/beat_dot" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="2"
+                    android:textColor="@color/text_dim"
+                    android:textSize="10sp"
+                    android:letterSpacing="0.1"
+                    android:layout_marginTop="5dp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center">
+
+                <View
+                    android:id="@+id/bar_cell_3"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:alpha="0.18"
+                    android:background="@drawable/beat_dot" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="3"
+                    android:textColor="@color/text_dim"
+                    android:textSize="10sp"
+                    android:letterSpacing="0.1"
+                    android:layout_marginTop="5dp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center">
+
+                <View
+                    android:id="@+id/bar_cell_4"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:alpha="0.18"
+                    android:background="@drawable/beat_dot" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="4"
+                    android:textColor="@color/text_dim"
+                    android:textSize="10sp"
+                    android:letterSpacing="0.1"
+                    android:layout_marginTop="5dp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Event lights: beat (Link clock) + drop (detected energy surge) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
             android:layout_marginBottom="14dp">
 
             <LinearLayout
@@ -798,32 +904,6 @@
                 android:layout_gravity="center_vertical">
 
                 <View
-                    android:id="@+id/bar_dot"
-                    android:layout_width="14dp"
-                    android:layout_height="14dp"
-                    android:alpha="0.18"
-                    android:background="@drawable/beat_dot" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/link_bar_label"
-                    android:textColor="@color/text_dim"
-                    android:textSize="11sp"
-                    android:letterSpacing="0.1"
-                    android:textAllCaps="true"
-                    android:layout_marginStart="8dp" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="horizontal"
-                android:gravity="center"
-                android:layout_gravity="center_vertical">
-
-                <View
                     android:id="@+id/drop_dot"
                     android:layout_width="14dp"
                     android:layout_height="14dp"
@@ -842,7 +922,29 @@
             </LinearLayout>
         </LinearLayout>
 
-        <!-- Manual downbeat alignment for the BAR light + bar-synced breath. -->
+        <!-- Experimental bar-synced glow + drop surge (off by default). -->
+        <Button
+            android:id="@+id/btn_link_extras"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginBottom="6dp"
+            android:background="@drawable/pill_button_bg"
+            android:text="@string/link_extras_off"
+            android:textColor="@color/btn_text"
+            android:textAllCaps="false"
+            android:textSize="14sp"
+            android:stateListAnimator="@null" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/link_extras_help"
+            android:textColor="@color/text_dim"
+            android:textSize="11sp"
+            android:lineSpacingMultiplier="1.2"
+            android:layout_marginBottom="14dp" />
+
+        <!-- Manual downbeat alignment for the virtual bar + bar-synced breath. -->
         <Button
             android:id="@+id/btn_link_downbeat"
             android:layout_width="match_parent"

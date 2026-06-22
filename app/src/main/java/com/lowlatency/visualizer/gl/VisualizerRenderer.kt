@@ -173,9 +173,8 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
     // Used to drive haptics off Link's network clock instead of audio onset.
     @Volatile var onLinkBeat: (() -> Unit)? = null
 
-    // Diagnostic taps (GL thread): a new musical bar / downbeat (Link only) and a
-    // detected drop/build surge (any mode). Drive the Settings diagnostic lights.
-    @Volatile var onLinkBar: (() -> Unit)? = null
+    // Diagnostic tap (GL thread): a detected drop/build surge (any mode). Drives
+    // the Settings "Drop" diagnostic light. (Bar position is read from BeatPulse.)
     @Volatile var onDrop: (() -> Unit)? = null
 
     // HDR bloom + theme post-processing. Glow strength and theme are read from
@@ -198,7 +197,6 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
     private var slowDb = 0f             // asymmetric rolling dB baseline (drop detection)
     private var dropSurge = 0f          // drop/build surge envelope, decays toward 0
     private var dropCooldown = 0f       // seconds until another surge may fire
-    private var prevBarPhase = 0f       // last frame's bar phase (new-bar edge detect)
 
     // Performance diagnostics (written on GL thread, read on UI thread).
     @Volatile var fps = 0f
@@ -365,8 +363,6 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
             if (LinkSync.barOffsetBeats != 0) {
                 barPhaseNow = (barPhaseNow + LinkSync.barOffsetBeats * 0.25f) % 1f
             }
-            // New-bar (downbeat) edge: phase wrapped from near-1 back to near-0.
-            if (barPhaseNow + 0.5f < prevBarPhase) onLinkBar?.invoke()
             // Phase-locked envelope: (1 - phase)² peaks on each beat and decays to
             // the next, so the visuals stay rock-solid to the grid even if the
             // discrete poll jitters. Gated by loudness.
@@ -400,7 +396,6 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
         BeatPulse.beatCount = BeatBus.beatCount
         BeatPulse.linkActive = LinkSync.enabled
         BeatPulse.barPhase = barPhaseNow
-        prevBarPhase = barPhaseNow
 
         // Forward the bands to any tap (Hue light sync) — cheap, non-blocking.
         bandsSink?.invoke(bands[0], bands[1], bands[2])
@@ -451,13 +446,15 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
         if (usePost) {
             // Instrument scenes (oscilloscope, bars, spectrum…) opt out of ALL the
             // musical-accent layers so their glow stays an honest readout of the
-            // signal. Enriched (reactive/immersive) scenes get the full treatment.
+            // signal. Enriched (reactive/immersive) scenes get the beat punch; the
+            // bar breath + drop surge are the opt-in EXPERIMENTAL extras on top.
             val enriched = scene.respondsToBeat
+            val extras = enriched && LinkSync.experimentalEnrich
             val punch = if (enriched) hdrPunch else 0f
-            val surge = if (enriched) dropSurge else 0f
+            val surge = if (extras) dropSurge else 0f
             // Bar-synced "breath": a slow bloom swell anchored to the musical
             // downbeat (Link only) — phrasing you can't get from sound alone.
-            val breath = if (enriched && BeatPulse.linkActive)
+            val breath = if (extras && BeatPulse.linkActive)
                 (0.5f + 0.5f * cos(barPhaseNow * TWO_PI)) * BAR_BREATH_AMOUNT * BeatBus.loudness
             else 0f
             // Bloom carries the punch (0 when glow is off); exposure lifts gently.
