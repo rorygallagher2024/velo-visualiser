@@ -125,6 +125,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var perfFrameMs: TextView
     private lateinit var perfDetail: TextView
     private var displayedFps = 0f
+    private var shownFps = -1          // last integer drawn (snap/hysteresis state)
     private lateinit var heroVisName: TextView
     private lateinit var btnSceneLabel: Button
     private lateinit var sceneLabel: TextView
@@ -1068,6 +1069,7 @@ class MainActivity : AppCompatActivity() {
             perfOverlay.visibility = View.VISIBLE
             lastHuePackets = if (::hueController.isInitialized) hueController.huePacketsSent else 0L
             displayedFps = 0f          // count up from zero — a small flourish on open
+            shownFps = -1
             perfHandler.removeCallbacks(perfPoller)
             perfHandler.removeCallbacks(perfFpsTicker)
             perfHandler.post(perfPoller)
@@ -1190,11 +1192,25 @@ class MainActivity : AppCompatActivity() {
 
     /** Render the giant eased FPS number: brand white when healthy, amber/red when struggling. */
     private fun renderHeroFps() {
-        perfFpsValue.text = Math.round(displayedFps).toString()
+        val v = displayedFps
+        // When we're essentially locked to a vsync rate (60/90/120/144), show that
+        // exact number — otherwise a ~60.5 reading flickers between 60 and 61. Off
+        // a locked rate, a small deadband stops noise from twitching the integer.
+        val snapped = LOCKED_RATES.firstOrNull { Math.abs(v - it) <= FPS_SNAP_TOL }
+        val target = snapped ?: Math.round(v)
+        val changed = when {
+            shownFps < 0 -> true
+            snapped != null -> shownFps != snapped
+            else -> Math.abs(v - shownFps) >= FPS_HYSTERESIS
+        }
+        if (changed) {
+            shownFps = target
+            perfFpsValue.text = target.toString()
+        }
         perfFpsValue.setTextColor(
             when {
-                displayedFps < 30f -> 0xFFFF4444.toInt()
-                displayedFps < 55f -> 0xFFFFBB33.toInt()
+                v < 30f -> 0xFFFF4444.toInt()
+                v < 55f -> 0xFFFFBB33.toInt()
                 else -> getColor(R.color.text_primary)
             }
         )
@@ -2012,6 +2028,11 @@ class MainActivity : AppCompatActivity() {
         // Background longer than this and a Hue entertainment stream has likely
         // timed out on the bridge, so we rebuild it on resume rather than trust it.
         private const val HUE_RESYNC_AWAY_MS = 3000L
+        // FPS readout: snap to a vsync rate within this many fps (kills 60↔61
+        // flicker); off a locked rate, require this much change before re-drawing.
+        private val LOCKED_RATES = intArrayOf(60, 90, 120, 144)
+        private const val FPS_SNAP_TOL = 1.0f
+        private const val FPS_HYSTERESIS = 0.7f
         private const val KEY_PEAK_LUMINANCE = "peak_luminance_enabled"
         private const val KEY_FAVOURITES = "favourite_scenes"
         private const val KEY_SCREENSHARE_RATIONALE = "screenshare_rationale_shown"
