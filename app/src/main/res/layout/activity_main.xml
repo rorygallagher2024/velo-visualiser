@@ -83,7 +83,7 @@
 
         <!-- Drag handle -->
         <View
-            android:layout_width="40dp"
+            android:layout_width="44dp"
             android:layout_height="4dp"
             android:layout_gravity="center_horizontal"
             android:layout_marginBottom="16dp"
@@ -1451,8 +1451,7 @@
                 android:minHeight="48dp"
                 android:max="100"
                 android:progress="100"
-                android:progressTint="@color/accent"
-                android:progressBackgroundTint="@color/text_dim"
+                android:progressDrawable="@drawable/seekbar_spectrum"
                 android:thumbTint="@color/accent"
                 android:layout_marginBottom="4dp" />
 
