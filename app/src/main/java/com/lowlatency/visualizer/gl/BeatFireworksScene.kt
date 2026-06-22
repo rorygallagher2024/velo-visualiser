@@ -21,6 +21,8 @@ class BeatFireworksScene : GlScene {
 
     companion object {
         private const val MAX = 1600
+        private const val STARS = 150
+        private const val CAPACITY = MAX + STARS
         private const val STRIDE = 4              // x, y, life01, hue
         private const val GRAVITY = 0.55f
         private const val DRAG = 0.7f
@@ -68,9 +70,17 @@ class BeatFireworksScene : GlScene {
     private val hue = FloatArray(MAX)
     private var cursor = 0
 
-    private val upload = FloatArray(MAX * STRIDE)
+    private val upload = FloatArray(CAPACITY * STRIDE)
     private val buffer: FloatBuffer = ByteBuffer
-        .allocateDirect(MAX * STRIDE * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
+        .allocateDirect(CAPACITY * STRIDE * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
+
+    // Star field — fixed positions, gentle twinkle.
+    private val starX = FloatArray(STARS)
+    private val starY = FloatArray(STARS)
+    private val starHue = FloatArray(STARS)
+    private val starPhase = FloatArray(STARS)
+    private val starFreq = FloatArray(STARS)
+    private val starBri = FloatArray(STARS)
 
     private val rnd = Random(0xBEEF)
     private val beat = BeatDetector()
@@ -93,8 +103,17 @@ class BeatFireworksScene : GlScene {
         GLES20.glGenBuffers(1, ids, 0)
         vbo = ids[0]
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, vbo)
-        GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, MAX * STRIDE * 4, null, GLES20.GL_DYNAMIC_DRAW)
+        GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, CAPACITY * STRIDE * 4, null, GLES20.GL_DYNAMIC_DRAW)
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
+
+        for (i in 0 until STARS) {
+            starX[i] = rnd.nextFloat() * 2f - 1f
+            starY[i] = rnd.nextFloat() * 2f - 1f
+            starHue[i] = rnd.nextFloat()
+            starPhase[i] = rnd.nextFloat() * 6.2831853f
+            starFreq[i] = 0.3f + rnd.nextFloat() * 1.2f
+            starBri[i] = 0.06f + rnd.nextFloat() * 0.16f
+        }
     }
 
     override fun onResize(width: Int, height: Int, aspect: Float) {
@@ -124,6 +143,17 @@ class BeatFireworksScene : GlScene {
             upload[o + 1] = py[i]
             upload[o + 2] = (life[i] / MAX_LIFE).coerceIn(0f, 1f)
             upload[o + 3] = hue[i]
+            n++
+        }
+
+        // Pack twinkling stars behind the fireworks.
+        for (i in 0 until STARS) {
+            val twinkle = starBri[i] * (1f + 0.6f * sin(timeSec * starFreq[i] * 6.2831853f + starPhase[i]))
+            val o = n * STRIDE
+            upload[o] = starX[i] * aspect
+            upload[o + 1] = starY[i]
+            upload[o + 2] = twinkle.coerceIn(0.03f, 0.30f)
+            upload[o + 3] = starHue[i]
             n++
         }
 
