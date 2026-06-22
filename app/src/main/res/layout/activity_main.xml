@@ -44,7 +44,7 @@
         android:paddingVertical="8dp"
         android:textColor="@color/text_primary"
         android:textSize="12sp"
-        android:textStyle="bold"
+        android:textStyle="normal"
         android:visibility="gone" />
 
     <!-- Tap-outside / dim scrim (hidden until the menu opens) -->
@@ -83,7 +83,7 @@
 
         <!-- Drag handle -->
         <View
-            android:layout_width="40dp"
+            android:layout_width="44dp"
             android:layout_height="4dp"
             android:layout_gravity="center_horizontal"
             android:layout_marginBottom="16dp"
@@ -107,7 +107,7 @@
                 android:textColor="@color/btn_text"
                 android:textAllCaps="true"
                 android:letterSpacing="0.1"
-                android:textStyle="bold"
+                android:textStyle="normal"
                 android:textSize="12sp"
                 android:stateListAnimator="@null" />
 
@@ -123,7 +123,7 @@
                 android:textColor="@color/btn_text"
                 android:textAllCaps="true"
                 android:letterSpacing="0.1"
-                android:textStyle="bold"
+                android:textStyle="normal"
                 android:textSize="12sp"
                 android:stateListAnimator="@null" />
 
@@ -138,7 +138,7 @@
                 android:textColor="@color/btn_text"
                 android:textAllCaps="true"
                 android:letterSpacing="0.1"
-                android:textStyle="bold"
+                android:textStyle="normal"
                 android:textSize="12sp"
                 android:stateListAnimator="@null" />
         </LinearLayout>
@@ -753,6 +753,7 @@
             android:text="@string/link_status_off"
             android:textColor="@color/text_dim"
             android:textSize="12sp"
+            android:fontFamily="@font/space_mono"
             android:layout_marginBottom="8dp" />
 
         <!-- Virtual bar: Link's position within the bar. The lit dot steps on each
@@ -1285,7 +1286,7 @@
             android:text="@string/hue_header_title"
             android:textColor="@color/accent"
             android:textSize="18sp"
-            android:textStyle="bold"
+            android:textStyle="normal"
             android:textAllCaps="true"
             android:letterSpacing="0.05"
             android:layout_marginBottom="16dp" />
@@ -1303,7 +1304,7 @@
                 android:text="@string/hue_section_bridge"
                 android:textColor="@color/text_dim"
                 android:textSize="12sp"
-                android:textStyle="bold"
+                android:textStyle="normal"
                 android:textAllCaps="true"
                 android:letterSpacing="0.08"
                 android:layout_marginBottom="12dp" />
@@ -1389,7 +1390,7 @@
                 android:text="@string/hue_section_areas"
                 android:textColor="@color/text_dim"
                 android:textSize="12sp"
-                android:textStyle="bold"
+                android:textStyle="normal"
                 android:textAllCaps="true"
                 android:letterSpacing="0.08"
                 android:layout_marginBottom="12dp" />
@@ -1424,7 +1425,7 @@
                 android:text="@string/hue_light_control_label"
                 android:textColor="@color/text_dim"
                 android:textSize="12sp"
-                android:textStyle="bold"
+                android:textStyle="normal"
                 android:textAllCaps="true"
                 android:letterSpacing="0.08"
                 android:layout_marginBottom="12dp" />
@@ -1451,8 +1452,7 @@
                 android:minHeight="48dp"
                 android:max="100"
                 android:progress="100"
-                android:progressTint="@color/accent"
-                android:progressBackgroundTint="@color/text_dim"
+                android:progressDrawable="@drawable/seekbar_spectrum"
                 android:thumbTint="@color/accent"
                 android:layout_marginBottom="4dp" />
 
@@ -1480,7 +1480,7 @@
                 android:text="@string/hue_section_sync"
                 android:textColor="@color/text_dim"
                 android:textSize="12sp"
-                android:textStyle="bold"
+                android:textStyle="normal"
                 android:textAllCaps="true"
                 android:letterSpacing="0.08"
                 android:layout_marginBottom="12dp" />
@@ -1544,7 +1544,7 @@
                 android:text="@string/welcome_title"
                 android:textColor="@color/btn_text"
                 android:textSize="24sp"
-                android:textStyle="bold"
+                android:textStyle="normal"
                 android:layout_marginBottom="48dp" />
 
             <TextView

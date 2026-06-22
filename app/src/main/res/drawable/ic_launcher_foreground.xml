@@ -1,24 +1,15 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Velo brand mark: a bold orange "V" chevron, gradient top→bottom.
-         Sized to sit inside the adaptive-icon safe zone (central ~66dp). -->
+    <!-- Velo brand mark: a white "V" chevron — rounded caps, soft point, balanced
+         (not tall/aggressive). Monochrome. Sized to the adaptive-icon safe zone. -->
     <path
-        android:pathData="M30,34 L54,78 L78,34"
-        android:strokeWidth="12"
+        android:pathData="M33,36 L54,76 L75,36"
+        android:strokeColor="#F4F4F2"
+        android:strokeWidth="9.5"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
-        android:fillColor="#00000000">
-        <aapt:attr name="android:strokeColor">
-            <gradient
-                android:type="linear"
-                android:startX="54" android:startY="30"
-                android:endX="54" android:endY="80"
-                android:startColor="#FFFF7A45"
-                android:endColor="#FFF0531C" />
-        </aapt:attr>
-    </path>
+        android:fillColor="#00000000" />
 </vector>

@@ -1,14 +1,11 @@
 package com.lowlatency.visualizer.gl
 
-import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
 import android.opengl.GLES20
-import androidx.core.content.res.ResourcesCompat
-import com.lowlatency.visualizer.R
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.random.Random
@@ -32,9 +29,7 @@ import kotlin.random.Random
  * the vertex shader, driven by a handful of uniforms (the Starscape idiom):
  * zero per-frame CPU particle work.
  */
-class IntroLogoScene(context: Context) {
-
-    private val appContext = context.applicationContext
+class IntroLogoScene {
 
     private var program = 0
     private var aTarget = 0
@@ -54,7 +49,9 @@ class IntroLogoScene(context: Context) {
     private var aspect = 1f
     private var sizeScale = 1f
 
-    private val accent = floatArrayOf(0.94f, 0.33f, 0.11f)   // overwritten from R.color.accent
+    // Monochrome brand: a dim cool-white seed that brightens to white as the V
+    // forms (see fragment shader). No colour — the splash is strictly B&W.
+    private val accent = floatArrayOf(0.80f, 0.80f, 0.85f)
 
     fun onCreated() {
         program = ShaderUtil.buildProgram(VERTEX_SHADER, FRAGMENT_SHADER)
@@ -70,7 +67,6 @@ class IntroLogoScene(context: Context) {
         uSizeScale = GLES20.glGetUniformLocation(program, "u_sizeScale")
         uAccent = GLES20.glGetUniformLocation(program, "u_accent")
 
-        readAccentColor()
         val data = buildParticles()
         particleCount = data.size / FLOATS_PER_PARTICLE
 
@@ -142,17 +138,6 @@ class IntroLogoScene(context: Context) {
         if (vbo != 0) { GLES20.glDeleteBuffers(1, intArrayOf(vbo), 0); vbo = 0 }
         if (program != 0) { GLES20.glDeleteProgram(program); program = 0 }
         particleCount = 0
-    }
-
-    private fun readAccentColor() {
-        val c = try {
-            ResourcesCompat.getColor(appContext.resources, R.color.accent, null)
-        } catch (_: Throwable) {
-            0xFFF0531C.toInt()
-        }
-        accent[0] = Color.red(c) / 255f
-        accent[1] = Color.green(c) / 255f
-        accent[2] = Color.blue(c) / 255f
     }
 
     /**
@@ -308,9 +293,10 @@ class IntroLogoScene(context: Context) {
                 if (d > 1.0) discard;
                 float core = exp(-d * 3.5);
 
-                // Accent -> hot white as the letters form; a warm flash on shatter.
-                vec3 col = mix(u_accent, vec3(1.4, 1.2, 1.0), clamp(v_assemble, 0.0, 1.0));
-                col = mix(col, vec3(1.7, 0.95, 0.5), v_disperse * 0.6);
+                // Monochrome: dim cool-white seed -> bright white as the V forms,
+                // and a clean white flash on shatter. No colour.
+                vec3 col = mix(u_accent, vec3(1.30, 1.30, 1.38), clamp(v_assemble, 0.0, 1.0));
+                col = mix(col, vec3(1.50, 1.50, 1.60), v_disperse * 0.5);
 
                 // HDR overdrive (>1) so the bloom pass makes the cloud glow.
                 col *= core * u_intensity * 1.7;

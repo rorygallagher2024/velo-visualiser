@@ -6,7 +6,7 @@ import java.nio.ByteOrder
 import java.nio.FloatBuffer
 
 /**
- * Minimalist, Teenage Engineering-inspired FPS counter overlay.
+ * Minimalist FPS counter overlay.
  * Renders tiny technical text at the top-right of the screen.
  * 
  * Uses explicit geometry for maximum compatibility across devices.

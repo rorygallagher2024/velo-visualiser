@@ -220,7 +220,7 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
     @Volatile var onIntroFinished: (() -> Unit)? = null
     @Volatile var introActive = false
         private set
-    private val introScene = IntroLogoScene(appContext)
+    private val introScene = IntroLogoScene()
     private var introStartSec = -1f
     private var introNotified = false
 
