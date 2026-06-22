@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Slider track: mono grey groove, spectrum fill. The colour is decorative —
+     the value is conveyed by the fill length and the thumb position, never by
+     hue alone, so it stays accessible / colour-blind safe. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@android:id/background"
+        android:gravity="center_vertical"
+        android:height="6dp">
+        <shape android:shape="rectangle">
+            <corners android:radius="3dp" />
+            <solid android:color="@color/sheet_stroke" />
+        </shape>
+    </item>
+    <item android:id="@android:id/progress"
+        android:gravity="center_vertical"
+        android:height="6dp">
+        <clip>
+            <bitmap android:src="@drawable/spectrum_strip"
+                android:gravity="fill" />
+        </clip>
+    </item>
+</layer-list>
