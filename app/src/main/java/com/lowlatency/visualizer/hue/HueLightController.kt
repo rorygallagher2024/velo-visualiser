@@ -229,27 +229,36 @@ class HueLightController(context: Context) {
     }
 
     /**
-     * Spectrum → per-channel RGB. Each channel rotates the spectral emphasis a
-     * little (so a multi-light area isn't a flat wash), brightness tracks overall
-     * energy, and the beat flash punches all channels toward white.
+     * Spectrum → per-channel RGB. The *colour* is a saturated hue chosen by the
+     * music's spectral balance (bass-heavy → red, treble-heavy → blue, through
+     * magenta/purple in between); *brightness* tracks energy and the beat flash.
+     *
+     * Earlier this mapped the three bands straight onto R/G/B — but most music
+     * excites bass+mid+treble at once, so R≈G≈B and the lights washed out to a
+     * dull white. Driving hue+saturation instead keeps a vivid, club-like colour
+     * that shifts with the track, and the beat punches brightness (not white).
      */
     private fun mapColors(count: Int, low: Float, mid: Float, high: Float, flash: Float, out: FloatArray) {
-        val energy = max(low, max(mid, high))
-        val bright = (MIN_BRIGHT + (1f - MIN_BRIGHT) * energy) * HueStrobeSettings.audioBrightMul
+        val total = low + mid + high + 1e-3f
+        // Spectral balance 0..1: 0 = all bass, 1 = all treble.
+        val centroid = ((mid * 0.5f + high) / total).coerceIn(0f, 1f)
+        val energy = (max(low, max(mid, high)) * HueStrobeSettings.audioBrightMul).coerceIn(0f, 1f)
+        // sqrt = gentle gamma so quiet passages still show colour; the beat adds
+        // brightness on top. A small floor keeps a faint resting glow (never fully
+        // dark) instead of the lights looking switched off in silence.
+        val value = MIN_BRIGHT + (1f - MIN_BRIGHT) * sqrt((energy + flash * 0.7f).coerceIn(0f, 1f))
+        // A hard hit only mildly desaturates, so beats pop without going white.
+        val sat = (AUDIO_SAT - flash * 0.30f).coerceIn(0.6f, 1f)
         for (i in 0 until count) {
-            val ph = if (count > 1) i.toFloat() / count else 0f
-            // Rotate emphasis from bass-warm (red) to treble-cool (blue) per channel.
-            val r = lerp(low, high, ph)
-            val g = mid
-            val b = lerp(high, low, ph)
-            // sqrt = mild gamma so low levels remain visible on the lights.
-            out[i * 3]     = sqrt(((r + flash) * bright).coerceIn(0f, 1f))
-            out[i * 3 + 1] = sqrt(((g + flash * 0.6f) * bright).coerceIn(0f, 1f))
-            out[i * 3 + 2] = sqrt(((b + flash * 0.4f) * bright).coerceIn(0f, 1f))
+            // Fan channels across a slice of the hue range so a multi-light area
+            // isn't a flat wash.
+            val spread = if (count > 1) (i.toFloat() / (count - 1) - 0.5f) * AUDIO_CHANNEL_SPREAD else 0f
+            val pos = (centroid + spread).coerceIn(0f, 1f)
+            val hue = AUDIO_HUE_BASS + (AUDIO_HUE_TREBLE - AUDIO_HUE_BASS) * pos
+            hsvToRgb(hue, sat, value)
+            out[i * 3] = hsvOut[0]; out[i * 3 + 1] = hsvOut[1]; out[i * 3 + 2] = hsvOut[2]
         }
     }
-
-    private fun lerp(a: Float, b: Float, t: Float) = a + (b - a) * t
 
     // Reused HSV->RGB scratch (written on the sender thread only). h in degrees,
     // s/v in 0..1. Result lands in [hsvOut].
@@ -288,5 +297,13 @@ class HueLightController(context: Context) {
         private const val PURPLE_HUE = 265f       // bass-heavy colour (blue/purple)
         private const val SAT_BASS = 1.0f         // vivid blue/purple
         private const val SAT_TREBLE = 0.70f      // lower sat => lighter red
+
+        // Audio-reactive light show (Link off): a continuous, saturated sweep
+        // driven by the spectral balance. Stays on the warm→cool club side of the
+        // wheel (red → magenta/purple → blue), skipping the murky greens/yellows.
+        private const val AUDIO_HUE_BASS = 360f     // bass-heavy => red
+        private const val AUDIO_HUE_TREBLE = 220f   // treble-heavy => blue
+        private const val AUDIO_SAT = 0.92f         // vivid resting saturation
+        private const val AUDIO_CHANNEL_SPREAD = 0.22f  // hue fan across multiple lights
     }
 }
