@@ -59,36 +59,32 @@ class HapticController(context: Context) {
             if (!value) vibrator?.cancel()
         }
 
-    private val beat = BeatDetector(debugName = "haptics")
+    // Last gated beat we vibrated on (BeatBus is the single shared beat source).
+    private var lastBeat = BeatBus.beatCount
 
-    // Beat-haptics are gated to the mic. System-audio capture is buffered, so its
-    // PCM lags what the user hears — the buzz lands off-beat. (Same reason Hue
-    // sync is mic-only.) Visuals are unaffected.
+    // Beat-haptics are gated to the mic in audio mode: system-audio capture is
+    // buffered, so its PCM lags what the user hears and the buzz lands off-beat.
+    // (Same reason Hue sync is mic-only.) Ableton Link's clock is accurate, so
+    // with Link on we buzz regardless of source. Visuals are unaffected.
     @Volatile private var systemAudio = false
 
     fun setSystemAudio(internal: Boolean) { systemAudio = internal }
 
-    /** Called on the GL thread with the latest raw PCM window. */
-    fun onPcm(pcm: FloatArray) {
-        // Keep the detector warm even when idle so re-enabling doesn't fire a
-        // spurious pulse from a cold baseline.
-        val isBeat = beat.update(pcm)
-        // When Ableton Link drives the beat, the audio-onset path is suppressed
-        // (Link calls onLinkBeat instead) so they never double-fire.
-        if (!enabled || systemAudio || LinkSync.enabled) return
-        val v = vibrator ?: return
-        if (isBeat) pulse(v, 0.9f)
-    }
-
     /**
-     * Called on the GL thread on each Ableton Link beat. Unlike [onPcm] this is
-     * NOT gated to the mic source — Link's beat is network-clock accurate, so it
-     * lands on time regardless of whether the audio source is buffered.
+     * Called on the GL thread every frame, after the renderer has updated
+     * [BeatBus]. Fires one pulse per gated beat — the exact same beat (and gate)
+     * that drives the visuals and the Hue lights.
      */
-    fun onLinkBeat() {
+    fun onPcm(@Suppress("UNUSED_PARAMETER") pcm: FloatArray) {
+        val bc = BeatBus.beatCount
+        if (bc == lastBeat) return
+        lastBeat = bc
         if (!enabled) return
+        // Buffered system audio lags → suppress the buzz unless Link is timing it.
+        if (systemAudio && !LinkSync.enabled) return
         val v = vibrator ?: return
-        pulse(v, 0.9f)
+        // Scale the pulse with the beat's loudness, with a floor so it's still felt.
+        pulse(v, BeatBus.loudness.coerceIn(0.45f, 1f))
     }
 
     private fun pulse(v: Vibrator, energy: Float) {

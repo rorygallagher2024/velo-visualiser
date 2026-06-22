@@ -90,6 +90,20 @@ double linkBeatPhase() {
     }
 }
 
+double linkBarPhase() {
+    try {
+        auto& l = link();
+        if (!l.isEnabled()) return 0.0;
+        const auto time = l.clock().micros();
+        const auto state = l.captureAppSessionState();
+        // phaseAtTime returns 0..quantum (position within the bar); normalise to 0..1.
+        const double phase = state.phaseAtTime(time, kQuantum);
+        return phase / kQuantum;
+    } catch (...) {
+        return 0.0;
+    }
+}
+
 double linkTempo() {
     try {
         return link().captureAppSessionState().tempo();

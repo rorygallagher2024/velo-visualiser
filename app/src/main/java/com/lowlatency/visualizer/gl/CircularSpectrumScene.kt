@@ -20,6 +20,9 @@ import java.nio.FloatBuffer
  */
 class CircularSpectrumScene : GlScene {
 
+    // Instrument readout — honest representation of the signal, no beat punch.
+    override val respondsToBeat get() = false
+
     companion object {
         private const val BINS = 128
 

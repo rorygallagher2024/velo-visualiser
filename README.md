@@ -15,6 +15,12 @@ A bare-metal C++/Oboe audio engine and custom OpenGL ES 3.1 shaders bypass stand
 
 Beyond its absolute speed and zero-lag smart lighting integration, Velo is great showcase for premium Android hardware because it can push modern flagship devices to their limits combining 120Hz tear-free OLED motion, true HDR luminance, and dynamic scaling for the large displays tablets and foldables.
 
+## Reacts to the sound. Locks to the set.
+
+Velo always listens to the **actual sound** in the room and moves with it instantly — that honest, sub-10 ms reaction is what the visuals are built on. Switch on **Ableton Link** (Traktor, Ableton Live, Serato and more) and Velo also locks onto your set's tempo, layering a tightly-timed **extra punch and bloom** over the top — even *anticipating* each beat a hair before it lands, the way only a shared musical clock can. The faithful "instrument" visuals (oscilloscope, spectrum, meters) stay a pure readout of the sound, while the reactive scenes get that grid-locked accent. Sound drives the picture; Link adds the polish.
+
+*(Plus opt-in experimental extras — bar-synced glow and drop-triggered surges — for when you want the visuals to follow the arrangement, not just the beat.)*
+
 ## Core Features
 * **High-FPS, HDR-Capable 3D Visuals:** Targets 120+ fps for fluid, tear-free rendering (device and preset dependent).
 * **Ableton Link Integration:** Supplement the microphone input with perfect phase-synchronization and predictive beat detection broadcast directly from your DJ software (Traktor, Live, Serato).

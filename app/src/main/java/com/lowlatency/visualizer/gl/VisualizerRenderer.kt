@@ -4,8 +4,10 @@ import android.content.Context
 import android.opengl.GLES20
 import android.opengl.GLSurfaceView
 import android.util.Log
+import com.lowlatency.visualizer.BeatBus
 import com.lowlatency.visualizer.BeatDetector
 import com.lowlatency.visualizer.BeatPulse
+import com.lowlatency.visualizer.BeatSettings
 import com.lowlatency.visualizer.GlowSettings
 import com.lowlatency.visualizer.LinkSync
 import com.lowlatency.visualizer.NativeBridge
@@ -13,6 +15,10 @@ import com.lowlatency.visualizer.ThemeSettings
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
 import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.log10
+import kotlin.math.max
+import kotlin.math.sqrt
 
 /**
  * Owns the visual scenes and drives the per-frame data pull.
@@ -48,6 +54,25 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
         // quiet, so the threshold sits just above its noise floor and the delay
         // is long enough not to dim during normal pauses in speech/music).
         private const val SILENCE_PEAK = 0.008f    // raw-PCM peak below this = silent
+        private const val BASS_LP_A = 0.03f        // one-pole LP coeff (~230 Hz @ 48 kHz)
+        private const val MIC_NOISE_FLOOR = 0.006f // mic peak below this = silence (bass ratio)
+        private const val LEVEL_DECAY = 0.93f      // loudness-follower peak-hold falloff
+        private const val BEAT_ANTIC_START = 0.70f // phase where the pre-beat swell begins
+        private const val BEAT_ANTIC_AMOUNT = 0.45f// how strong the swell gets before the snap
+        private const val TWO_PI = 6.2831855f
+        // Drop/build detection works on a *relative* dB jump above a rolling
+        // baseline, so it self-calibrates to any volume or dynamic range.
+        private const val DROP_FALL_TAU = 1.5f     // baseline settles fast into a breakdown
+        private const val DROP_RISE_TAU = 4.0f     // …but rises slowly, preserving the drop spike
+        private const val DROP_DB_JUMP = 7.0f      // dB rise above baseline that counts as a drop
+        private const val DROP_DB_MIN = -34.0f     // ignore jumps within the near-silent floor
+        private const val DROP_DB_FLOOR = 1e-4f    // linear floor so log10 never sees 0
+        private const val DROP_COOLDOWN = 2.0f     // min seconds between surges
+        private const val DROP_DECAY = 1.4f        // surge envelope fade time (s)
+        // Link bar-phase enrichment (applied in post to enriched scenes only).
+        private const val BAR_BREATH_AMOUNT = 0.18f// bloom swell depth across the bar
+        private const val SURGE_BLOOM = 1.6f       // extra bloom at full drop surge
+        private const val SURGE_EXPOSURE = 0.4f    // extra exposure at full drop surge
         private const val IDLE_DELAY_SEC = 20.0f   // silence before dimming starts
         private const val IDLE_RAMP_SEC = 5.0f     // fade-out duration
         private const val IDLE_MIN_ALPHA = 0.45f   // dimmed floor (gentle, still legible)
@@ -148,6 +173,10 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
     // Used to drive haptics off Link's network clock instead of audio onset.
     @Volatile var onLinkBeat: (() -> Unit)? = null
 
+    // Diagnostic tap (GL thread): a detected drop/build surge (any mode). Drives
+    // the Settings "Drop" diagnostic light. (Bar position is read from BeatPulse.)
+    @Volatile var onDrop: (() -> Unit)? = null
+
     // HDR bloom + theme post-processing. Glow strength and theme are read from
     // the global GlowSettings/ThemeSettings. When glow is off AND the theme is
     // the default, a non-bypass scene draws straight to the screen (zero overhead).
@@ -159,6 +188,15 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
     private val hdrBeat = BeatDetector()
     private var hdrPunch = 0f
     private var lastFrameSec = 0f
+
+    // Shared beat-bus producer state (GL thread only). Measures audio presence
+    // from the raw PCM so the gate is identical across visuals, lights, haptics.
+    private var bassLp = 0f             // one-pole low-pass state (bass/treble split)
+    private var levelFollow = 0f        // peak-hold + decay loudness follower
+    private var bassRatioSmooth = 0.5f  // lightly smoothed bass fraction
+    private var slowDb = 0f             // asymmetric rolling dB baseline (drop detection)
+    private var dropSurge = 0f          // drop/build surge envelope, decays toward 0
+    private var dropCooldown = 0f       // seconds until another surge may fire
 
     // Performance diagnostics (written on GL thread, read on UI thread).
     @Volatile var fps = 0f
@@ -266,9 +304,102 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
         SpectrumData.sharedBuffer = sharedAudioBuffer
         NativeBridge.fillLatestAll(bands, SpectrumData.magnitudes, SpectrumData.peaks, dt)
 
+        // ---- Shared beat bus (producer) ------------------------------------
+        // Measure audio *presence* from the raw PCM: absolute peak (loudness) and
+        // a volume-independent bass/treble balance (colour). This is the single
+        // gate that decides whether a beat "counts" — for the visuals, the Hue
+        // lights and haptics alike — so they all react to the music identically.
+        run {
+            var peak = 0f; var lp = bassLp; var bassAcc = 0f; var trebAcc = 0f
+            for (s in pcm) {
+                val a = if (s < 0f) -s else s; if (a > peak) peak = a
+                lp += BASS_LP_A * (s - lp); bassAcc += lp * lp
+                val tre = s - lp; trebAcc += tre * tre
+            }
+            bassLp = lp
+            val inv = 1f / pcm.size
+            val bassRms = sqrt(bassAcc * inv); val trebRms = sqrt(trebAcc * inv)
+            // Peak-hold + slow decay so the level reads like a steady VU bar.
+            levelFollow = if (peak > levelFollow) peak else levelFollow * LEVEL_DECAY
+            BeatBus.level = levelFollow
+            // The bass ratio is meaningless in silence (≈0.5 noise vs noise), so 0 it.
+            val rawRatio = if (peak < MIC_NOISE_FLOOR) 0f else bassRms / (bassRms + trebRms + 1e-6f)
+            bassRatioSmooth += 0.25f * (rawRatio - bassRatioSmooth)
+            BeatBus.bassRatio = bassRatioSmooth
+            // The gate: smoothstep(base, full, level) → 0..1 intensity.
+            val base = BeatSettings.levelBase; val full = BeatSettings.levelFull
+            val g = ((levelFollow - base) / (full - base + 1e-6f)).coerceIn(0f, 1f)
+            BeatBus.loudness = g * g * (3f - 2f * g)
+        }
+
+        // Drop/build surge: the big moment the beat grid can't see. We track the
+        // level in dB against an asymmetric rolling baseline — quick to fall into a
+        // breakdown, slow to rise — and fire when the level leaps well above it. A
+        // *relative* dB jump self-calibrates to any volume or dynamic range; a slow
+        // set-volume ride is absorbed by the baseline, so only a fast lift fires.
+        val levelDb = 20f * log10(max(BeatBus.level, DROP_DB_FLOOR))
+        val tau = if (levelDb < slowDb) DROP_FALL_TAU else DROP_RISE_TAU
+        slowDb += (levelDb - slowDb) * (dt / tau).coerceIn(0f, 1f)
+        dropCooldown = (dropCooldown - dt).coerceAtLeast(0f)
+        if (levelDb - slowDb > DROP_DB_JUMP && levelDb > DROP_DB_MIN && dropCooldown <= 0f) {
+            dropSurge = 1f
+            dropCooldown = DROP_COOLDOWN
+            slowDb = levelDb            // consume the jump so the loud section can't re-fire
+            onDrop?.invoke()
+        }
+        dropSurge = (dropSurge - dt / DROP_DECAY).coerceAtLeast(0f)
+        BeatPulse.surge = dropSurge
+
+        // Beat decision. Source = Ableton Link's network clock when sync is on,
+        // otherwise the audio onset detector. Either way the beat only "counts"
+        // when the gate is open, and the punch is scaled by loudness so quiet
+        // passages pulse subtly instead of snapping off at a hard threshold.
+        var barPhaseNow = 0f
+        if (LinkSync.enabled) {
+            val rawBeat = NativeBridge.nativeLinkPollBeats() > 0
+            barPhaseNow = NativeBridge.nativeLinkBarPhase().toFloat().coerceIn(0f, 1f)
+            // Manual downbeat alignment: Link knows the beat grid but not where the
+            // musical "1" is, so let the user shift the bar by whole beats.
+            if (LinkSync.barOffsetBeats != 0) {
+                barPhaseNow = (barPhaseNow + LinkSync.barOffsetBeats * 0.25f) % 1f
+            }
+            // Phase-locked envelope: (1 - phase)² peaks on each beat and decays to
+            // the next, so the visuals stay rock-solid to the grid even if the
+            // discrete poll jitters. Gated by loudness.
+            val phase = NativeBridge.nativeLinkBeatPhase().toFloat().coerceIn(0f, 1f)
+            val decay = (1f - phase) * (1f - phase)
+            val env = if (!LinkSync.anticipateBeat) decay else {
+                // Anticipation: because Link tells us when the next beat lands, build
+                // a subtle swell over the tail of the beat, then let the hit snap to
+                // full and decay. The mic can't do this — it has no future to read.
+                val a = ((phase - BEAT_ANTIC_START) / (1f - BEAT_ANTIC_START)).coerceIn(0f, 1f)
+                val antic = a * a * (3f - 2f * a) * BEAT_ANTIC_AMOUNT
+                if (antic > decay) antic else decay
+            }
+            hdrPunch = env * BeatBus.loudness
+            if (rawBeat) {
+                onLinkBeat?.invoke()                       // ungated: diagnostic dot + Hue timing
+                if (BeatBus.gateOpen) BeatBus.beatCount++  // gated: visuals + haptics
+            }
+        } else {
+            val beat = hdrBeat.update(pcm) && BeatBus.gateOpen
+            if (beat) {
+                hdrPunch = BeatBus.loudness
+                BeatBus.beatCount++
+            } else {
+                hdrPunch = (hdrPunch - dt * PUNCH_FALL).coerceAtLeast(0f)
+            }
+        }
+
+        // Publish the beat for beat-reactive scenes (e.g. Beat Pulse).
+        BeatPulse.envelope = hdrPunch
+        BeatPulse.beatCount = BeatBus.beatCount
+        BeatPulse.linkActive = LinkSync.enabled
+        BeatPulse.barPhase = barPhaseNow
+
         // Forward the bands to any tap (Hue light sync) — cheap, non-blocking.
         bandsSink?.invoke(bands[0], bands[1], bands[2])
-        // Forward raw PCM to the beat tap (haptics) for bass-onset detection.
+        // Tick the per-frame tap (haptics) — it reads the gated beat off BeatBus.
         pcmBeatSink?.invoke(pcm)
 
         if (dt > 0f) {
@@ -282,26 +413,6 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
             drawIntro(t)
             return
         }
-
-        // HDR beat-punch envelope (spikes on a beat, decays smoothly). The beat
-        // source is Ableton Link's network clock when sync is on, otherwise the
-        // audio onset detector. Link beats also drive haptics (mic still drives
-        // the visuals themselves).
-        val beatNow = if (LinkSync.enabled) {
-            NativeBridge.nativeLinkPollBeats() > 0
-        } else {
-            hdrBeat.update(pcm)
-        }
-        if (beatNow) {
-            hdrPunch = 1f
-            if (LinkSync.enabled) onLinkBeat?.invoke()
-        } else {
-            hdrPunch = (hdrPunch - dt * PUNCH_FALL).coerceAtLeast(0f)
-        }
-
-        // Publish the beat for beat-reactive scenes (e.g. Beat Pulse).
-        BeatPulse.envelope = hdrPunch
-        if (beatNow) BeatPulse.beatCount++
 
         // u_burnInProtectAlpha is folded into `dim` so it dims every scene's
         // final color uniformly (incl. any static baseline) with no extra plumbing.
@@ -333,9 +444,23 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
         tryBackgroundLoad()
 
         if (usePost) {
+            // Instrument scenes (oscilloscope, bars, spectrum…) opt out of ALL the
+            // musical-accent layers so their glow stays an honest readout of the
+            // signal. Enriched (reactive/immersive) scenes get the beat punch; the
+            // bar breath + drop surge are the opt-in EXPERIMENTAL extras on top.
+            val enriched = scene.respondsToBeat
+            val extras = enriched && LinkSync.experimentalEnrich
+            val punch = if (enriched) hdrPunch else 0f
+            val surge = if (extras) dropSurge else 0f
+            // Bar-synced "breath": a slow bloom swell anchored to the musical
+            // downbeat (Link only) — phrasing you can't get from sound alone.
+            val breath = if (extras && BeatPulse.linkActive)
+                (0.5f + 0.5f * cos(barPhaseNow * TWO_PI)) * BAR_BREATH_AMOUNT * BeatBus.loudness
+            else 0f
             // Bloom carries the punch (0 when glow is off); exposure lifts gently.
-            val bloomI = if (glow.enabled) (1.0f + hdrPunch * 1.8f) * glow.intensity else 0f
-            val exposure = 1.0f + hdrPunch * 0.3f
+            val bloomI = if (glow.enabled)
+                (1.0f + punch * 1.8f + breath + surge * SURGE_BLOOM) * glow.intensity else 0f
+            val exposure = 1.0f + punch * 0.3f + surge * SURGE_EXPOSURE
             post.present(
                 bloomI, exposure,
                 theme.hueShift, theme.saturation, theme.tintR, theme.tintG, theme.tintB,

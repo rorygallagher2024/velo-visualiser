@@ -121,6 +121,11 @@ class VisualizerSurfaceView @JvmOverloads constructor(
         get() = renderer.onLinkBeat
         set(value) { renderer.onLinkBeat = value }
 
+    /** Fired on the GL thread when a drop/build surge is detected (any mode). */
+    var onDrop: (() -> Unit)?
+        get() = renderer.onDrop
+        set(value) { renderer.onDrop = value }
+
     /** Performance diagnostics (read on UI thread). */
     val rendererFps: Float get() = renderer.fps
     val rendererFrameTimeMs: Float get() = renderer.frameTimeMs

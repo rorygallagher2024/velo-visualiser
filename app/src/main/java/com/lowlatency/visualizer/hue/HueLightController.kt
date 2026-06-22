@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import com.lowlatency.visualizer.BeatBus
 import com.lowlatency.visualizer.HueStrobeSettings
 import com.lowlatency.visualizer.LinkSync
 import com.lowlatency.visualizer.NativeBridge
@@ -42,38 +43,28 @@ class HueLightController(context: Context) {
     val huePacketsSent: Long get() = client?.packetsSent ?: 0L
     val huePacketsFailed: Long get() = client?.packetsFailed ?: 0L
 
+    // Incremented on the sender thread each time a beat flash is actually pushed to
+    // the bulbs. The Advanced panel polls this to flash a "Lights" diagnostic dot.
+    @Volatile var lightBeatCount = 0
+        private set
+
     /** Called every render frame from the GL thread. Must stay allocation-free. */
     fun onBands(low: Float, mid: Float, high: Float) {
         this.low = low; this.mid = mid; this.high = high
     }
 
     // Incremented on each Ableton Link beat (GL thread). When Link sync is on the
-    // sender loop flashes on these instead of audio onset — colours still follow
-    // the bands. Single writer (GL thread); the sender thread only reads it.
+    // sender loop flashes on these (with lookahead) instead of audio onset; the
+    // gate/intensity/colour come from the shared BeatBus. Single writer (GL
+    // thread); the sender thread only reads it.
     @Volatile private var linkBeatCount = 0
     fun onLinkBeat() { linkBeatCount++ }
 
-    // Raw mic loudness (peak of the PCM window), fed from the GL thread. Scales the
-    // Link beat-strobe so quiet passages flash subtly. This is the ABSOLUTE level —
-    // not the normalized FFT bands, which stay hot even when the track is quiet.
-    @Volatile private var micLevel = 0f
-    @Volatile private var meterLevel = 0f
-    fun onMicLevel(peak: Float) {
-        micLevel = peak
-        // Peak-hold + slow decay so the Advanced meter reads as a steady VU bar
-        // instead of the spiky raw per-frame peak.
-        meterLevel = if (peak > meterLevel) peak else meterLevel * METER_DECAY
-    }
-
-    // Volume-independent bass fraction (bassRMS / (bassRMS + trebleRMS)), computed
-    // from raw PCM and fed from the GL thread. Drives the Link strobe colour:
-    // high => blue/purple, low => light red. Lightly smoothed here.
-    @Volatile private var bassRatio = 0.5f
-    fun onBassRatio(r: Float) { bassRatio += 0.25f * (r - bassRatio) }
-
-    // Live values for the Advanced panel's meter (read on the UI thread).
-    val currentMicLevel: Float get() = meterLevel
-    val currentBassRatio: Float get() = bassRatio
+    // Audio presence (loudness, bass balance) and the gated beat now live in the
+    // shared BeatBus — the same gate the visuals and haptics use. Live values for
+    // the Advanced panel's meter (read on the UI thread) read straight off it.
+    val currentMicLevel: Float get() = BeatBus.level
+    val currentBassRatio: Float get() = BeatBus.bassRatio
 
     /**
      * Start streaming to [area]: persist the choice, activate the stream over
@@ -139,9 +130,8 @@ class HueLightController(context: Context) {
             main.post { onResult(true, null) }
 
             var flash = 0f
-            var lastLow = 0f
             var lastLinkBeat = linkBeatCount
-            var level = 0f      // smoothed loudness follower (Link beat scaling)
+            var lastBeat = BeatBus.beatCount
             // Held beat colour for Link mode, recomputed from bass presence each beat.
             var beatR = 1f; var beatG = 1f; var beatB = 1f
             val frameNs = 1_000_000_000L / SEND_HZ
@@ -162,14 +152,10 @@ class HueLightController(context: Context) {
 
                 if (LinkSync.enabled) {
                     // Beat-strobe: dark between Link beats; on each beat flash a
-                    // colour chosen by bass presence. All thresholds come from the
-                    // user-tunable HueStrobeSettings (device mic varies a lot).
+                    // colour chosen by bass presence. The gate, intensity and
+                    // colour all come from the shared BeatBus — the same gate the
+                    // visuals use — so the lights and screen stay in lock-step.
                     val cfg = HueStrobeSettings
-                    val levelBase = cfg.levelBase
-                    val levelFull = cfg.levelFull
-
-                    level = max(micLevel, level * LEVEL_DECAY)
-
                     val lookaheadMs = cfg.hueLookaheadMs
                     val bc = linkBeatCount
                     var shouldFlash = false
@@ -198,11 +184,12 @@ class HueLightController(context: Context) {
                         }
                     }
 
-                    if (shouldFlash && level >= levelBase) {
-                        val t = ((level - levelBase) / (levelFull - levelBase)).coerceIn(0f, 1f)
-                        val loudness = t * t * (3f - 2f * t)
-                        flash = MIN_BEAT_AMP + (1f - MIN_BEAT_AMP) * loudness
-                        val ct = ((bassRatio - cfg.bassLo) / (cfg.bassHi - cfg.bassLo)).coerceIn(0f, 1f)
+                    // Honour the gate and the user's "disable light beat" toggle.
+                    if (shouldFlash && cfg.linkBeatFlashEnabled && BeatBus.gateOpen) {
+                        flash = MIN_BEAT_AMP + (1f - MIN_BEAT_AMP) * BeatBus.loudness
+                        lightBeatCount++
+
+                        val ct = ((BeatBus.bassRatio - cfg.bassLo) / (cfg.bassHi - cfg.bassLo)).coerceIn(0f, 1f)
                         val cs = ct * ct * (3f - 2f * ct)
                         val hue = RED_HUE + (PURPLE_HUE - RED_HUE) * cs
                         val sat = SAT_TREBLE + (SAT_BASS - SAT_TREBLE) * cs
@@ -220,12 +207,15 @@ class HueLightController(context: Context) {
                         rgb[i * 3] = r; rgb[i * 3 + 1] = g; rgb[i * 3 + 2] = b
                     }
                 } else {
+                    // Audio mode: flash on the very same gated beat the visuals
+                    // fire on (shared BeatBus), scaled by loudness; colour follows
+                    // the spectrum bands.
                     val cfg = HueStrobeSettings
-                    if (l > cfg.audioBeatThreshold && (l - lastLow) > cfg.audioBeatDelta) flash = 1f
+                    val bc = BeatBus.beatCount
+                    if (bc != lastBeat) { flash = BeatBus.loudness; lastBeat = bc; lightBeatCount++ }
                     flash *= FLASH_DECAY
                     mapColors(channelIds.size, l, m, h, flash * cfg.audioFlashMul, rgb)
                 }
-                lastLow = l
 
                 c.send(channelIds, rgb)
 
@@ -287,10 +277,9 @@ class HueLightController(context: Context) {
         private const val MIN_BRIGHT = 0.06f      // floor so lights never go fully dark while synced
         private const val FLASH_DECAY = 0.80f     // per-frame flash falloff (~50 Hz)
 
-        // Link beat-strobe — fixed shape constants. The user-tunable thresholds
-        // (level gate, bass split, ambient glow) live in HueStrobeSettings.
-        private const val LEVEL_DECAY = 0.93f     // per-frame loudness-follower falloff (~50 Hz)
-        private const val METER_DECAY = 0.90f     // Advanced meter VU-bar peak-hold falloff
+        // Link beat-strobe — fixed shape constants. The gate/intensity/colour come
+        // from the shared BeatBus; the colour split, ambient glow and lookahead
+        // live in HueStrobeSettings.
         private const val MIN_BEAT_AMP = 0.06f    // floor for the weakest *active* beat
 
         // Colour endpoints: little bass (breakdown) => light red, enough bass =>

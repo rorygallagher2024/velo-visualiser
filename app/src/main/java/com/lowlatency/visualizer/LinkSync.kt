@@ -14,4 +14,28 @@ package com.lowlatency.visualizer
  */
 object LinkSync {
     @Volatile var enabled: Boolean = false
+
+    /**
+     * When true (and Link is on), the visual beat-punch *swells into* each beat
+     * before snapping on the hit — an anticipatory build the mic can't do, since
+     * only Link's shared clock knows where the next beat lands. User-toggleable.
+     */
+    @Volatile var anticipateBeat: Boolean = true
+
+    /**
+     * Manual downbeat alignment, in whole beats (0..3). Link shares the beat grid
+     * and tempo but NOT where the musical bar "1" sits, so its phase-0 can land on
+     * the "wrong" beat. This shifts the bar reference (virtual bar + bar-synced
+     * breath) by whole beats so the user can align it to the music. User-set.
+     */
+    @Volatile var barOffsetBeats: Int = 0
+
+    /**
+     * EXPERIMENTAL extras: the bar-synced glow "breath" and the drop surge. Their
+     * reliability depends on the Link bar alignment and the track's dynamics, so
+     * they're opt-in (default off). When off, enriched visuals get the beat punch
+     * (and anticipation) only — the dependable layer. Detection/diagnostics still
+     * run so the user can verify before switching it on.
+     */
+    @Volatile var experimentalEnrich: Boolean = false
 }

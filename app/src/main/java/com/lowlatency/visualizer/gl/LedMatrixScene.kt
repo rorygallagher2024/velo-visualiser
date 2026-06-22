@@ -21,6 +21,9 @@ import java.nio.FloatBuffer
  */
 class LedMatrixScene : GlScene {
 
+    // Instrument readout — honest representation of the signal, no beat punch.
+    override val respondsToBeat get() = false
+
     companion object {
         private const val COLS = 24
         private const val ROWS = 14

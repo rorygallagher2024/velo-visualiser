@@ -27,6 +27,9 @@ import java.nio.FloatBuffer
  */
 class OscilloscopeScene : GlScene {
 
+    // Instrument readout — honest representation of the signal, no beat punch.
+    override val respondsToBeat get() = false
+
     companion object {
         private const val POINTS = 1024            // matches native render window
 
