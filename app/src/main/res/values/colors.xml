@@ -2,7 +2,8 @@
 <resources>
     <color name="scope_background">#FF000000</color>
     <color name="scope_line">#FF26FF8C</color>
-    <color name="ic_launcher_background">#FF000000</color>
+    <color name="ic_launcher_background">#FF1B1A17</color>   <!-- warm charcoal — brand background -->
+
 
     <!-- UI overlay palette — Teenage Engineering inspired: warm charcoal panel,
          off-white "ink", monochrome inverted selection (no colour accent). -->

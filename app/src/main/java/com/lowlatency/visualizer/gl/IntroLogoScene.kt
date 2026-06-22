@@ -5,7 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
-import android.graphics.Typeface
+import android.graphics.Path
 import android.opengl.GLES20
 import androidx.core.content.res.ResourcesCompat
 import com.lowlatency.visualizer.R
@@ -14,8 +14,12 @@ import java.nio.ByteOrder
 import kotlin.random.Random
 
 /**
- * First-run intro: the VELO wordmark rendered as a GPU particle cloud that
- * **ignites → breathes → shatters into the live visualizer**.
+ * First-run intro: the Velo **V mark** rendered as a GPU particle cloud that
+ * **ignites → breathes → falls away into the live visualizer**.
+ *
+ * The V is the brand symbol (same mark as the launcher icon); the name lives in
+ * the static logo lockup, not this animation — so the launch reads as the home-
+ * screen V igniting and dissolving straight into the visuals.
  *
  * Unlike the other [GlScene]s this is driven directly by [VisualizerRenderer]'s
  * intro path (not the scene array), so it takes bespoke envelope parameters in
@@ -23,10 +27,10 @@ import kotlin.random.Random
  * FP16 buffer + bloom [PostProcessor], so the particles' >1.0 colour blooms for
  * real and exceeds SDR white on HDR panels — the glow a Canvas view cannot do.
  *
- * The wordmark is rasterised once (Space Mono Bold → offscreen bitmap), its
- * opaque texels sampled into ~[MAX_PARTICLES] points. Every particle's motion
- * lives in the vertex shader, driven by a handful of uniforms (the Starscape
- * idiom): zero per-frame CPU particle work.
+ * The V is rasterised once (stroked chevron → offscreen bitmap), its opaque
+ * texels sampled into ~[MAX_PARTICLES] points. Every particle's motion lives in
+ * the vertex shader, driven by a handful of uniforms (the Starscape idiom):
+ * zero per-frame CPU particle work.
  */
 class IntroLogoScene(context: Context) {
 
@@ -152,31 +156,39 @@ class IntroLogoScene(context: Context) {
     }
 
     /**
-     * Rasterise "VELO" to an offscreen bitmap and sample its opaque pixels into
-     * interleaved particle records [targetX, targetY, seed, size]. Targets are in
-     * an aspect-preserving NDC space (the shader corrects for screen aspect).
+     * Rasterise the brand "V" chevron to an offscreen bitmap and sample its
+     * opaque pixels into interleaved particle records [targetX, targetY, seed,
+     * size]. Targets are in an aspect-preserving NDC space (the shader corrects
+     * for screen aspect). Same geometry as the launcher icon: a thick, round-
+     * capped V.
      */
     private fun buildParticles(): FloatArray {
-        val typeface = try {
-            ResourcesCompat.getFont(appContext, R.font.space_mono_bold)
-        } catch (_: Throwable) { null } ?: Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+        val sw = MARK_PX * 0.30f                 // stroke width
+        val vW = MARK_PX * 1.05f                 // arm-to-arm width
+        val vH = MARK_PX * 0.98f                 // top-to-point height
+        val pad = MARK_PX * 0.16f
 
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            this.typeface = typeface
-            textSize = TEXT_PX
-            color = Color.WHITE
-            letterSpacing = 0.08f
-        }
-        val text = "VELO"
-        val fm = paint.fontMetrics
-        val pad = (TEXT_PX * 0.18f)
-        val textW = paint.measureText(text)
-        val w = (textW + pad * 2f).toInt().coerceAtLeast(1)
-        val h = ((fm.descent - fm.ascent) + pad * 2f).toInt().coerceAtLeast(1)
+        val w = (vW + sw + pad * 2f).toInt().coerceAtLeast(1)
+        val h = (vH + sw + pad * 2f).toInt().coerceAtLeast(1)
 
         val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bmp)
-        canvas.drawText(text, pad, pad - fm.ascent, paint)
+        val cx = w * 0.5f
+        val vTop = pad + sw * 0.5f
+        val vBot = vTop + vH
+        val path = Path().apply {
+            moveTo(cx - vW * 0.5f, vTop)
+            lineTo(cx, vBot)
+            lineTo(cx + vW * 0.5f, vTop)
+        }
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeWidth = sw
+            strokeCap = Paint.Cap.ROUND
+            strokeJoin = Paint.Join.ROUND
+            color = Color.WHITE
+        }
+        canvas.drawPath(path, paint)
 
         val pixels = IntArray(w * h)
         bmp.getPixels(pixels, 0, w, 0, 0, w, h)
@@ -192,7 +204,7 @@ class IntroLogoScene(context: Context) {
         // Stride down to the particle budget for an even spatial spread.
         val stride = (opaque.size / MAX_PARTICLES).coerceAtLeast(1)
         val rnd = Random(0x7E10)
-        val pxToNdc = WORDMARK_NDC_HEIGHT / h          // uniform on x & y => no stretch
+        val pxToNdc = MARK_NDC_HEIGHT / h              // uniform on x & y => no stretch
         val halfW = w * 0.5f
         val halfH = h * 0.5f
 
@@ -217,8 +229,8 @@ class IntroLogoScene(context: Context) {
     companion object {
         private const val MAX_PARTICLES = 7000
         private const val FLOATS_PER_PARTICLE = 4
-        private const val TEXT_PX = 160f
-        private const val WORDMARK_NDC_HEIGHT = 0.5f   // wordmark spans ~half the vertical NDC
+        private const val MARK_PX = 200f               // nominal raster size of the V
+        private const val MARK_NDC_HEIGHT = 0.8f       // V spans ~40% of the vertical NDC
 
         private val VERTEX_SHADER = """#version 300 es
             layout(location = 0) in vec2 aTarget;   // glyph position (aspect-preserving NDC)
