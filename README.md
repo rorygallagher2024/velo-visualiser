@@ -15,22 +15,22 @@ A bare-metal C++/Oboe audio engine and custom OpenGL ES 3.1 shaders bypass stand
 
 Beyond its absolute speed and zero-lag smart lighting integration, Velo is great showcase for premium Android hardware because it can push modern flagship devices to their limits combining 120Hz tear-free OLED motion, true HDR luminance, and dynamic scaling for the large displays tablets and foldables.
 
+## Demo
+**Velo: Low Latency Music Visualiser Demo Video**
+[![Velo Demo](https://img.youtube.com/vi/ql0CwtlYDyI/maxresdefault.jpg)](https://youtu.be/ql0CwtlYDyI)
+`▶ Watch on YouTube`
+
 ## Reacts to the sound. Locks to the set.
 
 Velo listens to the **actual sound** in the room and moves with it instantly. The sub-10 ms reaction is what the visuals are built on. Switch on **Ableton Link** (Traktor, Ableton Live, Serato and more) and Velo also locks onto your set's tempo, layering a tightly-timed **extra punch and bloom** over the top — even *anticipating* each beat a hair before it lands, the way only a shared musical clock can. The faithful "instrument" visuals (oscilloscope, spectrum, meters) stay a pure readout of the sound, while the reactive scenes get that grid-locked accent. Sound drives the picture; Link adds the polish.
 
-*(Plus opt-in experimental extras — bar-synced glow and drop-triggered surges — for when you want the visuals to follow the arrangement, not just the beat.)*
+*(And as experimental extras: Bar-synced glow and drop-triggered surges - for when you want the visuals to follow the arrangement, not just the beat.)*
 
 ## Core Features
 * **High-FPS, HDR-Capable 3D Visuals:** Targets 120+ fps for fluid, tear-free rendering (device and preset dependent).
 * **Ableton Link Integration:** Supplement the microphone input with perfect phase-synchronization and predictive beat detection broadcast directly from your DJ software (Traktor, Live, Serato).
 * **Philips Hue Sync:** Drive your physical room lighting with the exact same zero-lag transient detection used for the on-screen visuals.
 * **No Nonsense:** 100% local processing. No data collection. No ads. I don't want your data, and nobody wants ads.
-
-## Demo
-**Velo: Low Latency Music Visualiser Demo Video**
-[![Velo Demo](https://img.youtube.com/vi/ql0CwtlYDyI/maxresdefault.jpg)](https://youtu.be/ql0CwtlYDyI)
-`▶ Watch on YouTube`
 
 ## The full feature list
 
