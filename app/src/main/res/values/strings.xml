@@ -141,8 +141,8 @@
     <string name="adv_done">Done</string>
     <string name="perf_overlay_on">Performance Overlay: On</string>
     <string name="perf_overlay_off">Performance Overlay: Off</string>
-    <string name="hero_name_on">Visualiser Name: On</string>
-    <string name="hero_name_off">Visualiser Name: Off</string>
+    <string name="scene_label_on">Name on Swipe: On</string>
+    <string name="scene_label_off">Name on Swipe: Off</string>
     <string name="peak_luminance_on">HDR Performance: Max</string>
     <string name="peak_luminance_off">HDR Performance: Default</string>
     <string name="peak_luminance_hint">Forces the display to maximum brightness and dynamic range for the best HDR punch. May increase heat and battery drain.</string>
@@ -204,8 +204,6 @@
 
 
     <!-- First-boot overlay -->
-    <string name="welcome_title">Welcome to Velo</string>
     <string name="hint_swipe_sides">◀  Swipe left / right to change visuals  ▶</string>
     <string name="hint_swipe_up">▲  Swipe up for settings</string>
-    <string name="understood">Understood</string>
 </resources>

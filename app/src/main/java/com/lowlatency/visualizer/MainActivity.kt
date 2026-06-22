@@ -58,7 +58,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var glView: VisualizerSurfaceView
     private lateinit var scrim: View
     private lateinit var optionsSheet: View
-    private lateinit var firstBootOverlay: View
     private lateinit var splashOverlay: View
     private lateinit var introHint: View
     private lateinit var segMic: Button
@@ -121,9 +120,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnPeakLuminance: Button
     private lateinit var groupPeakLuminance: View
     private lateinit var perfOverlay: TextView
-    private lateinit var btnHeroName: Button
     private lateinit var heroVisName: TextView
-    private var heroNameEnabled = true
+    private lateinit var btnSceneLabel: Button
+    private lateinit var sceneLabel: TextView
+    private var sceneLabelRunnable: Runnable? = null
+    private var sceneLabelEnabled = true
     private lateinit var hapticController: HapticController
     private lateinit var prefs: SharedPreferences
 
@@ -273,7 +274,6 @@ class MainActivity : AppCompatActivity() {
         wireTabs()
         wireMenuControls()
         wireHue()
-        wireFirstBoot()
         checkHdrSupport()
 
         ContextCompat.registerReceiver(
@@ -311,7 +311,6 @@ class MainActivity : AppCompatActivity() {
         glView = findViewById(R.id.gl_view)
         scrim = findViewById(R.id.scrim)
         optionsSheet = findViewById(R.id.options_sheet)
-        firstBootOverlay = findViewById(R.id.first_boot_overlay)
         splashOverlay = findViewById(R.id.splash_overlay)
         introHint = findViewById(R.id.intro_hint)
         segMic = findViewById(R.id.seg_mic)
@@ -376,8 +375,9 @@ class MainActivity : AppCompatActivity() {
         btnPrivacyPolicy = findViewById(R.id.btn_privacy_policy)
         btnAbout = findViewById(R.id.btn_about)
         btnPerfOverlay = findViewById(R.id.btn_perf_overlay)
-        btnHeroName = findViewById(R.id.btn_hero_name)
+        btnSceneLabel = findViewById(R.id.btn_scene_label)
         heroVisName = findViewById(R.id.hero_vis_name)
+        sceneLabel = findViewById(R.id.scene_label)
         btnPeakLuminance = findViewById(R.id.btn_peak_luminance)
         groupPeakLuminance = findViewById(R.id.group_peak_luminance)
         perfOverlay = findViewById(R.id.perf_overlay)
@@ -491,7 +491,6 @@ class MainActivity : AppCompatActivity() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 when {
-                    firstBootOverlay.visibility == View.VISIBLE -> { /* must acknowledge */ }
                     menuOpen -> hideMenu()
                     else -> { isEnabled = false; onBackPressedDispatcher.onBackPressed() }
                 }
@@ -593,7 +592,12 @@ class MainActivity : AppCompatActivity() {
             Triple(btnOdyssey, 25, btnOdyssey.text.toString()),
         )
         glView.sceneOrder = visButtons.map { it.second }
-        glView.onSceneChanged = { updateVisualizerSelection() }
+        glView.onSceneChanged = {
+            updateVisualizerSelection()
+            // Flash the name over the canvas on a swipe (menu closed); when the
+            // menu is open the hero header already names the active scene.
+            if (!menuOpen) showSceneLabel()
+        }
 
         prefs.getStringSet(KEY_FAVOURITES, emptySet())?.forEach {
             it.toIntOrNull()?.let { idx -> favourites.add(idx) }
@@ -620,9 +624,9 @@ class MainActivity : AppCompatActivity() {
         setPerfOverlay(prefs.getBoolean(KEY_PERF_OVERLAY, false))
         btnPerfOverlay.setOnClickListener { setPerfOverlay(!perfOverlayEnabled) }
 
-        // Hero visualiser-name header toggle (persisted, default on).
-        setHeroName(prefs.getBoolean(KEY_HERO_NAME, true))
-        btnHeroName.setOnClickListener { setHeroName(!heroNameEnabled) }
+        // On-swipe visualiser-name label toggle (persisted, default on).
+        setSceneLabelEnabled(prefs.getBoolean(KEY_SCENE_LABEL, true))
+        btnSceneLabel.setOnClickListener { setSceneLabelEnabled(!sceneLabelEnabled) }
 
         // Peak luminance (HDR+) toggle (persisted, default off).
         val peak = prefs.getBoolean(KEY_PEAK_LUMINANCE, false)
@@ -1053,13 +1057,36 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /** Show/hide the oversized active-visualiser name atop the Visuals tab. */
-    private fun setHeroName(enabled: Boolean) {
-        heroNameEnabled = enabled
-        prefs.edit().putBoolean(KEY_HERO_NAME, enabled).apply()
-        btnHeroName.isSelected = enabled
-        btnHeroName.setText(if (enabled) R.string.hero_name_on else R.string.hero_name_off)
-        heroVisName.visibility = if (enabled) View.VISIBLE else View.GONE
+    /** Enable/disable the on-swipe visualiser-name label over the canvas. */
+    private fun setSceneLabelEnabled(enabled: Boolean) {
+        sceneLabelEnabled = enabled
+        prefs.edit().putBoolean(KEY_SCENE_LABEL, enabled).apply()
+        btnSceneLabel.isSelected = enabled
+        btnSceneLabel.setText(if (enabled) R.string.scene_label_on else R.string.scene_label_off)
+        if (!enabled) {
+            sceneLabelRunnable?.let { sceneLabel.removeCallbacks(it) }
+            sceneLabel.animate().cancel()
+            sceneLabel.visibility = View.GONE
+        }
+    }
+
+    /** Briefly flash the active-visualiser name over the canvas on a swipe. */
+    private fun showSceneLabel() {
+        if (!sceneLabelEnabled) return
+        val name = heroVisName.text
+        if (name.isNullOrBlank()) return
+        sceneLabel.text = name
+        sceneLabelRunnable?.let { sceneLabel.removeCallbacks(it) }
+        sceneLabel.animate().cancel()
+        sceneLabel.visibility = View.VISIBLE
+        sceneLabel.alpha = 0f
+        sceneLabel.animate().alpha(1f).setDuration(180L).start()
+        val hide = Runnable {
+            sceneLabel.animate().alpha(0f).setDuration(450L)
+                .withEndAction { sceneLabel.visibility = View.GONE }.start()
+        }
+        sceneLabelRunnable = hide
+        sceneLabel.postDelayed(hide, 1100L)
     }
 
     private fun updatePerfOverlay() {
@@ -1647,22 +1674,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ----- First-boot overlay -----
-
-    private fun wireFirstBoot() {
-        if (!prefs.getBoolean(KEY_FIRST_BOOT_DONE, false)) {
-            firstBootOverlay.visibility = View.VISIBLE
-        }
-        findViewById<Button>(R.id.btn_understood).setOnClickListener {
-            prefs.edit().putBoolean(KEY_FIRST_BOOT_DONE, true).apply()
-            firstBootOverlay.animate().alpha(0f).setDuration(250)
-                .withEndAction {
-                    firstBootOverlay.visibility = View.GONE
-                    firstBootOverlay.alpha = 1f
-                }.start()
-        }
-    }
-
     // ----- Audio source switching -----
 
     private fun selectMicrophone() {
@@ -1915,7 +1926,6 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private const val TAG = "MainActivity"
         private const val PREFS = "visualizer_prefs"
-        private const val KEY_FIRST_BOOT_DONE = "first_boot_done"
         private const val KEY_BURNIN = "burn_in_enabled"
         private const val KEY_GLOW = "glow_strength"   // string preset (was a boolean key)
         private const val KEY_HAPTICS = "haptics_enabled"
@@ -1933,7 +1943,7 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_ADV_AUDIO_FLASH = "adv_audio_flash"
         private const val KEY_ADV_HUE_LOOKAHEAD = "adv_hue_lookahead"
         private const val KEY_PERF_OVERLAY = "perf_overlay_enabled"
-        private const val KEY_HERO_NAME = "hero_name_enabled"
+        private const val KEY_SCENE_LABEL = "scene_label_enabled"
         private const val KEY_PEAK_LUMINANCE = "peak_luminance_enabled"
         private const val KEY_FAVOURITES = "favourite_scenes"
         private const val KEY_SCREENSHARE_RATIONALE = "screenshare_rationale_shown"
