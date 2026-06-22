@@ -64,6 +64,7 @@ class AudioCaptureService : Service() {
     @Volatile private var capturing = false
     private var projection: MediaProjection? = null
     private var record: AudioRecord? = null
+    private var readerThread: Thread? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -170,7 +171,7 @@ class AudioCaptureService : Service() {
         capturing = true
 
         // Read on a dedicated high-priority thread; forward to native engine.
-        thread(name = "PlaybackCaptureReader", priority = Thread.MAX_PRIORITY) {
+        readerThread = thread(name = "PlaybackCaptureReader", priority = Thread.MAX_PRIORITY) {
             val frames = minBuf / (CHANNELS * 2) // 16-bit => 2 bytes/sample
             val buf = ShortArray(frames * CHANNELS)
             while (capturing) {
@@ -187,8 +188,14 @@ class AudioCaptureService : Service() {
     }
 
     override fun onDestroy() {
+        // Stop the loop, then unblock + drain the reader BEFORE releasing the
+        // AudioRecord — releasing it while the reader is parked in read() is
+        // undefined and can crash the native layer on some devices.
         capturing = false
-        record?.runCatching { stop(); release() }
+        record?.runCatching { stop() }          // unblocks a pending blocking read()
+        readerThread?.runCatching { join(300) } // wait for the reader to exit its loop
+        readerThread = null
+        record?.runCatching { release() }
         record = null
         projection?.stop()
         projection = null

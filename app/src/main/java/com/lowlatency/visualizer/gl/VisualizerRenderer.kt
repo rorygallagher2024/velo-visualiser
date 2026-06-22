@@ -151,6 +151,7 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
 
     private var current = DEFAULT_SCENE
     private var target = DEFAULT_SCENE
+    private var pendingTarget = -1              // scene requested mid-transition (honored on completion)
 
     private var surfaceW = 1
     private var surfaceH = 1
@@ -231,8 +232,13 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
      * visualizer selector). Ignored if already there or mid-transition.
      */
     fun requestScene(index: Int) {
-        if (transitionStart >= 0f) return        // already mid-transition
         val clamped = ((index % scenes.size) + scenes.size) % scenes.size
+        if (transitionStart >= 0f) {
+            // Mid-transition: remember the most recent request and apply it once the
+            // current fade finishes, so the renderer always lands where the UI points.
+            pendingTarget = clamped
+            return
+        }
         if (clamped == current) return
         target = clamped
         transitionStart = nowSec()
@@ -245,6 +251,7 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
         lastFrameSec = 0f
         lastActiveSec = 0f
         transitionStart = -1f
+        pendingTarget = -1
         swapped = false
         loadFrameCounter = 0
         hdrPunch = 0f
@@ -260,7 +267,9 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
         introStartSec = -1f
         introNotified = false
         if (introActive) {
-            introPlayedThisProcess = true
+            // NB: introPlayedThisProcess is set on *completion* (drawIntro), not here,
+            // so an intro interrupted by a surface teardown (e.g. backgrounding) replays
+            // instead of being skipped half-way.
             introScene.onCreated()
         }
         Log.i(TAG, "Surface created. Sample rate=${NativeBridge.nativeGetSampleRate()}")
@@ -418,6 +427,12 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
         // final color uniformly (incl. any static baseline) with no extra plumbing.
         // NB: updateTransition may swap `current`, so resolve the scene afterward.
         val dim = updateTransition(t) * updateBurnInGate(t)
+        // A scene picked mid-transition was deferred; now the fade is done, go there.
+        if (transitionStart < 0f && pendingTarget >= 0) {
+            val next = pendingTarget
+            pendingTarget = -1
+            requestScene(next)
+        }
         val scene = getOrInitScene(current)
 
         val glow = GlowSettings.strength
@@ -547,6 +562,7 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
 
         if (e >= INTRO_TOTAL_SEC) {
             introActive = false
+            introPlayedThisProcess = true       // only now is the intro truly "played"
             current = DEFAULT_SCENE
             target = DEFAULT_SCENE
             introScene.release()
