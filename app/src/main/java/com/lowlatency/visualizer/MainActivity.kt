@@ -121,6 +121,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnPeakLuminance: Button
     private lateinit var groupPeakLuminance: View
     private lateinit var perfOverlay: TextView
+    private lateinit var btnHeroName: Button
+    private lateinit var heroVisName: TextView
+    private var heroNameEnabled = true
     private lateinit var hapticController: HapticController
     private lateinit var prefs: SharedPreferences
 
@@ -373,6 +376,8 @@ class MainActivity : AppCompatActivity() {
         btnPrivacyPolicy = findViewById(R.id.btn_privacy_policy)
         btnAbout = findViewById(R.id.btn_about)
         btnPerfOverlay = findViewById(R.id.btn_perf_overlay)
+        btnHeroName = findViewById(R.id.btn_hero_name)
+        heroVisName = findViewById(R.id.hero_vis_name)
         btnPeakLuminance = findViewById(R.id.btn_peak_luminance)
         groupPeakLuminance = findViewById(R.id.group_peak_luminance)
         perfOverlay = findViewById(R.id.perf_overlay)
@@ -615,6 +620,10 @@ class MainActivity : AppCompatActivity() {
         setPerfOverlay(prefs.getBoolean(KEY_PERF_OVERLAY, false))
         btnPerfOverlay.setOnClickListener { setPerfOverlay(!perfOverlayEnabled) }
 
+        // Hero visualiser-name header toggle (persisted, default on).
+        setHeroName(prefs.getBoolean(KEY_HERO_NAME, true))
+        btnHeroName.setOnClickListener { setHeroName(!heroNameEnabled) }
+
         // Peak luminance (HDR+) toggle (persisted, default off).
         val peak = prefs.getBoolean(KEY_PEAK_LUMINANCE, false)
         updatePeakLuminance(peak)
@@ -807,30 +816,32 @@ class MainActivity : AppCompatActivity() {
             applyPositions()
         }
 
-        // Live diagnostics poll. The "Lights" dot flashes whenever a beat is
-        // actually pushed to the bulbs (either mode); the meters + trigger lines
-        // only apply to the Link beat-strobe.
+        // Live diagnostics poll. The "Beat → lights" dot flashes whenever a beat
+        // is actually pushed to the bulbs (either mode); the mic/bass meters read
+        // the shared BeatBus and apply in both modes. The bass marker is the Link
+        // colour-split point, so it's hidden in audio mode.
         val lightsDot = view.findViewById<View>(R.id.lights_dot)
         val meterLevel = view.findViewById<ProgressBar>(R.id.meter_level)
         val meterBass = view.findViewById<ProgressBar>(R.id.meter_bass)
         val markerLevel = view.findViewById<View>(R.id.marker_level)
         val markerBass = view.findViewById<View>(R.id.marker_bass)
+        markerBass.visibility = if (linkMode) View.VISIBLE else View.INVISIBLE
         var lastLightBeat = hueController.lightBeatCount
         val poll = object : Runnable {
             override fun run() {
                 val lc = hueController.lightBeatCount
                 if (lc != lastLightBeat) { lastLightBeat = lc; flashDot(lightsDot) }
+                // Scale the level bar so the mic peak that reaches FULL brightness
+                // sits at the top; the trigger point then sits at levelBase/levelFull,
+                // marked by the line. The gate is the global Beat Sensitivity
+                // (shared with the visuals), so it applies in both modes.
+                val full = BeatSettings.levelFull.coerceAtLeast(1e-4f)
+                meterLevel.progress =
+                    (hueController.currentMicLevel / full * 100f).toInt().coerceIn(0, 100)
+                meterBass.progress = (hueController.currentBassRatio * 100f).toInt().coerceIn(0, 100)
+                val triggerFrac = (BeatSettings.levelBase / full).coerceIn(0f, 1f)
+                markerLevel.translationX = triggerFrac * (meterLevel.width - markerLevel.width)
                 if (linkMode) {
-                    // Scale the level bar so the mic peak that reaches FULL
-                    // brightness sits at the top; the trigger point then sits at a
-                    // fixed 40% (levelBase / levelFull), marked by the line. The
-                    // gate is the global Beat Sensitivity (shared with the visuals).
-                    val full = BeatSettings.levelFull.coerceAtLeast(1e-4f)
-                    meterLevel.progress =
-                        (hueController.currentMicLevel / full * 100f).toInt().coerceIn(0, 100)
-                    meterBass.progress = (hueController.currentBassRatio * 100f).toInt().coerceIn(0, 100)
-                    val triggerFrac = (BeatSettings.levelBase / full).coerceIn(0f, 1f)
-                    markerLevel.translationX = triggerFrac * (meterLevel.width - markerLevel.width)
                     val splitMid = ((HueStrobeSettings.bassLo + HueStrobeSettings.bassHi) * 0.5f).coerceIn(0f, 1f)
                     markerBass.translationX = splitMid * (meterBass.width - markerBass.width)
                 }
@@ -1040,6 +1051,15 @@ class MainActivity : AppCompatActivity() {
             perfOverlay.visibility = View.GONE
             perfHandler.removeCallbacks(perfPoller)
         }
+    }
+
+    /** Show/hide the oversized active-visualiser name atop the Visuals tab. */
+    private fun setHeroName(enabled: Boolean) {
+        heroNameEnabled = enabled
+        prefs.edit().putBoolean(KEY_HERO_NAME, enabled).apply()
+        btnHeroName.isSelected = enabled
+        btnHeroName.setText(if (enabled) R.string.hero_name_on else R.string.hero_name_off)
+        heroVisName.visibility = if (enabled) View.VISIBLE else View.GONE
     }
 
     private fun updatePerfOverlay() {
@@ -1609,6 +1629,7 @@ class MainActivity : AppCompatActivity() {
         for ((b, idx, base) in visButtons) {
             b.isSelected = idx == current
             b.text = if (favourites.contains(idx)) "★ $base" else base
+            if (idx == current) heroVisName.text = base
         }
     }
 
@@ -1912,6 +1933,7 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_ADV_AUDIO_FLASH = "adv_audio_flash"
         private const val KEY_ADV_HUE_LOOKAHEAD = "adv_hue_lookahead"
         private const val KEY_PERF_OVERLAY = "perf_overlay_enabled"
+        private const val KEY_HERO_NAME = "hero_name_enabled"
         private const val KEY_PEAK_LUMINANCE = "peak_luminance_enabled"
         private const val KEY_FAVOURITES = "favourite_scenes"
         private const val KEY_SCREENSHARE_RATIONALE = "screenshare_rationale_shown"

@@ -150,6 +150,23 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
+        <!-- Hero visualiser name — dramatic ultra-light scale (OP-1 inspired).
+             Toggleable via Settings ▸ Display; hidden here by default until the
+             current scene name is set in code. -->
+        <TextView
+            android:id="@+id/hero_vis_name"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fontFamily="@font/inter"
+            android:fontWeight="200"
+            android:textColor="@color/text_primary"
+            android:textSize="36sp"
+            android:letterSpacing="0.1"
+            android:textAllCaps="true"
+            android:lineSpacingMultiplier="0.95"
+            android:layout_marginBottom="8dp"
+            android:visibility="gone" />
+
         <!-- The active "VISUALS" tab already names this section, so the section
              label is dropped; the long-press hint stays for discoverability. -->
         <TextView
@@ -1186,6 +1203,19 @@
             android:layout_marginBottom="8dp"
             android:background="@drawable/pill_button_bg"
             android:text="@string/burnin_on"
+            android:textColor="@color/btn_text"
+            android:textAllCaps="false"
+            android:textSize="14sp"
+            android:stateListAnimator="@null" />
+
+        <!-- Hero visualiser-name header toggle (shown atop the Visuals tab) -->
+        <Button
+            android:id="@+id/btn_hero_name"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/pill_button_bg"
+            android:text="@string/hero_name_on"
             android:textColor="@color/btn_text"
             android:textAllCaps="false"
             android:textSize="14sp"
