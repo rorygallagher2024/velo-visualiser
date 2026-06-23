@@ -30,6 +30,7 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.SeekBar
+import android.widget.TextSwitcher
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
@@ -123,7 +124,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnPeakLuminance: Button
     private lateinit var groupPeakLuminance: View
     private lateinit var perfOverlay: View
-    private lateinit var perfFpsValue: TextView
+    private lateinit var perfFpsValue: TextSwitcher
     private lateinit var perfFrameMs: TextView
     private lateinit var perfDetail: TextView
     private var displayedFps = 0f
@@ -1210,16 +1211,28 @@ class MainActivity : AppCompatActivity() {
             else -> Math.abs(v - shownFps) >= FPS_HYSTERESIS
         }
         if (changed) {
-            shownFps = target
-            perfFpsValue.text = target.toString()
-        }
-        perfFpsValue.setTextColor(
-            when {
-                v < 30f -> 0xFFFF4444.toInt()
-                v < 55f -> 0xFFFFBB33.toInt()
-                else -> getColor(R.color.text_primary)
+            val currentStr = (perfFpsValue.currentView as? TextView)?.text?.toString() ?: "0"
+            val currentInt = currentStr.toIntOrNull() ?: 0
+            
+            if (target > currentInt) {
+                perfFpsValue.inAnimation = android.view.animation.AnimationUtils.loadAnimation(this, R.anim.fps_in_up)
+                perfFpsValue.outAnimation = android.view.animation.AnimationUtils.loadAnimation(this, R.anim.fps_out_up)
+            } else if (target < currentInt) {
+                perfFpsValue.inAnimation = android.view.animation.AnimationUtils.loadAnimation(this, R.anim.fps_in_down)
+                perfFpsValue.outAnimation = android.view.animation.AnimationUtils.loadAnimation(this, R.anim.fps_out_down)
             }
-        )
+            
+            shownFps = target
+            perfFpsValue.setText(target.toString())
+        }
+        
+        val color = when {
+            v < 30f -> 0xFFFF4444.toInt()
+            v < 55f -> 0xFFFFBB33.toInt()
+            else -> getColor(R.color.text_primary)
+        }
+        (perfFpsValue.getChildAt(0) as? TextView)?.setTextColor(color)
+        (perfFpsValue.getChildAt(1) as? TextView)?.setTextColor(color)
     }
 
     private fun setGlow(s: GlowSettings.Strength) {
@@ -2037,8 +2050,8 @@ class MainActivity : AppCompatActivity() {
         // FPS readout: snap to a vsync rate within this many fps (kills 60↔61
         // flicker); off a locked rate, require this much change before re-drawing.
         private val LOCKED_RATES = intArrayOf(60, 90, 120, 144)
-        private const val FPS_SNAP_TOL = 1.0f
-        private const val FPS_HYSTERESIS = 0.7f
+        private const val FPS_SNAP_TOL = 2.5f
+        private const val FPS_HYSTERESIS = 1.5f
         private const val KEY_PEAK_LUMINANCE = "peak_luminance_enabled"
         private const val KEY_FAVOURITES = "favourite_scenes"
         private const val KEY_SCREENSHARE_RATIONALE = "screenshare_rationale_shown"
