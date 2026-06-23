@@ -20,5 +20,5 @@ object GlowSettings {
         }
     }
 
-    @Volatile var strength: Strength = Strength.STANDARD
+    @Volatile var strength: Strength = Strength.OFF
 }
