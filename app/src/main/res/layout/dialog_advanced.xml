@@ -63,24 +63,16 @@
                 android:layout_marginStart="8dp" />
         </LinearLayout>
 
-        <!-- ===== Group: Ableton Link beat-strobe ===== -->
+        <!-- ===== Group: live meters (shown in both modes) ===== -->
+        <!-- Mic level + bass content come from the shared BeatBus, so they apply
+             whether or not Link is on. The level marker is the beat-gate trigger
+             (both modes); the bass marker is the Link colour-split point and is
+             hidden in audio mode. -->
         <LinearLayout
-            android:id="@+id/group_link"
+            android:id="@+id/group_meters"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical">
-
-            <Button
-                android:id="@+id/btn_link_beat_flash"
-                android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:layout_marginBottom="20dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/adv_link_beat_on"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="13sp"
-                android:stateListAnimator="@null" />
 
             <TextView
                 android:layout_width="wrap_content"
@@ -147,6 +139,26 @@
                     android:layout_height="16dp"
                     android:background="@color/text_primary" />
             </FrameLayout>
+        </LinearLayout>
+
+        <!-- ===== Group: Ableton Link beat-strobe ===== -->
+        <LinearLayout
+            android:id="@+id/group_link"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <Button
+                android:id="@+id/btn_link_beat_flash"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="20dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/adv_link_beat_on"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:stateListAnimator="@null" />
 
             <TextView
                 android:layout_width="wrap_content"

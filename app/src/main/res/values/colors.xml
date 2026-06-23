@@ -14,7 +14,6 @@
     <color name="sheet_stroke">#26FFFFFF</color>    <!-- hairline -->
     <color name="segment_idle">#0FFFFFFF</color>    <!-- barely-there idle fill -->
     <color name="scrim">#66000000</color>
-    <color name="first_boot_scrim">#E6000000</color>
     <color name="text_primary">#FFF1EEE6</color>    <!-- warm off-white -->
     <color name="text_dim">#FF8C897F</color>        <!-- warm grey -->
 
