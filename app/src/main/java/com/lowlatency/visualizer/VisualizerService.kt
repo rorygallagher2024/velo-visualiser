@@ -15,25 +15,22 @@ import android.media.AudioPlaybackCaptureConfiguration
 import android.media.AudioRecord
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
-import android.os.Binder
 import android.os.IBinder
 import android.util.Log
 import androidx.annotation.RequiresPermission
-import com.lowlatency.visualizer.hue.HueLightController
 import kotlin.concurrent.thread
 
 /**
- * Foreground service that manages audio capture (Mic or System Audio) and
- * Philips Hue synchronization. By moving these to a service, the light show
- * can continue running even when the app is in the background or closed.
+ * Foreground service that keeps the mic (Oboe) and/or system-audio capture
+ * alive while the app is backgrounded. Only started when the user explicitly
+ * enables "Run in Background" — never on cold launch.
+ *
+ * The service does NOT own the HueLightController; the activity does. The
+ * service's sole job is holding the foreground-service wakelock + notification
+ * so Android doesn't kill the process while the Hue sender thread (which lives
+ * in HueLightController, running in the activity's process) keeps streaming.
  */
 class VisualizerService : Service() {
-
-    inner class LocalBinder : Binder() {
-        fun getService(): VisualizerService = this@VisualizerService
-    }
-
-    private val binder = LocalBinder()
 
     companion object {
         private const val TAG = "VisualizerService"
@@ -64,18 +61,12 @@ class VisualizerService : Service() {
     private var record: AudioRecord? = null
     private var readerThread: Thread? = null
 
-    // The single source of truth for Hue sync. Managed by the service so it
-    // survives activity destruction.
-    lateinit var hueController: HueLightController
-        private set
-
     override fun onCreate() {
         super.onCreate()
-        hueController = HueLightController(this)
-        Log.i(TAG, "Service created, HueController initialized.")
+        Log.i(TAG, "Service created.")
     }
 
-    override fun onBind(intent: Intent?): IBinder = binder
+    override fun onBind(intent: Intent?): IBinder? = null
 
     @RequiresPermission(allOf = [Manifest.permission.RECORD_AUDIO, Manifest.permission.FOREGROUND_SERVICE_MICROPHONE])
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -84,8 +75,7 @@ class VisualizerService : Service() {
             return START_NOT_STICKY
         }
 
-        // Always ensure the notification is up if we are starting.
-        updateNotification()
+        showNotification()
 
         val resultCode = intent?.getIntExtra(EXTRA_RESULT_CODE, 0) ?: 0
         @Suppress("DEPRECATION")
@@ -95,19 +85,34 @@ class VisualizerService : Service() {
             startInternalAudioCapture(resultCode, data)
         }
 
-        return START_STICKY
+        return START_NOT_STICKY
     }
 
-    fun updateNotification() {
+    fun updateNotificationText(text: String) {
+        val nm = getSystemService(NotificationManager::class.java)
+        val notification = buildNotification(text)
+        nm.notify(NOTIFICATION_ID, notification)
+    }
+
+    private fun showNotification() {
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(
             NotificationChannel(
                 CHANNEL_ID,
-                "Visualizer Background Service",
+                "Background Light Sync",
                 NotificationManager.IMPORTANCE_LOW
             )
         )
 
+        val notification = buildNotification("Hue light show running in background")
+        try {
+            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start foreground service", e)
+        }
+    }
+
+    private fun buildNotification(contentText: String): Notification {
         val stopIntent = Intent(this, VisualizerService::class.java).apply {
             action = ACTION_STOP
         }
@@ -120,37 +125,14 @@ class VisualizerService : Service() {
             this, 0, openIntent, PendingIntent.FLAG_IMMUTABLE
         )
 
-        val hueActive = hueController.isEnabled
-        val internalAudioActive = capturing
-
-        val contentText = when {
-            hueActive && internalAudioActive -> "Visualizing system audio & Hue sync active"
-            hueActive -> "Hue light show active"
-            internalAudioActive -> "Visualizing system audio"
-            else -> "Visualizer service ready"
-        }
-
-        val notification: Notification = Notification.Builder(this, CHANNEL_ID)
-            .setContentTitle("Low Latency Visualizer")
+        return Notification.Builder(this, CHANNEL_ID)
+            .setContentTitle("Velo")
             .setContentText(contentText)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentIntent(openPendingIntent)
             .setOngoing(true)
             .addAction(Notification.Action.Builder(null, "Stop", stopPendingIntent).build())
             .build()
-
-        // Combine types based on active features.
-        var type = 0
-        if (internalAudioActive) type = type or ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
-        // Even if only Hue is active, we might need Mic if that's the audio source.
-        // For compliance, if we might be using the mic in the background, we need the type.
-        type = type or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
-
-        try {
-            startForeground(NOTIFICATION_ID, notification, type)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to start foreground service", e)
-        }
     }
 
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
@@ -167,7 +149,6 @@ class VisualizerService : Service() {
             override fun onStop() {
                 Log.i(TAG, "MediaProjection stopped.")
                 stopInternalAudioCapture()
-                updateNotification()
             }
         }, null)
         projection = mp
@@ -205,7 +186,6 @@ class VisualizerService : Service() {
                 } else if (read < 0) break
             }
         }
-        updateNotification()
     }
 
     fun stopInternalAudioCapture() {
@@ -217,14 +197,12 @@ class VisualizerService : Service() {
         record = null
         projection?.stop()
         projection = null
-        updateNotification()
     }
 
     override fun onDestroy() {
-        capturing = false
-        hueController.disable()
         stopInternalAudioCapture()
         sendBroadcast(Intent(ACTION_STOPPED).setPackage(packageName))
+        Log.i(TAG, "Service destroyed.")
         super.onDestroy()
     }
 }

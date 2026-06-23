@@ -1625,6 +1625,18 @@
                 android:stateListAnimator="@null" />
 
             <Button
+                android:id="@+id/btn_background_mode"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/background_mode_off"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="14sp"
+                android:stateListAnimator="@null" />
+
+            <Button
                 android:id="@+id/btn_advanced"
                 android:layout_width="match_parent"
                 android:layout_height="48dp"

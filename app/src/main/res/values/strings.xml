@@ -171,6 +171,8 @@
     <string name="hue_reconnect">Reconnect</string>
     <string name="hue_sync_on">Light Sync: On</string>
     <string name="hue_sync_off">Light Sync: Off</string>
+    <string name="background_mode_on">Run in Background: On</string>
+    <string name="background_mode_off">Run in Background: Off</string>
     <string name="hue_local_note">Works over your local Wi-Fi only — your phone and Hue Bridge must be on the same network. No Hue cloud account is used. Light sync uses the Microphone source.</string>
     <string name="hue_mic_only">Light sync works with the Microphone source. Switch the audio source to Microphone.</string>
     <string name="hue_status_idle">Tap “Connect Hue Bridge” to begin.</string>
