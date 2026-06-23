@@ -142,11 +142,6 @@ Open in Android Studio (Meerkat 2024.3.1 or higher):
 * **CMake:** 3.22.1
 * **Architecture:** `arm64-v8a` only.
 
-### Tested and validated on
-- Google Pixel 10 Pro Fold
-- Google Pixel Tablet
-- Samsung Galaxy Tab S8 Ultra
-
 ---
 
 ## Contributing
