@@ -552,6 +552,18 @@
                 android:textSize="14sp"
                 android:stateListAnimator="@null" />
 
+            <Button
+                android:id="@+id/btn_logo_particle"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_logo_particle"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="14sp"
+                android:stateListAnimator="@null" />
+
             <!-- ===== Category: Immersive (rich generative, heavier GPU) ===== -->
             <View
                 android:layout_width="match_parent"
@@ -629,6 +641,7 @@
                 android:textAllCaps="false"
                 android:textSize="14sp"
                 android:stateListAnimator="@null" />
+
         </LinearLayout>
 
         </LinearLayout>
