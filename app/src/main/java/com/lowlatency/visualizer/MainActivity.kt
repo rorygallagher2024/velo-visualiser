@@ -4,9 +4,11 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Dialog
 import android.content.BroadcastReceiver
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.ServiceConnection
 import android.content.SharedPreferences
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
@@ -16,6 +18,7 @@ import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
+import android.os.IBinder
 import android.os.Looper
 import android.provider.Settings
 import android.util.Log
@@ -148,6 +151,41 @@ class MainActivity : AppCompatActivity() {
     private lateinit var hueSyncSection: LinearLayout
     private lateinit var hueStatus: TextView
     private lateinit var hueConn: TextView
+    private var visualizerService: VisualizerService? = null
+    private var isBound = false
+
+    private val serviceConnection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+            val binder = service as VisualizerService.LocalBinder
+            val s = binder.getService()
+            visualizerService = s
+            isBound = true
+            
+            // Link the UI's Hue controller reference to the service's instance
+            hueController = s.hueController
+            
+            // Sync UI with current service state
+            if (systemAudioMode != s.hueController.isEnabled || s.hueController.isEnabled) {
+                // If service is already syncing or in internal audio mode, update UI
+                updateHueSyncButton(s.hueController.isEnabled)
+                if (s.hueController.isEnabled) {
+                    updateHueConn(HueConn.STREAMING)
+                    startHuePingPoller()
+                    loadHueAreas()
+                }
+            }
+            
+            // Re-wire the GL taps to the service's controller
+            glView.bandsSink = { l, m, h -> s.hueController.onBands(l, m, h) }
+            glView.onLinkBeat = { s.hueController.onLinkBeat() }
+        }
+
+        override fun onServiceDisconnected(name: ComponentName?) {
+            visualizerService = null
+            isBound = false
+        }
+    }
+
     private lateinit var hueController: HueLightController
     private lateinit var hueStore: HueCredentialStore
     private var hueAreas: List<HueEntertainmentArea> = emptyList()
@@ -239,16 +277,11 @@ class MainActivity : AppCompatActivity() {
             // we visualize system audio cleanly.
             NativeBridge.nativeStop()
             startForegroundService(
-                AudioCaptureService.newIntent(this, result.resultCode, data)
+                VisualizerService.captureIntent(this, result.resultCode, data)
             )
             systemAudioMode = true
-            // Light sync is mic-only; stop it when moving to internal audio.
-            if (::hueController.isInitialized && hueController.isEnabled) {
-                hueController.disable()
-                updateHueSyncButton(false)
-                updateHueConn(HueConn.REACHABLE)
-                hueStatus.setText(R.string.hue_mic_only)
-            }
+            // Light sync is now supported with internal audio too, but we may want
+            // to re-enable it or keep it as is. For now, let's allow it to continue.
         } else {
             Toast.makeText(this, "System-audio capture denied.", Toast.LENGTH_SHORT).show()
             systemAudioMode = false
@@ -260,6 +293,12 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
+        
+        // Start and bind to the visualizer service
+        val intent = Intent(this, VisualizerService::class.java)
+        startForegroundService(intent)
+        bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
+
         configureHdrWindow()
         selectHighestRefreshRate()
         setContentView(R.layout.activity_main)
@@ -276,7 +315,7 @@ class MainActivity : AppCompatActivity() {
         ContextCompat.registerReceiver(
             this,
             captureStopReceiver,
-            IntentFilter(AudioCaptureService.ACTION_STOPPED),
+            IntentFilter(VisualizerService.ACTION_STOPPED),
             ContextCompat.RECEIVER_NOT_EXPORTED
         )
 
@@ -1175,29 +1214,14 @@ class MainActivity : AppCompatActivity() {
     // ----- Smart lighting (Philips Hue) -----
 
     private fun wireHue() {
-        hueController = HueLightController(this)
         hueStore = HueCredentialStore(this)
+        // Note: hueController is initialized via VisualizerService binding.
 
-        // Hue light sync reads the FFT bands; haptics runs bass-onset detection
-        // on the raw PCM (a separate tap, so it can't affect any visual tuning).
-        glView.bandsSink = { low, mid, high -> hueController.onBands(low, mid, high) }
         // Haptics fire off the shared BeatBus, which the renderer updates just
         // before this per-frame tap. Audio presence + bass balance (for the Hue
         // strobe) are measured in the renderer too, so this tap is just the tick.
         glView.pcmBeatSink = { pcm -> hapticController.onPcm(pcm) }
-        // Raw (ungated) Link beat: drives the Hue strobe timing (with lookahead)
-        // and flashes the diagnostic beat light when the menu is open. The visuals
-        // and haptics react to the *gated* beat via BeatBus instead. Runs on the
-        // GL thread, so the light update hops to the UI thread.
-        glView.onLinkBeat = {
-            hueController.onLinkBeat()
-            // Step the virtual bar to Link's current beat-in-bar (post-nudge) and
-            // pulse the beat dot. Only while the menu is open, to stay cheap.
-            if (menuOpen) {
-                val cell = (Math.round(BeatPulse.barPhase * 4f) % 4 + 4) % 4
-                beatDot.post { flashBeatDot(); updateBarCells(cell) }
-            }
-        }
+        
         // Drop diagnostic light (detected energy surge); flashed while menu open.
         glView.onDrop = { if (menuOpen) dropDot.post { flashDot(dropDot) } }
 
@@ -1212,17 +1236,8 @@ class MainActivity : AppCompatActivity() {
             btnHueConnect.setText(R.string.hue_reconnect)
             btnHueForget.visibility = View.VISIBLE
             updateHueConn(HueConn.CHECKING)
-            hueController.setup.pingBridge(savedCreds) { rtt ->
-                if (rtt != null) {
-                    updateHueConn(HueConn.REACHABLE)
-                    hueStatus.text = getString(R.string.hue_status_ready)
-                    startHuePingPoller()
-                    loadHueAreas()
-                } else {
-                    updateHueConn(HueConn.PAIRED)
-                    hueStatus.text = getString(R.string.hue_status_unreachable)
-                }
-            }
+            
+            // We'll wait for service binding to finish the Hue setup if it's not already.
         } else {
             updateHueConn(HueConn.DISCONNECTED)
         }
@@ -1400,12 +1415,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun onHueSyncToggle() {
+        if (!::hueController.isInitialized) return
         if (hueController.isEnabled) {
             hueController.disable()
             updateHueSyncButton(false)
             updateHueConn(HueConn.REACHABLE)
             hueStatus.setText(R.string.hue_status_ready)
             updateHueSections()
+            visualizerService?.updateNotification()
             return
         }
         // Light sync is currently microphone-only: internal (system) audio drives
@@ -1425,6 +1442,7 @@ class MainActivity : AppCompatActivity() {
             updateHueConn(if (ok) HueConn.STREAMING else HueConn.REACHABLE)
             hueStatus.text = if (ok) getString(R.string.hue_status_synced) else (err ?: "Failed to sync.")
             updateHueSections()
+            visualizerService?.updateNotification()
         }
     }
 
@@ -1646,7 +1664,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun selectMicrophone() {
         if (systemAudioMode) {
-            stopService(Intent(this, AudioCaptureService::class.java))
+            visualizerService?.stopInternalAudioCapture()
             systemAudioMode = false
         }
         ensureMicAndStart()
@@ -1840,7 +1858,9 @@ class MainActivity : AppCompatActivity() {
         glView.onResume()
         updatePeakLuminance(prefs.getBoolean(KEY_PEAK_LUMINANCE, false))
         if (!systemAudioMode) ensureMicAndStart()
-        if (::hueController.isInitialized) hueController.paused = false
+        if (::hueController.isInitialized) {
+            hueController.paused = false
+        }
         if (LinkSync.enabled) {
             NativeBridge.nativeLinkSetEnabled(true)
             acquireMulticastLock()
@@ -1867,8 +1887,15 @@ class MainActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
         glView.onPause()
-        if (!systemAudioMode) NativeBridge.nativeStop()
-        if (::hueController.isInitialized) hueController.paused = true
+        // If we are NOT in internal audio mode, Oboe is running.
+        // If Hue is active, we must NOT stop Oboe because the service needs it.
+        val hueSyncActive = ::hueController.isInitialized && hueController.isEnabled
+        if (!systemAudioMode && !hueSyncActive) {
+            NativeBridge.nativeStop()
+        }
+        if (::hueController.isInitialized) {
+            hueController.paused = true
+        }
         perfHandler.removeCallbacks(perfPoller)
         huePingHandler.removeCallbacks(huePingPoller)
         linkHandler.removeCallbacks(linkStatusPoller)
@@ -1881,12 +1908,23 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         stopHuePingPoller()
         perfHandler.removeCallbacks(perfPoller)
-        if (::hueController.isInitialized) hueController.disable()
+        
+        val hueSyncActive = ::hueController.isInitialized && hueController.isEnabled
+        if (!hueSyncActive) {
+            if (::hueController.isInitialized) hueController.disable()
+            NativeBridge.nativeStop()
+        }
+        
         if (::hapticController.isInitialized) hapticController.release()
         linkHandler.removeCallbacks(linkStatusPoller)
         NativeBridge.nativeLinkSetEnabled(false)
         releaseMulticastLock()
-        NativeBridge.nativeStop()
+        
+        if (isBound) {
+            unbindService(serviceConnection)
+            isBound = false
+        }
+
         unregisterReceiver(captureStopReceiver)
         super.onDestroy()
     }

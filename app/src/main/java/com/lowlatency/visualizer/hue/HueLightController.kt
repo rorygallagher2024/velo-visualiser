@@ -35,7 +35,11 @@ class HueLightController(context: Context) {
     @Volatile private var high = 0f
 
     @Volatile private var running = false
-    @Volatile var paused = false        // true while app is backgrounded; sender drops to 1 Hz keepalive
+    /**
+     * Set to true when the activity is paused to indicate the GL thread is no
+     * longer pushing bands. The sender loop will then poll NativeBridge directly.
+     */
+    @Volatile var paused = false
     private var senderThread: Thread? = null
     private var client: HueStreamClient? = null
 
@@ -137,18 +141,24 @@ class HueLightController(context: Context) {
             val frameNs = 1_000_000_000L / SEND_HZ
             var linkBeatFired = false
 
+            // Reusable buffer for polling bands from the native engine when paused.
+            val pollBands = FloatArray(3)
+
             while (running) {
                 val t0 = System.nanoTime()
 
-                if (paused) {
-                    // App is backgrounded — send a silent frame at 1 Hz to keep DTLS alive.
-                    for (i in rgb.indices) rgb[i] = 0f
-                    c.send(channelIds, rgb)
-                    try { Thread.sleep(1000) } catch (_: InterruptedException) { break }
-                    continue
-                }
+                val l: Float
+                val m: Float
+                val h: Float
 
-                val l = low; val m = mid; val h = high
+                if (paused) {
+                    // UI is backgrounded; the GL thread isn't calling onBands().
+                    // Poll the latest analysis directly from the native engine.
+                    NativeBridge.fillLatestFrequencyBands(pollBands)
+                    l = pollBands[0]; m = pollBands[1]; h = pollBands[2]
+                } else {
+                    l = low; m = mid; h = high
+                }
 
                 if (LinkSync.enabled) {
                     // Beat-strobe: dark between Link beats; on each beat flash a

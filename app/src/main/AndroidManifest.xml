@@ -8,6 +8,7 @@
     <!-- Foreground service required for MediaProjection on Android 14+ -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- Philips Hue: LAN bridge discovery (mDNS), REST control, DTLS UDP stream -->
@@ -54,13 +55,13 @@
             </intent-filter>
         </activity>
 
-        <!-- Foreground service that owns the MediaProjection session for
-             internal/system audio capture. Android 14+ requires the
-             mediaProjection foregroundServiceType. -->
+        <!-- Foreground service that owns the MediaProjection session and Hue sync
+             for background operation. Android 14+ requires the appropriate
+             foregroundServiceType. -->
         <service
-            android:name=".AudioCaptureService"
+            android:name=".VisualizerService"
             android:exported="false"
-            android:foregroundServiceType="mediaProjection" />
+            android:foregroundServiceType="mediaProjection|microphone" />
 
     </application>
 </manifest>
