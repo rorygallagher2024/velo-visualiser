@@ -171,14 +171,12 @@ class MainActivity : AppCompatActivity() {
             visualizerService = s
             isBound = true
 
-            // Link the UI's Hue controller reference to the service's instance
-            hueController = s.hueController
-
             // Sync UI with current service state
-            if (systemAudioMode != s.hueController.isEnabled || s.hueController.isEnabled) {
+            val hue = s.hueController
+            if (systemAudioMode != hue.isEnabled || hue.isEnabled) {
                 // If service is already syncing or in internal audio mode, update UI
-                updateHueSyncButton(s.hueController.isEnabled)
-                if (s.hueController.isEnabled) {
+                updateHueSyncButton(hue.isEnabled)
+                if (hue.isEnabled) {
                     updateHueConn(HueConn.STREAMING)
                     startHuePingPoller()
                     loadHueAreas()
@@ -186,8 +184,21 @@ class MainActivity : AppCompatActivity() {
             }
 
             // Re-wire the GL taps to the service's controller
-            glView.bandsSink = { l, m, h -> s.hueController.onBands(l, m, h) }
-            glView.onLinkBeat = { s.hueController.onLinkBeat() }
+            glView.bandsSink = { l, m, h -> hue.onBands(l, m, h) }
+            glView.onLinkBeat = { hue.onLinkBeat() }
+
+            // Resume ping poller if we have credentials
+            val creds = hueStore.loadCredentials()
+            if (creds != null && !hue.isEnabled) {
+                hue.setup.pingBridge(creds) { rtt ->
+                    if (rtt != null) {
+                        updateHueConn(HueConn.REACHABLE)
+                        hueStatus.text = getString(R.string.hue_status_ready)
+                        startHuePingPoller()
+                        if (hueAreas.isEmpty()) loadHueAreas()
+                    }
+                }
+            }
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
@@ -196,7 +207,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private lateinit var hueController: HueLightController
+    private val hueController: HueLightController?
+        get() = visualizerService?.hueController
     private lateinit var hueStore: HueCredentialStore
     private var hueAreas: List<HueEntertainmentArea> = emptyList()
     private var selectedArea: HueEntertainmentArea? = null
@@ -252,13 +264,14 @@ class MainActivity : AppCompatActivity() {
     private val huePingPoller = object : Runnable {
         override fun run() {
             val creds = hueStore.loadCredentials() ?: return
-            hueController.setup.pingBridge(creds) { rtt ->
+            val hue = hueController ?: return
+            hue.setup.pingBridge(creds) { rtt ->
                 if (!huePingPollerRunning) return@pingBridge
                 if (rtt != null) {
-                    val state = if (hueController.isEnabled) HueConn.STREAMING else HueConn.REACHABLE
+                    val state = if (hue.isEnabled) HueConn.STREAMING else HueConn.REACHABLE
                     updateHueConn(state)
                 } else {
-                    if (!hueController.isEnabled) {
+                    if (!hue.isEnabled) {
                         updateHueConn(HueConn.PAIRED)
                         stopHuePingPoller()
                     }
@@ -888,19 +901,23 @@ class MainActivity : AppCompatActivity() {
         val markerLevel = view.findViewById<View>(R.id.marker_level)
         val markerBass = view.findViewById<View>(R.id.marker_bass)
         markerBass.visibility = if (linkMode) View.VISIBLE else View.INVISIBLE
-        var lastLightBeat = hueController.lightBeatCount
+        var lastLightBeat = hueController?.lightBeatCount ?: 0
         val poll = object : Runnable {
             override fun run() {
-                val lc = hueController.lightBeatCount
-                if (lc != lastLightBeat) { lastLightBeat = lc; flashDot(lightsDot) }
-                // Scale the level bar so the mic peak that reaches FULL brightness
-                // sits at the top; the trigger point then sits at levelBase/levelFull,
-                // marked by the line. The gate is the global Beat Sensitivity
-                // (shared with the visuals), so it applies in both modes.
+                val hue = hueController
+                if (hue != null) {
+                    val lc = hue.lightBeatCount
+                    if (lc != lastLightBeat) { lastLightBeat = lc; flashDot(lightsDot) }
+                    // Scale the level bar so the mic peak that reaches FULL brightness
+                    // sits at the top; the trigger point then sits at levelBase/levelFull,
+                    // marked by the line. The gate is the global Beat Sensitivity
+                    // (shared with the visuals), so it applies in both modes.
+                    val full = BeatSettings.levelFull.coerceAtLeast(1e-4f)
+                    meterLevel.progress =
+                        (hue.currentMicLevel / full * 100f).toInt().coerceIn(0, 100)
+                    meterBass.progress = (hue.currentBassRatio * 100f).toInt().coerceIn(0, 100)
+                }
                 val full = BeatSettings.levelFull.coerceAtLeast(1e-4f)
-                meterLevel.progress =
-                    (hueController.currentMicLevel / full * 100f).toInt().coerceIn(0, 100)
-                meterBass.progress = (hueController.currentBassRatio * 100f).toInt().coerceIn(0, 100)
                 val triggerFrac = (BeatSettings.levelBase / full).coerceIn(0f, 1f)
                 markerLevel.translationX = triggerFrac * (meterLevel.width - markerLevel.width)
                 if (linkMode) {
@@ -1106,7 +1123,7 @@ class MainActivity : AppCompatActivity() {
         btnPerfOverlay.setText(if (enabled) R.string.perf_overlay_on else R.string.perf_overlay_off)
         if (enabled) {
             perfOverlay.visibility = View.VISIBLE
-            lastHuePackets = if (::hueController.isInitialized) hueController.huePacketsSent else 0L
+            lastHuePackets = hueController?.huePacketsSent ?: 0L
             displayedFps = 0f          // count up from zero — a small flourish on open
             shownFps = -1
             perfHandler.removeCallbacks(perfPoller)
@@ -1215,11 +1232,12 @@ class MainActivity : AppCompatActivity() {
         }
 
         // Philips Hue.
-        if (::hueController.isInitialized && hueController.isEnabled) {
-            val sent = hueController.huePacketsSent
+        val hue = hueController
+        if (hue != null && hue.isEnabled) {
+            val sent = hue.huePacketsSent
             val pps = ((sent - lastHuePackets) * 2).coerceAtLeast(0)  // poll is 500ms → ×2
             lastHuePackets = sent
-            val drops = hueController.huePacketsFailed
+            val drops = hue.huePacketsFailed
             appendRow("Hue", "%d pps · %d drop".format(pps, drops), if (drops > 0) amber else 0)
         }
 
@@ -1345,7 +1363,7 @@ class MainActivity : AppCompatActivity() {
         if (existing != null) {
             btnHueConnect.isEnabled = false
             updateHueConn(HueConn.CHECKING)
-            hueController.setup.pingBridge(existing) { rtt ->
+            hueController?.setup?.pingBridge(existing) { rtt ->
                 if (rtt != null) {
                     btnHueConnect.isEnabled = true
                     updateHueConn(HueConn.REACHABLE)
@@ -1361,7 +1379,14 @@ class MainActivity : AppCompatActivity() {
         hueStatus.setText(R.string.hue_status_searching)
         updateHueConn(HueConn.SEARCHING)
         btnHueConnect.isEnabled = false
-        hueController.setup.discoverBridges { bridges ->
+        val hue = hueController
+        if (hue == null) {
+            hueStatus.setText(R.string.hue_status_idle)
+            updateHueConn(HueConn.DISCONNECTED)
+            btnHueConnect.isEnabled = true
+            return
+        }
+        hue.setup.discoverBridges { bridges ->
             val bridge = bridges.firstOrNull()
             if (bridge == null) {
                 hueStatus.setText(R.string.hue_status_no_bridge)
@@ -1369,7 +1394,7 @@ class MainActivity : AppCompatActivity() {
                 btnHueConnect.isEnabled = true
                 return@discoverBridges
             }
-            hueController.setup.pair(
+            hue.setup.pair(
                 bridgeIp = bridge.ip,
                 onCountdown = { s -> hueStatus.text = getString(R.string.hue_status_press_button, s) },
                 onSuccess = {
@@ -1401,9 +1426,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun rediscoverBridge(oldCreds: HueCredentials) {
+        val hue = hueController ?: return
         updateHueConn(HueConn.SEARCHING)
         hueStatus.setText(R.string.hue_status_searching)
-        hueController.setup.discoverBridges { bridges ->
+        hue.setup.discoverBridges { bridges ->
             val bridge = bridges.firstOrNull()
             if (bridge == null) {
                 btnHueConnect.isEnabled = true
@@ -1413,7 +1439,7 @@ class MainActivity : AppCompatActivity() {
             }
             val updatedCreds = HueCredentials(bridge.ip, oldCreds.username, oldCreds.clientKey)
             hueStore.saveCredentials(updatedCreds)
-            hueController.setup.pingBridge(updatedCreds) { rtt ->
+            hue.setup.pingBridge(updatedCreds) { rtt ->
                 btnHueConnect.isEnabled = true
                 if (rtt != null) {
                     updateHueConn(HueConn.REACHABLE)
@@ -1429,9 +1455,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun forgetHueBridge() {
-        if (::hueController.isInitialized && hueController.isEnabled) {
-            hueController.disable()
-            updateHueSyncButton(false)
+        hueController?.let {
+            if (it.isEnabled) {
+                it.disable()
+                updateHueSyncButton(false)
+            }
         }
         stopHuePingPoller()
         hueStore.clear()
@@ -1449,7 +1477,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun loadHueAreas() {
         val creds = hueStore.loadCredentials() ?: return
-        hueController.setup.listEntertainmentAreas(
+        hueController?.setup?.listEntertainmentAreas(
             creds = creds,
             onResult = { areas -> showHueAreas(areas) },
             onError = { msg ->
@@ -1519,14 +1547,15 @@ class MainActivity : AppCompatActivity() {
      * actually respond again — and the UI reflects the true result.
      */
     private fun refreshHueAfterResume() {
-        if (!::hueController.isInitialized || !hueController.isEnabled) return
+        val hue = hueController ?: return
+        if (!hue.isEnabled) return
         val area = selectedArea ?: return
         val awayMs = SystemClock.elapsedRealtime() - backgroundedAtMs
         if (backgroundedAtMs == 0L || awayMs < HUE_RESYNC_AWAY_MS) return  // quick glance: keepalive held
 
         btnHueSync.isEnabled = false
         hueStatus.setText(R.string.hue_status_ready)
-        hueController.restart(area) { ok, err ->
+        hue.restart(area) { ok, err ->
             btnHueSync.isEnabled = true
             updateHueSyncButton(ok)
             updateHueConn(if (ok) HueConn.STREAMING else HueConn.REACHABLE)
@@ -1536,9 +1565,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun onHueSyncToggle() {
-        if (!::hueController.isInitialized) return
-        if (hueController.isEnabled) {
-            hueController.disable()
+        val hue = hueController ?: return
+        if (hue.isEnabled) {
+            hue.disable()
             updateHueSyncButton(false)
             updateHueConn(HueConn.REACHABLE)
             hueStatus.setText(R.string.hue_status_ready)
@@ -1557,7 +1586,7 @@ class MainActivity : AppCompatActivity() {
             return
         }
         btnHueSync.isEnabled = false
-        hueController.enable(area) { ok, err ->
+        hue.enable(area) { ok, err ->
             btnHueSync.isEnabled = true
             updateHueSyncButton(ok)
             updateHueConn(if (ok) HueConn.STREAMING else HueConn.REACHABLE)
@@ -1578,7 +1607,7 @@ class MainActivity : AppCompatActivity() {
      * show it whenever Hue sync is active. The panel adapts to whichever mode is on.
      */
     private fun updateAdvancedVisibility() {
-        val relevant = ::hueController.isInitialized && hueController.isEnabled
+        val relevant = hueController?.isEnabled == true
         btnAdvanced.visibility = if (relevant) View.VISIBLE else View.GONE
     }
 
@@ -1656,18 +1685,19 @@ class MainActivity : AppCompatActivity() {
                 val area = selectedArea ?: return
                 val creds = hueStore.loadCredentials() ?: return
                 val bri = s.progress.coerceIn(1, 100)
-                hueController.setup.controlLights(creds, area.lightIds, on = true, brightness = bri)
+                hueController?.setup?.controlLights(creds, area.lightIds, on = true, brightness = bri)
             }
         })
     }
 
     private fun applyLightScene(scene: LightScene) {
+        val hue = hueController ?: return
         val area = selectedArea ?: return
         val creds = hueStore.loadCredentials() ?: return
         if (!scene.on) {
-            hueController.setup.controlLights(creds, area.lightIds, on = false)
+            hue.setup.controlLights(creds, area.lightIds, on = false)
         } else {
-            hueController.setup.controlLights(
+            hue.setup.controlLights(
                 creds, area.lightIds,
                 on = true,
                 brightness = brightnessSlider.progress.coerceIn(1, 100),
@@ -1964,7 +1994,7 @@ class MainActivity : AppCompatActivity() {
         glView.onResume()
         updatePeakLuminance(prefs.getBoolean(KEY_PEAK_LUMINANCE, false))
         if (!systemAudioMode) ensureMicAndStart()
-        if (::hueController.isInitialized) hueController.paused = false
+        hueController?.paused = false
         refreshHueAfterResume()
         if (LinkSync.enabled) {
             NativeBridge.nativeLinkSetEnabled(true)
@@ -1978,15 +2008,17 @@ class MainActivity : AppCompatActivity() {
         if (huePingPollerRunning) {
             huePingHandler.removeCallbacks(huePingPoller)
             huePingHandler.post(huePingPoller)
-        } else if (::hueStore.isInitialized && hueStore.loadCredentials() != null
-            && !hueController.isEnabled) {
-            val creds = hueStore.loadCredentials() ?: return
-            hueController.setup.pingBridge(creds) { rtt ->
-                if (rtt != null) {
-                    updateHueConn(HueConn.REACHABLE)
-                    hueStatus.text = getString(R.string.hue_status_ready)
-                    startHuePingPoller()
-                    if (hueAreas.isEmpty()) loadHueAreas()
+        } else if (::hueStore.isInitialized && hueStore.loadCredentials() != null) {
+            val hue = hueController
+            if (hue != null && !hue.isEnabled) {
+                val creds = hueStore.loadCredentials() ?: return
+                hue.setup.pingBridge(creds) { rtt ->
+                    if (rtt != null) {
+                        updateHueConn(HueConn.REACHABLE)
+                        hueStatus.text = getString(R.string.hue_status_ready)
+                        startHuePingPoller()
+                        if (hueAreas.isEmpty()) loadHueAreas()
+                    }
                 }
             }
         }
@@ -1995,18 +2027,17 @@ class MainActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
         glView.onPause()
-        if (!systemAudioMode) NativeBridge.nativeStop()
-        if (::hueController.isInitialized) hueController.paused = true
         backgroundedAtMs = SystemClock.elapsedRealtime()
+        
         // If we are NOT in internal audio mode, Oboe is running.
         // If Hue is active, we must NOT stop Oboe because the service needs it.
-        val hueSyncActive = ::hueController.isInitialized && hueController.isEnabled
+        val hue = hueController
+        val hueSyncActive = hue?.isEnabled == true
         if (!systemAudioMode && !hueSyncActive) {
             NativeBridge.nativeStop()
         }
-        if (::hueController.isInitialized) {
-            hueController.paused = true
-        }
+        hue?.paused = true
+        
         perfHandler.removeCallbacks(perfPoller)
         perfHandler.removeCallbacks(perfFpsTicker)
         huePingHandler.removeCallbacks(huePingPoller)
@@ -2021,11 +2052,11 @@ class MainActivity : AppCompatActivity() {
         stopHuePingPoller()
         perfHandler.removeCallbacks(perfPoller)
         perfHandler.removeCallbacks(perfFpsTicker)
-        if (::hueController.isInitialized) hueController.disable()
 
-        val hueSyncActive = ::hueController.isInitialized && hueController.isEnabled
+        val hue = hueController
+        val hueSyncActive = hue?.isEnabled == true
         if (!hueSyncActive) {
-            if (::hueController.isInitialized) hueController.disable()
+            hue?.disable()
             NativeBridge.nativeStop()
         }
 
