@@ -595,6 +595,18 @@
                 android:stateListAnimator="@null" />
 
             <Button
+                android:id="@+id/btn_crystal_swarm"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_crystal_swarm"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="14sp"
+                android:stateListAnimator="@null" />
+
+            <Button
                 android:id="@+id/btn_mandelbox"
                 android:layout_width="match_parent"
                 android:layout_height="48dp"

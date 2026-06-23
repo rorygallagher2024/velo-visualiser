@@ -90,6 +90,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnAuroraDrift: Button
     private lateinit var btnOdyssey: Button
     private lateinit var btnLogoParticle: Button
+    private lateinit var btnCrystalSwarm: Button
     private lateinit var btnBurnin: Button
     private lateinit var btnGlowOff: Button
     private lateinit var btnGlowSubtle: Button
@@ -359,6 +360,7 @@ class MainActivity : AppCompatActivity() {
         btnAuroraDrift = findViewById(R.id.btn_aurora_drift)
         btnOdyssey = findViewById(R.id.btn_odyssey)
         btnLogoParticle = findViewById(R.id.btn_logo_particle)
+        btnCrystalSwarm = findViewById(R.id.btn_crystal_swarm)
         btnBurnin = findViewById(R.id.btn_burnin)
         btnGlowOff = findViewById(R.id.btn_glow_off)
         btnGlowSubtle = findViewById(R.id.btn_glow_subtle)
@@ -608,6 +610,7 @@ class MainActivity : AppCompatActivity() {
             Triple(btnLogoParticle, 26, btnLogoParticle.text.toString()),
             // Immersive
             Triple(btnFluid, 2, btnFluid.text.toString()),
+            Triple(btnCrystalSwarm, 27, btnCrystalSwarm.text.toString()),
             Triple(btnMandelbox, 19, btnMandelbox.text.toString()),
             Triple(btnReactionDiffusion, 20, btnReactionDiffusion.text.toString()),
             Triple(btnPlasmaStorm, 23, btnPlasmaStorm.text.toString()),
