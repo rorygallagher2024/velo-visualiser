@@ -35,6 +35,8 @@
     <string name="vis_plasma_storm">Plasma Storm</string>
     <string name="vis_aurora_drift">Aurora Drift</string>
     <string name="vis_odyssey">Odyssey</string>
+    <string name="vis_logo_particle">Logo Particles</string>
+    <string name="vis_crystal_swarm">Crystalline Swarm</string>
     <string name="cat_instruments">Instruments</string>
     <string name="cat_reactive">Reactive</string>
     <string name="cat_immersive">Immersive</string>
