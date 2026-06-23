@@ -81,6 +81,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnAudioWeb: Button
     private lateinit var btnTopoRidge: Button
     private lateinit var btnLedMatrix: Button
+    private lateinit var btnLedMatrix3d: Button
     private lateinit var btnMechanicalMeter: Button
     private lateinit var btnBeatPulse: Button
     private lateinit var btnMandelbox: Button
@@ -351,6 +352,7 @@ class MainActivity : AppCompatActivity() {
         btnAudioWeb = findViewById(R.id.btn_audio_web)
         btnTopoRidge = findViewById(R.id.btn_topo_ridge)
         btnLedMatrix = findViewById(R.id.btn_led_matrix)
+        btnLedMatrix3d = findViewById(R.id.btn_led_matrix_3d)
         btnMechanicalMeter = findViewById(R.id.btn_mechanical_meter)
         btnBeatPulse = findViewById(R.id.btn_beat_pulse)
         btnMandelbox = findViewById(R.id.btn_mandelbox)
@@ -592,6 +594,7 @@ class MainActivity : AppCompatActivity() {
             Triple(btnCircular, 4, btnCircular.text.toString()),
             Triple(btnSpectrogram, 9, btnSpectrogram.text.toString()),
             Triple(btnLedMatrix, 16, btnLedMatrix.text.toString()),
+            Triple(btnLedMatrix3d, 28, btnLedMatrix3d.text.toString()),
             Triple(btnMechanicalMeter, 17, btnMechanicalMeter.text.toString()),
             // Reactive
             Triple(btnCymatics, 21, btnCymatics.text.toString()),
