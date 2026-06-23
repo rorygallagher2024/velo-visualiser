@@ -24,10 +24,11 @@ class LogoParticleScene : GlScene {
     private var uTime = 0
     private var uDim = 0
     private var uSizeScale = 0
-    private var uAccent = 0
     private var uBass = 0
     private var uMid = 0
     private var uHigh = 0
+    private var uHue = 0
+    private var uEnv = 0
 
     private var vbo = 0
     private var particleCount = 0
@@ -49,10 +50,11 @@ class LogoParticleScene : GlScene {
         uTime = GLES20.glGetUniformLocation(program, "u_time")
         uDim = GLES20.glGetUniformLocation(program, "u_dim")
         uSizeScale = GLES20.glGetUniformLocation(program, "u_sizeScale")
-        uAccent = GLES20.glGetUniformLocation(program, "u_accent")
         uBass = GLES20.glGetUniformLocation(program, "u_bass")
         uMid = GLES20.glGetUniformLocation(program, "u_mid")
         uHigh = GLES20.glGetUniformLocation(program, "u_high")
+        uHue = GLES20.glGetUniformLocation(program, "u_hue")
+        uEnv = GLES20.glGetUniformLocation(program, "u_env")
 
         val data = buildParticles()
         particleCount = data.size / FLOATS_PER_PARTICLE
@@ -83,7 +85,14 @@ class LogoParticleScene : GlScene {
         GLES20.glUniform1f(uTime, timeSec)
         GLES20.glUniform1f(uDim, dim)
         GLES20.glUniform1f(uSizeScale, sizeScale)
-        GLES20.glUniform3f(uAccent, accent[0], accent[1], accent[2])
+
+        val hue = if (com.lowlatency.visualizer.BeatPulse.linkActive) {
+            com.lowlatency.visualizer.BeatPulse.barPhase
+        } else {
+            (com.lowlatency.visualizer.BeatPulse.beatCount % 8) / 8f
+        }
+        val env = com.lowlatency.visualizer.BeatPulse.envelope
+
         val bass = maxOf(0f, bands[0] - 0.15f) * 1.15f
         val mid = maxOf(0f, bands[1] - 0.15f) * 1.15f
         val high = maxOf(0f, bands[2] - 0.15f) * 1.15f
@@ -96,6 +105,8 @@ class LogoParticleScene : GlScene {
         GLES20.glUniform1f(uBass, smoothedBass)
         GLES20.glUniform1f(uMid, smoothedMid)
         GLES20.glUniform1f(uHigh, smoothedHigh)
+        GLES20.glUniform1f(uHue, hue)
+        GLES20.glUniform1f(uEnv, env)
 
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, vbo)
         val stride = FLOATS_PER_PARTICLE * 4
@@ -250,12 +261,17 @@ class LogoParticleScene : GlScene {
 
         private val FRAGMENT_SHADER = """#version 300 es
             precision highp float;
-            uniform vec3 u_accent;
             uniform float u_dim;
             uniform float u_bass;
             uniform float u_high;
+            uniform float u_hue;
+            uniform float u_env;
             in float v_energy;
             out vec4 fragColor;
+
+            vec3 palette(float t) {
+                return 0.5 + 0.5 * cos(6.28318 * (t + vec3(0.0, 0.33, 0.67)));
+            }
 
             void main() {
                 vec2 c = gl_PointCoord * 2.0 - 1.0;
@@ -263,15 +279,16 @@ class LogoParticleScene : GlScene {
                 if (d > 1.0) discard;
                 float core = exp(-d * 3.5);
 
-                // Start from base accent, mix towards pure white with high energy
-                vec3 col = mix(u_accent, vec3(1.5, 1.5, 1.6), min(v_energy * 0.8, 1.0));
+                // Start from base palette derived from BeatPulse hue
+                vec3 baseCol = palette(u_hue + v_energy * 0.1); 
+                vec3 col = mix(baseCol, vec3(1.5, 1.5, 1.6), min(v_energy * 0.6, 1.0));
                 
                 // Add a bit of colored sparkle on high frequencies
-                col += vec3(0.1, 0.3, 0.5) * u_high;
+                col += baseCol * u_high * 0.5;
 
                 // HDR overdrive so the bloom pass makes the cloud glow.
-                // Glow intensity pulses with the beat (bass) and dim.
-                col *= core * (1.0 + u_bass * 1.5) * 1.5 * u_dim;
+                // Glow intensity pulses with the beat envelope!
+                col *= core * (1.0 + u_bass * 1.5 + u_env * 1.0) * 1.5 * u_dim;
                 fragColor = vec4(col, 1.0);
             }
         """
