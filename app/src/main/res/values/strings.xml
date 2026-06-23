@@ -152,7 +152,7 @@
     <string name="peak_luminance_hint">Forces the display to maximum brightness and dynamic range for the best HDR punch. May increase heat and battery drain.</string>
     <string name="max_brightness_on">Full Brightness: On</string>
     <string name="max_brightness_off">Full Brightness: Default</string>
-    <string name="max_brightness_hint">Forces the display to 100% brightness for maximum visibility. May increase battery drain.</string>
+    <string name="max_brightness_hint">Forces the display to 100%% brightness for maximum visibility. May increase battery drain.</string>
     <string name="link_status_searching">Searching for Link peers…</string>
     <string name="link_status_connected">Connected · %1$d peer(s) · %2$.0f BPM</string>
     <string name="status_idle">Oboe Engine: starting…</string>
