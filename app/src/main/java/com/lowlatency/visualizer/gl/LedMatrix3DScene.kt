@@ -137,7 +137,7 @@ class LedMatrix3DScene : GlScene {
                         matColor = vec3(1.0, 0.95, 0.9);
                         emission = 2.0; // Subtle bloom triggering HDR
                     } else if(isLit) {
-                        // Teenage Engineering Palette: Deep Orange to Cyan gradient across the board
+                        // Deep Orange to Cyan gradient across the board
                         vec3 orange = vec3(1.0, 0.35, 0.05);
                         vec3 cyan = vec3(0.0, 0.85, 1.0);
                         matColor = mix(orange, cyan, id.x / COLS);
