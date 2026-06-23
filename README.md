@@ -4,7 +4,7 @@
 
 ## Velo: Low Latency Visualiser
 
-Velo is a Android audio visualiser engineered around one primary objective: **low latency**. 
+Velo is an Android audio visualiser engineered around one primary objective: **low latency**. 
 
 When you open Velo, you'll see the default oscilloscope visualisation which responds to microphone input in **less than 10ms**. That is faster than:
 * **The blink of an eye** (which takes 100–400 ms).
@@ -13,7 +13,7 @@ When you open Velo, you'll see the default oscilloscope visualisation which resp
 
 A bare-metal C++/Oboe audio engine and custom OpenGL ES 3.1 shaders bypass standard Android bottlenecks to deliver sub-10 ms audio-to-pixel response, whilst also capable of driving Philips Hue lights and device haptics in real-time.
 
-Beyond its absolute speed and zero-lag smart lighting integration, Velos visuals are a great showcase for premium Android hardware because it can push modern flagship devices to their limits combining 120Hz tear-free OLED motion, true HDR luminance, and dynamic scaling for tablet displays and foldables.
+Beyond its absolute speed and zero-lag smart lighting integration, Velo's visuals are a great showcase for premium Android hardware because it can push modern flagship devices to their limits combining 120Hz tear-free OLED motion, true HDR luminance, and dynamic scaling for tablet displays and foldables.
 
 ## Demo
 **Velo: Low Latency Music Visualiser Demo Video**
@@ -48,43 +48,14 @@ Velo listens to the **actual sound** in the room and moves with it instantly. Th
 - **25 audio and beat reactive visualizers**: Waveforms, spectra, particle fluids, scrolling spectrograms, dot-matrix LED meters, and more.
 - **HDR Effects**: Including post-processing for real luminous glow on capable HDR displays and a selectable glow strength.
 - **Ableton Link sync**: Lock beat-driven effects to Traktor, Ableton Live, and other Link software over Wi-Fi; the mic still drives the visuals while Link sets the beat.
-- **Real-time Philips Hue Sync Integration**: Direct local UDP streaming over the Hue Entertainment API. Also works in co-ordination with Ableton Link to drive a sychronised beat to the bulbs. Includes lighting controls, advanced controls for calibration and the ability to send Ableton Link beats early for perfect synchronisation.
+- **Real-time Philips Hue Sync Integration**: Direct local UDP streaming over the Hue Entertainment API. Also works in co-ordination with Ableton Link to drive a synchronised beat to the bulbs. Includes lighting controls, advanced controls for calibration and the ability to send Ableton Link beats early for perfect synchronisation.
 - **Two audio sources**: Raw low-latency microphone capture or internal/system audio via screen-share (Warning: Low latency not supported via screen-sharing).
 - **Global colour themes**: Re-tint visuals to your desired colour scheme (Neon, Warm, Cool, Mono…).
 - **Vibrate-on-beat haptics**: Bass-onset detection triggers physical pulses.
 - **Foldable & Tablet Support**: Open a foldable phone and the render loop will survive the screen state changes without recreating.
 - **Diagnostics Overlay Toggle**: Displays FPS, audio latency, Ableton link status, Hue drop rates and more.
 
-## License
-
-Velo Visualiser is **free and open source software**, licensed under the
-**GNU General Public License v3.0** — see [LICENSE](LICENSE).
-
-You're free to use, study, modify, and redistribute it. Any distributed
-derivative must also remain GPLv3. (The GPL is required here because the app
-integrates [Ableton Link](https://github.com/Ableton/link), which is GPLv2+
-unless used under a commercial licence from Ableton.)
-
-No data collection, no ads, no tracking — local-only, and it'll stay that way.
-
-## Support
-
-Velo is free but its development cost is not, so if it brings some colour to your music and you'd
-like to chip in for coffee, it's hugely appreciated:
-
-<a href="https://www.buymeacoffee.com/rorygallagher2024"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="42"></a>
-
-## About the Developer
-
-Velo was engineered by me, Rory Gallagher (he/him). I have a background in software engineering and interests in music technology, live performance, hardware and IoT.
-
-Feel free to connect:
-* **LinkedIn:** [linkedin.com/in/rory-gallagher-51822532](https://www.linkedin.com/in/rory-gallagher-51822532)
-* **YouTube:** [youtube.com/@rorygallagher-redslug](https://www.youtube.com/@rorygallagher-redslug)
-
 ## Why Velo is Fast
-
-Many Android visualizers suffer from inherent 100ms+ delays due to their reliance on high-level Java APIs. Velo eliminates these bottlenecks by operating at the OS hardware floor.
 
 ### 1. The Simple Breakdown
 By bypassing the Android system mixer and utilizing C++ zero-copy memory transfers, Velo processes the sound, calculates the frequencies, and paints the pixels on your screen in **~8.0 ms**.
@@ -160,3 +131,30 @@ Velo stands on excellent open source work:
 - [OkHttp](https://square.github.io/okhttp/). Hue REST
 - [Bouncy Castle](https://www.bouncycastle.org/). DTLS-PSK
 - [Space Mono](https://fonts.google.com/specimen/Space+Mono). UI typeface
+
+## License
+
+Velo Visualiser is **free and open source software**, licensed under the
+**GNU General Public License v3.0** — see [LICENSE](LICENSE).
+
+You're free to use, study, modify, and redistribute it. Any distributed
+derivative must also remain GPLv3. (The GPL is required here because the app
+integrates [Ableton Link](https://github.com/Ableton/link), which is GPLv2+
+unless used under a commercial licence from Ableton.)
+
+No data collection, no ads, no tracking — local-only, and it'll stay that way.
+
+## Support
+
+Velo is free but its development cost is not, so if it brings some colour to your music and you'd
+like to chip in for coffee, it's hugely appreciated:
+
+<a href="https://www.buymeacoffee.com/rorygallagher2024"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="42"></a>
+
+## About the Developer
+
+Velo was engineered by me, Rory Gallagher (he/him). I have a background in software engineering and interests in music technology, live performance, hardware and IoT.
+
+Feel free to connect:
+* **LinkedIn:** [linkedin.com/in/rory-gallagher-51822532](https://www.linkedin.com/in/rory-gallagher-51822532)
+* **YouTube:** [youtube.com/@rorygallagher-redslug](https://www.youtube.com/@rorygallagher-redslug)
