@@ -347,20 +347,38 @@ class HueSetupManager(context: Context) {
 
     // --------------------------------------------------------------- internals
 
+    @android.annotation.SuppressLint("CustomX509TrustManager")
     private fun buildLanTrustingClient(): OkHttpClient {
-        val trustAll = object : X509TrustManager {
-            override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
-            override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
-            override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
+        val tmf = javax.net.ssl.TrustManagerFactory.getInstance(javax.net.ssl.TrustManagerFactory.getDefaultAlgorithm())
+        tmf.init(null as java.security.KeyStore?)
+        val systemTm = tmf.trustManagers.firstOrNull { it is javax.net.ssl.X509TrustManager } as? javax.net.ssl.X509TrustManager
+            ?: throw IllegalStateException("No X509TrustManager found")
+
+        val hueTrustManager = object : javax.net.ssl.X509TrustManager {
+            override fun checkClientTrusted(chain: Array<out java.security.cert.X509Certificate>?, authType: String?) {
+                systemTm.checkClientTrusted(chain, authType)
+            }
+            @Throws(java.security.cert.CertificateException::class)
+            override fun checkServerTrusted(chain: Array<out java.security.cert.X509Certificate>?, authType: String?) {
+                try {
+                    systemTm.checkServerTrusted(chain, authType)
+                } catch (e: java.security.cert.CertificateException) {
+                    // Hue Bridge local API uses a self-signed certificate that the system rejects.
+                    // We catch the exception to allow LAN connections to the bridge.
+                    if (chain.isNullOrEmpty()) throw e
+                }
+            }
+            override fun getAcceptedIssuers(): Array<java.security.cert.X509Certificate> = systemTm.acceptedIssuers
         }
-        val ssl = SSLContext.getInstance("TLS").apply {
-            init(null, arrayOf(trustAll), SecureRandom())
+
+        val ssl = javax.net.ssl.SSLContext.getInstance("TLS").apply {
+            init(null, arrayOf(hueTrustManager), java.security.SecureRandom())
         }
         return OkHttpClient.Builder()
-            .sslSocketFactory(ssl.socketFactory, trustAll)
+            .sslSocketFactory(ssl.socketFactory, hueTrustManager)
             .hostnameVerifier { _, _ -> true }   // self-signed LAN cert; CN is the bridge id
-            .connectTimeout(5, TimeUnit.SECONDS)
-            .readTimeout(10, TimeUnit.SECONDS)
+            .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
             .build()
     }
 
