@@ -20,6 +20,17 @@ Beyond its absolute speed and zero-lag smart lighting integration, Velos visuals
 [![Velo Demo](https://img.youtube.com/vi/ql0CwtlYDyI/maxresdefault.jpg)](https://youtu.be/ql0CwtlYDyI)
 `▶ Watch on YouTube`
 
+## Beta Testers Needed
+
+**Velo is currently in Google Play Closed Beta.** I am actively looking for testers to help me hit the Google Play testing requirements for a full production launch.
+
+To install the beta via the Play Store, please follow these steps in order:
+1. Join the testing group: [Velo Testers Google Group](https://groups.google.com/g/velo-testers)
+2. Opt-in on the web: [Play Store Beta Opt-in](https://play.google.com/apps/testing/com.lowlatency.visualizer)
+3. Download the app: [Velo on Google Play](https://play.google.com/store/apps/details?id=com.lowlatency.visualizer)
+
+*(Alternatively, prebuilt APKs for direct sideloading are available in the **Releases** tab. Note: Android will show an "Unverified Developer" warning on install — tap "More details" → "Install anyway.")*
+
 ## Reacts to the sound. Locks to the set.
 
 Velo listens to the **actual sound** in the room and moves with it instantly. The sub-10 ms reaction is what the visuals are built on. Switch on **Ableton Link** (Works with Traktor, Ableton Live, Serato and more) and Velo also locks onto your set's tempo, layering a tightly-timed **extra punch and bloom** over the top — even *anticipating* each beat a hair before it lands, the way only a shared musical clock can. The faithful "instrument" visuals (oscilloscope, spectrum, meters) stay a pure readout of the sound, while the reactive scenes get that grid-locked accent. Sound drives the picture; Link adds the polish.
@@ -63,8 +74,6 @@ like to chip in for coffee, it's hugely appreciated:
 
 <a href="https://www.buymeacoffee.com/rorygallagher2024"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="42"></a>
 
----
-
 ## About the Developer
 
 Velo was engineered by me, Rory Gallagher (he/him). I have a background in software engineering and interests in music technology, live performance, hardware and IoT.
@@ -72,8 +81,6 @@ Velo was engineered by me, Rory Gallagher (he/him). I have a background in softw
 Feel free to connect:
 * **LinkedIn:** [linkedin.com/in/rory-gallagher-51822532](https://www.linkedin.com/in/rory-gallagher-51822532)
 * **YouTube:** [youtube.com/@rorygallagher-redslug](https://www.youtube.com/@rorygallagher-redslug)
-
----
 
 ## Why Velo is Fast
 
@@ -117,8 +124,6 @@ While the app's internal beat calculation is near-instant (< 1 ms), the physical
 
 As part of the roadmap, I intend to add support for ESP32 WLED-based lights via UDP, which bypasses the Zigbee mesh entirely and will be significantly faster.
 
----
-
 ## Smart Lighting (Philips Hue Sync)
 
 Velo drives Hue lights using the **Hue Stream v2** protocol over **DTLS-PSK encrypted UDP** (Port 2100). 
@@ -127,23 +132,16 @@ Velo drives Hue lights using the **Hue Stream v2** protocol over **DTLS-PSK encr
 2. **Setup:** Select an Entertainment Area (must be created in the official Philips Hue app first).
 3. **Persistence:** The `username` and `clientkey` are stored locally via `EncryptedSharedPreferences`. 
 
----
+## Building from Source
 
-## Installation & Setup
+If you want to compile Velo yourself, open the project in Android Studio (Meerkat 2024.3.1 or higher).
 
-Prebuilt APKs are available in the **Releases** tab. Since Velo is distributed
-via GitHub rather than the Play Store, Android shows an "Unverified Developer"
-warning on install — tap **"More details"** → **"Install anyway."**
-
-### Build Requirements
-Open in Android Studio (Meerkat 2024.3.1 or higher):
+**Build Requirements:**
 * **Android SDK:** `targetSdk 37`
 * **NDK:** Version 28+
 * **CMake:** 3.22.1
 * **Architecture:** `arm64-v8a` only.
-
----
-
+  
 ## Contributing
 
 Contributions are welcome. Bug reports, fixes, and new visualizers especially.
