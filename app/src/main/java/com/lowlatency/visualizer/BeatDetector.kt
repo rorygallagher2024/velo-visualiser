@@ -22,11 +22,11 @@ import kotlin.math.sqrt
  * or the full 128-bin spectrum the visuals use, so their tuning is unaffected.
  */
 class BeatDetector(
-    private val lpAlpha: Float = 0.025f,     // one-pole LP coeff (~180 Hz @ 48 kHz)
+    private val lpAlpha: Float = 0.015f,     // one-pole LP coeff (~180 Hz @ 48 kHz)
     private val fluxTauSec: Float = 0.4f,    // adaptive baseline time constant
-    private val fluxFactor: Float = 1.6f,    // flux must exceed baseline × this
+    private val fluxFactor: Float = 1.65f,   // flux must exceed baseline × this
     private val fluxFloor: Float = 0.0015f,  // + absolute onset floor
-    private val bassFloor: Float = 0.006f,   // ignore near-silence (bass RMS)
+    private val bassFloor: Float = 0.008f,   // ignore near-silence (bass RMS)
     private val minGapMs: Long = 120L,       // refractory period
     private val debugName: String? = null,   // if set, log levels to "BeatDetector"
 ) {
