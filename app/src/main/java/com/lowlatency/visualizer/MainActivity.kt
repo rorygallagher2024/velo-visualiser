@@ -160,6 +160,15 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnHueConnect: Button
     private lateinit var hueAreaContainer: LinearLayout
     private lateinit var btnHueSync: Button
+    private lateinit var btnBrandHue: Button
+    private lateinit var btnBrandLifx: Button
+    private lateinit var containerHue: View
+    private lateinit var containerLifx: View
+    private lateinit var btnLifxScan: Button
+    private lateinit var lifxScanSpinner: ProgressBar
+    private lateinit var lifxBulbContainer: LinearLayout
+    private lateinit var btnLifxSync: Button
+
     private lateinit var btnHueForget: Button
     private lateinit var huePrerequisites: View
     private lateinit var hueAreaSection: LinearLayout
@@ -168,6 +177,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var hueStatus: TextView
     private lateinit var hueStatusSpinner: ProgressBar
     private lateinit var hueController: HueLightController
+    private lateinit var lifxController: com.lowlatency.visualizer.lifx.LifxController
+    
+    enum class LightingBrand { HUE, LIFX }
+    private var activeBrand = LightingBrand.HUE
+    private var lifxSyncing = false
+
     private lateinit var hueStore: HueCredentialStore
     private var hueAreas: List<HueEntertainmentArea> = emptyList()
     private var selectedArea: HueEntertainmentArea? = null
@@ -290,6 +305,11 @@ class MainActivity : AppCompatActivity() {
                 updateHueSyncButton(false)
                 updateHueConn(HueConn.REACHABLE)
                 hueStatus.setText(R.string.hue_mic_only)
+            }
+            if (lifxSyncing) {
+                lifxController.disableStreaming()
+                lifxSyncing = false
+                btnLifxSync.text = "START SYNC"
             }
         } else {
             Toast.makeText(this, "System-audio capture denied.", Toast.LENGTH_SHORT).show()
@@ -442,6 +462,16 @@ class MainActivity : AppCompatActivity() {
         huePrerequisites = findViewById(R.id.hue_prerequisites)
         hueAreaSection = findViewById(R.id.hue_section_areas)
         hueSyncSection = findViewById(R.id.hue_section_sync)
+        
+        btnBrandHue = findViewById(R.id.btn_brand_hue)
+        btnBrandLifx = findViewById(R.id.btn_brand_lifx)
+        containerHue = findViewById(R.id.container_hue)
+        containerLifx = findViewById(R.id.container_lifx)
+        btnLifxScan = findViewById(R.id.btn_lifx_scan)
+        lifxScanSpinner = findViewById(R.id.lifx_scan_spinner)
+        lifxBulbContainer = findViewById(R.id.lifx_bulb_container)
+        btnLifxSync = findViewById(R.id.btn_lifx_sync)
+        
         prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         optionsSheet.visibility = View.GONE
     }
@@ -1331,12 +1361,21 @@ class MainActivity : AppCompatActivity() {
     // ----- Smart lighting (Philips Hue) -----
 
     private fun wireHue() {
-        hueController = HueLightController(this)
         hueStore = HueCredentialStore(this)
+        hueController = HueLightController(this)
+        lifxController = com.lowlatency.visualizer.lifx.LifxController()
+        
 
-        // Hue light sync reads the FFT bands; haptics runs bass-onset detection
-        // on the raw PCM (a separate tap, so it can't affect any visual tuning).
-        glView.bandsSink = { low, mid, high -> hueController.onBands(low, mid, high) }
+        // Audio processing hook -> route to active brand
+        glView.bandsSink = { low, mid, high -> 
+            if (::hueController.isInitialized) hueController.onBands(low, mid, high)
+            lifxController.onBands(low, mid, high)
+        }
+        glView.onLinkBeat = { 
+            if (::hueController.isInitialized) hueController.onLinkBeat()
+            lifxController.onLinkBeat()
+        }
+
         // Haptics fire off the shared BeatBus, which the renderer updates just
         // before this per-frame tap. Audio presence + bass balance (for the Hue
         // strobe) are measured in the renderer too, so this tap is just the tick.
@@ -1361,6 +1400,72 @@ class MainActivity : AppCompatActivity() {
         btnHueSync.setOnClickListener { onHueSyncToggle() }
         btnHueForget.setOnClickListener { confirmForgetBridge() }
         buildLightControlUI()
+
+        btnBrandHue.setOnClickListener { switchBrand(LightingBrand.HUE) }
+        btnBrandLifx.setOnClickListener { switchBrand(LightingBrand.LIFX) }
+        switchBrand(LightingBrand.HUE)
+
+        btnLifxScan.setOnClickListener {
+            lifxScanSpinner.visibility = View.VISIBLE
+            lifxBulbContainer.removeAllViews()
+            lifxController.startDiscovery { bulb ->
+                runOnUiThread {
+                    lifxScanSpinner.visibility = View.GONE
+                    val cb = android.widget.ToggleButton(this)
+                    cb.text = bulb.label
+                    cb.textOn = bulb.label
+                    cb.textOff = bulb.label
+                    cb.isAllCaps = false
+                    cb.isChecked = false
+                    cb.setTextColor(getColorStateList(R.color.btn_text))
+                    cb.textSize = 14f
+                    cb.typeface = android.graphics.Typeface.create("sans-serif-light", android.graphics.Typeface.NORMAL)
+                    
+                    val dp = resources.displayMetrics.density
+                    cb.setPadding((dp * 16).toInt(), (dp * 12).toInt(), (dp * 16).toInt(), (dp * 12).toInt())
+                    
+                    cb.background = getDrawable(R.drawable.pill_button_bg)
+                    
+                    val params = android.widget.LinearLayout.LayoutParams(
+                        android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                    )
+                    params.bottomMargin = (dp * 8).toInt()
+                    cb.layoutParams = params
+
+                    cb.setOnCheckedChangeListener { _, isChecked ->
+                        lifxController.setBulbSelected(bulb.ip, isChecked)
+                        cb.isSelected = isChecked
+                    }
+                    lifxBulbContainer.addView(cb)
+                    btnLifxSync.isEnabled = true
+                    btnLifxSync.setText(R.string.hue_sync_off)
+                }
+            }
+        }
+
+        btnLifxSync.setOnClickListener {
+            if (systemAudioMode) {
+                Toast.makeText(this, "Lighting sync is microphone-only.", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            if (lifxSyncing) {
+                lifxController.disableStreaming()
+                lifxSyncing = false
+                btnLifxSync.setText(R.string.hue_sync_off)
+                btnLifxSync.isSelected = false
+            } else {
+                if (!lifxController.hasSelectedBulbs()) {
+                    Toast.makeText(this, "Please select at least one bulb first.", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                lifxController.enableStreaming()
+                lifxSyncing = true
+                btnLifxSync.setText(R.string.hue_sync_on)
+                btnLifxSync.isSelected = true
+            }
+        }
+
 
         val savedCreds = hueStore.loadCredentials()
         if (savedCreds != null) {
@@ -1639,6 +1744,7 @@ class MainActivity : AppCompatActivity() {
     private var currentHueState = HueConn.DISCONNECTED
 
     private fun buildLightControlUI() {
+
         lightControlSection = findViewById(R.id.hue_light_control)
         sceneGrid = findViewById(R.id.hue_scene_grid)
         brightnessSlider = findViewById(R.id.hue_brightness)
@@ -2156,5 +2262,23 @@ class MainActivity : AppCompatActivity() {
         private const val SPLASH_FADE_MS = 350L
         private const val INTRO_HINT_DURATION_MS = 5000L
         private const val PERMISSION_FALLBACK_MS = 6000L  // ask anyway if intro never finishes
+    }
+
+    private fun switchBrand(brand: LightingBrand) {
+        activeBrand = brand
+        val accent = getColor(R.color.accent)
+        val textDim = getColor(R.color.text_dim)
+        
+        if (brand == LightingBrand.HUE) {
+            btnBrandHue.setTextColor(accent)
+            btnBrandLifx.setTextColor(textDim)
+            containerHue.visibility = View.VISIBLE
+            containerLifx.visibility = View.GONE
+        } else {
+            btnBrandHue.setTextColor(textDim)
+            btnBrandLifx.setTextColor(accent)
+            containerHue.visibility = View.GONE
+            containerLifx.visibility = View.VISIBLE
+        }
     }
 }

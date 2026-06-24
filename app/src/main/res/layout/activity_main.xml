@@ -1453,7 +1453,7 @@
         </LinearLayout>
         <!-- /TAB 3: Settings -->
 
-        <!-- ===== TAB 2: Lighting (Philips Hue) ===== -->
+        <!-- ===== TAB 2: Lighting ===== -->
         <LinearLayout
             android:id="@+id/tab_lighting"
             android:layout_width="match_parent"
@@ -1465,13 +1465,58 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/hue_header_title"
+            android:text="@string/tab_lighting"
             android:textColor="@color/accent"
             android:textSize="18sp"
             android:textStyle="normal"
             android:textAllCaps="true"
             android:letterSpacing="0.05"
             android:layout_marginBottom="16dp" />
+
+        <!-- Brand Segmented Control -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:orientation="horizontal"
+            android:layout_marginBottom="24dp">
+
+            <Button
+                android:id="@+id/btn_brand_hue"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_marginEnd="4dp"
+                android:background="@drawable/segment_button_bg"
+                android:text="Philips Hue"
+                android:textColor="@color/btn_text"
+                android:textSize="12sp"
+                android:letterSpacing="0.05"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_brand_lifx"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:background="@drawable/segment_button_bg"
+                android:text="LIFX"
+                android:textColor="@color/btn_text"
+                android:textSize="12sp"
+                android:letterSpacing="0.05"
+                android:stateListAnimator="@null" />
+        </LinearLayout>
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+        <!-- ===== HUE CONTAINER ===== -->
+        <LinearLayout
+            android:id="@+id/container_hue"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
 
         <!-- ── SECTION: BRIDGE ── -->
         <LinearLayout
@@ -1712,6 +1757,102 @@
                 android:stateListAnimator="@null" />
 
         </LinearLayout>
+        </LinearLayout>
+        <!-- /HUE CONTAINER -->
+
+        <!-- ===== LIFX CONTAINER ===== -->
+        <LinearLayout
+            android:id="@+id/container_lifx"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="LIFX creates Wi-Fi smart bulbs. Unlike Philips Hue, they connect directly to your router without requiring a bridge.\n\nMake sure your phone is connected to the same Wi-Fi network as your bulbs to sync them with the visualizer."
+                android:textColor="@color/text_primary"
+                android:textSize="14sp"
+                android:lineSpacingExtra="4sp"
+                android:paddingBottom="16dp"
+                android:gravity="start" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="⚠️ This integration is currently experimental."
+                android:textColor="@color/text_dim"
+                android:textSize="12sp"
+                android:paddingBottom="24dp"
+                android:gravity="center" />
+
+
+            <Button
+                android:id="@+id/btn_lifx_scan"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginBottom="16dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="Scan for LIFX Bulbs"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="14sp"
+                android:stateListAnimator="@null" />
+
+            <ProgressBar
+                android:id="@+id/lifx_scan_spinner"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_gravity="center"
+                android:layout_marginBottom="16dp"
+                android:indeterminateTint="@color/accent"
+                android:visibility="gone" />
+
+            <LinearLayout
+                android:id="@+id/lifx_bulb_container"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginBottom="16dp" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/text_dim"
+                android:alpha="0.25"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="14dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Audio Sync"
+                android:textColor="@color/text_dim"
+                android:textSize="12sp"
+                android:textStyle="normal"
+                android:textAllCaps="true"
+                android:letterSpacing="0.08"
+                android:layout_marginBottom="12dp" />
+
+            <Button
+                android:id="@+id/btn_lifx_sync"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginBottom="20dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="Start Sync"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="14sp"
+                android:enabled="false"
+                android:stateListAnimator="@null" />
+
+        </LinearLayout>
+        <!-- /LIFX CONTAINER -->
+
+        </FrameLayout>
+        <!-- /FrameLayout -->
 
         </LinearLayout>
         <!-- /TAB 2 -->
