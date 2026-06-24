@@ -223,10 +223,12 @@ class MainActivity : AppCompatActivity() {
                 if (rtt != null) {
                     val state = if (hueController.isEnabled) HueConn.STREAMING else HueConn.REACHABLE
                     updateHueConn(state)
+                    hueStatus.text = getString(if (hueController.isEnabled) R.string.hue_status_synced else R.string.hue_status_ready)
                 } else {
                     if (!hueController.isEnabled) {
                         updateHueConn(HueConn.PAIRED)
-                        stopHuePingPoller()
+                        hueStatus.text = getString(R.string.hue_status_unreachable)
+                        // Keep polling so it auto-reconnects when the bridge comes back online
                     }
                 }
                 if (huePingPollerRunning) huePingHandler.postDelayed(this, 5000L)
@@ -1357,11 +1359,9 @@ class MainActivity : AppCompatActivity() {
     private fun onHueConnectClicked() {
         val existing = hueStore.loadCredentials()
         if (existing != null) {
-            btnHueConnect.isEnabled = false
             updateHueConn(HueConn.CHECKING)
             hueController.setup.pingBridge(existing) { rtt ->
                 if (rtt != null) {
-                    btnHueConnect.isEnabled = true
                     updateHueConn(HueConn.REACHABLE)
                     hueStatus.text = getString(R.string.hue_status_ready)
                     startHuePingPoller()
@@ -1374,13 +1374,11 @@ class MainActivity : AppCompatActivity() {
         }
         hueStatus.setText(R.string.hue_status_searching)
         updateHueConn(HueConn.SEARCHING)
-        btnHueConnect.isEnabled = false
         hueController.setup.discoverBridges { bridges ->
             val bridge = bridges.firstOrNull()
             if (bridge == null) {
                 hueStatus.setText(R.string.hue_status_no_bridge)
                 updateHueConn(HueConn.DISCONNECTED)
-                btnHueConnect.isEnabled = true
                 return@discoverBridges
             }
             hueController.setup.pair(
@@ -1390,7 +1388,6 @@ class MainActivity : AppCompatActivity() {
                     huePrerequisites.visibility = View.GONE
                     hueStatus.setText(R.string.hue_status_ready)
                     updateHueConn(HueConn.REACHABLE)
-                    btnHueConnect.isEnabled = true
                     btnHueConnect.setText(R.string.hue_reconnect)
                     btnHueForget.visibility = View.VISIBLE
                     startHuePingPoller()
@@ -1399,7 +1396,6 @@ class MainActivity : AppCompatActivity() {
                 onError = { msg ->
                     hueStatus.text = msg
                     updateHueConn(HueConn.DISCONNECTED)
-                    btnHueConnect.isEnabled = true
                 }
             )
         }
@@ -1420,7 +1416,6 @@ class MainActivity : AppCompatActivity() {
         hueController.setup.discoverBridges { bridges ->
             val bridge = bridges.firstOrNull()
             if (bridge == null) {
-                btnHueConnect.isEnabled = true
                 updateHueConn(HueConn.PAIRED)
                 hueStatus.text = getString(R.string.hue_status_unreachable)
                 return@discoverBridges
@@ -1428,7 +1423,6 @@ class MainActivity : AppCompatActivity() {
             val updatedCreds = HueCredentials(bridge.ip, oldCreds.username, oldCreds.clientKey)
             hueStore.saveCredentials(updatedCreds)
             hueController.setup.pingBridge(updatedCreds) { rtt ->
-                btnHueConnect.isEnabled = true
                 if (rtt != null) {
                     updateHueConn(HueConn.REACHABLE)
                     hueStatus.text = getString(R.string.hue_status_ready)
@@ -1454,7 +1448,6 @@ class MainActivity : AppCompatActivity() {
         hueAreaContainer.removeAllViews()
         huePrerequisites.visibility = View.VISIBLE
         btnHueConnect.setText(R.string.hue_connect)
-        btnHueConnect.isEnabled = true
         btnHueSync.isEnabled = false
         btnHueForget.visibility = View.GONE
         updateHueConn(HueConn.DISCONNECTED)
@@ -1482,7 +1475,7 @@ class MainActivity : AppCompatActivity() {
         hueAreas = areas
         hueAreaContainer.removeAllViews()
         if (areas.isEmpty()) {
-            hueStatus.text = getString(R.string.hue_status_no_bridge)
+            hueStatus.text = getString(R.string.hue_status_no_areas)
             updateHueSections()
             return
         }
@@ -1728,6 +1721,25 @@ class MainActivity : AppCompatActivity() {
             }
         }
         hueConn.setTextColor(ContextCompat.getColor(this, colorRes))
+        
+        when (state) {
+            HueConn.DISCONNECTED -> {
+                btnHueConnect.visibility = View.VISIBLE
+                btnHueConnect.isEnabled = true
+            }
+            HueConn.SEARCHING, HueConn.CHECKING -> {
+                btnHueConnect.visibility = View.VISIBLE
+                btnHueConnect.isEnabled = false
+            }
+            HueConn.PAIRED -> {
+                btnHueConnect.visibility = View.VISIBLE
+                btnHueConnect.isEnabled = true
+            }
+            HueConn.REACHABLE, HueConn.STREAMING -> {
+                btnHueConnect.visibility = View.GONE
+            }
+        }
+        
         updateHueSections()
     }
 
@@ -1989,15 +2001,18 @@ class MainActivity : AppCompatActivity() {
         if (huePingPollerRunning) {
             huePingHandler.removeCallbacks(huePingPoller)
             huePingHandler.post(huePingPoller)
-        } else if (::hueStore.isInitialized && hueStore.loadCredentials() != null
-            && !hueController.isEnabled) {
-            val creds = hueStore.loadCredentials() ?: return
-            hueController.setup.pingBridge(creds) { rtt ->
-                if (rtt != null) {
-                    updateHueConn(HueConn.REACHABLE)
-                    hueStatus.text = getString(R.string.hue_status_ready)
-                    startHuePingPoller()
-                    if (hueAreas.isEmpty()) loadHueAreas()
+        } else if (::hueStore.isInitialized && hueStore.loadCredentials() != null) {
+            startHuePingPoller()
+            if (!hueController.isEnabled) {
+                val creds = hueStore.loadCredentials() ?: return
+                hueController.setup.pingBridge(creds) { rtt ->
+                    if (rtt != null) {
+                        updateHueConn(HueConn.REACHABLE)
+                        hueStatus.text = getString(R.string.hue_status_ready)
+                        if (hueAreas.isEmpty()) loadHueAreas()
+                    } else {
+                        updateHueConn(HueConn.PAIRED)
+                    }
                 }
             }
         }

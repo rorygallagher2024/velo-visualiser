@@ -179,8 +179,9 @@
     <string name="hue_status_idle">Tap “Connect Hue Bridge” to begin.</string>
     <string name="hue_status_searching">Searching for a Hue Bridge on your network…</string>
     <string name="hue_status_press_button">Press the button on your Hue Bridge… %1$d s</string>
-    <string name="hue_status_ready">Ready to sync.</string>
+    <string name="hue_status_ready"></string>
     <string name="hue_status_no_bridge">No bridge found. Make sure your phone and Hue Bridge are on the same Wi-Fi, then try again.</string>
+    <string name="hue_status_no_areas">No Entertainment Areas found. Please open the official Philips Hue app and create one first.</string>
     <string name="hue_status_unreachable">Bridge not reachable. Check you\'re on the same Wi-Fi as your Hue Bridge.</string>
     <string name="hue_forget">Forget Bridge</string>
     <string name="hue_forget_title">Forget this bridge?</string>
@@ -189,7 +190,7 @@
     <string name="hue_status_auth_expired">Bridge credentials expired. Please re-pair.</string>
     <string name="hue_light_control_label">Light Control</string>
     <string name="hue_brightness_label">Brightness</string>
-    <string name="hue_status_synced">Light sync active.</string>
+    <string name="hue_status_synced"></string>
     <string name="hue_select_area">Select an Entertainment Area:</string>
 
     <!-- Hue connection-state indicator -->
