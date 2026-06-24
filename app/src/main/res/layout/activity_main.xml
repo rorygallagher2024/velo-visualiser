@@ -1554,46 +1554,9 @@
                 android:background="@drawable/segment_button_bg"
                 android:layout_marginBottom="16dp" />
 
-            <RelativeLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp">
-
-                <TextView
-                    android:id="@+id/hue_conn"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_alignParentStart="true"
-                    android:layout_centerVertical="true"
-                    android:text="@string/hue_conn_disconnected"
-                    android:textColor="@color/text_dim"
-                    android:textSize="14sp" />
-
-                <ProgressBar
-                    android:id="@+id/hue_status_spinner"
-                    android:layout_width="14dp"
-                    android:layout_height="14dp"
-                    android:layout_toEndOf="@id/hue_conn"
-                    android:layout_marginStart="8dp"
-                    android:layout_centerVertical="true"
-                    android:indeterminateTint="@color/accent"
-                    android:visibility="gone" />
-
-                <Button
-                    android:id="@+id/btn_hue_forget"
-                    android:layout_width="wrap_content"
-                    android:layout_height="32dp"
-                    android:layout_alignParentEnd="true"
-                    android:layout_centerVertical="true"
-                    android:background="@android:color/transparent"
-                    android:paddingHorizontal="12dp"
-                    android:stateListAnimator="@null"
-                    android:text="@string/hue_forget"
-                    android:textAllCaps="true"
-                    android:textColor="@color/text_dim"
-                    android:textSize="11sp"
-                    android:visibility="gone" />
-            </RelativeLayout>
+            <include
+                android:id="@+id/status_hue"
+                layout="@layout/layout_connection_status" />
 
             <TextView
                 android:id="@+id/hue_status"
@@ -1785,30 +1748,9 @@
                 android:letterSpacing="0.08"
                 android:layout_marginBottom="12dp" />
 
-            <RelativeLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp">
-
-                <ImageView
-                    android:id="@+id/img_lifx_state"
-                    android:layout_width="8dp"
-                    android:layout_height="8dp"
-                    android:layout_marginEnd="12dp"
-                    android:layout_centerVertical="true"
-                    android:layout_alignParentStart="true"
-                    android:src="@drawable/circle_shape" />
-
-                <TextView
-                    android:id="@+id/tv_lifx_state"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_toEndOf="@id/img_lifx_state"
-                    android:layout_centerVertical="true"
-                    android:text="Not Scanned"
-                    android:textColor="@color/text_dim"
-                    android:textSize="14sp" />
-            </RelativeLayout>
+            <include
+                android:id="@+id/status_lifx"
+                layout="@layout/layout_connection_status" />
 
             <TextView
                 android:layout_width="match_parent"
@@ -1926,45 +1868,9 @@
                 android:paddingBottom="16dp"
                 android:gravity="start" />
 
-            <RelativeLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp">
-
-                <ImageView
-                    android:id="@+id/img_nanoleaf_state"
-                    android:layout_width="8dp"
-                    android:layout_height="8dp"
-                    android:layout_marginEnd="12dp"
-                    android:layout_centerVertical="true"
-                    android:layout_alignParentStart="true"
-                    android:src="@drawable/circle_shape" />
-
-                <TextView
-                    android:id="@+id/tv_nanoleaf_state"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_toEndOf="@id/img_nanoleaf_state"
-                    android:layout_centerVertical="true"
-                    android:text="Checking network..."
-                    android:textColor="@color/text_primary"
-                    android:textSize="14sp" />
-
-                <Button
-                    android:id="@+id/btn_nanoleaf_forget"
-                    android:layout_width="wrap_content"
-                    android:layout_height="32dp"
-                    android:layout_alignParentEnd="true"
-                    android:layout_centerVertical="true"
-                    android:background="@android:color/transparent"
-                    android:paddingHorizontal="12dp"
-                    android:stateListAnimator="@null"
-                    android:text="@string/hue_forget"
-                    android:textAllCaps="true"
-                    android:textColor="@color/text_dim"
-                    android:textSize="11sp"
-                    android:visibility="gone" />
-            </RelativeLayout>
+            <include
+                android:id="@+id/status_nanoleaf"
+                layout="@layout/layout_connection_status" />
 
             <Button
                 android:id="@+id/btn_nanoleaf_scan"
