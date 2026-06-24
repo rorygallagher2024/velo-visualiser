@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace 'com.lowlatency.visualizer'
-    compileSdk 37
+    compileSdk = 37
 
     defaultConfig {
         applicationId "com.lowlatency.visualizer"
@@ -17,7 +17,7 @@ android {
 
         // --- NDK / native build ---
         ndk {
-            // Strictly ARM. No x86/x86_64 emulator binaries are produced.
+            //noinspection ChromeOsAbiSupport: We use ARM instructions and do not support X86.
             abiFilters "arm64-v8a"
         }
 
@@ -60,8 +60,8 @@ android {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = '17'
+    kotlin {
+        jvmToolchain(17)
     }
 }
 
