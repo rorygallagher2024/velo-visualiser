@@ -378,9 +378,9 @@ class NanoleafController(context: Context) {
         val isLinkOnBeat = phase < 0.1f
         val currentBeat = linkBeatCount
 
-        if (cfg.linkBeatFlashEnabled) {
+        if (cfg.linkBeatFlashEnabled && BeatBus.gateOpen) {
             if (isLinkOnBeat && currentBeat.toLong() != senderLastBeat) {
-                senderFlash = 1.0f
+                senderFlash = 0.2f + 0.8f * BeatBus.loudness
                 senderLastBeat = currentBeat.toLong()
             }
         }
