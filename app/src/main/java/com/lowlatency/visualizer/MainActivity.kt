@@ -1421,40 +1421,51 @@ class MainActivity : AppCompatActivity() {
         btnLifxScan.setOnClickListener {
             lifxScanSpinner.visibility = View.VISIBLE
             lifxBulbContainer.removeAllViews()
-            lifxController.startDiscovery { bulb ->
-                runOnUiThread {
-                    lifxScanSpinner.visibility = View.GONE
-                    val cb = android.widget.ToggleButton(this)
-                    cb.text = bulb.label
-                    cb.textOn = bulb.label
-                    cb.textOff = bulb.label
-                    cb.isAllCaps = false
-                    cb.isChecked = false
-                    cb.setTextColor(getColorStateList(R.color.btn_text))
-                    cb.textSize = 14f
-                    cb.typeface = android.graphics.Typeface.create("sans-serif-light", android.graphics.Typeface.NORMAL)
-                    
-                    val dp = resources.displayMetrics.density
-                    cb.setPadding((dp * 16).toInt(), (dp * 12).toInt(), (dp * 16).toInt(), (dp * 12).toInt())
-                    
-                    cb.background = getDrawable(R.drawable.pill_button_bg)
-                    
-                    val params = android.widget.LinearLayout.LayoutParams(
-                        android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
-                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
-                    )
-                    params.bottomMargin = (dp * 8).toInt()
-                    cb.layoutParams = params
+            btnLifxScan.isEnabled = false
+            lifxController.startDiscovery(
+                onBulbFound = { bulb ->
+                    runOnUiThread {
+                        val cb = android.widget.ToggleButton(this)
+                        cb.text = bulb.label
+                        cb.textOn = bulb.label
+                        cb.textOff = bulb.label
+                        cb.isAllCaps = false
+                        cb.isChecked = false
+                        cb.setTextColor(getColorStateList(R.color.btn_text))
+                        cb.textSize = 14f
+                        cb.typeface = android.graphics.Typeface.create("sans-serif-light", android.graphics.Typeface.NORMAL)
+                        
+                        val dp = resources.displayMetrics.density
+                        cb.setPadding((dp * 16).toInt(), (dp * 12).toInt(), (dp * 16).toInt(), (dp * 12).toInt())
+                        
+                        cb.background = getDrawable(R.drawable.pill_button_bg)
+                        
+                        val params = android.widget.LinearLayout.LayoutParams(
+                            android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                        )
+                        params.bottomMargin = (dp * 8).toInt()
+                        cb.layoutParams = params
 
-                    cb.setOnCheckedChangeListener { _, isChecked ->
-                        lifxController.setBulbSelected(bulb.ip, isChecked)
-                        cb.isSelected = isChecked
+                        cb.setOnCheckedChangeListener { _, isChecked ->
+                            lifxController.setBulbSelected(bulb.ip, isChecked)
+                            cb.isSelected = isChecked
+                        }
+                        lifxBulbContainer.addView(cb)
+                        btnLifxSync.isEnabled = true
+                        btnLifxSync.setText(R.string.hue_sync_off)
                     }
-                    lifxBulbContainer.addView(cb)
-                    btnLifxSync.isEnabled = true
-                    btnLifxSync.setText(R.string.hue_sync_off)
+                },
+                onFinished = {
+                    runOnUiThread {
+                        lifxScanSpinner.visibility = View.GONE
+                        btnLifxScan.isEnabled = true
+                        if (lifxBulbContainer.childCount == 0) {
+                            Toast.makeText(this@MainActivity, "No LIFX bulbs found on network.", Toast.LENGTH_SHORT).show()
+                        }
+                    }
                 }
-            }
+            )
         }
 
         btnLifxSync.setOnClickListener {

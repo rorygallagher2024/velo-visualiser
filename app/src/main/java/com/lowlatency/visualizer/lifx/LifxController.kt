@@ -49,13 +49,15 @@ class LifxController {
         linkBeatCount++
     }
 
-    fun startDiscovery(onBulbFound: (LifxBulb) -> Unit) {
+    fun startDiscovery(onBulbFound: (LifxBulb) -> Unit, onFinished: () -> Unit) {
+        synchronized(bulbs) { bulbs.clear() }
         Thread {
             try {
                 val socket = DatagramSocket()
                 socket.broadcast = true
-                socket.soTimeout = 3000 // 3 seconds timeout
-
+                // We will scan for 4 seconds, broadcasting every 1 second.
+                // This is much more reliable than sending 3 packets at once,
+                // as it gives sleepy bulbs time to wake up and prevents router queue floods.
                 // Packet: Device::GetLabel (Type 23)
                 val buffer = ByteBuffer.allocate(36).order(ByteOrder.LITTLE_ENDIAN)
                 buffer.putShort(36.toShort()) // Size
@@ -70,46 +72,61 @@ class LifxController {
                 buffer.putShort(23.toShort()) // Type: GetLabel
                 buffer.putShort(0.toShort()) // Reserved
 
-                val bytes = buffer.array()
-                val packet = DatagramPacket(bytes, bytes.size, InetAddress.getByName("255.255.255.255"), 56700)
-                socket.send(packet)
-                
                 val rxBytes = ByteArray(128)
                 val rxPacket = DatagramPacket(rxBytes, rxBytes.size)
 
-                while (true) {
+                for (attempt in 0 until 4) {
                     try {
-                        socket.receive(rxPacket)
-                        val rxBuffer = ByteBuffer.wrap(rxPacket.data).order(ByteOrder.LITTLE_ENDIAN)
-                        val size = rxBuffer.short
-                        val protocol = rxBuffer.short
-                        val source = rxBuffer.int
-                        val mac = ByteArray(8)
-                        rxBuffer.get(mac)
-                        rxBuffer.position(32)
-                        val type = rxBuffer.short
+                        val bytes = buffer.array()
+                        val packet = DatagramPacket(bytes, bytes.size, InetAddress.getByName("255.255.255.255"), 56700)
+                        socket.send(packet)
+                    } catch (e: Exception) {}
+
+                    val endOfWindow = System.currentTimeMillis() + 1000L
+                    while (true) {
+                        val remaining = endOfWindow - System.currentTimeMillis()
+                        if (remaining <= 0) break
                         
-                        if (type == 25.toShort()) { // StateLabel
-                            rxBuffer.position(36)
-                            val labelBytes = ByteArray(32)
-                            rxBuffer.get(labelBytes)
-                            val label = String(labelBytes, Charsets.UTF_8).trimEnd('\u0000').ifEmpty { "LIFX Bulb" }
-                            val ip = rxPacket.address.hostAddress ?: continue
-                            val bulb = LifxBulb(ip, mac, label)
-                            synchronized(bulbs) {
-                                if (!bulbs.contains(bulb)) {
-                                    bulbs.add(bulb)
-                                    onBulbFound(bulb)
+                        socket.soTimeout = remaining.toInt()
+                        try {
+                            socket.receive(rxPacket)
+                            val rxBuffer = ByteBuffer.wrap(rxPacket.data).order(ByteOrder.LITTLE_ENDIAN)
+                            if (rxBuffer.limit() < 36) continue
+                            
+                            val size = rxBuffer.short
+                            val protocol = rxBuffer.short
+                            val source = rxBuffer.int
+                            val mac = ByteArray(8)
+                            rxBuffer.get(mac)
+                            rxBuffer.position(32)
+                            val type = rxBuffer.short
+                            
+                            if (type == 25.toShort()) { // StateLabel
+                                rxBuffer.position(36)
+                                val labelBytes = ByteArray(32)
+                                rxBuffer.get(labelBytes)
+                                val label = String(labelBytes, Charsets.UTF_8).trimEnd('\u0000').ifEmpty { "LIFX Bulb" }
+                                val ip = rxPacket.address.hostAddress ?: continue
+                                val bulb = LifxBulb(ip, mac, label)
+                                synchronized(bulbs) {
+                                    if (!bulbs.contains(bulb)) {
+                                        bulbs.add(bulb)
+                                        onBulbFound(bulb)
+                                    }
                                 }
                             }
+                        } catch (e: java.net.SocketTimeoutException) {
+                            break
+                        } catch (e: Exception) {
+                            // Ignore malformed packets and continue receiving
                         }
-                    } catch (e: Exception) {
-                        break // Timeout or error
                     }
                 }
                 socket.close()
             } catch (e: Exception) {
                 Log.e(TAG, "Discovery error: ${e.message}")
+            } finally {
+                onFinished()
             }
         }.start()
     }
