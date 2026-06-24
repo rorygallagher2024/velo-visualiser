@@ -1,5 +1,9 @@
 package com.lowlatency.visualizer
 
+import android.animation.ValueAnimator
+import android.animation.TimeInterpolator
+import android.graphics.RenderEffect
+import android.graphics.Shader
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Dialog
@@ -202,6 +206,9 @@ class MainActivity : AppCompatActivity() {
     private var lastHuePackets = 0L
     private var lastHueRttMs = -1L
     private var smoothedHuePps = 0f
+
+    private var blurAnimator: ValueAnimator? = null
+
     private var lastHuePpsTimeNs = 0L
     private var lastPeerCount = 0
     private var linkNotifyRunnable: Runnable? = null
@@ -631,6 +638,11 @@ class MainActivity : AppCompatActivity() {
         scrim.visibility = View.VISIBLE
         scrim.animate().alpha(1f).setDuration(180).start()
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            optionsSheet.background.mutate().alpha = 130 // ~50% translucent glass
+            animateBlur(60f, 350, OvershootInterpolator(1.1f))
+        }
+
         val off = resources.displayMetrics.heightPixels.toFloat()
         optionsSheet.translationY = off
         optionsSheet.visibility = View.VISIBLE
@@ -646,12 +658,37 @@ class MainActivity : AppCompatActivity() {
         scrim.animate().alpha(0f).setDuration(250)
             .withEndAction { scrim.visibility = View.GONE }.start()
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            animateBlur(0f, 250, AnticipateInterpolator(1.1f))
+        }
+
         optionsSheet.animate().translationY(optionsSheet.height.toFloat()).setDuration(250)
             .setInterpolator(AnticipateInterpolator(1.1f))
             .withEndAction {
                 optionsSheet.visibility = View.GONE
             }
             .start()
+    }
+
+    private fun animateBlur(targetRadius: Float, animDuration: Long, animInterpolator: TimeInterpolator) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+
+        blurAnimator?.cancel()
+        val currentRadius = (blurAnimator?.animatedValue as? Float) ?: if (targetRadius > 0f) 0f else 60f
+
+        blurAnimator = ValueAnimator.ofFloat(currentRadius, targetRadius).apply {
+            duration = animDuration
+            interpolator = animInterpolator
+            addUpdateListener { anim ->
+                val r = anim.animatedValue as Float
+                if (r > 0.5f) {
+                    glView.setRenderEffect(RenderEffect.createBlurEffect(r, r, Shader.TileMode.CLAMP))
+                } else {
+                    glView.setRenderEffect(null)
+                }
+            }
+            start()
+        }
     }
 
     // ----- Menu controls -----
