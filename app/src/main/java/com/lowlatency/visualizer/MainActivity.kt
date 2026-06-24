@@ -24,6 +24,7 @@ import android.util.TypedValue
 import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.OvershootInterpolator
@@ -1715,12 +1716,39 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun setViewGroupEnabled(viewGroup: ViewGroup, enabled: Boolean) {
+        viewGroup.isEnabled = enabled
+        for (i in 0 until viewGroup.childCount) {
+            val child = viewGroup.getChildAt(i)
+            child.isEnabled = enabled
+            if (child is ViewGroup) {
+                setViewGroupEnabled(child, enabled)
+            }
+        }
+    }
+
     private fun updateHueSections() {
         if (!::lightControlSection.isInitialized) return
         val reachable = currentHueState == HueConn.REACHABLE || currentHueState == HueConn.STREAMING
-        hueAreaSection.visibility = if (reachable && hueAreas.isNotEmpty()) View.VISIBLE else View.GONE
-        lightControlSection.visibility = if (currentHueState == HueConn.REACHABLE && selectedArea != null) View.VISIBLE else View.GONE
-        hueSyncSection.visibility = if (reachable && selectedArea != null) View.VISIBLE else View.GONE
+        val hasSelected = reachable && selectedArea != null
+
+        // All sections are always visible to act as "ghosted teasers"
+        hueAreaSection.visibility = View.VISIBLE
+        lightControlSection.visibility = View.VISIBLE
+        hueSyncSection.visibility = View.VISIBLE
+
+        val areaEnabled = reachable
+        hueAreaSection.alpha = if (areaEnabled) 1.0f else 0.3f
+        setViewGroupEnabled(hueAreaSection, areaEnabled)
+
+        // Light control is enabled if an area is selected AND we're not currently streaming
+        val controlEnabled = hasSelected && currentHueState == HueConn.REACHABLE
+        lightControlSection.alpha = if (controlEnabled) 1.0f else 0.3f
+        setViewGroupEnabled(lightControlSection, controlEnabled)
+
+        val syncEnabled = hasSelected
+        hueSyncSection.alpha = if (syncEnabled) 1.0f else 0.3f
+        setViewGroupEnabled(hueSyncSection, syncEnabled)
     }
 
     private enum class HueConn { DISCONNECTED, SEARCHING, CHECKING, PAIRED, REACHABLE, STREAMING }
