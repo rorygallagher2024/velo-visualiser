@@ -1248,13 +1248,13 @@
             android:layout_marginBottom="12dp">
 
             <Button
-                android:id="@+id/btn_theme_spectrum"
+                android:id="@+id/btn_theme_default"
                 android:layout_width="0dp"
                 android:layout_height="48dp"
                 android:layout_weight="1"
                 android:layout_marginEnd="4dp"
                 android:background="@drawable/segment_button_bg"
-                android:text="@string/theme_spectrum"
+                android:text="@string/theme_default"
                 android:textColor="@color/btn_text"
                 android:textAllCaps="false"
                 android:textSize="11sp"

@@ -114,7 +114,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var dropDot: View
     private lateinit var barCells: List<View>
     private lateinit var btnAdvanced: Button
-    private lateinit var btnThemeSpectrum: Button
+    private lateinit var btnThemeDefault: Button
     private lateinit var btnThemeNeon: Button
     private lateinit var btnThemeWarm: Button
     private lateinit var btnThemeCool: Button
@@ -390,7 +390,7 @@ class MainActivity : AppCompatActivity() {
             findViewById(R.id.bar_cell_4),
         )
         btnAdvanced = findViewById(R.id.btn_advanced)
-        btnThemeSpectrum = findViewById(R.id.btn_theme_spectrum)
+        btnThemeDefault = findViewById(R.id.btn_theme_default)
         btnThemeNeon = findViewById(R.id.btn_theme_neon)
         btnThemeWarm = findViewById(R.id.btn_theme_warm)
         btnThemeCool = findViewById(R.id.btn_theme_cool)
@@ -638,8 +638,8 @@ class MainActivity : AppCompatActivity() {
         }
         updateVisualizerSelection()
 
-        // Burn-in protection toggle (persisted, default on).
-        val burnIn = prefs.getBoolean(KEY_BURNIN, true)
+        // Burn-in protection toggle (persisted, default off).
+        val burnIn = prefs.getBoolean(KEY_BURNIN, false)
         glView.burnInEnabled = burnIn
         updateBurnInButton(burnIn)
         btnBurnin.setOnClickListener {
@@ -658,10 +658,10 @@ class MainActivity : AppCompatActivity() {
         btnSceneLabel.setOnClickListener { setSceneLabelEnabled(!sceneLabelEnabled) }
 
         // Peak luminance (HDR+) toggle (persisted, default off).
-        val peak = prefs.getBoolean(KEY_PEAK_LUMINANCE, false)
+        val peak = prefs.getBoolean(KEY_PEAK_LUMINANCE, true)
         updatePeakLuminance(peak)
         btnPeakLuminance.setOnClickListener {
-            val enabled = !prefs.getBoolean(KEY_PEAK_LUMINANCE, false)
+            val enabled = !prefs.getBoolean(KEY_PEAK_LUMINANCE, true)
             prefs.edit().putBoolean(KEY_PEAK_LUMINANCE, enabled).apply()
             updatePeakLuminance(enabled)
         }
@@ -677,7 +677,7 @@ class MainActivity : AppCompatActivity() {
         // Colour theme (persisted, applied as a global grade in the composite).
         ThemeSettings.preset = ThemeSettings.Theme.fromKey(prefs.getString(KEY_THEME, null))
         updateThemeSelection()
-        btnThemeSpectrum.setOnClickListener { setTheme(ThemeSettings.Theme.SPECTRUM) }
+        btnThemeDefault.setOnClickListener { setTheme(ThemeSettings.Theme.DEFAULT) }
         btnThemeNeon.setOnClickListener { setTheme(ThemeSettings.Theme.NEON) }
         btnThemeWarm.setOnClickListener { setTheme(ThemeSettings.Theme.WARM) }
         btnThemeCool.setOnClickListener { setTheme(ThemeSettings.Theme.COOL) }
@@ -1267,7 +1267,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateThemeSelection() {
         val t = ThemeSettings.preset
-        btnThemeSpectrum.isSelected = t == ThemeSettings.Theme.SPECTRUM
+        btnThemeDefault.isSelected = t == ThemeSettings.Theme.DEFAULT
         btnThemeNeon.isSelected = t == ThemeSettings.Theme.NEON
         btnThemeWarm.isSelected = t == ThemeSettings.Theme.WARM
         btnThemeCool.isSelected = t == ThemeSettings.Theme.COOL
@@ -1945,7 +1945,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun checkHdrSupport() {
         // The toggle is now always visible, but its text is initialized based on support.
-        updatePeakLuminance(prefs.getBoolean(KEY_PEAK_LUMINANCE, false))
+        updatePeakLuminance(prefs.getBoolean(KEY_PEAK_LUMINANCE, true))
     }
 
     /** Choose the display mode with the highest refresh rate at native resolution. */
@@ -1973,7 +1973,7 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         glView.onResume()
-        updatePeakLuminance(prefs.getBoolean(KEY_PEAK_LUMINANCE, false))
+        updatePeakLuminance(prefs.getBoolean(KEY_PEAK_LUMINANCE, true))
         if (!systemAudioMode) ensureMicAndStart()
         if (::hueController.isInitialized) hueController.paused = false
         refreshHueAfterResume()
