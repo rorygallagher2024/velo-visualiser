@@ -174,6 +174,7 @@ class MainActivity : AppCompatActivity() {
     private var lastHuePackets = 0L
     private var lastHueRttMs = -1L
     private var smoothedHuePps = 0f
+    private var lastHuePpsTimeNs = 0L
     private var lastPeerCount = 0
     private var linkNotifyRunnable: Runnable? = null
     private var backgroundedAtMs = 0L
@@ -1084,6 +1085,8 @@ class MainActivity : AppCompatActivity() {
         if (enabled) {
             perfOverlay.visibility = View.VISIBLE
             lastHuePackets = if (::hueController.isInitialized) hueController.huePacketsSent else 0L
+            lastHuePpsTimeNs = System.nanoTime()
+            smoothedHuePps = 0f
             displayedFps = 0f          // count up from zero — a small flourish on open
             shownFps = -1
             perfHandler.removeCallbacks(perfPoller)
@@ -1194,8 +1197,11 @@ class MainActivity : AppCompatActivity() {
         // Philips Hue.
         if (::hueController.isInitialized && hueController.isEnabled) {
             val sent = hueController.huePacketsSent
-            val rawPps = ((sent - lastHuePackets) * 2).coerceAtLeast(0)
+            val nowNs = System.nanoTime()
+            val elapsedS = (nowNs - lastHuePpsTimeNs) / 1_000_000_000.0
+            val rawPps = if (elapsedS > 0.01) ((sent - lastHuePackets) / elapsedS).toFloat() else 0f
             lastHuePackets = sent
+            lastHuePpsTimeNs = nowNs
             smoothedHuePps += (rawPps - smoothedHuePps) * 0.3f
             val drops = hueController.huePacketsFailed
             val rttStr = if (lastHueRttMs >= 0) "%d ms".format(lastHueRttMs) else "—"
