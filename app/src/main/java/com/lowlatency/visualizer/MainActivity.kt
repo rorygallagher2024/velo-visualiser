@@ -26,6 +26,8 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
+import android.view.animation.OvershootInterpolator
+import android.view.animation.AnticipateInterpolator
 import android.widget.Button
 import android.widget.ImageButton
 import android.widget.LinearLayout
@@ -579,20 +581,24 @@ class MainActivity : AppCompatActivity() {
         val off = resources.displayMetrics.heightPixels.toFloat()
         optionsSheet.translationY = off
         optionsSheet.visibility = View.VISIBLE
-        optionsSheet.animate().translationY(0f).setDuration(220)
-            .setInterpolator(DecelerateInterpolator()).start()
+        optionsSheet.animate().translationY(0f).setDuration(350)
+            .setInterpolator(OvershootInterpolator(1.1f))
+            .start()
     }
 
     private fun hideMenu() {
         if (!menuOpen) return
         menuOpen = false
 
-        scrim.animate().alpha(0f).setDuration(180)
+        scrim.animate().alpha(0f).setDuration(250)
             .withEndAction { scrim.visibility = View.GONE }.start()
 
-        val off = resources.displayMetrics.heightPixels.toFloat()
-        optionsSheet.animate().translationY(off).setDuration(200)
-            .withEndAction { optionsSheet.visibility = View.GONE }.start()
+        optionsSheet.animate().translationY(optionsSheet.height.toFloat()).setDuration(250)
+            .setInterpolator(AnticipateInterpolator(1.1f))
+            .withEndAction {
+                optionsSheet.visibility = View.GONE
+            }
+            .start()
     }
 
     // ----- Menu controls -----
@@ -1381,6 +1387,7 @@ class MainActivity : AppCompatActivity() {
         val existing = hueStore.loadCredentials()
         if (existing != null) {
             updateHueConn(HueConn.CHECKING)
+            hueStatus.text = ""
             hueController.setup.pingBridge(existing) { rtt ->
                 if (rtt != null) {
                     updateHueConn(HueConn.REACHABLE)

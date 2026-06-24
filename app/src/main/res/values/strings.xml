@@ -177,7 +177,7 @@
     <string name="hue_local_note">Works over your local Wi-Fi only — your phone and Hue Bridge must be on the same network. No Hue cloud account is used. Light sync uses the Microphone source.</string>
     <string name="hue_mic_only">Light sync works with the Microphone source. Switch the audio source to Microphone.</string>
     <string name="hue_status_idle"></string>
-    <string name="hue_status_searching">Searching for a Hue Bridge on your network…</string>
+    <string name="hue_status_searching"></string>
     <string name="hue_status_press_button">Press the button on your Hue Bridge… %1$d s</string>
     <string name="hue_status_ready"></string>
     <string name="hue_status_no_bridge">No bridge found. Make sure your phone and Hue Bridge are on the same Wi-Fi, then try again.</string>
@@ -199,7 +199,7 @@
     <string name="hue_conn_paired">●  Bridge paired · not reachable</string>
     <string name="hue_conn_reachable">●  Bridge connected</string>
     <string name="hue_conn_streaming">●  Connected — syncing lights</string>
-    <string name="hue_conn_checking">●  Checking bridge…</string>
+    <string name="hue_conn_checking">●  Connecting…</string>
 
     <!-- Internal-audio screen-capture rationale (shown once) -->
     <string name="screenshare_title">Why screen capture?</string>

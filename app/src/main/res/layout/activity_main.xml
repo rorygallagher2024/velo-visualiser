@@ -169,6 +169,8 @@
         android:layout_height="match_parent"
         android:layout_gravity="bottom"
         android:layout_marginTop="72dp"
+        android:layout_marginBottom="-40dp"
+        android:paddingBottom="40dp"
         android:background="@drawable/sheet_background"
         android:clickable="true"
         android:focusable="true"
@@ -1516,6 +1518,16 @@
                     android:textColor="@color/text_dim"
                     android:textSize="14sp" />
 
+                <ProgressBar
+                    android:id="@+id/hue_status_spinner"
+                    android:layout_width="14dp"
+                    android:layout_height="14dp"
+                    android:layout_toEndOf="@id/hue_conn"
+                    android:layout_marginStart="8dp"
+                    android:layout_centerVertical="true"
+                    android:indeterminateTint="@color/accent"
+                    android:visibility="gone" />
+
                 <Button
                     android:id="@+id/btn_hue_forget"
                     android:layout_width="wrap_content"
@@ -1532,32 +1544,15 @@
                     android:visibility="gone" />
             </RelativeLayout>
 
-            <RelativeLayout
+            <TextView
+                android:id="@+id/hue_status"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp">
-
-                <ProgressBar
-                    android:id="@+id/hue_status_spinner"
-                    android:layout_width="14dp"
-                    android:layout_height="14dp"
-                    android:layout_alignParentStart="true"
-                    android:layout_centerVertical="true"
-                    android:layout_marginEnd="6dp"
-                    android:indeterminateTint="@color/accent"
-                    android:visibility="gone" />
-
-                <TextView
-                    android:id="@+id/hue_status"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_centerVertical="true"
-                    android:layout_toEndOf="@id/hue_status_spinner"
-                    android:gravity="start"
-                    android:text="@string/hue_status_idle"
-                    android:textColor="@color/text_dim"
-                    android:textSize="12sp" />
-            </RelativeLayout>
+                android:layout_marginBottom="8dp"
+                android:gravity="start"
+                android:text="@string/hue_status_idle"
+                android:textColor="@color/text_dim"
+                android:textSize="12sp" />
 
             <Button
                 android:id="@+id/btn_hue_connect"
