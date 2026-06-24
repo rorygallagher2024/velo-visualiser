@@ -69,11 +69,15 @@ class LaserArrayScene : GlScene {
                 vec3 pal = palette(ang * 0.15 + u_time * 0.05);
                 float C = length(rd.xy) * 0.6; // length(q0) is same as length(rd.xy)
 
+                // --- OPTIMIZATION 2: Convert transcendental loop to multiplication ---
+                // exp(-C * (t0 + i*dt)) = exp(-C * t0) * (exp(-C * dt))^i
+                // This eliminates the expensive exp() function from the loop completely!
+                float currentRadial = exp(-C * 0.2);
+                float multiplier = exp(-C * 0.24);
                 float sumRadial = 0.0;
-                float t = 0.2;
                 for (int i = 0; i < 20; i++) {
-                    sumRadial += exp(-C * t);
-                    t += 0.24;
+                    sumRadial += currentRadial;
+                    currentRadial *= multiplier;
                 }
                 
                 vec3 col = pal * beam * sumRadial * opacity * 0.10;
