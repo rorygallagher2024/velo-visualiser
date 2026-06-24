@@ -1220,6 +1220,15 @@ class MainActivity : AppCompatActivity() {
         val cpuPercent = if (frameMs > 0) (cpuMs / frameMs * 100f).coerceIn(0f, 100f) else 0f
         appendRow("CPU", "%.1f ms · %.0f%%".format(cpuMs, cpuPercent))
 
+        // Memory Usage
+        val debugMem = android.os.Debug.MemoryInfo()
+        android.os.Debug.getMemoryInfo(debugMem)
+        val javaMb = debugMem.dalvikPss / 1024
+        val nativeMb = debugMem.nativePss / 1024
+        val gfxMb = debugMem.getMemoryStat("summary.graphics")?.toIntOrNull()?.div(1024) ?: 0
+        val totalMb = debugMem.totalPss / 1024
+        appendRow("MEM", "%dMB J:%d N:%d G:%d".format(totalMb, javaMb, nativeMb, gfxMb))
+
         // Audio capture.
         appendRow("Audio", "%d Hz · %.1f ms".format(rate, audioMs))
 
@@ -2021,6 +2030,10 @@ class MainActivity : AppCompatActivity() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
             == PackageManager.PERMISSION_GRANTED
         ) {
+            // If the native engine auto-restarted the stream while we were in the background
+            // (e.g. after a route change), Android will give us an irreversibly silent stream
+            // for privacy. Force-stop it here so we create a fresh one in the foreground.
+            NativeBridge.nativeStop()
             startMicrophone()
         } else {
             requestPermissions.launch(buildPermissionList())
