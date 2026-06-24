@@ -1599,7 +1599,7 @@ class MainActivity : AppCompatActivity() {
                         tvNanoleafState.text = "Pairing..."
                     }
                     com.lowlatency.visualizer.nanoleaf.NanoleafController.State.PAIRED -> {
-                        tvNanoleafState.text = "Paired Ready"
+                        tvNanoleafState.text = "Ready"
                         tvNanoleafState.setTextColor(getColor(R.color.hue_connected))
                         imgNanoleafState.imageTintList = android.content.res.ColorStateList.valueOf(getColor(R.color.hue_connected))
                         btnNanoleafScan.visibility = View.GONE

@@ -193,12 +193,13 @@
     <string name="hue_brightness_label">Brightness</string>
     <string name="hue_status_synced"></string>
     <string name="hue_select_area">Select an Entertainment Area:</string>
+    <string name="nanoleaf_hint">Nanoleaf panels/shapes support an ultra-fast Wi-Fi streaming protocol. (Note: Nanoleaf Essentials bulbs are Bluetooth/Matter and are not supported).\n\nTo pair, hold the power button on your Nanoleaf controller for 5-7 seconds until the LED starts flashing. Ensure your phone is on the same Wi-Fi network.</string>
 
     <!-- Hue connection-state indicator -->
     <string name="hue_conn_disconnected">●  Disconnected</string>
     <string name="hue_conn_searching">●  Searching…</string>
     <string name="hue_conn_paired">●  Bridge paired · not reachable</string>
-    <string name="hue_conn_reachable">●  Bridge connected</string>
+    <string name="hue_conn_reachable">●  Ready</string>
     <string name="hue_conn_streaming">●  Connected — syncing lights</string>
     <string name="hue_conn_checking">●  Connecting…</string>
 

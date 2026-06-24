@@ -7,8 +7,10 @@
     4. intro_hint             - brief swipe hint that fades after the splash
 -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    tools:ignore="TooManyViews">
 
     <com.lowlatency.visualizer.VisualizerSurfaceView
         android:id="@+id/gl_view"
@@ -1462,17 +1464,6 @@
             android:animateLayoutChanges="true"
             android:visibility="gone">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/tab_lighting"
-            android:textColor="@color/accent"
-            android:textSize="18sp"
-            android:textStyle="normal"
-            android:textAllCaps="true"
-            android:letterSpacing="0.05"
-            android:layout_marginBottom="16dp" />
-
         <!-- Brand Segmented Control -->
         <LinearLayout
             android:layout_width="match_parent"
@@ -1599,7 +1590,7 @@
                     android:text="@string/hue_forget"
                     android:textAllCaps="true"
                     android:textColor="@color/text_dim"
-                    android:textSize="10sp"
+                    android:textSize="11sp"
                     android:visibility="gone" />
             </RelativeLayout>
 
@@ -1783,17 +1774,15 @@
             android:visibility="gone">
 
             <TextView
-                android:layout_width="match_parent"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="LIFX creates Wi-Fi smart bulbs. Unlike Philips Hue, they connect directly to your router without requiring a bridge.\n\nMake sure your phone is connected to the same Wi-Fi network as your bulbs to sync them with the visualizer."
-                android:textColor="@color/text_primary"
-                android:textSize="14sp"
-                android:lineSpacingExtra="4sp"
-                android:paddingBottom="16dp"
-                android:gravity="start" />
-
-
-
+                android:text="@string/hue_section_bridge"
+                android:textColor="@color/text_dim"
+                android:textSize="12sp"
+                android:textStyle="normal"
+                android:textAllCaps="true"
+                android:letterSpacing="0.08"
+                android:layout_marginBottom="12dp" />
 
             <RelativeLayout
                 android:layout_width="match_parent"
@@ -1819,6 +1808,16 @@
                     android:textColor="@color/text_dim"
                     android:textSize="14sp" />
             </RelativeLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="LIFX creates Wi-Fi smart bulbs. Unlike Philips Hue, they connect directly to your router without requiring a bridge.\n\nMake sure your phone is connected to the same Wi-Fi network as your bulbs to sync them with the visualizer."
+                android:textColor="@color/text_primary"
+                android:textSize="14sp"
+                android:lineSpacingExtra="4sp"
+                android:paddingBottom="16dp"
+                android:gravity="start" />
 
             <Button
                 android:id="@+id/btn_lifx_scan"
@@ -1905,10 +1904,21 @@
             android:visibility="gone">
 
             <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/hue_section_bridge"
+                android:textColor="@color/text_dim"
+                android:textSize="12sp"
+                android:textStyle="normal"
+                android:textAllCaps="true"
+                android:letterSpacing="0.08"
+                android:layout_marginBottom="12dp" />
+
+            <TextView
                 android:id="@+id/tv_nanoleaf_hint"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Nanoleaf panels support an ultra-fast streaming protocol. To pair, hold the power button on your Nanoleaf controller for 5-7 seconds until the LED starts flashing, then tap Pair.\n\nEnsure your phone is connected to the same Wi-Fi network."
+                android:text="@string/nanoleaf_hint"
                 android:textColor="@color/text_primary"
                 android:textSize="14sp"
                 android:lineSpacingExtra="4sp"
@@ -1927,7 +1937,7 @@
                     android:layout_marginEnd="12dp"
                     android:layout_centerVertical="true"
                     android:layout_alignParentStart="true"
-                    android:src="@drawable/circle_shape" /> />
+                    android:src="@drawable/circle_shape" />
 
                 <TextView
                     android:id="@+id/tv_nanoleaf_state"
@@ -1951,7 +1961,7 @@
                     android:text="@string/hue_forget"
                     android:textAllCaps="true"
                     android:textColor="@color/text_dim"
-                    android:textSize="10sp"
+                    android:textSize="11sp"
                     android:visibility="gone" />
             </RelativeLayout>
 
@@ -1967,7 +1977,6 @@
                 android:textSize="14sp"
                 android:stateListAnimator="@null" />
 
-                android:stateListAnimator="@null" />
 
             <View
                 android:layout_width="match_parent"
