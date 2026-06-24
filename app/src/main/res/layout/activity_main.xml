@@ -1542,6 +1542,10 @@
                 android:letterSpacing="0.08"
                 android:layout_marginBottom="12dp" />
 
+            <include
+                android:id="@+id/status_hue"
+                layout="@layout/layout_connection_status" />
+
             <TextView
                 android:id="@+id/hue_prerequisites"
                 android:layout_width="match_parent"
@@ -1553,10 +1557,6 @@
                 android:padding="16dp"
                 android:background="@drawable/segment_button_bg"
                 android:layout_marginBottom="16dp" />
-
-            <include
-                android:id="@+id/status_hue"
-                layout="@layout/layout_connection_status" />
 
             <TextView
                 android:id="@+id/hue_status"
@@ -1857,6 +1857,10 @@
                 android:letterSpacing="0.08"
                 android:layout_marginBottom="12dp" />
 
+            <include
+                android:id="@+id/status_nanoleaf"
+                layout="@layout/layout_connection_status" />
+
             <TextView
                 android:id="@+id/tv_nanoleaf_hint"
                 android:layout_width="match_parent"
@@ -1867,10 +1871,6 @@
                 android:lineSpacingExtra="4sp"
                 android:paddingBottom="16dp"
                 android:gravity="start" />
-
-            <include
-                android:id="@+id/status_nanoleaf"
-                layout="@layout/layout_connection_status" />
 
             <Button
                 android:id="@+id/btn_nanoleaf_scan"
