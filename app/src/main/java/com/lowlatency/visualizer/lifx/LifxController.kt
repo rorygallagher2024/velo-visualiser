@@ -30,6 +30,7 @@ class LifxController {
     fun hasSelectedBulbs(): Boolean = synchronized(bulbs) { bulbs.any { it.isSelected } }
 
     @Volatile private var streaming = false
+    val isStreaming: Boolean get() = streaming
     private var senderThread: Thread? = null
 
     // Audio-reactive state

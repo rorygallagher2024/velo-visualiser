@@ -1832,13 +1832,26 @@
                 android:id="@+id/btn_lifx_sync"
                 android:layout_width="match_parent"
                 android:layout_height="48dp"
-                android:layout_marginBottom="20dp"
+                android:layout_marginBottom="8dp"
                 android:background="@drawable/pill_button_bg"
-                android:text="Start Sync"
+                android:text="@string/hue_sync_off"
                 android:textColor="@color/btn_text"
                 android:textAllCaps="false"
                 android:textSize="14sp"
                 android:enabled="false"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_lifx_advanced"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginBottom="20dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/adv_button"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="14sp"
+                android:visibility="gone"
                 android:stateListAnimator="@null" />
 
         </LinearLayout>

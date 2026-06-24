@@ -139,8 +139,8 @@
     <string name="adv_meter_bass">Bass content</string>
     <string name="adv_colour">Colour split (red ↔ blue)</string>
     <string name="adv_glow">Resting glow</string>
-    <string name="adv_hue_lookahead">Hue lookahead</string>
-    <string name="adv_hue_lookahead_hint">Sends the beat command early to compensate for Zigbee latency, so the lights flash on time. Adjust until beats feel in sync.</string>
+    <string name="adv_hue_lookahead">Lighting lookahead</string>
+    <string name="adv_hue_lookahead_hint">Sends the beat command early to compensate for Hue (Zigbee) and LIFX (Wi-Fi) network latency, so the lights flash on time. Adjust until beats feel in sync.</string>
     <string name="adv_reset">Reset</string>
     <string name="adv_done">Done</string>
     <string name="perf_overlay_on">Performance Overlay: On</string>

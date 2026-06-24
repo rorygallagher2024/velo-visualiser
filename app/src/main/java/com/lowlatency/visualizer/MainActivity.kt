@@ -118,6 +118,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var dropDot: View
     private lateinit var barCells: List<View>
     private lateinit var btnAdvanced: Button
+    private lateinit var btnLifxAdvanced: Button
     private lateinit var btnThemeDefault: Button
     private lateinit var btnThemeNeon: Button
     private lateinit var btnThemeWarm: Button
@@ -428,6 +429,7 @@ class MainActivity : AppCompatActivity() {
             findViewById(R.id.bar_cell_4),
         )
         btnAdvanced = findViewById(R.id.btn_advanced)
+        btnLifxAdvanced = findViewById(R.id.btn_lifx_advanced)
         btnThemeDefault = findViewById(R.id.btn_theme_default)
         btnThemeNeon = findViewById(R.id.btn_theme_neon)
         btnThemeWarm = findViewById(R.id.btn_theme_warm)
@@ -826,6 +828,7 @@ class MainActivity : AppCompatActivity() {
         HueStrobeSettings.audioFlash = prefs.getFloat(KEY_ADV_AUDIO_FLASH, HueStrobeSettings.audioFlash)
         HueStrobeSettings.hueLookaheadMs = prefs.getFloat(KEY_ADV_HUE_LOOKAHEAD, HueStrobeSettings.hueLookaheadMs)
         btnAdvanced.setOnClickListener { showAdvancedDialog() }
+        btnLifxAdvanced.setOnClickListener { showAdvancedDialog() }
     }
 
     /**
@@ -1476,6 +1479,7 @@ class MainActivity : AppCompatActivity() {
                 lifxSyncing = false
                 btnLifxSync.setText(R.string.hue_sync_off)
                 btnLifxSync.isSelected = false
+                updateAdvancedVisibility()
             } else {
                 if (!lifxController.hasSelectedBulbs()) {
                     Toast.makeText(this, "Please select at least one bulb first.", Toast.LENGTH_SHORT).show()
@@ -1485,9 +1489,9 @@ class MainActivity : AppCompatActivity() {
                 lifxSyncing = true
                 btnLifxSync.setText(R.string.hue_sync_on)
                 btnLifxSync.isSelected = true
+                updateAdvancedVisibility()
             }
         }
-
 
         val savedCreds = hueStore.loadCredentials()
         if (savedCreds != null) {
@@ -1738,8 +1742,11 @@ class MainActivity : AppCompatActivity() {
      * show it whenever Hue sync is active. The panel adapts to whichever mode is on.
      */
     private fun updateAdvancedVisibility() {
-        val relevant = ::hueController.isInitialized && hueController.isEnabled
-        btnAdvanced.visibility = if (relevant) View.VISIBLE else View.GONE
+        val hueRelevant = ::hueController.isInitialized && hueController.isEnabled
+        btnAdvanced.visibility = if (hueRelevant) View.VISIBLE else View.GONE
+        
+        val lifxRelevant = ::lifxController.isInitialized && lifxController.isStreaming
+        btnLifxAdvanced.visibility = if (lifxRelevant) View.VISIBLE else View.GONE
     }
 
     // ----- Light control (scene presets + brightness) -----
