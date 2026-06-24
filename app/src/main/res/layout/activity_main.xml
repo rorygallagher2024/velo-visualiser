@@ -1809,11 +1809,11 @@
                 android:indeterminateTint="@color/accent"
                 android:visibility="gone" />
 
-            <LinearLayout
+            <GridLayout
                 android:id="@+id/lifx_bulb_container"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
+                android:columnCount="2"
                 android:layout_marginBottom="16dp" />
 
             <View

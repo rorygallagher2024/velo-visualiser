@@ -166,7 +166,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var containerLifx: View
     private lateinit var btnLifxScan: Button
     private lateinit var lifxScanSpinner: ProgressBar
-    private lateinit var lifxBulbContainer: LinearLayout
+    private lateinit var lifxBulbContainer: android.widget.GridLayout
     private lateinit var btnLifxSync: Button
 
     private lateinit var btnHueForget: Button
@@ -1425,33 +1425,34 @@ class MainActivity : AppCompatActivity() {
             lifxController.startDiscovery(
                 onBulbFound = { bulb ->
                     runOnUiThread {
-                        val cb = android.widget.ToggleButton(this)
-                        cb.text = bulb.label
-                        cb.textOn = bulb.label
-                        cb.textOff = bulb.label
-                        cb.isAllCaps = false
-                        cb.isChecked = false
-                        cb.setTextColor(getColorStateList(R.color.btn_text))
-                        cb.textSize = 14f
-                        cb.typeface = android.graphics.Typeface.create("sans-serif-light", android.graphics.Typeface.NORMAL)
-                        
-                        val dp = resources.displayMetrics.density
-                        cb.setPadding((dp * 16).toInt(), (dp * 12).toInt(), (dp * 16).toInt(), (dp * 12).toInt())
-                        
-                        cb.background = getDrawable(R.drawable.pill_button_bg)
-                        
-                        val params = android.widget.LinearLayout.LayoutParams(
-                            android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
-                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
-                        )
-                        params.bottomMargin = (dp * 8).toInt()
-                        cb.layoutParams = params
+                        val card = layoutInflater.inflate(R.layout.lifx_bulb_item, lifxBulbContainer, false)
+                        val bulbNameText = card.findViewById<TextView>(R.id.bulb_name)
+                        bulbNameText.text = bulb.label
 
-                        cb.setOnCheckedChangeListener { _, isChecked ->
+                        // The view starts unselected (matching LifxBulb default state)
+                        card.isSelected = false
+
+                        // Add simple scale animation on touch/click
+                        card.setOnClickListener { v ->
+                            val isChecked = !v.isSelected
                             lifxController.setBulbSelected(bulb.ip, isChecked)
-                            cb.isSelected = isChecked
+                            v.isSelected = isChecked
+                            
+                            // Micro-animation "spring" bounce
+                            v.animate()
+                                .scaleX(0.95f).scaleY(0.95f)
+                                .setDuration(50)
+                                .withEndAction {
+                                    v.animate()
+                                        .scaleX(1.0f).scaleY(1.0f)
+                                        .setDuration(150)
+                                        .setInterpolator(android.view.animation.OvershootInterpolator(1.5f))
+                                        .start()
+                                }
+                                .start()
                         }
-                        lifxBulbContainer.addView(cb)
+                        
+                        lifxBulbContainer.addView(card)
                         btnLifxSync.isEnabled = true
                         btnLifxSync.setText(R.string.hue_sync_off)
                     }
