@@ -45,6 +45,11 @@ import com.lowlatency.visualizer.hue.HueCredentialStore
 import com.lowlatency.visualizer.hue.HueCredentials
 import com.lowlatency.visualizer.hue.HueEntertainmentArea
 import com.lowlatency.visualizer.hue.HueLightController
+import com.lowlatency.visualizer.ui.AudioSettingsController
+import com.lowlatency.visualizer.ui.HueMenuController
+import com.lowlatency.visualizer.ui.LinkMenuController
+import com.lowlatency.visualizer.ui.PerfOverlayController
+import com.lowlatency.visualizer.ui.VisualsMenuController
 import kotlin.math.abs
 
 /**
@@ -136,6 +141,12 @@ class MainActivity : AppCompatActivity() {
     private var sceneLabelRunnable: Runnable? = null
     private var sceneLabelEnabled = true
     private lateinit var hapticController: HapticController
+
+    private lateinit var perfOverlayController: PerfOverlayController
+    private lateinit var hueMenuController: HueMenuController
+    private lateinit var linkMenuController: LinkMenuController
+    private lateinit var audioSettingsController: AudioSettingsController
+    private lateinit var visualsMenuController: VisualsMenuController
     private lateinit var prefs: SharedPreferences
 
     // Visualizer buttons paired with their scene index + base label (for the
@@ -582,204 +593,45 @@ class MainActivity : AppCompatActivity() {
     // ----- Menu controls -----
 
     private fun wireMenuControls() {
+        prefs = getSharedPreferences("prefs", android.content.Context.MODE_PRIVATE)
+        hueController = HueLightController(this)
+        hueStore = HueCredentialStore(this)
+        hapticController = HapticController(this)
+
+        perfOverlayController = PerfOverlayController(this, prefs, glView, hueController) { systemAudioMode }
+        audioSettingsController = AudioSettingsController(this, prefs, hueController, { systemAudioMode }, { requestSystemAudioCapture() }, { selectMicrophone() })
+        linkMenuController = LinkMenuController(this, prefs) { audioSettingsController.updateAdvancedVisibility() }
+        hueMenuController = HueMenuController(this, hueController, hueStore, { systemAudioMode }, { audioSettingsController.updateAdvancedVisibility() })
+        
+        glView.bandsSink = { low, mid, high -> hueController.onBands(low, mid, high) }
+        glView.pcmBeatSink = { pcm -> hapticController.onPcm(pcm) }
+        glView.onLinkBeat = {
+            hueController.onLinkBeat()
+            if (menuOpen) {
+                runOnUiThread {
+                    linkMenuController.flashBeatDot()
+                    val cell = (Math.round(com.lowlatency.visualizer.BeatPulse.barPhase * 4f) % 4 + 4) % 4
+                    linkMenuController.updateBarCells(cell)
+                }
+            }
+        }
+        glView.onDrop = {
+            if (menuOpen) runOnUiThread { linkMenuController.flashDot() }
+        }
+        
+        visualsMenuController = VisualsMenuController(
+            this, prefs, glView, hapticController,
+            { perfOverlayController.isEnabled },
+            { perfOverlayController.height },
+            { menuOpen }
+        )
+        
         segMic.setOnClickListener { selectMicrophone() }
         segInternal.setOnClickListener { selectInternalAudio() }
-
-        // Visualizer buttons: tap = select, long-press = toggle favourite.
-        visButtons = listOf(
-            // Instruments
-            Triple(btnOscilloscope, 0, btnOscilloscope.text.toString()),
-            Triple(btnRawScope, 8, btnRawScope.text.toString()),
-            Triple(btnBars, 5, btnBars.text.toString()),
-            Triple(btnCircular, 4, btnCircular.text.toString()),
-            Triple(btnSpectrogram, 9, btnSpectrogram.text.toString()),
-            Triple(btnLedMatrix, 16, btnLedMatrix.text.toString()),
-            Triple(btnLedMatrix3d, 28, btnLedMatrix3d.text.toString()),
-            Triple(btnMechanicalMeter, 17, btnMechanicalMeter.text.toString()),
-            // Reactive
-            Triple(btnCymatics, 21, btnCymatics.text.toString()),
-            Triple(btnBeatPulse, 18, btnBeatPulse.text.toString()),
-            Triple(btnFireworks, 10, btnFireworks.text.toString()),
-            Triple(btnStarscape, 7, btnStarscape.text.toString()),
-            Triple(btnBloom, 6, btnBloom.text.toString()),
-            Triple(btnElectricIris, 12, btnElectricIris.text.toString()),
-            Triple(btnAuroraDrift, 24, btnAuroraDrift.text.toString()),
-            Triple(btnTunnel, 1, btnTunnel.text.toString()),
-            Triple(btnLaser, 3, btnLaser.text.toString()),
-            Triple(btnPhyllotaxis, 11, btnPhyllotaxis.text.toString()),
-            Triple(btnMandala, 13, btnMandala.text.toString()),
-            Triple(btnAudioWeb, 14, btnAudioWeb.text.toString()),
-            Triple(btnTopoRidge, 15, btnTopoRidge.text.toString()),
-            Triple(btnStrangeAttractor, 22, btnStrangeAttractor.text.toString()),
-            Triple(btnLogoParticle, 26, btnLogoParticle.text.toString()),
-            // Immersive
-            Triple(btnFluid, 2, btnFluid.text.toString()),
-            Triple(btnCrystalSwarm, 27, btnCrystalSwarm.text.toString()),
-            Triple(btnMandelbox, 19, btnMandelbox.text.toString()),
-            Triple(btnReactionDiffusion, 20, btnReactionDiffusion.text.toString()),
-            Triple(btnPlasmaStorm, 23, btnPlasmaStorm.text.toString()),
-            Triple(btnOdyssey, 25, btnOdyssey.text.toString()),
-        )
-        glView.sceneOrder = visButtons.map { it.second }
-        glView.onSceneChanged = {
-            updateVisualizerSelection()
-            // Flash the name over the canvas on a swipe (menu closed); when the
-            // menu is open the hero header already names the active scene.
-            if (!menuOpen) showSceneLabel()
-        }
-
-        prefs.getStringSet(KEY_FAVOURITES, emptySet())?.forEach {
-            it.toIntOrNull()?.let { idx -> favourites.add(idx) }
-        }
-        updateFavouritesOrder()
-        visButtons.forEach { (b, idx, _) ->
-            b.setOnClickListener { glView.selectScene(idx); updateVisualizerSelection() }
-            b.setOnLongClickListener { toggleFavourite(idx); true }
-        }
-        updateVisualizerSelection()
-
-        // Burn-in protection toggle (persisted, default on).
-        val burnIn = prefs.getBoolean(KEY_BURNIN, true)
-        glView.burnInEnabled = burnIn
-        updateBurnInButton(burnIn)
-        btnBurnin.setOnClickListener {
-            val enabled = !glView.burnInEnabled
-            glView.burnInEnabled = enabled
-            prefs.edit().putBoolean(KEY_BURNIN, enabled).apply()
-            updateBurnInButton(enabled)
-        }
-
-        // Performance overlay toggle (persisted, default off).
-        setPerfOverlay(prefs.getBoolean(KEY_PERF_OVERLAY, false))
-        btnPerfOverlay.setOnClickListener { setPerfOverlay(!perfOverlayEnabled) }
-
-        // On-swipe visualiser-name label toggle (persisted, default on).
-        setSceneLabelEnabled(prefs.getBoolean(KEY_SCENE_LABEL, true))
-        btnSceneLabel.setOnClickListener { setSceneLabelEnabled(!sceneLabelEnabled) }
-
-        // Peak luminance (HDR+) toggle (persisted, default off).
-        val peak = prefs.getBoolean(KEY_PEAK_LUMINANCE, false)
-        updatePeakLuminance(peak)
-        btnPeakLuminance.setOnClickListener {
-            val enabled = !prefs.getBoolean(KEY_PEAK_LUMINANCE, false)
-            prefs.edit().putBoolean(KEY_PEAK_LUMINANCE, enabled).apply()
-            updatePeakLuminance(enabled)
-        }
-
-        // HDR bloom / glow strength (persisted).
-        GlowSettings.strength = GlowSettings.Strength.fromKey(prefs.getString(KEY_GLOW, null))
-        updateGlowSelection()
-        btnGlowOff.setOnClickListener { setGlow(GlowSettings.Strength.OFF) }
-        btnGlowSubtle.setOnClickListener { setGlow(GlowSettings.Strength.SUBTLE) }
-        btnGlowStandard.setOnClickListener { setGlow(GlowSettings.Strength.STANDARD) }
-        btnGlowIntense.setOnClickListener { setGlow(GlowSettings.Strength.INTENSE) }
-
-        // Colour theme (persisted, applied as a global grade in the composite).
-        ThemeSettings.preset = ThemeSettings.Theme.fromKey(prefs.getString(KEY_THEME, null))
-        updateThemeSelection()
-        btnThemeSpectrum.setOnClickListener { setTheme(ThemeSettings.Theme.SPECTRUM) }
-        btnThemeNeon.setOnClickListener { setTheme(ThemeSettings.Theme.NEON) }
-        btnThemeWarm.setOnClickListener { setTheme(ThemeSettings.Theme.WARM) }
-        btnThemeCool.setOnClickListener { setTheme(ThemeSettings.Theme.COOL) }
-        btnThemeMono.setOnClickListener { setTheme(ThemeSettings.Theme.MONO) }
-
-        btnPrivacyPolicy.setOnClickListener {
-            showPrivacyPolicy()
-        }
-
-        btnAbout.setOnClickListener {
-            showAboutDialog()
-        }
-
-        // Vibrate-on-beat haptics (persisted, default off). Disabled if the
-        // device has no vibrator. Created here, before wireHue() wires the sink.
-        hapticController = HapticController(this)
-        if (hapticController.isSupported) {
-            val haptics = prefs.getBoolean(KEY_HAPTICS, false)
-            hapticController.enabled = haptics
-            updateHapticsButton(haptics)
-            btnHaptics.setOnClickListener {
-                val enabled = !hapticController.enabled
-                hapticController.enabled = enabled
-                prefs.edit().putBoolean(KEY_HAPTICS, enabled).apply()
-                updateHapticsButton(enabled)
-                // Confirmation buzz so you can tell vibration works at all,
-                // independent of whether a beat has been detected yet.
-                if (enabled) hapticController.previewPulse()
-            }
-        } else {
-            btnHaptics.isEnabled = false
-            btnHaptics.alpha = 0.4f
-            updateHapticsButton(false)
-        }
-
-        // Beat sensitivity presets (persisted). Drives every BeatDetector
-        // (fireworks, haptics, starscape flashes), mapped per audio source.
-        BeatSettings.preset = BeatSettings.Sensitivity.fromKey(prefs.getString(KEY_BEAT_SENS, null))
-        updateBeatSensSelection()
-        btnSensLow.setOnClickListener { setBeatSensitivity(BeatSettings.Sensitivity.LOW) }
-        btnSensStandard.setOnClickListener { setBeatSensitivity(BeatSettings.Sensitivity.STANDARD) }
-        btnSensHigh.setOnClickListener { setBeatSensitivity(BeatSettings.Sensitivity.HIGH) }
-
-        // Ableton Link wireless tempo/beat sync (persisted, default off).
-        setLinkSync(prefs.getBoolean(KEY_LINK, false), persist = false)
-        btnLinkSync.setOnClickListener { setLinkSync(!LinkSync.enabled, persist = true) }
-
-        // Link session notifications toggle (persisted, default on).
-        updateLinkNotifyButton(prefs.getBoolean(KEY_LINK_NOTIFY, true))
-        btnLinkNotify.setOnClickListener {
-            val enabled = !prefs.getBoolean(KEY_LINK_NOTIFY, true)
-            prefs.edit().putBoolean(KEY_LINK_NOTIFY, enabled).apply()
-            updateLinkNotifyButton(enabled)
-        }
-
-        // Anticipatory beat-swell for the visuals (persisted, default on).
-        LinkSync.anticipateBeat = prefs.getBoolean(KEY_LINK_ANTICIPATE, true)
-        updateLinkAnticipateButton(LinkSync.anticipateBeat)
-        btnLinkAnticipate.setOnClickListener {
-            val enabled = !LinkSync.anticipateBeat
-            LinkSync.anticipateBeat = enabled
-            prefs.edit().putBoolean(KEY_LINK_ANTICIPATE, enabled).apply()
-            updateLinkAnticipateButton(enabled)
-        }
-
-        // Experimental bar + drop enrichment (persisted, default off so the
-        // out-of-the-box visuals only ride the reliable beat).
-        LinkSync.experimentalEnrich = prefs.getBoolean(KEY_LINK_EXTRAS, false)
-        updateLinkExtrasButton(LinkSync.experimentalEnrich)
-        btnLinkExtras.setOnClickListener {
-            val enabled = !LinkSync.experimentalEnrich
-            LinkSync.experimentalEnrich = enabled
-            prefs.edit().putBoolean(KEY_LINK_EXTRAS, enabled).apply()
-            updateLinkExtrasButton(enabled)
-        }
-
-        // Manual downbeat alignment (persisted, default 0). Cycles 0→1→2→3 beats.
-        LinkSync.barOffsetBeats = prefs.getInt(KEY_LINK_BAR_OFFSET, 0).coerceIn(0, 3)
-        updateLinkDownbeatButton()
-        btnLinkDownbeat.setOnClickListener {
-            LinkSync.barOffsetBeats = (LinkSync.barOffsetBeats + 1) % 4
-            prefs.edit().putInt(KEY_LINK_BAR_OFFSET, LinkSync.barOffsetBeats).apply()
-            updateLinkDownbeatButton()
-        }
-
-        // Advanced light-sync tuning (persisted). Restore saved slider positions
-        // into the strobe settings, then open the panel on tap. Beat sensitivity is
-        // no longer here — it's the global Beat Sensitivity preset (BeatSettings).
-        HueStrobeSettings.linkBeatFlashEnabled = prefs.getBoolean(KEY_ADV_LINK_BEAT_FLASH, HueStrobeSettings.linkBeatFlashEnabled)
-        HueStrobeSettings.colourSplit = prefs.getFloat(KEY_ADV_COLOUR, HueStrobeSettings.colourSplit)
-        HueStrobeSettings.restingGlow = prefs.getFloat(KEY_ADV_GLOW, HueStrobeSettings.restingGlow)
-        HueStrobeSettings.audioBrightness = prefs.getFloat(KEY_ADV_AUDIO_BRIGHT, HueStrobeSettings.audioBrightness)
-        HueStrobeSettings.audioFlash = prefs.getFloat(KEY_ADV_AUDIO_FLASH, HueStrobeSettings.audioFlash)
-        HueStrobeSettings.hueLookaheadMs = prefs.getFloat(KEY_ADV_HUE_LOOKAHEAD, HueStrobeSettings.hueLookaheadMs)
-        btnAdvanced.setOnClickListener { showAdvancedDialog() }
+        btnPrivacyPolicy.setOnClickListener { showPrivacyPolicy() }
+        btnAbout.setOnClickListener { showAboutDialog() }
     }
 
-    /**
-     * Advanced lighting panel. Adapts to the mode: with Ableton Link on it shows
-     * the beat-strobe controls (live meters + sensitivity/colour/glow); with Link
-     * off it shows the audio-reactive light-show controls (brightness/flash/sens).
-     */
     private fun showAdvancedDialog() {
         val view = layoutInflater.inflate(R.layout.dialog_advanced, null)
         val linkMode = LinkSync.enabled
@@ -1300,59 +1152,7 @@ class MainActivity : AppCompatActivity() {
 
     // ----- Smart lighting (Philips Hue) -----
 
-    private fun wireHue() {
-        hueController = HueLightController(this)
-        hueStore = HueCredentialStore(this)
-
-        // Hue light sync reads the FFT bands; haptics runs bass-onset detection
-        // on the raw PCM (a separate tap, so it can't affect any visual tuning).
-        glView.bandsSink = { low, mid, high -> hueController.onBands(low, mid, high) }
-        // Haptics fire off the shared BeatBus, which the renderer updates just
-        // before this per-frame tap. Audio presence + bass balance (for the Hue
-        // strobe) are measured in the renderer too, so this tap is just the tick.
-        glView.pcmBeatSink = { pcm -> hapticController.onPcm(pcm) }
-        // Raw (ungated) Link beat: drives the Hue strobe timing (with lookahead)
-        // and flashes the diagnostic beat light when the menu is open. The visuals
-        // and haptics react to the *gated* beat via BeatBus instead. Runs on the
-        // GL thread, so the light update hops to the UI thread.
-        glView.onLinkBeat = {
-            hueController.onLinkBeat()
-            // Step the virtual bar to Link's current beat-in-bar (post-nudge) and
-            // pulse the beat dot. Only while the menu is open, to stay cheap.
-            if (menuOpen) {
-                val cell = (Math.round(BeatPulse.barPhase * 4f) % 4 + 4) % 4
-                beatDot.post { flashBeatDot(); updateBarCells(cell) }
-            }
-        }
-        // Drop diagnostic light (detected energy surge); flashed while menu open.
-        glView.onDrop = { if (menuOpen) dropDot.post { flashDot(dropDot) } }
-
-        btnHueConnect.setOnClickListener { onHueConnectClicked() }
-        btnHueSync.setOnClickListener { onHueSyncToggle() }
-        btnHueForget.setOnClickListener { confirmForgetBridge() }
-        buildLightControlUI()
-
-        val savedCreds = hueStore.loadCredentials()
-        if (savedCreds != null) {
-            huePrerequisites.visibility = View.GONE
-            btnHueConnect.setText(R.string.hue_reconnect)
-            btnHueForget.visibility = View.VISIBLE
-            updateHueConn(HueConn.CHECKING)
-            hueController.setup.pingBridge(savedCreds) { rtt ->
-                if (rtt != null) {
-                    updateHueConn(HueConn.REACHABLE)
-                    hueStatus.text = getString(R.string.hue_status_ready)
-                    startHuePingPoller()
-                    loadHueAreas()
-                } else {
-                    updateHueConn(HueConn.PAIRED)
-                    hueStatus.text = getString(R.string.hue_status_unreachable)
-                }
-            }
-        } else {
-            updateHueConn(HueConn.DISCONNECTED)
-        }
-    }
+    private fun wireHue() {}
 
     private fun onHueConnectClicked() {
         val existing = hueStore.loadCredentials()
@@ -1749,17 +1549,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateSourceSelection() {
-        segMic.isSelected = !systemAudioMode
-        segInternal.isSelected = systemAudioMode
-        internalAudioWarning.visibility = if (systemAudioMode) View.VISIBLE else View.GONE
+        if (::audioSettingsController.isInitialized) {
+            audioSettingsController.updateSourceSelection(systemAudioMode)
+        }
     }
 
     private fun updateVisualizerSelection() {
-        val current = glView.sceneIndex
-        for ((b, idx, base) in visButtons) {
-            b.isSelected = idx == current
-            b.text = if (favourites.contains(idx)) "★ $base" else base
-            if (idx == current) heroVisName.text = base
+        if (::visualsMenuController.isInitialized) {
+            visualsMenuController.updateVisualizerSelection()
         }
     }
 
@@ -1972,6 +1769,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        perfOverlayController.onResume()
         glView.onResume()
         updatePeakLuminance(prefs.getBoolean(KEY_PEAK_LUMINANCE, false))
         if (!systemAudioMode) ensureMicAndStart()
@@ -2005,6 +1803,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
+        perfOverlayController.onPause()
         glView.onPause()
         if (!systemAudioMode) NativeBridge.nativeStop()
         if (::hueController.isInitialized) hueController.paused = true
@@ -2020,6 +1819,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        linkMenuController.onDestroy()
+        audioSettingsController.onDestroy()
+        visualsMenuController.onDestroy()
         stopHuePingPoller()
         perfHandler.removeCallbacks(perfPoller)
         perfHandler.removeCallbacks(perfFpsTicker)
