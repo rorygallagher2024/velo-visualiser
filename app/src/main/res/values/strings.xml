@@ -165,26 +165,26 @@
 
     <!-- Smart lighting (Philips Hue) -->
     <string name="hue_header_title">Philips Hue</string>
-    <string name="hue_section_bridge">Bridge</string>
-    <string name="hue_section_areas">Entertainment Area</string>
-    <string name="hue_section_sync">Audio Sync</string>
+    <string name="hue_section_bridge">CONNECTION</string>
+    <string name="hue_section_areas">ENTERTAINMENT AREA</string>
+    <string name="hue_section_sync">AUDIO SYNC</string>
     <string name="hue_prerequisites">Requires a Philips Hue Bridge (v2), Color Lights, and an Entertainment Area configured in the official Hue app. Your phone and bridge must be on the same Wi-Fi.</string>
     <string name="hue_section_label">Smart Lighting</string>
-    <string name="hue_connect">Connect Hue Bridge</string>
+    <string name="hue_connect">Connect</string>
     <string name="hue_reconnect">Reconnect</string>
     <string name="hue_sync_on">Light Sync: On</string>
     <string name="hue_sync_off">Light Sync: Off</string>
     <string name="hue_local_note">Works over your local Wi-Fi only — your phone and Hue Bridge must be on the same network. No Hue cloud account is used. Light sync uses the Microphone source.</string>
     <string name="hue_mic_only">Light sync works with the Microphone source. Switch the audio source to Microphone.</string>
-    <string name="hue_status_idle">Tap “Connect Hue Bridge” to begin.</string>
+    <string name="hue_status_idle"></string>
     <string name="hue_status_searching">Searching for a Hue Bridge on your network…</string>
     <string name="hue_status_press_button">Press the button on your Hue Bridge… %1$d s</string>
     <string name="hue_status_ready"></string>
     <string name="hue_status_no_bridge">No bridge found. Make sure your phone and Hue Bridge are on the same Wi-Fi, then try again.</string>
     <string name="hue_status_no_areas">No Entertainment Areas found. Please open the official Philips Hue app and create one first.</string>
     <string name="hue_status_unreachable">Bridge not reachable. Check you\'re on the same Wi-Fi as your Hue Bridge.</string>
-    <string name="hue_forget">Forget Bridge</string>
-    <string name="hue_forget_title">Forget this bridge?</string>
+    <string name="hue_forget">Unpair</string>
+    <string name="hue_forget_title">Unpair this bridge?</string>
     <string name="hue_forget_message">You\'ll need to press the bridge button again to re-pair.</string>
     <string name="hue_area_lights">%1$s (%2$d lights)</string>
     <string name="hue_status_auth_expired">Bridge credentials expired. Please re-pair.</string>
