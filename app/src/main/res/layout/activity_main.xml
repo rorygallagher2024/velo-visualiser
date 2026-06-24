@@ -1485,7 +1485,7 @@
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="1"
-                android:layout_marginEnd="4dp"
+                android:layout_marginEnd="2dp"
                 android:background="@drawable/segment_button_bg"
                 android:text="Philips Hue"
                 android:textColor="@color/btn_text"
@@ -1498,9 +1498,23 @@
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="1"
-                android:layout_marginStart="4dp"
+                android:layout_marginStart="2dp"
+                android:layout_marginEnd="2dp"
                 android:background="@drawable/segment_button_bg"
                 android:text="LIFX"
+                android:textColor="@color/btn_text"
+                android:textSize="12sp"
+                android:letterSpacing="0.05"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_brand_nanoleaf"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_marginStart="2dp"
+                android:background="@drawable/segment_button_bg"
+                android:text="Nanoleaf"
                 android:textColor="@color/btn_text"
                 android:textSize="12sp"
                 android:letterSpacing="0.05"
@@ -1781,6 +1795,31 @@
 
 
 
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp">
+
+                <ImageView
+                    android:id="@+id/img_lifx_state"
+                    android:layout_width="8dp"
+                    android:layout_height="8dp"
+                    android:layout_marginEnd="12dp"
+                    android:layout_centerVertical="true"
+                    android:layout_alignParentStart="true"
+                    android:src="@drawable/circle_shape" />
+
+                <TextView
+                    android:id="@+id/tv_lifx_state"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_toEndOf="@id/img_lifx_state"
+                    android:layout_centerVertical="true"
+                    android:text="Not Scanned"
+                    android:textColor="@color/text_dim"
+                    android:textSize="14sp" />
+            </RelativeLayout>
+
             <Button
                 android:id="@+id/btn_lifx_scan"
                 android:layout_width="match_parent"
@@ -1856,6 +1895,127 @@
 
         </LinearLayout>
         <!-- /LIFX CONTAINER -->
+
+        <!-- ===== NANOLEAF CONTAINER ===== -->
+        <LinearLayout
+            android:id="@+id/container_nanoleaf"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/tv_nanoleaf_hint"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Nanoleaf panels support an ultra-fast streaming protocol. To pair, hold the power button on your Nanoleaf controller for 5-7 seconds until the LED starts flashing, then tap Pair.\n\nEnsure your phone is connected to the same Wi-Fi network."
+                android:textColor="@color/text_primary"
+                android:textSize="14sp"
+                android:lineSpacingExtra="4sp"
+                android:paddingBottom="16dp"
+                android:gravity="start" />
+
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp">
+
+                <ImageView
+                    android:id="@+id/img_nanoleaf_state"
+                    android:layout_width="8dp"
+                    android:layout_height="8dp"
+                    android:layout_marginEnd="12dp"
+                    android:layout_centerVertical="true"
+                    android:layout_alignParentStart="true"
+                    android:src="@drawable/circle_shape" /> />
+
+                <TextView
+                    android:id="@+id/tv_nanoleaf_state"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_toEndOf="@id/img_nanoleaf_state"
+                    android:layout_centerVertical="true"
+                    android:text="Checking network..."
+                    android:textColor="@color/text_primary"
+                    android:textSize="14sp" />
+
+                <Button
+                    android:id="@+id/btn_nanoleaf_forget"
+                    android:layout_width="wrap_content"
+                    android:layout_height="32dp"
+                    android:layout_alignParentEnd="true"
+                    android:layout_centerVertical="true"
+                    android:background="@android:color/transparent"
+                    android:paddingHorizontal="12dp"
+                    android:stateListAnimator="@null"
+                    android:text="@string/hue_forget"
+                    android:textAllCaps="true"
+                    android:textColor="@color/text_dim"
+                    android:textSize="10sp"
+                    android:visibility="gone" />
+            </RelativeLayout>
+
+            <Button
+                android:id="@+id/btn_nanoleaf_scan"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginBottom="16dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="Scan for Nanoleaf"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="14sp"
+                android:stateListAnimator="@null" />
+
+                android:stateListAnimator="@null" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/text_dim"
+                android:alpha="0.25"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="14dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Audio Sync"
+                android:textColor="@color/text_dim"
+                android:textSize="12sp"
+                android:textStyle="normal"
+                android:textAllCaps="true"
+                android:letterSpacing="0.08"
+                android:layout_marginBottom="12dp" />
+
+            <Button
+                android:id="@+id/btn_nanoleaf_sync"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/hue_sync_off"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="14sp"
+                android:enabled="false"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_nanoleaf_advanced"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginBottom="20dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/adv_button"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="14sp"
+                android:visibility="gone"
+                android:stateListAnimator="@null" />
+
+        </LinearLayout>
+        <!-- /NANOLEAF CONTAINER -->
 
         </FrameLayout>
         <!-- /FrameLayout -->

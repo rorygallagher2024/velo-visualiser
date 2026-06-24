@@ -40,7 +40,7 @@ Velo listens to the **actual sound** in the room and moves with it instantly. Th
 ## Core Features
 * **High-FPS, HDR-Capable 3D Visuals:** Targets 120+ fps for fluid, tear-free rendering (device and preset dependent).
 * **Ableton Link Integration:** Supplement the microphone input with perfect phase-synchronization and predictive beat detection broadcast directly from your DJ software (Traktor, Live, Serato).
-* **Room Lighting Control:** Drive your physical room lighting with the exact same zero-lag transient detection used for the on-screen visuals. Supports Philips Hue and Lifx bulbs.
+* **Room Lighting Control:** Drive your physical room lighting with the exact same zero-lag transient detection used for the on-screen visuals. Supports Philips Hue, Lifx bulbs, and Nanoleaf panels.
 * **No Nonsense:** 100% local processing. No data collection. No ads. I don't want your data, and nobody wants ads.
 
 ## The full feature list
@@ -48,7 +48,7 @@ Velo listens to the **actual sound** in the room and moves with it instantly. Th
 - **29 audio and beat reactive visualizers**: Waveforms, spectra, particle fluids, scrolling spectrograms, dot-matrix LED meters, and more.
 - **HDR Effects**: Including post-processing for real luminous glow on capable HDR displays and a selectable glow strength.
 - **Ableton Link sync**: Lock beat-driven effects to Traktor, Ableton Live, and other Link software over Wi-Fi; the mic still drives the visuals while Link sets the beat.
-- **Real-time Room Lighting Control with Philips Hue & LIFX Integration**: Direct local UDP streaming over the Hue Entertainment API and LIFX LAN Protocol. Also works in co-ordination with Ableton Link to drive a synchronised beat to the bulbs. Includes advanced controls for calibration and the ability to send Ableton Link beats early for perfect synchronisation.
+- **Real-time Room Lighting Control with Philips Hue, LIFX & Nanoleaf Integration**: Direct local UDP streaming over the Hue Entertainment API, LIFX LAN Protocol, and Nanoleaf ExtControl. Also works in co-ordination with Ableton Link to drive a synchronised beat to the bulbs. Includes advanced controls for calibration and the ability to send Ableton Link beats early for perfect synchronisation.
 - **Two audio sources**: Raw low-latency microphone capture or internal/system audio via screen-share (Warning: Low latency not supported via screen-sharing).
 - **Global colour themes**: Re-tint visuals to your desired colour scheme (Neon, Warm, Cool, Mono…).
 - **Vibrate-on-beat haptics**: Bass-onset detection triggers physical pulses.
@@ -104,6 +104,15 @@ LIFX bulbs connect directly to your local Wi-Fi router, bypassing the need for a
 | Wi-Fi LAN hop directly to bulb | ~1–5 ms |
 | Bulb processing & illumination | ~15–25 ms |
 
+### 6. Smart Lighting Latency (Nanoleaf)
+Nanoleaf panels also connect directly to your local Wi-Fi and support a high-speed "ExtControl" UDP streaming mode. Latency is similar to LIFX, with the total time from beat-detection to physical light change generally around **~15–30 ms**.
+
+| Stage | Approx. Time |
+|-------|---------|
+| ExtControl V2 Packet build | < 0.5 ms |
+| Wi-Fi LAN hop directly to controller | ~1–5 ms |
+| Panel processing & illumination | ~15–25 ms |
+
 ## Smart Lighting (Philips Hue Sync)
 
 Velo drives Hue lights using the **Hue Stream v2** protocol over **DTLS-PSK encrypted UDP** (Port 2100). 
@@ -119,6 +128,14 @@ Velo drives LIFX lights using the **LIFX LAN Protocol** over **raw UDP** (Port 5
 1. **Discovery:** Tap *Scan for LIFX Bulbs* in the LIFX tab. The app uses UDP broadcast (`Device::GetService`) to find your local bulbs. 
 2. **Selection:** Check the boxes next to the bulbs you wish to sync. 
 3. **Control:** Velo sends high-speed `Light::SetColor` packets to update the bulbs at up to 50Hz. No bridge or cloud account is required. 
+
+## Smart Lighting (Nanoleaf Sync)
+
+Velo drives Nanoleaf panels using the **ExtControl V2 Protocol** over **raw UDP** (Port 60222).
+
+1. **Discovery:** Open the Nanoleaf tab and click *Scan*. The app uses mDNS (`_nanoleafapi._tcp`) to detect your controller.
+2. **Pairing:** Hold the power button on your Nanoleaf physical controller for 5-7 seconds until the lights flash, then tap *Pair* in the app to establish an API token.
+3. **Control:** Once paired, tapping *Light Sync* enables high-speed streaming directly to your panels. No cloud account is required.
 
 ## Building from Source
 
