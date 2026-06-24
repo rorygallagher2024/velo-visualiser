@@ -227,7 +227,13 @@ class MainActivity : AppCompatActivity() {
                     lastHueRttMs = rtt
                     val state = if (hueController.isEnabled) HueConn.STREAMING else HueConn.REACHABLE
                     updateHueConn(state)
-                    hueStatus.text = getString(if (hueController.isEnabled) R.string.hue_status_synced else R.string.hue_status_ready)
+                    // Only update the status text if we are actively streaming OR if we were previously unreachable
+                    // This prevents overwriting important messages like "No Entertainment Areas found" or "Select an area"
+                    if (hueController.isEnabled) {
+                        hueStatus.text = getString(R.string.hue_status_synced)
+                    } else if (hueStatus.text == getString(R.string.hue_status_unreachable)) {
+                        hueStatus.text = getString(R.string.hue_status_ready)
+                    }
                 } else {
                     lastHueRttMs = -1L
                     if (!hueController.isEnabled) {

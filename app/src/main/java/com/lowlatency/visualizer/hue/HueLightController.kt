@@ -236,11 +236,14 @@ class HueLightController(context: Context) {
 
                 c.send(channelIds, rgb)
 
-                val sleepNs = frameNs - (System.nanoTime() - t0)
+                val deadlineNs = t0 + frameNs
+                val sleepNs = deadlineNs - System.nanoTime() - SPIN_MARGIN_NS
                 if (sleepNs > 0) {
                     try { Thread.sleep(sleepNs / 1_000_000, (sleepNs % 1_000_000).toInt()) }
                     catch (_: InterruptedException) { break }
                 }
+                // Spin-wait the final margin for precise timing
+                while (System.nanoTime() < deadlineNs) Thread.yield()
             }
         }
     }
@@ -300,6 +303,7 @@ class HueLightController(context: Context) {
     companion object {
         private const val TAG = "HueLightController"
         private const val SEND_HZ = 50L          // Hue Entertainment caps ~50–60 Hz
+        private const val SPIN_MARGIN_NS = 2_000_000L  // spin-wait the last 2ms for precise timing
         private const val MIN_BRIGHT = 0.06f      // floor so lights never go fully dark while synced
         private const val FLASH_DECAY = 0.80f     // per-frame flash falloff (~50 Hz)
 
