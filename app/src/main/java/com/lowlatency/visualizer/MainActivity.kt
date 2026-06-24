@@ -2469,30 +2469,12 @@ class MainActivity : AppCompatActivity() {
         val containerLifx = findViewById<View>(R.id.container_lifx)
         val containerNanoleaf = findViewById<View>(R.id.container_nanoleaf)
 
-        val accent = getColor(R.color.accent)
-        val textDim = getColor(R.color.text_dim)
+        btnBrandHue.isSelected = (brand == LightingBrand.HUE)
+        btnBrandLifx.isSelected = (brand == LightingBrand.LIFX)
+        btnBrandNanoleaf.isSelected = (brand == LightingBrand.NANOLEAF)
 
-        if (brand == LightingBrand.HUE) {
-            btnBrandHue.setTextColor(accent)
-            btnBrandLifx.setTextColor(textDim)
-            btnBrandNanoleaf.setTextColor(textDim)
-            containerHue.visibility = View.VISIBLE
-            containerLifx.visibility = View.GONE
-            containerNanoleaf.visibility = View.GONE
-        } else if (brand == LightingBrand.LIFX) {
-            btnBrandLifx.setTextColor(accent)
-            btnBrandHue.setTextColor(textDim)
-            btnBrandNanoleaf.setTextColor(textDim)
-            containerHue.visibility = View.GONE
-            containerLifx.visibility = View.VISIBLE
-            containerNanoleaf.visibility = View.GONE
-        } else if (brand == LightingBrand.NANOLEAF) {
-            btnBrandNanoleaf.setTextColor(accent)
-            btnBrandHue.setTextColor(textDim)
-            btnBrandLifx.setTextColor(textDim)
-            containerHue.visibility = View.GONE
-            containerLifx.visibility = View.GONE
-            containerNanoleaf.visibility = View.VISIBLE
-        }
+        containerHue.visibility = if (brand == LightingBrand.HUE) View.VISIBLE else View.GONE
+        containerLifx.visibility = if (brand == LightingBrand.LIFX) View.VISIBLE else View.GONE
+        containerNanoleaf.visibility = if (brand == LightingBrand.NANOLEAF) View.VISIBLE else View.GONE
     }
 }
