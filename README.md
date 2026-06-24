@@ -40,7 +40,7 @@ Velo listens to the **actual sound** in the room and moves with it instantly. Th
 ## Core Features
 * **High-FPS, HDR-Capable 3D Visuals:** Targets 120+ fps for fluid, tear-free rendering (device and preset dependent).
 * **Ableton Link Integration:** Supplement the microphone input with perfect phase-synchronization and predictive beat detection broadcast directly from your DJ software (Traktor, Live, Serato).
-* **Philips Hue Sync:** Drive your physical room lighting with the exact same zero-lag transient detection used for the on-screen visuals.
+* **Philips Hue & LIFX Sync:** Drive your physical room lighting with the exact same zero-lag transient detection used for the on-screen visuals.
 * **No Nonsense:** 100% local processing. No data collection. No ads. I don't want your data, and nobody wants ads.
 
 ## The full feature list
@@ -48,7 +48,7 @@ Velo listens to the **actual sound** in the room and moves with it instantly. Th
 - **29 audio and beat reactive visualizers**: Waveforms, spectra, particle fluids, scrolling spectrograms, dot-matrix LED meters, and more.
 - **HDR Effects**: Including post-processing for real luminous glow on capable HDR displays and a selectable glow strength.
 - **Ableton Link sync**: Lock beat-driven effects to Traktor, Ableton Live, and other Link software over Wi-Fi; the mic still drives the visuals while Link sets the beat.
-- **Real-time Philips Hue Sync Integration**: Direct local UDP streaming over the Hue Entertainment API. Also works in co-ordination with Ableton Link to drive a synchronised beat to the bulbs. Includes lighting controls, advanced controls for calibration and the ability to send Ableton Link beats early for perfect synchronisation.
+- **Real-time Philips Hue & LIFX Integration**: Direct local UDP streaming over the Hue Entertainment API and LIFX LAN Protocol. Also works in co-ordination with Ableton Link to drive a synchronised beat to the bulbs. Includes advanced controls for calibration and the ability to send Ableton Link beats early for perfect synchronisation.
 - **Two audio sources**: Raw low-latency microphone capture or internal/system audio via screen-share (Warning: Low latency not supported via screen-sharing).
 - **Global colour themes**: Re-tint visuals to your desired colour scheme (Neon, Warm, Cool, Mono…).
 - **Vibrate-on-beat haptics**: Bass-onset detection triggers physical pulses.
@@ -95,6 +95,15 @@ While the app's internal beat calculation is near-instant (< 1 ms), the physical
 
 As part of the roadmap, I intend to add support for ESP32 WLED-based lights via UDP, which bypasses the Zigbee mesh entirely and will be significantly faster.
 
+### 5. Smart Lighting Latency (LIFX)
+LIFX bulbs connect directly to your local Wi-Fi router, bypassing the need for a Zigbee bridge. This eliminates the extra bridge processing hop found in Hue setups. Total time from beat-detection to physical light change is generally **~15–30 ms**, depending heavily on your router's performance and the Wi-Fi signal strength at the bulb.
+
+| Stage | Approx. Time |
+|-------|---------|
+| UDP Packet build | < 0.5 ms |
+| Wi-Fi LAN hop directly to bulb | ~1–5 ms |
+| Bulb processing & illumination | ~15–25 ms |
+
 ## Smart Lighting (Philips Hue Sync)
 
 Velo drives Hue lights using the **Hue Stream v2** protocol over **DTLS-PSK encrypted UDP** (Port 2100). 
@@ -102,6 +111,14 @@ Velo drives Hue lights using the **Hue Stream v2** protocol over **DTLS-PSK encr
 1. **Pairing:** Swipe up, and select the **Lighting** tab. Tap *Connect Hue Bridge*. The app uses mDNS to find your local bridge. Press the physical button on the bridge when prompted.
 2. **Setup:** Select an Entertainment Area (must be created in the official Philips Hue app first).
 3. **Persistence:** The `username` and `clientkey` are stored locally via `EncryptedSharedPreferences`. 
+
+## Smart Lighting (LIFX Sync)
+
+Velo drives LIFX lights using the **LIFX LAN Protocol** over **raw UDP** (Port 56700).
+
+1. **Discovery:** Tap *Scan for LIFX Bulbs* in the LIFX tab. The app uses UDP broadcast (`Device::GetService`) to find your local bulbs. 
+2. **Selection:** Check the boxes next to the bulbs you wish to sync. 
+3. **Control:** Velo sends high-speed `Light::SetColor` packets to update the bulbs at up to 50Hz. No bridge or cloud account is required. 
 
 ## Building from Source
 

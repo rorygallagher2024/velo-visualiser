@@ -75,7 +75,7 @@
         <b>Inter Font</b>\n
         Copyright © 2016 Google Inc. Licensed under the SIL Open Font License, Version 1.1.</string>
     <string name="about_trademarks_title">Trademarks</string>
-    <string name="about_trademarks_text"><b>Philips Hue</b> is a trademark of Signify. This app is not affiliated with, sponsored by, or endorsed by Signify.\n\n<b>Ableton Link</b> is a trademark of Ableton AG.</string>
+    <string name="about_trademarks_text"><b>Philips Hue</b> is a trademark of Signify. This app is not affiliated with, sponsored by, or endorsed by Signify.\n\n<b>LIFX</b> is a trademark of Lifi Labs, Inc.\n\n<b>Ableton Link</b> is a trademark of Ableton AG.</string>
     <string name="privacy_policy_text"><b>Privacy Policy for Velo Visualiser</b>\n\n
         Last Updated: June 19, 2026\n\n
         Velo Visualiser (\"we\", \"our\", or \"us\") is committed to protecting your privacy. This Privacy Policy explains how we handle data when you use our mobile application.\n\n
@@ -90,7 +90,8 @@
         <b>Device Information</b>\n
         • The app may check your device\'s display capabilities (such as HDR support and refresh rate) to optimize the OpenGL rendering. This information is not collected or transmitted.\n\n
         <b>2. Third-Party Services</b>\n
-        • <b>Philips Hue:</b> If you enable Hue Sync, the app communicates directly with your Philips Hue Bridge over your local Wi-Fi. Please refer to the Philips Hue privacy policy for information on how they handle data.\n\n
+        • <b>Philips Hue:</b> If you enable Hue Sync, the app communicates directly with your Philips Hue Bridge over your local Wi-Fi. Please refer to the Philips Hue privacy policy for information on how they handle data.\n
+        • <b>LIFX:</b> If you enable LIFX Sync, the app communicates directly with your LIFX bulbs over your local Wi-Fi via UDP. No data is sent to LIFX cloud servers.\n\n
         <b>3. Data Safety</b>\n
         Velo Visualiser does not collect, share, or sell any personal data. It is a utility tool designed to operate entirely on-device.\n\n
         <b>4. Changes to This Policy</b>\n
