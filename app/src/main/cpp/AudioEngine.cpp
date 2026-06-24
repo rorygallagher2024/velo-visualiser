@@ -127,29 +127,12 @@ void AudioEngine::computeAll(float *outBands, float *outMagnitudes, float *outPe
 
 void AudioEngine::onErrorAfterClose(oboe::AudioStream * /*stream*/, oboe::Result error) {
     // Typical cause: route change (e.g. headset unplug) or device disconnect.
-    // The stream is already closed by Oboe here; transparently reopen the mic.
     LOGW("Stream error after close: %s — attempting restart.",
          oboe::convertToText(error));
     mRunning.store(false, std::memory_order_release);
     mStream.reset();
     
-    // Oboe strongly recommends restarting on a separate thread, rather than blocking the callback.
-    std::thread([this]() {
-        // Wait for the OS audio stack to finish transitioning the route.
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
-        
-        int retries = 0;
-        // Keep trying as long as we aren't explicitly stopped by the user/lifecycle
-        while (retries < 5 && !mRunning.load(std::memory_order_acquire)) {
-            if (startMicrophone()) {
-                LOGI("Successfully restarted microphone after error.");
-                break;
-            }
-            retries++;
-            std::this_thread::sleep_for(std::chrono::milliseconds(500));
-        }
-        if (!mRunning.load(std::memory_order_acquire)) {
-            LOGE("Failed to restart microphone after all retries.");
-        }
-    }).detach();
+    // Attempt a simple synchronous restart. If the OS audio HAL is stuck, 
+    // we fail gracefully rather than hammering it in a loop.
+    startMicrophone();
 }

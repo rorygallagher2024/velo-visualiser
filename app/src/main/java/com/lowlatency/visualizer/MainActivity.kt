@@ -2030,10 +2030,6 @@ class MainActivity : AppCompatActivity() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
             == PackageManager.PERMISSION_GRANTED
         ) {
-            // If the native engine auto-restarted the stream while we were in the background
-            // (e.g. after a route change), Android will give us an irreversibly silent stream
-            // for privacy. Force-stop it here so we create a fresh one in the foreground.
-            NativeBridge.nativeStop()
             startMicrophone()
         } else {
             requestPermissions.launch(buildPermissionList())
