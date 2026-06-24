@@ -67,18 +67,13 @@ class LaserArrayScene : GlScene {
                 float d = abs(fract(seg) - 0.5) * 2.0;
                 float beam = exp(-d * d * invW2);
                 vec3 pal = palette(ang * 0.15 + u_time * 0.05);
-                float C = length(rd.xy) * 0.6; // length(q0) is same as length(rd.xy)
+                float C = max(length(rd.xy) * 0.6, 1e-3); // Clamp to prevent division by zero
 
-                // --- OPTIMIZATION 2: Convert transcendental loop to multiplication ---
-                // exp(-C * (t0 + i*dt)) = exp(-C * t0) * (exp(-C * dt))^i
-                // This eliminates the expensive exp() function from the loop completely!
-                float currentRadial = exp(-C * 0.2);
-                float multiplier = exp(-C * 0.24);
-                float sumRadial = 0.0;
-                for (int i = 0; i < 20; i++) {
-                    sumRadial += currentRadial;
-                    currentRadial *= multiplier;
-                }
+                // --- OPTIMIZATION 3: Analytic sum of the geometric series ---
+                // The loop was: sum_{i=0}^{19} exp(-C * (0.2 + i * 0.24))
+                // Using the formula for a finite geometric series: a * (1 - r^n) / (1 - r)
+                // This reduces a 20-step loop into exactly ONE division and TWO exp() calls! O(1) time.
+                float sumRadial = exp(-C * 0.2) * (1.0 - exp(-C * 4.8)) / (1.0 - exp(-C * 0.24));
                 
                 vec3 col = pal * beam * sumRadial * opacity * 0.10;
 
