@@ -85,13 +85,13 @@
         • <b>How we use it:</b> Audio data is processed <b>locally and in real-time</b> on your device. We use this data only to calculate frequency bands and waveforms for visual effects and haptic feedback.\n
         • <b>Storage and Transmission:</b> We <b>do not record, store, or transmit</b> any audio data. The raw PCM data exists only in temporary volatile memory (RAM) for the duration of the processing (typically less than 100ms) and is immediately overwritten.\n\n
         <b>Network Information</b>\n
-        • <b>Local Network Access:</b> The app requests access to your local network to discover and communicate with Philips Hue Bridges.\n
+        • <b>Local Network Access:</b> The app requests access to your local network to discover and communicate with Philips Hue Bridges and LIFX smart bulbs.\n
         • <b>Usage:</b> This access is used solely for local UDP/REST communication with your smart lighting hardware. No data is sent to external servers or the cloud.\n\n
         <b>Device Information</b>\n
         • The app may check your device\'s display capabilities (such as HDR support and refresh rate) to optimize the OpenGL rendering. This information is not collected or transmitted.\n\n
         <b>2. Third-Party Services</b>\n
         • <b>Philips Hue:</b> If you enable Hue Sync, the app communicates directly with your Philips Hue Bridge over your local Wi-Fi. Please refer to the Philips Hue privacy policy for information on how they handle data.\n
-        • <b>LIFX:</b> If you enable LIFX Sync, the app communicates directly with your LIFX bulbs over your local Wi-Fi via UDP. No data is sent to LIFX cloud servers.\n\n
+        • <b>LIFX:</b> If you use LIFX Sync, the app broadcasts UDP packets over your local Wi-Fi to discover and control your local LIFX bulbs. We do not transmit this network data to any cloud service. Please refer to the LIFX privacy policy for information on how their smart bulbs handle network traffic.\n\n
         <b>3. Data Safety</b>\n
         Velo Visualiser does not collect, share, or sell any personal data. It is a utility tool designed to operate entirely on-device.\n\n
         <b>4. Changes to This Policy</b>\n
