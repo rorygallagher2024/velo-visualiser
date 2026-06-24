@@ -120,6 +120,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnAdvanced: Button
     private lateinit var btnLifxAdvanced: Button
     private lateinit var btnGoveeAdvanced: Button
+    private lateinit var btnWledAdvanced: Button
     private lateinit var btnThemeDefault: Button
     private lateinit var btnThemeNeon: Button
     private lateinit var btnThemeWarm: Button
@@ -165,10 +166,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnBrandHue: Button
     private lateinit var btnBrandLifx: Button
     private lateinit var btnBrandGovee: Button
+    private lateinit var btnBrandWled: Button
 
     private lateinit var containerHue: View
     private lateinit var containerLifx: View
     private lateinit var containerGovee: View
+    private lateinit var containerWled: View
     
     private lateinit var btnLifxScan: Button
     private lateinit var lifxScanSpinner: ProgressBar
@@ -179,6 +182,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var goveeScanSpinner: ProgressBar
     private lateinit var goveeBulbContainer: android.widget.GridLayout
     private lateinit var btnGoveeSync: Button
+
+    private lateinit var btnWledScan: Button
+    private lateinit var wledScanSpinner: ProgressBar
+    private lateinit var wledBulbContainer: android.widget.GridLayout
+    private lateinit var btnWledSync: Button
 
     private lateinit var btnHueForget: Button
     private lateinit var huePrerequisites: View
@@ -194,7 +202,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var goveeController: com.lowlatency.visualizer.govee.GoveeController
     private var goveeSyncing = false
 
-    enum class LightingBrand { HUE, LIFX, GOVEE }
+    private lateinit var wledController: com.lowlatency.visualizer.wled.WledController
+    private var wledSyncing = false
+
+    enum class LightingBrand { HUE, LIFX, GOVEE, WLED }
     private var activeBrand = LightingBrand.HUE
 
     private lateinit var hueStore: HueCredentialStore
@@ -444,6 +455,7 @@ class MainActivity : AppCompatActivity() {
         btnAdvanced = findViewById(R.id.btn_advanced)
         btnLifxAdvanced = findViewById(R.id.btn_lifx_advanced)
         btnGoveeAdvanced = findViewById(R.id.btn_govee_advanced)
+        btnWledAdvanced = findViewById(R.id.btn_wled_advanced)
         btnThemeDefault = findViewById(R.id.btn_theme_default)
         btnThemeNeon = findViewById(R.id.btn_theme_neon)
         btnThemeWarm = findViewById(R.id.btn_theme_warm)
@@ -482,10 +494,12 @@ class MainActivity : AppCompatActivity() {
         btnBrandHue = findViewById(R.id.btn_brand_hue)
         btnBrandLifx = findViewById(R.id.btn_brand_lifx)
         btnBrandGovee = findViewById(R.id.btn_brand_govee)
+        btnBrandWled = findViewById(R.id.btn_brand_wled)
         
         containerHue = findViewById(R.id.container_hue)
         containerLifx = findViewById(R.id.container_lifx)
         containerGovee = findViewById(R.id.container_govee)
+        containerWled = findViewById(R.id.container_wled)
         
         btnLifxScan = findViewById(R.id.btn_lifx_scan)
         lifxScanSpinner = findViewById(R.id.lifx_scan_spinner)
@@ -496,6 +510,11 @@ class MainActivity : AppCompatActivity() {
         goveeScanSpinner = findViewById(R.id.govee_scan_spinner)
         goveeBulbContainer = findViewById(R.id.govee_bulb_container)
         btnGoveeSync = findViewById(R.id.btn_govee_sync)
+        
+        btnWledScan = findViewById(R.id.btn_wled_scan)
+        wledScanSpinner = findViewById(R.id.wled_scan_spinner)
+        wledBulbContainer = findViewById(R.id.wled_bulb_container)
+        btnWledSync = findViewById(R.id.btn_wled_sync)
         
         prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         optionsSheet.visibility = View.GONE
@@ -853,6 +872,7 @@ class MainActivity : AppCompatActivity() {
         btnAdvanced.setOnClickListener { showAdvancedDialog() }
         btnLifxAdvanced.setOnClickListener { showAdvancedDialog() }
         btnGoveeAdvanced.setOnClickListener { showAdvancedDialog() }
+        btnWledAdvanced.setOnClickListener { showAdvancedDialog() }
     }
 
     /**
@@ -1405,12 +1425,14 @@ class MainActivity : AppCompatActivity() {
         hueController = HueLightController(this)
         lifxController = com.lowlatency.visualizer.lifx.LifxController()
         goveeController = com.lowlatency.visualizer.govee.GoveeController()
+        wledController = com.lowlatency.visualizer.wled.WledController(this)
 
         // Audio processing hook -> route to active brand
         glView.bandsSink = { low, mid, high -> 
             if (::hueController.isInitialized) hueController.onBands(low, mid, high)
             if (::lifxController.isInitialized) lifxController.onBands(low, mid, high)
             if (::goveeController.isInitialized) goveeController.onBands(low, mid, high)
+            if (::wledController.isInitialized) wledController.onBands(low, mid, high)
         }
         // Haptics fire off the shared BeatBus, which the renderer updates just
         // before this per-frame tap. Audio presence + bass balance (for the Hue
@@ -1425,6 +1447,7 @@ class MainActivity : AppCompatActivity() {
             if (::hueController.isInitialized) hueController.onLinkBeat()
             if (::lifxController.isInitialized) lifxController.onLinkBeat()
             if (::goveeController.isInitialized) goveeController.onLinkBeat()
+            if (::wledController.isInitialized) wledController.onLinkBeat()
             // Step the virtual bar to Link's current beat-in-bar (post-nudge) and
             // pulse the beat dot. Only while the menu is open, to stay cheap.
             if (menuOpen) {
@@ -1443,6 +1466,7 @@ class MainActivity : AppCompatActivity() {
         btnBrandHue.setOnClickListener { switchBrand(LightingBrand.HUE) }
         btnBrandLifx.setOnClickListener { switchBrand(LightingBrand.LIFX) }
         btnBrandGovee.setOnClickListener { switchBrand(LightingBrand.GOVEE) }
+        btnBrandWled.setOnClickListener { switchBrand(LightingBrand.WLED) }
         switchBrand(LightingBrand.HUE)
 
         btnLifxScan.setOnClickListener {
@@ -1582,6 +1606,72 @@ class MainActivity : AppCompatActivity() {
                 goveeSyncing = true
                 btnGoveeSync.setText(R.string.hue_sync_on)
                 btnGoveeSync.isSelected = true
+                updateAdvancedVisibility()
+            }
+        }
+
+        btnWledScan.setOnClickListener {
+            btnWledScan.isEnabled = false
+            wledScanSpinner.visibility = View.VISIBLE
+            wledController.startDiscovery(
+                onDeviceFound = { device ->
+                    runOnUiThread {
+                        val cb = android.widget.CheckBox(this).apply {
+                            text = "${device.name}\n${device.ip.hostAddress}"
+                            setTextColor(getColor(R.color.text_primary))
+                            isChecked = false
+                            setOnCheckedChangeListener { _, isChecked ->
+                                wledController.setDeviceSelected(device.ip.hostAddress ?: "", isChecked)
+                                if (wledController.hasSelectedDevices() && !wledSyncing) {
+                                    btnWledSync.isEnabled = true
+                                    btnWledSync.setText(R.string.hue_sync_off)
+                                } else if (!wledController.hasSelectedDevices()) {
+                                    btnWledSync.isEnabled = false
+                                    btnWledSync.setText(R.string.hue_sync_off)
+                                    if (wledSyncing) {
+                                        wledController.disableStreaming()
+                                        wledSyncing = false
+                                        btnWledSync.isSelected = false
+                                        updateAdvancedVisibility()
+                                    }
+                                }
+                            }
+                        }
+                        wledBulbContainer.addView(cb)
+                    }
+                },
+                onFinished = {
+                    runOnUiThread {
+                        wledScanSpinner.visibility = View.GONE
+                        btnWledScan.isEnabled = true
+                        if (wledBulbContainer.childCount == 0) {
+                            Toast.makeText(this@MainActivity, "No WLED controllers found on network.", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            )
+        }
+
+        btnWledSync.setOnClickListener {
+            if (systemAudioMode) {
+                Toast.makeText(this, "Lighting sync is microphone-only.", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            if (wledSyncing) {
+                wledController.disableStreaming()
+                wledSyncing = false
+                btnWledSync.setText(R.string.hue_sync_off)
+                btnWledSync.isSelected = false
+                updateAdvancedVisibility()
+            } else {
+                if (!wledController.hasSelectedDevices()) {
+                    Toast.makeText(this, "Please select at least one WLED controller first.", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                wledController.enableStreaming()
+                wledSyncing = true
+                btnWledSync.setText(R.string.hue_sync_on)
+                btnWledSync.isSelected = true
                 updateAdvancedVisibility()
             }
         }
@@ -1843,6 +1933,9 @@ class MainActivity : AppCompatActivity() {
         
         val goveeRelevant = ::goveeController.isInitialized && goveeController.isStreaming
         btnGoveeAdvanced.visibility = if (goveeRelevant) View.VISIBLE else View.GONE
+        
+        val wledRelevant = ::wledController.isInitialized && wledController.isStreaming
+        btnWledAdvanced.visibility = if (wledRelevant) View.VISIBLE else View.GONE
     }
 
     // ----- Light control (scene presets + brightness) -----
@@ -2403,6 +2496,8 @@ class MainActivity : AppCompatActivity() {
             containerLifx.visibility = View.GONE
             btnBrandGovee.setTextColor(textDim)
             containerGovee.visibility = View.GONE
+            btnBrandWled.setTextColor(textDim)
+            containerWled.visibility = View.GONE
         } else if (brand == LightingBrand.LIFX) {
             btnBrandHue.setTextColor(textDim)
             containerHue.visibility = View.GONE
@@ -2410,6 +2505,8 @@ class MainActivity : AppCompatActivity() {
             containerLifx.visibility = View.VISIBLE
             btnBrandGovee.setTextColor(textDim)
             containerGovee.visibility = View.GONE
+            btnBrandWled.setTextColor(textDim)
+            containerWled.visibility = View.GONE
         } else if (brand == LightingBrand.GOVEE) {
             btnBrandHue.setTextColor(textDim)
             containerHue.visibility = View.GONE
@@ -2417,6 +2514,17 @@ class MainActivity : AppCompatActivity() {
             containerLifx.visibility = View.GONE
             btnBrandGovee.setTextColor(accent)
             containerGovee.visibility = View.VISIBLE
+            btnBrandWled.setTextColor(textDim)
+            containerWled.visibility = View.GONE
+        } else if (brand == LightingBrand.WLED) {
+            btnBrandHue.setTextColor(textDim)
+            containerHue.visibility = View.GONE
+            btnBrandLifx.setTextColor(textDim)
+            containerLifx.visibility = View.GONE
+            btnBrandGovee.setTextColor(textDim)
+            containerGovee.visibility = View.GONE
+            btnBrandWled.setTextColor(accent)
+            containerWled.visibility = View.VISIBLE
         }
     }
 }

@@ -75,7 +75,7 @@
         <b>Inter Font</b>\n
         Copyright © 2016 Google Inc. Licensed under the SIL Open Font License, Version 1.1.</string>
     <string name="about_trademarks_title">Trademarks</string>
-    <string name="about_trademarks_text"><b>Philips Hue</b> is a trademark of Signify. This app is not affiliated with, sponsored by, or endorsed by Signify.\n\n<b>LIFX</b> is a trademark of Lifi Labs, Inc.\n\n<b>Govee</b> is a trademark of Shenzhen Intellirocks Tech. Co., Ltd.\n\n<b>Ableton Link</b> is a trademark of Ableton AG.</string>
+    <string name="about_trademarks_text"><b>Philips Hue</b> is a trademark of Signify. This app is not affiliated with, sponsored by, or endorsed by Signify.\n\n<b>LIFX</b> is a trademark of Lifi Labs, Inc.\n\n<b>Govee</b> is a trademark of Shenzhen Intellirocks Tech. Co., Ltd.\n\n<b>WLED</b> is an open-source project created by Aircoookie.\n\n<b>Ableton Link</b> is a trademark of Ableton AG.</string>
     <string name="privacy_policy_text"><b>Privacy Policy for Velo Visualiser</b>\n\n
         Last Updated: June 19, 2026\n\n
         Velo Visualiser (\"we\", \"our\", or \"us\") is committed to protecting your privacy. This Privacy Policy explains how we handle data when you use our mobile application.\n\n
@@ -85,13 +85,13 @@
         • <b>How we use it:</b> Audio data is processed <b>locally and in real-time</b> on your device. We use this data only to calculate frequency bands and waveforms for visual effects and haptic feedback.\n
         • <b>Storage and Transmission:</b> We <b>do not record, store, or transmit</b> any audio data. The raw PCM data exists only in temporary volatile memory (RAM) for the duration of the processing (typically less than 100ms) and is immediately overwritten.\n\n
         <b>Network Information</b>\n
-        • <b>Local Network Access:</b> The app requests access to your local network to discover and communicate with Philips Hue Bridges and LIFX/Govee smart bulbs.\n
+        • <b>Local Network Access:</b> The app requests access to your local network to discover and communicate with Philips Hue Bridges, LIFX/Govee smart bulbs, and WLED controllers.\n
         • <b>Usage:</b> This access is used solely for local UDP/REST communication with your smart lighting hardware. No data is sent to external servers or the cloud.\n\n
         <b>Device Information</b>\n
         • The app may check your device\'s display capabilities (such as HDR support and refresh rate) to optimize the OpenGL rendering. This information is not collected or transmitted.\n\n
         <b>2. Third-Party Services</b>\n
         • <b>Philips Hue:</b> If you enable Hue Sync, the app communicates directly with your Philips Hue Bridge over your local Wi-Fi. Please refer to the Philips Hue privacy policy for information on how they handle data.\n
-        • <b>LIFX &amp; Govee:</b> If you use LIFX or Govee Sync, the app broadcasts UDP packets over your local Wi-Fi to discover and control your local bulbs via their LAN APIs. We do not transmit this network data to any cloud service. Please refer to their respective privacy policies for information on how their smart bulbs handle network traffic.\n\n
+        • <b>LIFX, Govee &amp; WLED:</b> If you use LIFX, Govee, or WLED Sync, the app broadcasts UDP packets over your local Wi-Fi to discover and control your local bulbs via their LAN APIs. We do not transmit this network data to any cloud service. Please refer to their respective privacy policies for information on how their smart bulbs handle network traffic.\n\n
         <b>3. Data Safety</b>\n
         Velo Visualiser does not collect, share, or sell any personal data. It is a utility tool designed to operate entirely on-device.\n\n
         <b>4. Changes to This Policy</b>\n
@@ -140,7 +140,7 @@
     <string name="adv_colour">Colour split (red ↔ blue)</string>
     <string name="adv_glow">Resting glow</string>
     <string name="adv_hue_lookahead">Lighting lookahead</string>
-    <string name="adv_hue_lookahead_hint">Sends the beat command early to compensate for Hue (Zigbee) and LIFX/Govee (Wi-Fi) network latency, so the lights flash on time. Adjust until beats feel in sync.</string>
+    <string name="adv_hue_lookahead_hint">Sends the beat command early to compensate for Hue (Zigbee) and LIFX/Govee/WLED (Wi-Fi) network latency, so the lights flash on time. Adjust until beats feel in sync.</string>
     <string name="adv_reset">Reset</string>
     <string name="adv_done">Done</string>
     <string name="perf_overlay_on">Performance Overlay: On</string>
