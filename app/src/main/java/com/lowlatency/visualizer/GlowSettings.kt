@@ -16,7 +16,7 @@ object GlowSettings {
         INTENSE("intense", true, 1.9f);
 
         companion object {
-            fun fromKey(k: String?): Strength = entries.firstOrNull { it.key == k } ?: STANDARD
+            fun fromKey(k: String?): Strength = entries.firstOrNull { it.key == k } ?: OFF
         }
     }
 

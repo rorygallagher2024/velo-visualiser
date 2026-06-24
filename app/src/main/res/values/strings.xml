@@ -51,7 +51,7 @@
     <string name="glow_standard">Standard</string>
     <string name="glow_intense">Intense</string>
     <string name="theme_label">Theme</string>
-    <string name="theme_spectrum">Default</string>
+    <string name="theme_default">Default</string>
     <string name="theme_neon">Neon</string>
     <string name="theme_warm">Warm</string>
     <string name="theme_cool">Cool</string>

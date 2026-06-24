@@ -5,7 +5,7 @@ package com.lowlatency.visualizer
  * composite (so one place themes every bloom-routed scene). Each theme is a hue
  * rotation (radians about the luma axis), a saturation scale, and an RGB tint.
  *
- * SPECTRUM is the identity grade (no change). When a non-default theme is set,
+ * DEFAULT is the identity grade (no change). When a non-default theme is set,
  * the renderer routes scenes through the composite even if glow is off, so the
  * grade still applies. (The Raw Oscilloscope stays pure/ungraded by design.)
  */
@@ -19,19 +19,19 @@ object ThemeSettings {
         val tintG: Float,
         val tintB: Float,
     ) {
-        SPECTRUM("spectrum", 0f, 1.0f, 1f, 1f, 1f),
+        DEFAULT("default", 0f, 1.0f, 1f, 1f, 1f),
         NEON("neon", 0f, 1.6f, 1f, 1f, 1f),
         WARM("warm", 0.6f, 1.05f, 1.0f, 0.82f, 0.6f),
         COOL("cool", -0.9f, 1.05f, 0.75f, 0.9f, 1.15f),
         MONO("mono", 0f, 0.0f, 0.55f, 1.0f, 0.7f);
 
         companion object {
-            fun fromKey(k: String?): Theme = entries.firstOrNull { it.key == k } ?: SPECTRUM
+            fun fromKey(k: String?): Theme = entries.firstOrNull { it.key == k } ?: DEFAULT
         }
     }
 
-    @Volatile var preset: Theme = Theme.SPECTRUM
+    @Volatile var preset: Theme = Theme.DEFAULT
 
     /** True when a grade other than the identity is active. */
-    val isGraded: Boolean get() = preset != Theme.SPECTRUM
+    val isGraded: Boolean get() = preset != Theme.DEFAULT
 }
