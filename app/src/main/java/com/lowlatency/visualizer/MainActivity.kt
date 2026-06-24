@@ -27,6 +27,7 @@ import android.view.View
 import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
 import android.widget.Button
+import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.SeekBar
@@ -160,8 +161,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var huePrerequisites: View
     private lateinit var hueAreaSection: LinearLayout
     private lateinit var hueSyncSection: LinearLayout
-    private lateinit var hueStatus: TextView
     private lateinit var hueConn: TextView
+    private lateinit var hueStatus: TextView
+    private lateinit var hueStatusSpinner: ProgressBar
     private lateinit var hueController: HueLightController
     private lateinit var hueStore: HueCredentialStore
     private var hueAreas: List<HueEntertainmentArea> = emptyList()
@@ -431,6 +433,7 @@ class MainActivity : AppCompatActivity() {
         hueAreaContainer = findViewById(R.id.hue_area_container)
         btnHueSync = findViewById(R.id.btn_hue_sync)
         hueStatus = findViewById(R.id.hue_status)
+        hueStatusSpinner = findViewById(R.id.hue_status_spinner)
         hueConn = findViewById(R.id.hue_conn)
         btnHueForget = findViewById(R.id.btn_hue_forget)
         huePrerequisites = findViewById(R.id.hue_prerequisites)
@@ -1649,7 +1652,14 @@ class MainActivity : AppCompatActivity() {
                 val dot = GradientDrawable().apply {
                     shape = GradientDrawable.OVAL
                     setSize((dp * 10).toInt(), (dp * 10).toInt())
-                    setColor(scene.dotColor)
+                    // Derive a bright secondary color for the gradient to give a premium 3D/specular look
+                    val hsv = FloatArray(3)
+                    android.graphics.Color.colorToHSV(scene.dotColor, hsv)
+                    hsv[1] = (hsv[1] * 0.6f).coerceAtLeast(0f)  // desaturate
+                    hsv[2] = (hsv[2] * 1.2f).coerceAtMost(1f)   // brighten
+                    val brightColor = android.graphics.Color.HSVToColor(hsv)
+                    orientation = GradientDrawable.Orientation.TL_BR
+                    colors = intArrayOf(brightColor, scene.dotColor)
                 }
                 val btn = Button(this).apply {
                     text = scene.label
@@ -1744,17 +1754,22 @@ class MainActivity : AppCompatActivity() {
             HueConn.DISCONNECTED -> {
                 btnHueConnect.visibility = View.VISIBLE
                 btnHueConnect.isEnabled = true
+                hueStatusSpinner.visibility = View.GONE
             }
             HueConn.SEARCHING, HueConn.CHECKING -> {
                 btnHueConnect.visibility = View.VISIBLE
                 btnHueConnect.isEnabled = false
+                hueStatusSpinner.visibility = View.VISIBLE
             }
             HueConn.PAIRED -> {
                 btnHueConnect.visibility = View.VISIBLE
                 btnHueConnect.isEnabled = true
+                // Keep spinning if we are in the "Press button" countdown
+                hueStatusSpinner.visibility = if (hueStatus.text.contains("Press")) View.VISIBLE else View.GONE
             }
             HueConn.REACHABLE, HueConn.STREAMING -> {
                 btnHueConnect.visibility = View.GONE
+                hueStatusSpinner.visibility = View.GONE
             }
         }
         

@@ -1457,6 +1457,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
+            android:animateLayoutChanges="true"
             android:visibility="gone">
 
         <TextView
@@ -1531,15 +1532,32 @@
                     android:visibility="gone" />
             </RelativeLayout>
 
-            <TextView
-                android:id="@+id/hue_status"
+            <RelativeLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
-                android:gravity="start"
-                android:text="@string/hue_status_idle"
-                android:textColor="@color/text_dim"
-                android:textSize="12sp" />
+                android:layout_marginBottom="8dp">
+
+                <ProgressBar
+                    android:id="@+id/hue_status_spinner"
+                    android:layout_width="14dp"
+                    android:layout_height="14dp"
+                    android:layout_alignParentStart="true"
+                    android:layout_centerVertical="true"
+                    android:layout_marginEnd="6dp"
+                    android:indeterminateTint="@color/accent"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/hue_status"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_centerVertical="true"
+                    android:layout_toEndOf="@id/hue_status_spinner"
+                    android:gravity="start"
+                    android:text="@string/hue_status_idle"
+                    android:textColor="@color/text_dim"
+                    android:textSize="12sp" />
+            </RelativeLayout>
 
             <Button
                 android:id="@+id/btn_hue_connect"
