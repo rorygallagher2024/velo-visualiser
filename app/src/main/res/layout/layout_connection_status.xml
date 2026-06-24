@@ -1,0 +1,49 @@
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:minHeight="32dp"
+    android:layout_marginBottom="16dp">
+
+    <ImageView
+        android:id="@+id/img_state"
+        android:layout_width="8dp"
+        android:layout_height="8dp"
+        android:layout_marginEnd="12dp"
+        android:layout_centerVertical="true"
+        android:layout_alignParentStart="true"
+        android:src="@drawable/circle_shape" />
+
+    <TextView
+        android:id="@+id/tv_state"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_toEndOf="@id/img_state"
+        android:layout_centerVertical="true"
+        android:textColor="@color/text_dim"
+        android:textSize="14sp" />
+
+    <ProgressBar
+        android:id="@+id/status_spinner"
+        android:layout_width="14dp"
+        android:layout_height="14dp"
+        android:layout_toEndOf="@id/tv_state"
+        android:layout_marginStart="8dp"
+        android:layout_centerVertical="true"
+        android:indeterminateTint="@color/accent"
+        android:visibility="gone" />
+
+    <Button
+        android:id="@+id/btn_forget"
+        android:layout_width="wrap_content"
+        android:layout_height="32dp"
+        android:layout_alignParentEnd="true"
+        android:layout_centerVertical="true"
+        android:background="@android:color/transparent"
+        android:paddingHorizontal="12dp"
+        android:stateListAnimator="@null"
+        android:text="@string/hue_forget"
+        android:textAllCaps="true"
+        android:textColor="@color/text_dim"
+        android:textSize="11sp"
+        android:visibility="gone" />
+</RelativeLayout>

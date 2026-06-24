@@ -31,6 +31,7 @@ import android.view.animation.OvershootInterpolator
 import android.view.animation.AnticipateInterpolator
 import android.widget.Button
 import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.SeekBar
@@ -179,6 +180,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var hueAreaSection: LinearLayout
     private lateinit var hueSyncSection: LinearLayout
     private lateinit var hueConn: TextView
+    private lateinit var imgHueState: android.widget.ImageView
     private lateinit var hueStatus: TextView
     private lateinit var hueStatusSpinner: ProgressBar
     private lateinit var hueController: HueLightController
@@ -470,9 +472,11 @@ class MainActivity : AppCompatActivity() {
         hueAreaContainer = findViewById(R.id.hue_area_container)
         btnHueSync = findViewById(R.id.btn_hue_sync)
         hueStatus = findViewById(R.id.hue_status)
-        hueStatusSpinner = findViewById(R.id.hue_status_spinner)
-        hueConn = findViewById(R.id.hue_conn)
-        btnHueForget = findViewById(R.id.btn_hue_forget)
+        val statusHue = findViewById<View>(R.id.status_hue)
+        hueConn = statusHue.findViewById(R.id.tv_state)
+        imgHueState = statusHue.findViewById<android.widget.ImageView>(R.id.img_state)
+        hueStatusSpinner = statusHue.findViewById(R.id.status_spinner)
+        btnHueForget = statusHue.findViewById(R.id.btn_forget)
         huePrerequisites = findViewById(R.id.hue_prerequisites)
         hueAreaSection = findViewById(R.id.hue_section_areas)
         hueSyncSection = findViewById(R.id.hue_section_sync)
@@ -485,8 +489,10 @@ class MainActivity : AppCompatActivity() {
         lifxScanSpinner = findViewById(R.id.lifx_scan_spinner)
         lifxBulbContainer = findViewById(R.id.lifx_bulb_container)
         btnLifxSync = findViewById(R.id.btn_lifx_sync)
-        tvLifxState = findViewById(R.id.tv_lifx_state)
-        imgLifxState = findViewById(R.id.img_lifx_state)
+        val statusLifx = findViewById<View>(R.id.status_lifx)
+        tvLifxState = statusLifx.findViewById(R.id.tv_state)
+        imgLifxState = statusLifx.findViewById(R.id.img_state)
+        tvLifxState.text = "Not Scanned"
         
         prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         optionsSheet.visibility = View.GONE
@@ -1535,9 +1541,10 @@ class MainActivity : AppCompatActivity() {
         // Nanoleaf UI
         val btnNanoleafScan = findViewById<Button>(R.id.btn_nanoleaf_scan)
         btnNanoleafSync = findViewById(R.id.btn_nanoleaf_sync)
-        val btnNanoleafForget = findViewById<Button>(R.id.btn_nanoleaf_forget)
-        val tvNanoleafState = findViewById<TextView>(R.id.tv_nanoleaf_state)
-        val imgNanoleafState = findViewById<android.widget.ImageView>(R.id.img_nanoleaf_state)
+        val statusNanoleaf = findViewById<View>(R.id.status_nanoleaf)
+        val tvNanoleafState = statusNanoleaf.findViewById<TextView>(R.id.tv_state)
+        val imgNanoleafState = statusNanoleaf.findViewById<android.widget.ImageView>(R.id.img_state)
+        val btnNanoleafForget = statusNanoleaf.findViewById<Button>(R.id.btn_forget)
         val tvNanoleafHint = findViewById<TextView>(R.id.tv_nanoleaf_hint)
 
         btnNanoleafScan.setOnClickListener { 
@@ -2045,7 +2052,9 @@ class MainActivity : AppCompatActivity() {
                 colorRes = R.color.hue_connected
             }
         }
-        hueConn.setTextColor(ContextCompat.getColor(this, colorRes))
+        val resolvedColor = ContextCompat.getColor(this, colorRes)
+        hueConn.setTextColor(resolvedColor)
+        imgHueState.imageTintList = android.content.res.ColorStateList.valueOf(resolvedColor)
         
         when (state) {
             HueConn.DISCONNECTED -> {

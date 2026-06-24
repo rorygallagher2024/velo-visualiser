@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/bulb_card"
+    android:layout_width="0dp"
+    android:layout_height="40dp"
+    android:layout_columnWeight="1"
+    android:layout_gravity="fill"
+    android:layout_margin="3dp"
+    android:background="@drawable/pill_button_bg"
+    android:orientation="vertical"
+    android:paddingStart="16dp"
+    android:paddingEnd="12dp"
+    android:clickable="true"
+    android:focusable="true">
+
+    <TextView
+        android:id="@+id/bulb_name"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:textColor="@color/btn_text"
+        android:textSize="12sp"
+        android:fontFamily="sans-serif-medium"
+        android:gravity="center_vertical|start"
+        android:maxLines="2"
+        android:ellipsize="end" />
+
+</LinearLayout>

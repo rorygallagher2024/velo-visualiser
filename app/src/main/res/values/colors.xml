@@ -7,7 +7,7 @@
 
     <!-- UI overlay palette — warm charcoal panel,
          off-white "ink", monochrome inverted selection (no colour accent). -->
-    <color name="accent">#FFF4F4F2</color>          <!-- mono brand white — selected/active fill (OP-1 keycap inversion) -->
+    <color name="accent">#FFF4F4F2</color>          <!-- mono brand white — selected/active fill  -->
     <color name="accent_pressed">#FFFFFFFF</color>  <!-- pure white — momentary press feedback -->
     <color name="ink_invert">#FF1B1A17</color>      <!-- text on a selected (light) fill -->
     <color name="sheet_fill">#F21B1A17</color>      <!-- warm charcoal, ~95% -->
