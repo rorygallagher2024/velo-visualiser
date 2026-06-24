@@ -1513,6 +1513,7 @@
                 android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:layout_marginStart="2dp"
+                android:layout_marginEnd="2dp"
                 android:background="@drawable/segment_button_bg"
                 android:text="Govee"
                 android:textColor="@color/btn_text"
@@ -1895,6 +1896,17 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:text="Beta Feature"
+                android:textColor="@color/hue_pending"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.05"
+                android:paddingBottom="12dp"
+                android:gravity="start" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
                 android:text="Govee creates Wi-Fi smart bulbs. You must manually enable 'LAN Control' in the settings of each bulb via the Govee Home App before they can be discovered.\n\nMake sure your phone is connected to the same Wi-Fi network as your bulbs."
                 android:textColor="@color/text_primary"
                 android:textSize="14sp"
@@ -1985,6 +1997,17 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:visibility="gone">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Beta Feature"
+                android:textColor="@color/hue_pending"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.05"
+                android:paddingBottom="12dp"
+                android:gravity="start" />
 
             <TextView
                 android:layout_width="match_parent"
