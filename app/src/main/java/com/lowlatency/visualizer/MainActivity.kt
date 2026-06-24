@@ -1204,7 +1204,7 @@ class MainActivity : AppCompatActivity() {
         // Each row: a dim mono label padded to a fixed column, then the value.
         fun appendRow(label: String, value: String, valueColor: Int = 0) {
             val start = sb.length
-            sb.append(label.uppercase().padEnd(7))
+            sb.append(label.uppercase().padEnd(11))
             sb.setSpan(android.text.style.ForegroundColorSpan(dim), start, sb.length, 0)
             val vStart = sb.length
             sb.append(value)
@@ -1227,7 +1227,11 @@ class MainActivity : AppCompatActivity() {
         val nativeMb = debugMem.nativePss / 1024
         val gfxMb = debugMem.getMemoryStat("summary.graphics")?.toIntOrNull()?.div(1024) ?: 0
         val totalMb = debugMem.totalPss / 1024
-        appendRow("MEM", "%dMB J:%d N:%d G:%d".format(totalMb, javaMb, nativeMb, gfxMb))
+        
+        appendRow("RAM TOTAL", "%d MB".format(totalMb))
+        appendRow("  JAVA", "%d MB".format(javaMb))
+        appendRow("  NATIVE", "%d MB".format(nativeMb))
+        appendRow("  GRAPHICS", "%d MB".format(gfxMb))
 
         // Audio capture.
         appendRow("Audio", "%d Hz · %.1f ms".format(rate, audioMs))
