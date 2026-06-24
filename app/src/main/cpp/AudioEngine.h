@@ -2,6 +2,8 @@
 #define LLV_AUDIO_ENGINE_H
 
 #include <oboe/Oboe.h>
+#include <thread>
+
 #include <chrono>
 #include <memory>
 #include <mutex>

@@ -160,6 +160,15 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnHueConnect: Button
     private lateinit var hueAreaContainer: LinearLayout
     private lateinit var btnHueSync: Button
+    private lateinit var btnBrandHue: Button
+    private lateinit var btnBrandLifx: Button
+    private lateinit var containerHue: View
+    private lateinit var containerLifx: View
+    private lateinit var btnLifxScan: Button
+    private lateinit var lifxScanSpinner: ProgressBar
+    private lateinit var lifxBulbContainer: android.widget.GridLayout
+    private lateinit var btnLifxSync: Button
+
     private lateinit var btnHueForget: Button
     private lateinit var huePrerequisites: View
     private lateinit var hueAreaSection: LinearLayout
@@ -168,6 +177,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var hueStatus: TextView
     private lateinit var hueStatusSpinner: ProgressBar
     private lateinit var hueController: HueLightController
+    private lateinit var lifxController: com.lowlatency.visualizer.lifx.LifxController
+    
+    enum class LightingBrand { HUE, LIFX }
+    private var activeBrand = LightingBrand.HUE
+    private var lifxSyncing = false
+
     private lateinit var hueStore: HueCredentialStore
     private var hueAreas: List<HueEntertainmentArea> = emptyList()
     private var selectedArea: HueEntertainmentArea? = null
@@ -290,6 +305,11 @@ class MainActivity : AppCompatActivity() {
                 updateHueSyncButton(false)
                 updateHueConn(HueConn.REACHABLE)
                 hueStatus.setText(R.string.hue_mic_only)
+            }
+            if (lifxSyncing) {
+                lifxController.disableStreaming()
+                lifxSyncing = false
+                btnLifxSync.text = "START SYNC"
             }
         } else {
             Toast.makeText(this, "System-audio capture denied.", Toast.LENGTH_SHORT).show()
@@ -442,6 +462,16 @@ class MainActivity : AppCompatActivity() {
         huePrerequisites = findViewById(R.id.hue_prerequisites)
         hueAreaSection = findViewById(R.id.hue_section_areas)
         hueSyncSection = findViewById(R.id.hue_section_sync)
+        
+        btnBrandHue = findViewById(R.id.btn_brand_hue)
+        btnBrandLifx = findViewById(R.id.btn_brand_lifx)
+        containerHue = findViewById(R.id.container_hue)
+        containerLifx = findViewById(R.id.container_lifx)
+        btnLifxScan = findViewById(R.id.btn_lifx_scan)
+        lifxScanSpinner = findViewById(R.id.lifx_scan_spinner)
+        lifxBulbContainer = findViewById(R.id.lifx_bulb_container)
+        btnLifxSync = findViewById(R.id.btn_lifx_sync)
+        
         prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         optionsSheet.visibility = View.GONE
     }
@@ -1174,7 +1204,7 @@ class MainActivity : AppCompatActivity() {
         // Each row: a dim mono label padded to a fixed column, then the value.
         fun appendRow(label: String, value: String, valueColor: Int = 0) {
             val start = sb.length
-            sb.append(label.uppercase().padEnd(7))
+            sb.append(label.uppercase().padEnd(11))
             sb.setSpan(android.text.style.ForegroundColorSpan(dim), start, sb.length, 0)
             val vStart = sb.length
             sb.append(value)
@@ -1189,6 +1219,19 @@ class MainActivity : AppCompatActivity() {
         val cpuMs = load[0] / 1000f
         val cpuPercent = if (frameMs > 0) (cpuMs / frameMs * 100f).coerceIn(0f, 100f) else 0f
         appendRow("CPU", "%.1f ms · %.0f%%".format(cpuMs, cpuPercent))
+
+        // Memory Usage
+        val debugMem = android.os.Debug.MemoryInfo()
+        android.os.Debug.getMemoryInfo(debugMem)
+        val javaMb = debugMem.dalvikPss / 1024
+        val nativeMb = debugMem.nativePss / 1024
+        val gfxMb = debugMem.getMemoryStat("summary.graphics")?.toIntOrNull()?.div(1024) ?: 0
+        val totalMb = debugMem.totalPss / 1024
+        
+        appendRow("RAM TOTAL", "%d MB".format(totalMb))
+        appendRow("  JAVA", "%d MB".format(javaMb))
+        appendRow("  NATIVE", "%d MB".format(nativeMb))
+        appendRow("  GRAPHICS", "%d MB".format(gfxMb))
 
         // Audio capture.
         appendRow("Audio", "%d Hz · %.1f ms".format(rate, audioMs))
@@ -1331,22 +1374,28 @@ class MainActivity : AppCompatActivity() {
     // ----- Smart lighting (Philips Hue) -----
 
     private fun wireHue() {
-        hueController = HueLightController(this)
         hueStore = HueCredentialStore(this)
+        hueController = HueLightController(this)
+        lifxController = com.lowlatency.visualizer.lifx.LifxController()
+        
 
-        // Hue light sync reads the FFT bands; haptics runs bass-onset detection
-        // on the raw PCM (a separate tap, so it can't affect any visual tuning).
-        glView.bandsSink = { low, mid, high -> hueController.onBands(low, mid, high) }
+        // Audio processing hook -> route to active brand
+        glView.bandsSink = { low, mid, high -> 
+            if (::hueController.isInitialized) hueController.onBands(low, mid, high)
+            lifxController.onBands(low, mid, high)
+        }
         // Haptics fire off the shared BeatBus, which the renderer updates just
         // before this per-frame tap. Audio presence + bass balance (for the Hue
         // strobe) are measured in the renderer too, so this tap is just the tick.
         glView.pcmBeatSink = { pcm -> hapticController.onPcm(pcm) }
-        // Raw (ungated) Link beat: drives the Hue strobe timing (with lookahead)
+        
+        // Raw (ungated) Link beat: drives the Hue/LIFX strobe timing (with lookahead)
         // and flashes the diagnostic beat light when the menu is open. The visuals
         // and haptics react to the *gated* beat via BeatBus instead. Runs on the
         // GL thread, so the light update hops to the UI thread.
         glView.onLinkBeat = {
-            hueController.onLinkBeat()
+            if (::hueController.isInitialized) hueController.onLinkBeat()
+            lifxController.onLinkBeat()
             // Step the virtual bar to Link's current beat-in-bar (post-nudge) and
             // pulse the beat dot. Only while the menu is open, to stay cheap.
             if (menuOpen) {
@@ -1361,6 +1410,84 @@ class MainActivity : AppCompatActivity() {
         btnHueSync.setOnClickListener { onHueSyncToggle() }
         btnHueForget.setOnClickListener { confirmForgetBridge() }
         buildLightControlUI()
+
+        btnBrandHue.setOnClickListener { switchBrand(LightingBrand.HUE) }
+        btnBrandLifx.setOnClickListener { switchBrand(LightingBrand.LIFX) }
+        switchBrand(LightingBrand.HUE)
+
+        btnLifxScan.setOnClickListener {
+            lifxScanSpinner.visibility = View.VISIBLE
+            lifxBulbContainer.removeAllViews()
+            btnLifxScan.isEnabled = false
+            lifxController.startDiscovery(
+                onBulbFound = { bulb ->
+                    runOnUiThread {
+                        val card = layoutInflater.inflate(R.layout.lifx_bulb_item, lifxBulbContainer, false)
+                        val bulbNameText = card.findViewById<TextView>(R.id.bulb_name)
+                        bulbNameText.text = bulb.label
+
+                        // The view starts unselected (matching LifxBulb default state)
+                        card.isSelected = false
+
+                        // Add simple scale animation on touch/click
+                        card.setOnClickListener { v ->
+                            val isChecked = !v.isSelected
+                            lifxController.setBulbSelected(bulb.ip, isChecked)
+                            v.isSelected = isChecked
+                            
+                            // Micro-animation "spring" bounce
+                            v.animate()
+                                .scaleX(0.95f).scaleY(0.95f)
+                                .setDuration(50)
+                                .withEndAction {
+                                    v.animate()
+                                        .scaleX(1.0f).scaleY(1.0f)
+                                        .setDuration(150)
+                                        .setInterpolator(android.view.animation.OvershootInterpolator(1.5f))
+                                        .start()
+                                }
+                                .start()
+                        }
+                        
+                        lifxBulbContainer.addView(card)
+                        btnLifxSync.isEnabled = true
+                        btnLifxSync.setText(R.string.hue_sync_off)
+                    }
+                },
+                onFinished = {
+                    runOnUiThread {
+                        lifxScanSpinner.visibility = View.GONE
+                        btnLifxScan.isEnabled = true
+                        if (lifxBulbContainer.childCount == 0) {
+                            Toast.makeText(this@MainActivity, "No LIFX bulbs found on network.", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            )
+        }
+
+        btnLifxSync.setOnClickListener {
+            if (systemAudioMode) {
+                Toast.makeText(this, "Lighting sync is microphone-only.", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            if (lifxSyncing) {
+                lifxController.disableStreaming()
+                lifxSyncing = false
+                btnLifxSync.setText(R.string.hue_sync_off)
+                btnLifxSync.isSelected = false
+            } else {
+                if (!lifxController.hasSelectedBulbs()) {
+                    Toast.makeText(this, "Please select at least one bulb first.", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                lifxController.enableStreaming()
+                lifxSyncing = true
+                btnLifxSync.setText(R.string.hue_sync_on)
+                btnLifxSync.isSelected = true
+            }
+        }
+
 
         val savedCreds = hueStore.loadCredentials()
         if (savedCreds != null) {
@@ -1639,6 +1766,7 @@ class MainActivity : AppCompatActivity() {
     private var currentHueState = HueConn.DISCONNECTED
 
     private fun buildLightControlUI() {
+
         lightControlSection = findViewById(R.id.hue_light_control)
         sceneGrid = findViewById(R.id.hue_scene_grid)
         brightnessSlider = findViewById(R.id.hue_brightness)
@@ -2156,5 +2284,23 @@ class MainActivity : AppCompatActivity() {
         private const val SPLASH_FADE_MS = 350L
         private const val INTRO_HINT_DURATION_MS = 5000L
         private const val PERMISSION_FALLBACK_MS = 6000L  // ask anyway if intro never finishes
+    }
+
+    private fun switchBrand(brand: LightingBrand) {
+        activeBrand = brand
+        val accent = getColor(R.color.accent)
+        val textDim = getColor(R.color.text_dim)
+        
+        if (brand == LightingBrand.HUE) {
+            btnBrandHue.setTextColor(accent)
+            btnBrandLifx.setTextColor(textDim)
+            containerHue.visibility = View.VISIBLE
+            containerLifx.visibility = View.GONE
+        } else {
+            btnBrandHue.setTextColor(textDim)
+            btnBrandLifx.setTextColor(accent)
+            containerHue.visibility = View.GONE
+            containerLifx.visibility = View.VISIBLE
+        }
     }
 }
