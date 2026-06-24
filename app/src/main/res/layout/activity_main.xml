@@ -1485,7 +1485,7 @@
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="1"
-                android:layout_marginEnd="4dp"
+                android:layout_marginEnd="2dp"
                 android:background="@drawable/segment_button_bg"
                 android:text="Philips Hue"
                 android:textColor="@color/btn_text"
@@ -1498,9 +1498,23 @@
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="1"
-                android:layout_marginStart="4dp"
+                android:layout_marginStart="2dp"
+                android:layout_marginEnd="2dp"
                 android:background="@drawable/segment_button_bg"
                 android:text="LIFX"
+                android:textColor="@color/btn_text"
+                android:textSize="12sp"
+                android:letterSpacing="0.05"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_brand_govee"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_marginStart="2dp"
+                android:background="@drawable/segment_button_bg"
+                android:text="Govee"
                 android:textColor="@color/btn_text"
                 android:textSize="12sp"
                 android:letterSpacing="0.05"
@@ -1856,6 +1870,100 @@
 
         </LinearLayout>
         <!-- /LIFX CONTAINER -->
+
+        <!-- ===== GOVEE CONTAINER ===== -->
+        <LinearLayout
+            android:id="@+id/container_govee"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Govee creates Wi-Fi smart bulbs. You must manually enable 'LAN Control' in the settings of each bulb via the Govee Home App before they can be discovered.\n\nMake sure your phone is connected to the same Wi-Fi network as your bulbs."
+                android:textColor="@color/text_primary"
+                android:textSize="14sp"
+                android:lineSpacingExtra="4sp"
+                android:paddingBottom="16dp"
+                android:gravity="start" />
+
+            <Button
+                android:id="@+id/btn_govee_scan"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginBottom="16dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="Scan for Govee Bulbs"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="14sp"
+                android:stateListAnimator="@null" />
+
+            <ProgressBar
+                android:id="@+id/govee_scan_spinner"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_gravity="center"
+                android:layout_marginBottom="16dp"
+                android:indeterminateTint="@color/accent"
+                android:visibility="gone" />
+
+            <GridLayout
+                android:id="@+id/govee_bulb_container"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:columnCount="2"
+                android:layout_marginBottom="16dp" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/text_dim"
+                android:alpha="0.25"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="14dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Audio Sync"
+                android:textColor="@color/text_dim"
+                android:textSize="12sp"
+                android:textStyle="normal"
+                android:textAllCaps="true"
+                android:letterSpacing="0.08"
+                android:layout_marginBottom="12dp" />
+
+            <Button
+                android:id="@+id/btn_govee_sync"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/hue_sync_off"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="14sp"
+                android:enabled="false"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_govee_advanced"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginBottom="20dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/adv_button"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="14sp"
+                android:visibility="gone"
+                android:stateListAnimator="@null" />
+
+        </LinearLayout>
+        <!-- /GOVEE CONTAINER -->
 
         </FrameLayout>
         <!-- /FrameLayout -->

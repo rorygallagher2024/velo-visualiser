@@ -119,6 +119,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var barCells: List<View>
     private lateinit var btnAdvanced: Button
     private lateinit var btnLifxAdvanced: Button
+    private lateinit var btnGoveeAdvanced: Button
     private lateinit var btnThemeDefault: Button
     private lateinit var btnThemeNeon: Button
     private lateinit var btnThemeWarm: Button
@@ -163,12 +164,21 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnHueSync: Button
     private lateinit var btnBrandHue: Button
     private lateinit var btnBrandLifx: Button
+    private lateinit var btnBrandGovee: Button
+
     private lateinit var containerHue: View
     private lateinit var containerLifx: View
+    private lateinit var containerGovee: View
+    
     private lateinit var btnLifxScan: Button
     private lateinit var lifxScanSpinner: ProgressBar
     private lateinit var lifxBulbContainer: android.widget.GridLayout
     private lateinit var btnLifxSync: Button
+
+    private lateinit var btnGoveeScan: Button
+    private lateinit var goveeScanSpinner: ProgressBar
+    private lateinit var goveeBulbContainer: android.widget.GridLayout
+    private lateinit var btnGoveeSync: Button
 
     private lateinit var btnHueForget: Button
     private lateinit var huePrerequisites: View
@@ -179,10 +189,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var hueStatusSpinner: ProgressBar
     private lateinit var hueController: HueLightController
     private lateinit var lifxController: com.lowlatency.visualizer.lifx.LifxController
-    
-    enum class LightingBrand { HUE, LIFX }
-    private var activeBrand = LightingBrand.HUE
     private var lifxSyncing = false
+
+    private lateinit var goveeController: com.lowlatency.visualizer.govee.GoveeController
+    private var goveeSyncing = false
+
+    enum class LightingBrand { HUE, LIFX, GOVEE }
+    private var activeBrand = LightingBrand.HUE
 
     private lateinit var hueStore: HueCredentialStore
     private var hueAreas: List<HueEntertainmentArea> = emptyList()
@@ -430,6 +443,7 @@ class MainActivity : AppCompatActivity() {
         )
         btnAdvanced = findViewById(R.id.btn_advanced)
         btnLifxAdvanced = findViewById(R.id.btn_lifx_advanced)
+        btnGoveeAdvanced = findViewById(R.id.btn_govee_advanced)
         btnThemeDefault = findViewById(R.id.btn_theme_default)
         btnThemeNeon = findViewById(R.id.btn_theme_neon)
         btnThemeWarm = findViewById(R.id.btn_theme_warm)
@@ -467,12 +481,21 @@ class MainActivity : AppCompatActivity() {
         
         btnBrandHue = findViewById(R.id.btn_brand_hue)
         btnBrandLifx = findViewById(R.id.btn_brand_lifx)
+        btnBrandGovee = findViewById(R.id.btn_brand_govee)
+        
         containerHue = findViewById(R.id.container_hue)
         containerLifx = findViewById(R.id.container_lifx)
+        containerGovee = findViewById(R.id.container_govee)
+        
         btnLifxScan = findViewById(R.id.btn_lifx_scan)
         lifxScanSpinner = findViewById(R.id.lifx_scan_spinner)
         lifxBulbContainer = findViewById(R.id.lifx_bulb_container)
         btnLifxSync = findViewById(R.id.btn_lifx_sync)
+        
+        btnGoveeScan = findViewById(R.id.btn_govee_scan)
+        goveeScanSpinner = findViewById(R.id.govee_scan_spinner)
+        goveeBulbContainer = findViewById(R.id.govee_bulb_container)
+        btnGoveeSync = findViewById(R.id.btn_govee_sync)
         
         prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         optionsSheet.visibility = View.GONE
@@ -829,6 +852,7 @@ class MainActivity : AppCompatActivity() {
         HueStrobeSettings.hueLookaheadMs = prefs.getFloat(KEY_ADV_HUE_LOOKAHEAD, HueStrobeSettings.hueLookaheadMs)
         btnAdvanced.setOnClickListener { showAdvancedDialog() }
         btnLifxAdvanced.setOnClickListener { showAdvancedDialog() }
+        btnGoveeAdvanced.setOnClickListener { showAdvancedDialog() }
     }
 
     /**
@@ -1380,12 +1404,13 @@ class MainActivity : AppCompatActivity() {
         hueStore = HueCredentialStore(this)
         hueController = HueLightController(this)
         lifxController = com.lowlatency.visualizer.lifx.LifxController()
-        
+        goveeController = com.lowlatency.visualizer.govee.GoveeController()
 
         // Audio processing hook -> route to active brand
         glView.bandsSink = { low, mid, high -> 
             if (::hueController.isInitialized) hueController.onBands(low, mid, high)
-            lifxController.onBands(low, mid, high)
+            if (::lifxController.isInitialized) lifxController.onBands(low, mid, high)
+            if (::goveeController.isInitialized) goveeController.onBands(low, mid, high)
         }
         // Haptics fire off the shared BeatBus, which the renderer updates just
         // before this per-frame tap. Audio presence + bass balance (for the Hue
@@ -1398,7 +1423,8 @@ class MainActivity : AppCompatActivity() {
         // GL thread, so the light update hops to the UI thread.
         glView.onLinkBeat = {
             if (::hueController.isInitialized) hueController.onLinkBeat()
-            lifxController.onLinkBeat()
+            if (::lifxController.isInitialized) lifxController.onLinkBeat()
+            if (::goveeController.isInitialized) goveeController.onLinkBeat()
             // Step the virtual bar to Link's current beat-in-bar (post-nudge) and
             // pulse the beat dot. Only while the menu is open, to stay cheap.
             if (menuOpen) {
@@ -1416,6 +1442,7 @@ class MainActivity : AppCompatActivity() {
 
         btnBrandHue.setOnClickListener { switchBrand(LightingBrand.HUE) }
         btnBrandLifx.setOnClickListener { switchBrand(LightingBrand.LIFX) }
+        btnBrandGovee.setOnClickListener { switchBrand(LightingBrand.GOVEE) }
         switchBrand(LightingBrand.HUE)
 
         btnLifxScan.setOnClickListener {
@@ -1489,6 +1516,69 @@ class MainActivity : AppCompatActivity() {
                 lifxSyncing = true
                 btnLifxSync.setText(R.string.hue_sync_on)
                 btnLifxSync.isSelected = true
+                updateAdvancedVisibility()
+            }
+        }
+
+        btnGoveeScan.setOnClickListener {
+            btnGoveeScan.isEnabled = false
+            goveeScanSpinner.visibility = View.VISIBLE
+            goveeController.startDiscovery(
+                onBulbFound = { bulb ->
+                    runOnUiThread {
+                        val cb = android.widget.CheckBox(this).apply {
+                            text = "${bulb.device}\n${bulb.ip}"
+                            setTextColor(getColor(R.color.text_primary))
+                            isChecked = false
+                            setOnCheckedChangeListener { _, isChecked ->
+                                goveeController.setBulbSelected(bulb.ip, isChecked)
+                                if (goveeController.hasSelectedBulbs() && !goveeSyncing) {
+                                    btnGoveeSync.isEnabled = true
+                                    btnGoveeSync.setText(R.string.hue_sync_off)
+                                } else if (!goveeController.hasSelectedBulbs()) {
+                                    btnGoveeSync.isEnabled = false
+                                    btnGoveeSync.setText(R.string.hue_sync_off)
+                                    if (goveeSyncing) {
+                                        goveeController.disableStreaming()
+                                        goveeSyncing = false
+                                        btnGoveeSync.isSelected = false
+                                        updateAdvancedVisibility()
+                                    }
+                                }
+                            }
+                        }
+                        goveeBulbContainer.addView(cb)
+                    }
+                },
+                onFinished = {
+                    runOnUiThread {
+                        goveeScanSpinner.visibility = View.GONE
+                        btnGoveeScan.isEnabled = true
+                    }
+                }
+            )
+        }
+
+        btnGoveeSync.setOnClickListener {
+            if (systemAudioMode) {
+                Toast.makeText(this, "Lighting sync is microphone-only.", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            if (goveeSyncing) {
+                goveeController.disableStreaming()
+                goveeSyncing = false
+                btnGoveeSync.setText(R.string.hue_sync_off)
+                btnGoveeSync.isSelected = false
+                updateAdvancedVisibility()
+            } else {
+                if (!goveeController.hasSelectedBulbs()) {
+                    Toast.makeText(this, "Please select at least one bulb first.", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                goveeController.enableStreaming()
+                goveeSyncing = true
+                btnGoveeSync.setText(R.string.hue_sync_on)
+                btnGoveeSync.isSelected = true
                 updateAdvancedVisibility()
             }
         }
@@ -1747,6 +1837,9 @@ class MainActivity : AppCompatActivity() {
         
         val lifxRelevant = ::lifxController.isInitialized && lifxController.isStreaming
         btnLifxAdvanced.visibility = if (lifxRelevant) View.VISIBLE else View.GONE
+        
+        val goveeRelevant = ::goveeController.isInitialized && goveeController.isStreaming
+        btnGoveeAdvanced.visibility = if (goveeRelevant) View.VISIBLE else View.GONE
     }
 
     // ----- Light control (scene presets + brightness) -----
@@ -2290,24 +2383,37 @@ class MainActivity : AppCompatActivity() {
         private const val SPLASH_MASK_MS = 120L    // black mask over GL init, then fade
         private const val SPLASH_FADE_MS = 350L
         private const val INTRO_HINT_DURATION_MS = 5000L
-        private const val PERMISSION_FALLBACK_MS = 6000L  // ask anyway if intro never finishes
+        private const val PERMISSION_FALLBACK_MS = 6000L
     }
 
     private fun switchBrand(brand: LightingBrand) {
+        if (activeBrand == brand) return
         activeBrand = brand
-        val accent = getColor(R.color.accent)
+
         val textDim = getColor(R.color.text_dim)
-        
+        val accent = getColor(R.color.accent)
+
         if (brand == LightingBrand.HUE) {
             btnBrandHue.setTextColor(accent)
-            btnBrandLifx.setTextColor(textDim)
             containerHue.visibility = View.VISIBLE
+            btnBrandLifx.setTextColor(textDim)
             containerLifx.visibility = View.GONE
-        } else {
+            btnBrandGovee.setTextColor(textDim)
+            containerGovee.visibility = View.GONE
+        } else if (brand == LightingBrand.LIFX) {
             btnBrandHue.setTextColor(textDim)
-            btnBrandLifx.setTextColor(accent)
             containerHue.visibility = View.GONE
+            btnBrandLifx.setTextColor(accent)
             containerLifx.visibility = View.VISIBLE
+            btnBrandGovee.setTextColor(textDim)
+            containerGovee.visibility = View.GONE
+        } else if (brand == LightingBrand.GOVEE) {
+            btnBrandHue.setTextColor(textDim)
+            containerHue.visibility = View.GONE
+            btnBrandLifx.setTextColor(textDim)
+            containerLifx.visibility = View.GONE
+            btnBrandGovee.setTextColor(accent)
+            containerGovee.visibility = View.VISIBLE
         }
     }
 }
