@@ -40,7 +40,7 @@ Velo listens to the **actual sound** in the room and moves with it instantly. Th
 ## Core Features
 * **High-FPS, HDR-Capable 3D Visuals:** Targets 120+ fps for fluid, tear-free rendering (device and preset dependent).
 * **Ableton Link Integration:** Supplement the microphone input with perfect phase-synchronization and predictive beat detection broadcast directly from your DJ software (Traktor, Live, Serato).
-* **Philips Hue & LIFX Sync:** Drive your physical room lighting with the exact same zero-lag transient detection used for the on-screen visuals.
+* **Room Lighting Controll:** Drive your physical room lighting with the exact same zero-lag transient detection used for the on-screen visuals. Supports Philips Hue and Lifx bulbs.
 * **No Nonsense:** 100% local processing. No data collection. No ads. I don't want your data, and nobody wants ads.
 
 ## The full feature list
@@ -48,7 +48,7 @@ Velo listens to the **actual sound** in the room and moves with it instantly. Th
 - **29 audio and beat reactive visualizers**: Waveforms, spectra, particle fluids, scrolling spectrograms, dot-matrix LED meters, and more.
 - **HDR Effects**: Including post-processing for real luminous glow on capable HDR displays and a selectable glow strength.
 - **Ableton Link sync**: Lock beat-driven effects to Traktor, Ableton Live, and other Link software over Wi-Fi; the mic still drives the visuals while Link sets the beat.
-- **Real-time Philips Hue & LIFX Integration**: Direct local UDP streaming over the Hue Entertainment API and LIFX LAN Protocol. Also works in co-ordination with Ableton Link to drive a synchronised beat to the bulbs. Includes advanced controls for calibration and the ability to send Ableton Link beats early for perfect synchronisation.
+- **Real-time Room Lighting Control with Philips Hue & LIFX Integration**: Direct local UDP streaming over the Hue Entertainment API and LIFX LAN Protocol. Also works in co-ordination with Ableton Link to drive a synchronised beat to the bulbs. Includes advanced controls for calibration and the ability to send Ableton Link beats early for perfect synchronisation.
 - **Two audio sources**: Raw low-latency microphone capture or internal/system audio via screen-share (Warning: Low latency not supported via screen-sharing).
 - **Global colour themes**: Re-tint visuals to your desired colour scheme (Neon, Warm, Cool, Mono…).
 - **Vibrate-on-beat haptics**: Bass-onset detection triggers physical pulses.
