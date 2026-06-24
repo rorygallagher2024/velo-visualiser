@@ -213,4 +213,11 @@
     <!-- First-boot overlay -->
     <string name="hint_swipe_sides">◀  Swipe left / right to change visuals  ▶</string>
     <string name="hint_swipe_up">▲  Swipe up for settings</string>
+
+    <!-- Accessibility Content Descriptions -->
+    <string name="cd_close_menu">Close menu</string>
+    <string name="cd_settings_menu">Settings Menu</string>
+    <string name="cd_smoothing">Audio smoothing level</string>
+    <string name="cd_mic_gain">Microphone gain level</string>
+    <string name="cd_bpm">Beat anticipation multiplier</string>
 </resources>

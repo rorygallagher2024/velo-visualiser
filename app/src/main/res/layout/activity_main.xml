@@ -15,7 +15,8 @@
     <com.lowlatency.visualizer.VisualizerSurfaceView
         android:id="@+id/gl_view"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent"
+        android:importantForAccessibility="no" />
 
     <!-- Performance diagnostics overlay (top-left, over GL view). Typography as
          spectacle: a giant ultra-light FPS readout over a compact mono data block. -->
@@ -160,7 +161,8 @@
         android:background="@color/scrim"
         android:clickable="true"
         android:focusable="true"
-        android:visibility="gone" />
+        android:visibility="gone"
+        android:contentDescription="@string/cd_close_menu" />
 
     <!-- Options sheet: lower portion of the canvas. A ScrollView so the full
          control list (now 8 visualizers) always fits — on short screens it
@@ -177,7 +179,8 @@
         android:clickable="true"
         android:focusable="true"
         android:fillViewport="true"
-        android:scrollbars="none">
+        android:scrollbars="none"
+        android:accessibilityPaneTitle="@string/cd_settings_menu">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -1966,7 +1969,8 @@
         android:id="@+id/splash_overlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="#FF000000" />
+        android:background="#FF000000"
+        android:importantForAccessibility="no" />
 
     <!-- Brief intro hint (fades out after a few seconds) -->
     <LinearLayout
