@@ -1554,6 +1554,9 @@ class MainActivity : AppCompatActivity() {
                     runOnUiThread {
                         goveeScanSpinner.visibility = View.GONE
                         btnGoveeScan.isEnabled = true
+                        if (goveeBulbContainer.childCount == 0) {
+                            Toast.makeText(this@MainActivity, "No Govee bulbs found on network.", Toast.LENGTH_SHORT).show()
+                        }
                     }
                 }
             )
