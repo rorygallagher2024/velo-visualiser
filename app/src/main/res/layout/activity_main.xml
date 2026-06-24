@@ -1464,17 +1464,6 @@
             android:animateLayoutChanges="true"
             android:visibility="gone">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/tab_lighting"
-            android:textColor="@color/accent"
-            android:textSize="18sp"
-            android:textStyle="normal"
-            android:textAllCaps="true"
-            android:letterSpacing="0.05"
-            android:layout_marginBottom="16dp" />
-
         <!-- Brand Segmented Control -->
         <LinearLayout
             android:layout_width="match_parent"
@@ -1795,19 +1784,6 @@
                 android:letterSpacing="0.08"
                 android:layout_marginBottom="12dp" />
 
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="LIFX creates Wi-Fi smart bulbs. Unlike Philips Hue, they connect directly to your router without requiring a bridge.\n\nMake sure your phone is connected to the same Wi-Fi network as your bulbs to sync them with the visualizer."
-                android:textColor="@color/text_primary"
-                android:textSize="14sp"
-                android:lineSpacingExtra="4sp"
-                android:paddingBottom="16dp"
-                android:gravity="start" />
-
-
-
-
             <RelativeLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -1832,6 +1808,16 @@
                     android:textColor="@color/text_dim"
                     android:textSize="14sp" />
             </RelativeLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="LIFX creates Wi-Fi smart bulbs. Unlike Philips Hue, they connect directly to your router without requiring a bridge.\n\nMake sure your phone is connected to the same Wi-Fi network as your bulbs to sync them with the visualizer."
+                android:textColor="@color/text_primary"
+                android:textSize="14sp"
+                android:lineSpacingExtra="4sp"
+                android:paddingBottom="16dp"
+                android:gravity="start" />
 
             <Button
                 android:id="@+id/btn_lifx_scan"
