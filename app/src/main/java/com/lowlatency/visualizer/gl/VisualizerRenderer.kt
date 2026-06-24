@@ -362,6 +362,11 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
         dropSurge = (dropSurge - dt / DROP_DECAY).coerceAtLeast(0f)
         BeatPulse.surge = dropSurge
 
+        val audioBeat = hdrBeat.update(pcm)
+        if (audioBeat) {
+            BeatBus.lastKickTimeMs = System.currentTimeMillis()
+        }
+
         // Beat decision. Source = Ableton Link's network clock when sync is on,
         // otherwise the audio onset detector. Either way the beat only "counts"
         // when the gate is open, and the punch is scaled by loudness so quiet
@@ -391,10 +396,10 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
             hdrPunch = env * BeatBus.loudness
             if (rawBeat) {
                 onLinkBeat?.invoke()                       // ungated: diagnostic dot + Hue timing
-                if (BeatBus.gateOpen) BeatBus.beatCount++  // gated: visuals + haptics
+                if (BeatBus.gateOpen && BeatBus.kickActive) BeatBus.beatCount++  // gated: visuals + haptics
             }
         } else {
-            val beat = hdrBeat.update(pcm) && BeatBus.gateOpen
+            val beat = audioBeat && BeatBus.gateOpen
             if (beat) {
                 hdrPunch = BeatBus.loudness
                 BeatBus.beatCount++

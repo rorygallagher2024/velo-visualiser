@@ -28,6 +28,12 @@ object BeatBus {
     /** True while there is enough audio present for a beat to count. */
     val gateOpen: Boolean get() = loudness > 0f
 
+    /** The time the last audio transient (kick) was detected. */
+    @Volatile var lastKickTimeMs: Long = 0L
+
+    /** True if a kick drum was detected recently (1.5s window). Mutes Link in breakdowns. */
+    val kickActive: Boolean get() = (System.currentTimeMillis() - lastKickTimeMs) < 1500L
+
     /** Gated discrete beat counter — incremented once per beat that passes the gate. */
     @Volatile var beatCount: Int = 0
 }
