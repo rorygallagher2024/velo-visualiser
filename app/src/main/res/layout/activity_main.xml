@@ -250,6 +250,13 @@
                 android:stateListAnimator="@null" />
         </LinearLayout>
 
+        <!-- ───── divider: Main Nav / Content ───── -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginBottom="24dp"
+            android:background="@color/sheet_stroke" />
+
         <!-- ===== TAB 1: Visualizers ===== -->
         <LinearLayout
             android:id="@+id/tab_visualizers"
@@ -1464,6 +1471,17 @@
             android:orientation="vertical"
             android:animateLayoutChanges="true"
             android:visibility="gone">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Lighting Integrations"
+            android:textColor="@color/text_dim"
+            android:textSize="12sp"
+            android:textStyle="normal"
+            android:textAllCaps="true"
+            android:letterSpacing="0.08"
+            android:layout_marginBottom="12dp" />
 
         <!-- Brand Segmented Control -->
         <LinearLayout
