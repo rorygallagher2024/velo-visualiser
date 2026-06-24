@@ -1,4 +1,3 @@
-@file:Suppress("UNUSED_VARIABLE", "UNUSED_PARAMETER", "unused", "SpellCheckingInspection")
 
 package com.lowlatency.visualizer.lifx
 
@@ -84,7 +83,7 @@ class LifxController {
         for (attempt in 0 until 4) { // 4 attempts
             try {
                 socket.send(txPacket)
-            } catch (ignored: Exception) {}
+            } catch (_: Exception) {}
 
             val endOfWindow = System.currentTimeMillis() + 1000L
             while (true) {
@@ -95,9 +94,9 @@ class LifxController {
                 try {
                     socket.receive(rxPacket)
                     processDiscoveryResponse(rxPacket, onBulbFound)
-                } catch (ignored: java.net.SocketTimeoutException) {
+                } catch (_: java.net.SocketTimeoutException) {
                     break
-                } catch (ignored: Exception) {
+                } catch (_: Exception) {
                     // Ignore malformed packets and continue receiving
                 }
             }
@@ -180,7 +179,7 @@ class LifxController {
                     sendSetPower(socket, bulb.ip, bulb.mac, false)
                 }
                 socket.close()
-            } catch (ignored: Exception) {}
+            } catch (_: Exception) {}
         }.start()
     }
 
@@ -228,7 +227,7 @@ class LifxController {
                 val sleepNs = deadlineNs - System.nanoTime() - SPIN_MARGIN_NS
                 if (sleepNs > 0) {
                     try { Thread.sleep(sleepNs / 1_000_000, (sleepNs % 1_000_000).toInt()) }
-                    catch (ignored: InterruptedException) { break }
+                    catch (_: InterruptedException) { break }
                 }
                 while (System.nanoTime() < deadlineNs) Thread.yield()
             }
@@ -319,7 +318,7 @@ class LifxController {
             powerBuf.putInt(0)
             s.send(DatagramPacket(powerBuf.array(), 42, InetAddress.getByName(ip), 56700))
             if (socket == null) s.close()
-        } catch (ignored: Exception) {}
+        } catch (_: Exception) {}
     }
 
     private fun sendSetColor(socket: DatagramSocket, buf: ByteBuffer, bulb: LifxBulb, finalHue: Float, finalSat: Float, finalBri: Float, spread: Float) {
@@ -352,7 +351,7 @@ class LifxController {
         
         try {
             socket.send(DatagramPacket(buf.array(), 49, InetAddress.getByName(bulb.ip), 56700))
-        } catch (ignored: Exception) {
+        } catch (_: Exception) {
             // ignore dropped packets
         }
     }
