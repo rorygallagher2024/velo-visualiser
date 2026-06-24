@@ -1384,21 +1384,18 @@ class MainActivity : AppCompatActivity() {
             if (::hueController.isInitialized) hueController.onBands(low, mid, high)
             lifxController.onBands(low, mid, high)
         }
-        glView.onLinkBeat = { 
-            if (::hueController.isInitialized) hueController.onLinkBeat()
-            lifxController.onLinkBeat()
-        }
-
         // Haptics fire off the shared BeatBus, which the renderer updates just
         // before this per-frame tap. Audio presence + bass balance (for the Hue
         // strobe) are measured in the renderer too, so this tap is just the tick.
         glView.pcmBeatSink = { pcm -> hapticController.onPcm(pcm) }
-        // Raw (ungated) Link beat: drives the Hue strobe timing (with lookahead)
+        
+        // Raw (ungated) Link beat: drives the Hue/LIFX strobe timing (with lookahead)
         // and flashes the diagnostic beat light when the menu is open. The visuals
         // and haptics react to the *gated* beat via BeatBus instead. Runs on the
         // GL thread, so the light update hops to the UI thread.
         glView.onLinkBeat = {
-            hueController.onLinkBeat()
+            if (::hueController.isInitialized) hueController.onLinkBeat()
+            lifxController.onLinkBeat()
             // Step the virtual bar to Link's current beat-in-bar (post-nudge) and
             // pulse the beat dot. Only while the menu is open, to stay cheap.
             if (menuOpen) {

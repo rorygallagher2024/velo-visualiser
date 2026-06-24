@@ -218,14 +218,17 @@ class LifxController {
             // Pre-allocate a buffer for SetColor (102) -> 49 bytes
             val buf = ByteBuffer.allocate(49).order(ByteOrder.LITTLE_ENDIAN)
 
+            var currentHue = PURPLE_HUE
+            var currentSat = SAT_BASS
+
             while (streaming) {
                 val t0 = System.nanoTime()
                 val l = curL; val m = curM; val h = curH
                 val isLinkOn = LinkSync.enabled
                 
-                var finalHue = 0f
-                var finalSat = 0f
-                var finalBri = 0f
+                var finalHue: Float
+                var finalSat: Float
+                var finalBri: Float
 
                 if (isLinkOn) {
                     val cfg = HueStrobeSettings
@@ -257,17 +260,21 @@ class LifxController {
                         }
                     }
 
-                    if (shouldFlash && cfg.linkBeatFlashEnabled && BeatBus.gateOpen) {
-                        flash = MIN_BEAT_AMP + (1f - MIN_BEAT_AMP) * BeatBus.loudness
-                        lightBeatCount++
-
+                    if (shouldFlash && BeatBus.gateOpen) {
                         val ct = ((BeatBus.bassRatio - cfg.bassLo) / (cfg.bassHi - cfg.bassLo)).coerceIn(0f, 1f)
                         val cs = ct * ct * (3f - 2f * ct)
-                        finalHue = RED_HUE + (PURPLE_HUE - RED_HUE) * cs
-                        finalSat = SAT_TREBLE + (SAT_BASS - SAT_TREBLE) * cs
+                        currentHue = RED_HUE + (PURPLE_HUE - RED_HUE) * cs
+                        currentSat = SAT_TREBLE + (SAT_BASS - SAT_TREBLE) * cs
+                        
+                        if (cfg.linkBeatFlashEnabled) {
+                            flash = MIN_BEAT_AMP + (1f - MIN_BEAT_AMP) * BeatBus.loudness
+                            lightBeatCount++
+                        }
                     }
                     flash *= FLASH_DECAY
-                    finalBri = sqrt((MIN_BRIGHT + flash).coerceIn(0f, 1f))
+                    finalHue = currentHue
+                    finalSat = currentSat
+                    finalBri = sqrt((MIN_BRIGHT + cfg.restingGlow * 0.3f + flash).coerceIn(0f, 1f))
                 } else {
                     val cfg = HueStrobeSettings
                     val bc = BeatBus.beatCount
