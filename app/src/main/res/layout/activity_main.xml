@@ -169,6 +169,8 @@
         android:layout_height="match_parent"
         android:layout_gravity="bottom"
         android:layout_marginTop="72dp"
+        android:layout_marginBottom="-40dp"
+        android:paddingBottom="40dp"
         android:background="@drawable/sheet_background"
         android:clickable="true"
         android:focusable="true"
@@ -1457,6 +1459,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
+            android:animateLayoutChanges="true"
             android:visibility="gone">
 
         <TextView
@@ -1500,50 +1503,68 @@
                 android:background="@drawable/segment_button_bg"
                 android:layout_marginBottom="16dp" />
 
-            <TextView
-                android:id="@+id/hue_conn"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/hue_conn_disconnected"
-                android:textColor="@color/text_dim"
-                android:textSize="14sp"
-                android:layout_marginBottom="12dp" />
-
-            <Button
-                android:id="@+id/btn_hue_connect"
+            <RelativeLayout
                 android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/hue_connect"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="14sp"
-                android:stateListAnimator="@null" />
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp">
+
+                <TextView
+                    android:id="@+id/hue_conn"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_alignParentStart="true"
+                    android:layout_centerVertical="true"
+                    android:text="@string/hue_conn_disconnected"
+                    android:textColor="@color/text_dim"
+                    android:textSize="14sp" />
+
+                <ProgressBar
+                    android:id="@+id/hue_status_spinner"
+                    android:layout_width="14dp"
+                    android:layout_height="14dp"
+                    android:layout_toEndOf="@id/hue_conn"
+                    android:layout_marginStart="8dp"
+                    android:layout_centerVertical="true"
+                    android:indeterminateTint="@color/accent"
+                    android:visibility="gone" />
+
+                <Button
+                    android:id="@+id/btn_hue_forget"
+                    android:layout_width="wrap_content"
+                    android:layout_height="32dp"
+                    android:layout_alignParentEnd="true"
+                    android:layout_centerVertical="true"
+                    android:background="@android:color/transparent"
+                    android:paddingHorizontal="12dp"
+                    android:stateListAnimator="@null"
+                    android:text="@string/hue_forget"
+                    android:textAllCaps="true"
+                    android:textColor="@color/text_dim"
+                    android:textSize="10sp"
+                    android:visibility="gone" />
+            </RelativeLayout>
 
             <TextView
                 android:id="@+id/hue_status"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:gravity="center"
+                android:layout_marginBottom="8dp"
+                android:gravity="start"
                 android:text="@string/hue_status_idle"
                 android:textColor="@color/text_dim"
-                android:textSize="12sp"
-                android:layout_marginBottom="8dp" />
+                android:textSize="12sp" />
 
             <Button
-                android:id="@+id/btn_hue_forget"
+                android:id="@+id/btn_hue_connect"
                 android:layout_width="match_parent"
-                android:layout_height="40dp"
-                android:layout_marginTop="8dp"
-                android:layout_marginBottom="4dp"
-                android:background="@android:color/transparent"
-                android:text="@string/hue_forget"
-                android:textColor="@color/text_destructive"
+                android:layout_height="48dp"
+                android:layout_marginBottom="16dp"
+                android:background="@drawable/pill_button_bg"
+                android:stateListAnimator="@null"
+                android:text="@string/hue_connect"
                 android:textAllCaps="false"
-                android:textSize="12sp"
-                android:visibility="gone"
-                android:stateListAnimator="@null" />
+                android:textColor="@color/btn_text"
+                android:textSize="14sp" />
 
         </LinearLayout>
 

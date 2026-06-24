@@ -24,9 +24,13 @@ import android.util.TypedValue
 import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
+import android.view.animation.OvershootInterpolator
+import android.view.animation.AnticipateInterpolator
 import android.widget.Button
+import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.SeekBar
@@ -160,8 +164,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var huePrerequisites: View
     private lateinit var hueAreaSection: LinearLayout
     private lateinit var hueSyncSection: LinearLayout
-    private lateinit var hueStatus: TextView
     private lateinit var hueConn: TextView
+    private lateinit var hueStatus: TextView
+    private lateinit var hueStatusSpinner: ProgressBar
     private lateinit var hueController: HueLightController
     private lateinit var hueStore: HueCredentialStore
     private var hueAreas: List<HueEntertainmentArea> = emptyList()
@@ -172,6 +177,9 @@ class MainActivity : AppCompatActivity() {
     private var deferredPermissionRequest = false
     private var perfOverlayEnabled = false
     private var lastHuePackets = 0L
+    private var lastHueRttMs = -1L
+    private var smoothedHuePps = 0f
+    private var lastHuePpsTimeNs = 0L
     private var lastPeerCount = 0
     private var linkNotifyRunnable: Runnable? = null
     private var backgroundedAtMs = 0L
@@ -221,12 +229,22 @@ class MainActivity : AppCompatActivity() {
             hueController.setup.pingBridge(creds) { rtt ->
                 if (!huePingPollerRunning) return@pingBridge
                 if (rtt != null) {
+                    lastHueRttMs = rtt
                     val state = if (hueController.isEnabled) HueConn.STREAMING else HueConn.REACHABLE
                     updateHueConn(state)
+                    // Only update the status text if we are actively streaming OR if we were previously unreachable
+                    // This prevents overwriting important messages like "No Entertainment Areas found" or "Select an area"
+                    if (hueController.isEnabled) {
+                        hueStatus.text = getString(R.string.hue_status_synced)
+                    } else if (hueStatus.text == getString(R.string.hue_status_unreachable)) {
+                        hueStatus.text = getString(R.string.hue_status_ready)
+                    }
                 } else {
+                    lastHueRttMs = -1L
                     if (!hueController.isEnabled) {
                         updateHueConn(HueConn.PAIRED)
-                        stopHuePingPoller()
+                        hueStatus.text = getString(R.string.hue_status_unreachable)
+                        // Keep polling so it auto-reconnects when the bridge comes back online
                     }
                 }
                 if (huePingPollerRunning) huePingHandler.postDelayed(this, 5000L)
@@ -418,6 +436,7 @@ class MainActivity : AppCompatActivity() {
         hueAreaContainer = findViewById(R.id.hue_area_container)
         btnHueSync = findViewById(R.id.btn_hue_sync)
         hueStatus = findViewById(R.id.hue_status)
+        hueStatusSpinner = findViewById(R.id.hue_status_spinner)
         hueConn = findViewById(R.id.hue_conn)
         btnHueForget = findViewById(R.id.btn_hue_forget)
         huePrerequisites = findViewById(R.id.hue_prerequisites)
@@ -563,20 +582,24 @@ class MainActivity : AppCompatActivity() {
         val off = resources.displayMetrics.heightPixels.toFloat()
         optionsSheet.translationY = off
         optionsSheet.visibility = View.VISIBLE
-        optionsSheet.animate().translationY(0f).setDuration(220)
-            .setInterpolator(DecelerateInterpolator()).start()
+        optionsSheet.animate().translationY(0f).setDuration(350)
+            .setInterpolator(OvershootInterpolator(1.1f))
+            .start()
     }
 
     private fun hideMenu() {
         if (!menuOpen) return
         menuOpen = false
 
-        scrim.animate().alpha(0f).setDuration(180)
+        scrim.animate().alpha(0f).setDuration(250)
             .withEndAction { scrim.visibility = View.GONE }.start()
 
-        val off = resources.displayMetrics.heightPixels.toFloat()
-        optionsSheet.animate().translationY(off).setDuration(200)
-            .withEndAction { optionsSheet.visibility = View.GONE }.start()
+        optionsSheet.animate().translationY(optionsSheet.height.toFloat()).setDuration(250)
+            .setInterpolator(AnticipateInterpolator(1.1f))
+            .withEndAction {
+                optionsSheet.visibility = View.GONE
+            }
+            .start()
     }
 
     // ----- Menu controls -----
@@ -1078,6 +1101,8 @@ class MainActivity : AppCompatActivity() {
         if (enabled) {
             perfOverlay.visibility = View.VISIBLE
             lastHuePackets = if (::hueController.isInitialized) hueController.huePacketsSent else 0L
+            lastHuePpsTimeNs = System.nanoTime()
+            smoothedHuePps = 0f
             displayedFps = 0f          // count up from zero — a small flourish on open
             shownFps = -1
             perfHandler.removeCallbacks(perfPoller)
@@ -1188,10 +1213,15 @@ class MainActivity : AppCompatActivity() {
         // Philips Hue.
         if (::hueController.isInitialized && hueController.isEnabled) {
             val sent = hueController.huePacketsSent
-            val pps = ((sent - lastHuePackets) * 2).coerceAtLeast(0)  // poll is 500ms → ×2
+            val nowNs = System.nanoTime()
+            val elapsedS = (nowNs - lastHuePpsTimeNs) / 1_000_000_000.0
+            val rawPps = if (elapsedS > 0.01) ((sent - lastHuePackets) / elapsedS).toFloat() else 0f
             lastHuePackets = sent
+            lastHuePpsTimeNs = nowNs
+            smoothedHuePps += (rawPps - smoothedHuePps) * 0.3f
             val drops = hueController.huePacketsFailed
-            appendRow("Hue", "%d pps · %d drop".format(pps, drops), if (drops > 0) amber else 0)
+            val rttStr = if (lastHueRttMs >= 0) "%d ms".format(lastHueRttMs) else "—"
+            appendRow("Hue", "%.0f pps · %s".format(smoothedHuePps, rttStr), if (drops > 0) amber else 0)
         }
 
         // Trim the trailing newline.
@@ -1357,11 +1387,10 @@ class MainActivity : AppCompatActivity() {
     private fun onHueConnectClicked() {
         val existing = hueStore.loadCredentials()
         if (existing != null) {
-            btnHueConnect.isEnabled = false
             updateHueConn(HueConn.CHECKING)
+            hueStatus.text = ""
             hueController.setup.pingBridge(existing) { rtt ->
                 if (rtt != null) {
-                    btnHueConnect.isEnabled = true
                     updateHueConn(HueConn.REACHABLE)
                     hueStatus.text = getString(R.string.hue_status_ready)
                     startHuePingPoller()
@@ -1374,13 +1403,11 @@ class MainActivity : AppCompatActivity() {
         }
         hueStatus.setText(R.string.hue_status_searching)
         updateHueConn(HueConn.SEARCHING)
-        btnHueConnect.isEnabled = false
         hueController.setup.discoverBridges { bridges ->
             val bridge = bridges.firstOrNull()
             if (bridge == null) {
                 hueStatus.setText(R.string.hue_status_no_bridge)
                 updateHueConn(HueConn.DISCONNECTED)
-                btnHueConnect.isEnabled = true
                 return@discoverBridges
             }
             hueController.setup.pair(
@@ -1390,7 +1417,6 @@ class MainActivity : AppCompatActivity() {
                     huePrerequisites.visibility = View.GONE
                     hueStatus.setText(R.string.hue_status_ready)
                     updateHueConn(HueConn.REACHABLE)
-                    btnHueConnect.isEnabled = true
                     btnHueConnect.setText(R.string.hue_reconnect)
                     btnHueForget.visibility = View.VISIBLE
                     startHuePingPoller()
@@ -1399,7 +1425,6 @@ class MainActivity : AppCompatActivity() {
                 onError = { msg ->
                     hueStatus.text = msg
                     updateHueConn(HueConn.DISCONNECTED)
-                    btnHueConnect.isEnabled = true
                 }
             )
         }
@@ -1420,7 +1445,6 @@ class MainActivity : AppCompatActivity() {
         hueController.setup.discoverBridges { bridges ->
             val bridge = bridges.firstOrNull()
             if (bridge == null) {
-                btnHueConnect.isEnabled = true
                 updateHueConn(HueConn.PAIRED)
                 hueStatus.text = getString(R.string.hue_status_unreachable)
                 return@discoverBridges
@@ -1428,7 +1452,6 @@ class MainActivity : AppCompatActivity() {
             val updatedCreds = HueCredentials(bridge.ip, oldCreds.username, oldCreds.clientKey)
             hueStore.saveCredentials(updatedCreds)
             hueController.setup.pingBridge(updatedCreds) { rtt ->
-                btnHueConnect.isEnabled = true
                 if (rtt != null) {
                     updateHueConn(HueConn.REACHABLE)
                     hueStatus.text = getString(R.string.hue_status_ready)
@@ -1454,7 +1477,6 @@ class MainActivity : AppCompatActivity() {
         hueAreaContainer.removeAllViews()
         huePrerequisites.visibility = View.VISIBLE
         btnHueConnect.setText(R.string.hue_connect)
-        btnHueConnect.isEnabled = true
         btnHueSync.isEnabled = false
         btnHueForget.visibility = View.GONE
         updateHueConn(HueConn.DISCONNECTED)
@@ -1482,7 +1504,7 @@ class MainActivity : AppCompatActivity() {
         hueAreas = areas
         hueAreaContainer.removeAllViews()
         if (areas.isEmpty()) {
-            hueStatus.text = getString(R.string.hue_status_no_bridge)
+            hueStatus.text = getString(R.string.hue_status_no_areas)
             updateHueSections()
             return
         }
@@ -1638,7 +1660,14 @@ class MainActivity : AppCompatActivity() {
                 val dot = GradientDrawable().apply {
                     shape = GradientDrawable.OVAL
                     setSize((dp * 10).toInt(), (dp * 10).toInt())
-                    setColor(scene.dotColor)
+                    // Derive a bright secondary color for the gradient to give a premium 3D/specular look
+                    val hsv = FloatArray(3)
+                    android.graphics.Color.colorToHSV(scene.dotColor, hsv)
+                    hsv[1] = (hsv[1] * 0.6f).coerceAtLeast(0f)  // desaturate
+                    hsv[2] = (hsv[2] * 1.2f).coerceAtMost(1f)   // brighten
+                    val brightColor = android.graphics.Color.HSVToColor(hsv)
+                    orientation = GradientDrawable.Orientation.TL_BR
+                    colors = intArrayOf(brightColor, scene.dotColor)
                 }
                 val btn = Button(this).apply {
                     text = scene.label
@@ -1687,12 +1716,39 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun setViewGroupEnabled(viewGroup: ViewGroup, enabled: Boolean) {
+        viewGroup.isEnabled = enabled
+        for (i in 0 until viewGroup.childCount) {
+            val child = viewGroup.getChildAt(i)
+            child.isEnabled = enabled
+            if (child is ViewGroup) {
+                setViewGroupEnabled(child, enabled)
+            }
+        }
+    }
+
     private fun updateHueSections() {
         if (!::lightControlSection.isInitialized) return
         val reachable = currentHueState == HueConn.REACHABLE || currentHueState == HueConn.STREAMING
-        hueAreaSection.visibility = if (reachable && hueAreas.isNotEmpty()) View.VISIBLE else View.GONE
-        lightControlSection.visibility = if (currentHueState == HueConn.REACHABLE && selectedArea != null) View.VISIBLE else View.GONE
-        hueSyncSection.visibility = if (reachable && selectedArea != null) View.VISIBLE else View.GONE
+        val hasSelected = reachable && selectedArea != null
+
+        // All sections are always visible to act as "ghosted teasers"
+        hueAreaSection.visibility = View.VISIBLE
+        lightControlSection.visibility = View.VISIBLE
+        hueSyncSection.visibility = View.VISIBLE
+
+        val areaEnabled = reachable
+        hueAreaSection.alpha = if (areaEnabled) 1.0f else 0.3f
+        setViewGroupEnabled(hueAreaSection, areaEnabled)
+
+        // Light control is enabled if an area is selected AND we're not currently streaming
+        val controlEnabled = hasSelected && currentHueState == HueConn.REACHABLE
+        lightControlSection.alpha = if (controlEnabled) 1.0f else 0.3f
+        setViewGroupEnabled(lightControlSection, controlEnabled)
+
+        val syncEnabled = hasSelected
+        hueSyncSection.alpha = if (syncEnabled) 1.0f else 0.3f
+        setViewGroupEnabled(hueSyncSection, syncEnabled)
     }
 
     private enum class HueConn { DISCONNECTED, SEARCHING, CHECKING, PAIRED, REACHABLE, STREAMING }
@@ -1728,6 +1784,30 @@ class MainActivity : AppCompatActivity() {
             }
         }
         hueConn.setTextColor(ContextCompat.getColor(this, colorRes))
+        
+        when (state) {
+            HueConn.DISCONNECTED -> {
+                btnHueConnect.visibility = View.VISIBLE
+                btnHueConnect.isEnabled = true
+                hueStatusSpinner.visibility = View.GONE
+            }
+            HueConn.SEARCHING, HueConn.CHECKING -> {
+                btnHueConnect.visibility = View.VISIBLE
+                btnHueConnect.isEnabled = false
+                hueStatusSpinner.visibility = View.VISIBLE
+            }
+            HueConn.PAIRED -> {
+                btnHueConnect.visibility = View.VISIBLE
+                btnHueConnect.isEnabled = true
+                // Keep spinning if we are in the "Press button" countdown
+                hueStatusSpinner.visibility = if (hueStatus.text.contains("Press")) View.VISIBLE else View.GONE
+            }
+            HueConn.REACHABLE, HueConn.STREAMING -> {
+                btnHueConnect.visibility = View.GONE
+                hueStatusSpinner.visibility = View.GONE
+            }
+        }
+        
         updateHueSections()
     }
 
@@ -1989,15 +2069,18 @@ class MainActivity : AppCompatActivity() {
         if (huePingPollerRunning) {
             huePingHandler.removeCallbacks(huePingPoller)
             huePingHandler.post(huePingPoller)
-        } else if (::hueStore.isInitialized && hueStore.loadCredentials() != null
-            && !hueController.isEnabled) {
-            val creds = hueStore.loadCredentials() ?: return
-            hueController.setup.pingBridge(creds) { rtt ->
-                if (rtt != null) {
-                    updateHueConn(HueConn.REACHABLE)
-                    hueStatus.text = getString(R.string.hue_status_ready)
-                    startHuePingPoller()
-                    if (hueAreas.isEmpty()) loadHueAreas()
+        } else if (::hueStore.isInitialized && hueStore.loadCredentials() != null) {
+            startHuePingPoller()
+            if (!hueController.isEnabled) {
+                val creds = hueStore.loadCredentials() ?: return
+                hueController.setup.pingBridge(creds) { rtt ->
+                    if (rtt != null) {
+                        updateHueConn(HueConn.REACHABLE)
+                        hueStatus.text = getString(R.string.hue_status_ready)
+                        if (hueAreas.isEmpty()) loadHueAreas()
+                    } else {
+                        updateHueConn(HueConn.PAIRED)
+                    }
                 }
             }
         }
