@@ -1202,7 +1202,14 @@ class MainActivity : AppCompatActivity() {
 
     /** Render the giant eased FPS number: brand white when healthy, amber/red when struggling. */
     private fun renderHeroFps() {
-        val v = displayedFps
+        val refreshRate = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            display?.refreshRate ?: 60f
+        } else {
+            @Suppress("DEPRECATION")
+            windowManager.defaultDisplay.refreshRate
+        }
+        val v = kotlin.math.min(displayedFps, refreshRate + 0.5f)
+        
         // When we're essentially locked to a vsync rate (60/90/120/144), show that
         // exact number — otherwise a ~60.5 reading flickers between 60 and 61. Off
         // a locked rate, a small deadband stops noise from twitching the integer.
@@ -2053,7 +2060,7 @@ class MainActivity : AppCompatActivity() {
         // FPS readout: snap to a vsync rate within this many fps (kills 60↔61
         // flicker); off a locked rate, require this much change before re-drawing.
         private val LOCKED_RATES = intArrayOf(60, 90, 120, 144)
-        private const val FPS_SNAP_TOL = 2.5f
+        private const val FPS_SNAP_TOL = 6.0f
         private const val FPS_HYSTERESIS = 1.5f
         private const val KEY_PEAK_LUMINANCE = "peak_luminance_enabled"
         private const val KEY_FAVOURITES = "favourite_scenes"
