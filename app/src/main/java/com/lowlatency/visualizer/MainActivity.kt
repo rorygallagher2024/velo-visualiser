@@ -172,6 +172,8 @@ class MainActivity : AppCompatActivity() {
     private var deferredPermissionRequest = false
     private var perfOverlayEnabled = false
     private var lastHuePackets = 0L
+    private var lastHueRttMs = -1L
+    private var smoothedHuePps = 0f
     private var lastPeerCount = 0
     private var linkNotifyRunnable: Runnable? = null
     private var backgroundedAtMs = 0L
@@ -221,10 +223,12 @@ class MainActivity : AppCompatActivity() {
             hueController.setup.pingBridge(creds) { rtt ->
                 if (!huePingPollerRunning) return@pingBridge
                 if (rtt != null) {
+                    lastHueRttMs = rtt
                     val state = if (hueController.isEnabled) HueConn.STREAMING else HueConn.REACHABLE
                     updateHueConn(state)
                     hueStatus.text = getString(if (hueController.isEnabled) R.string.hue_status_synced else R.string.hue_status_ready)
                 } else {
+                    lastHueRttMs = -1L
                     if (!hueController.isEnabled) {
                         updateHueConn(HueConn.PAIRED)
                         hueStatus.text = getString(R.string.hue_status_unreachable)
@@ -1190,10 +1194,12 @@ class MainActivity : AppCompatActivity() {
         // Philips Hue.
         if (::hueController.isInitialized && hueController.isEnabled) {
             val sent = hueController.huePacketsSent
-            val pps = ((sent - lastHuePackets) * 2).coerceAtLeast(0)  // poll is 500ms → ×2
+            val rawPps = ((sent - lastHuePackets) * 2).coerceAtLeast(0)
             lastHuePackets = sent
+            smoothedHuePps += (rawPps - smoothedHuePps) * 0.3f
             val drops = hueController.huePacketsFailed
-            appendRow("Hue", "%d pps · %d drop".format(pps, drops), if (drops > 0) amber else 0)
+            val rttStr = if (lastHueRttMs >= 0) "%d ms".format(lastHueRttMs) else "—"
+            appendRow("Hue", "%.0f pps · %s".format(smoothedHuePps, rttStr), if (drops > 0) amber else 0)
         }
 
         // Trim the trailing newline.
