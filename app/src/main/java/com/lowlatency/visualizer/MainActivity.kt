@@ -639,8 +639,8 @@ class MainActivity : AppCompatActivity() {
         scrim.animate().alpha(1f).setDuration(180).start()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            optionsSheet.background.mutate().alpha = 130 // ~50% translucent glass
-            animateBlur(60f, 350, OvershootInterpolator(1.1f))
+            optionsSheet.background.mutate().alpha = 210 // ~82% translucent glass
+            animateBlur(32f, 350, OvershootInterpolator(1.1f))
         }
 
         val off = resources.displayMetrics.heightPixels.toFloat()
@@ -674,7 +674,7 @@ class MainActivity : AppCompatActivity() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
 
         blurAnimator?.cancel()
-        val currentRadius = (blurAnimator?.animatedValue as? Float) ?: if (targetRadius > 0f) 0f else 60f
+        val currentRadius = (blurAnimator?.animatedValue as? Float) ?: if (targetRadius > 0f) 0f else 32f
 
         blurAnimator = ValueAnimator.ofFloat(currentRadius, targetRadius).apply {
             duration = animDuration
