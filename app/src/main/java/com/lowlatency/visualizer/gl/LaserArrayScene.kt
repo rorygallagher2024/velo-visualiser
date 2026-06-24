@@ -57,21 +57,26 @@ class LaserArrayScene : GlScene {
                 float width = mix(0.05, 0.5, u_low);     // lows widen beams
                 float opacity = 0.15 + u_low * 1.8;       // lows strobe (HDR, restrained)
 
-                vec3 col = vec3(0.0);
-                float t = 0.2;
+                // --- OPTIMIZATION: Hoist constants out of the raymarch loop ---
+                // Since ro.xy is (0,0), p.xy is just rd.xy * t.
+                // The angle (atan) and palette are constant along the entire ray!
                 float invW2 = 1.0 / (width * width + 1e-6);
+                vec2 q0 = R * rd.xy;
+                float ang = atan(q0.y, q0.x);
+                float seg = ang / 6.28318 * BEAMS;
+                float d = abs(fract(seg) - 0.5) * 2.0;
+                float beam = exp(-d * d * invW2);
+                vec3 pal = palette(ang * 0.15 + u_time * 0.05);
+                float C = length(rd.xy) * 0.6; // length(q0) is same as length(rd.xy)
+
+                float sumRadial = 0.0;
+                float t = 0.2;
                 for (int i = 0; i < 20; i++) {
-                    vec3 p = ro + rd * t;
-                    vec2 q = R * p.xy;
-                    float ang = atan(q.y, q.x);
-                    float seg = ang / 6.28318 * BEAMS;
-                    float d = abs(fract(seg) - 0.5) * 2.0;
-                    float beam = exp(-d * d * invW2);
-                    float radial = exp(-length(q) * 0.6);
-                    float dens = beam * radial;
-                    col += palette(ang * 0.15 + u_time * 0.05) * dens * opacity * 0.10;
+                    sumRadial += exp(-C * t);
                     t += 0.24;
                 }
+                
+                vec3 col = pal * beam * sumRadial * opacity * 0.10;
 
                 // Central vanishing-point flare (highs brighten the core) — kept
                 // restrained so the centre doesn't blow to white.
