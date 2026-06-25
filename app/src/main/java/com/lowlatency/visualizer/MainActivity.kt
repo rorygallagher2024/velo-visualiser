@@ -24,22 +24,14 @@ import android.os.Looper
 import android.os.SystemClock
 import android.provider.Settings
 import android.util.Log
-import android.util.TypedValue
 import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
-import android.view.ViewGroup
 import android.view.WindowManager
-import android.view.animation.DecelerateInterpolator
 import android.view.animation.OvershootInterpolator
 import android.view.animation.AnticipateInterpolator
 import android.widget.Button
-import android.widget.ImageButton
-import android.widget.ImageView
 import android.widget.LinearLayout
-import android.widget.ProgressBar
-import android.widget.SeekBar
-import android.widget.TextSwitcher
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
@@ -49,11 +41,8 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.text.HtmlCompat
-import android.graphics.drawable.GradientDrawable
-import com.lowlatency.visualizer.hue.HueCredentialStore
-import com.lowlatency.visualizer.hue.HueCredentials
-import com.lowlatency.visualizer.hue.HueEntertainmentArea
-import com.lowlatency.visualizer.hue.HueLightController
+import com.lowlatency.visualizer.ui.LightingController
+import com.lowlatency.visualizer.ui.PerfOverlayController
 import kotlin.math.abs
 
 /**
@@ -122,9 +111,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var beatDot: View
     private lateinit var dropDot: View
     private lateinit var barCells: List<View>
-    private lateinit var btnAdvanced: Button
-    private lateinit var btnLifxAdvanced: Button
-    private lateinit var btnNanoleafAdvanced: Button
     private lateinit var btnThemeDefault: Button
     private lateinit var btnThemeNeon: Button
     private lateinit var btnThemeWarm: Button
@@ -132,15 +118,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnThemeMono: Button
     private lateinit var btnPrivacyPolicy: Button
     private lateinit var btnAbout: Button
-    private lateinit var btnPerfOverlay: Button
     private lateinit var btnPeakLuminance: Button
     private lateinit var groupPeakLuminance: View
-    private lateinit var perfOverlay: View
-    private lateinit var perfFpsValue: TextSwitcher
-    private lateinit var perfFrameMs: TextView
-    private lateinit var perfDetail: TextView
-    private var displayedFps = 0f
-    private var shownFps = -1          // last integer drawn (snap/hysteresis state)
+    private lateinit var perfOverlayController: PerfOverlayController
     private lateinit var heroVisName: TextView
     private lateinit var btnSceneLabel: Button
     private lateinit var sceneLabel: TextView
@@ -163,53 +143,15 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tabSettings: LinearLayout
     private lateinit var internalAudioWarning: TextView
 
-    // --- Smart lighting (Philips Hue) ---
-    private lateinit var btnHueConnect: Button
-    private lateinit var hueAreaContainer: LinearLayout
-    private lateinit var btnHueSync: Button
-    private lateinit var btnBrandHue: Button
-    private lateinit var btnBrandLifx: Button
-    private lateinit var containerHue: View
-    private lateinit var containerLifx: View
-    private lateinit var btnLifxScan: Button
-    private lateinit var lifxScanSpinner: ProgressBar
-    private lateinit var lifxBulbContainer: android.widget.GridLayout
-    private lateinit var btnLifxSync: Button
-    private lateinit var tvLifxState: TextView
-    private lateinit var imgLifxState: android.widget.ImageView
-    private lateinit var btnNanoleafSync: Button
-
-    private lateinit var btnHueForget: Button
-    private lateinit var huePrerequisites: View
-    private lateinit var hueAreaSection: LinearLayout
-    private lateinit var hueSyncSection: LinearLayout
-    private lateinit var hueConn: TextView
-    private lateinit var imgHueState: android.widget.ImageView
-    private lateinit var hueStatus: TextView
-    private lateinit var hueStatusSpinner: ProgressBar
-    private lateinit var hueController: HueLightController
-    private lateinit var lifxController: com.lowlatency.visualizer.lifx.LifxController
-    private lateinit var nanoleafController: com.lowlatency.visualizer.nanoleaf.NanoleafController
-    
-    enum class LightingBrand { HUE, LIFX, NANOLEAF }
-    private var activeBrand = LightingBrand.HUE
-    private var lifxSyncing = false
-
-    private lateinit var hueStore: HueCredentialStore
-    private var hueAreas: List<HueEntertainmentArea> = emptyList()
-    private var selectedArea: HueEntertainmentArea? = null
+    // --- Smart lighting: all brand UI/state lives in LightingController ---
+    private lateinit var lightingController: LightingController
 
     private var systemAudioMode = false
     private var menuOpen = false
     private var deferredPermissionRequest = false
-    private var perfOverlayEnabled = false
-    private var lastHuePackets = 0L
-    private var lastHueRttMs = -1L
-    private var smoothedHuePps = 0f
 
     private var blurAnimator: ValueAnimator? = null
 
-    private var lastHuePpsTimeNs = 0L
     private var lastPeerCount = 0
     private var linkNotifyRunnable: Runnable? = null
     private var backgroundedAtMs = 0L
@@ -232,60 +174,6 @@ class MainActivity : AppCompatActivity() {
             updateLinkStatus()
             linkHandler.postDelayed(this, 1000L)
         }
-    }
-
-    private val perfHandler = Handler(Looper.getMainLooper())
-    private val perfPoller = object : Runnable {
-        override fun run() {
-            updatePerfOverlay()
-            perfHandler.postDelayed(this, 500L)
-        }
-    }
-    // Smoothly eases the hero FPS readout toward the live value (~20 Hz) so the
-    // giant number counts fluidly rather than snapping with the 500 ms data poll.
-    private val perfFpsTicker = object : Runnable {
-        override fun run() {
-            displayedFps += (glView.rendererFps - displayedFps) * 0.22f
-            renderHeroFps()
-            perfHandler.postDelayed(this, 50L)
-        }
-    }
-
-    private val huePingHandler = Handler(Looper.getMainLooper())
-    private var huePingPollerRunning = false
-    private val huePingPoller = object : Runnable {
-        override fun run() {
-            val creds = hueStore.loadCredentials() ?: return
-            hueController.setup.pingBridge(creds) { rtt ->
-                if (!huePingPollerRunning) return@pingBridge
-                if (rtt != null) {
-                    lastHueRttMs = rtt
-                    val state = if (hueController.isEnabled) HueConn.STREAMING else HueConn.REACHABLE
-                    updateHueConn(state)
-                    // Only update the status text if we are actively streaming OR if we were previously unreachable
-                    // This prevents overwriting important messages like "No Entertainment Areas found" or "Select an area"
-                    if (hueController.isEnabled) {
-                        hueStatus.text = getString(R.string.hue_status_synced)
-                    } else if (hueStatus.text == getString(R.string.hue_status_unreachable)) {
-                        hueStatus.text = getString(R.string.hue_status_ready)
-                    }
-                } else {
-                    lastHueRttMs = -1L
-                    if (!hueController.isEnabled) {
-                        updateHueConn(HueConn.PAIRED)
-                        hueStatus.text = getString(R.string.hue_status_unreachable)
-                        // Keep polling so it auto-reconnects when the bridge comes back online
-                    }
-                }
-                if (huePingPollerRunning) huePingHandler.postDelayed(this, 5000L)
-            }
-        }
-    }
-
-    private fun isWifiConnected(): Boolean {
-        val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
-        val cap = cm.getNetworkCapabilities(cm.activeNetwork)
-        return cap?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) == true
     }
 
     private val requestPermissions = registerForActivityResult(
@@ -321,17 +209,7 @@ class MainActivity : AppCompatActivity() {
             )
             systemAudioMode = true
             // Light sync is mic-only; stop it when moving to internal audio.
-            if (::hueController.isInitialized && hueController.isEnabled) {
-                hueController.disable()
-                updateHueSyncButton(false)
-                updateHueConn(HueConn.REACHABLE)
-                hueStatus.setText(R.string.hue_mic_only)
-            }
-            if (lifxSyncing) {
-                lifxController.disableStreaming()
-                lifxSyncing = false
-                btnLifxSync.text = "START SYNC"
-            }
+            if (::lightingController.isInitialized) lightingController.onSystemAudioEngaged()
         } else {
             Toast.makeText(this, "System-audio capture denied.", Toast.LENGTH_SHORT).show()
             systemAudioMode = false
@@ -352,8 +230,27 @@ class MainActivity : AppCompatActivity() {
         wireGestures()
         wireTabs()
         wireMenuControls()
-        wireHue()
         checkHdrSupport()
+
+        lightingController = LightingController(
+            activity = this,
+            prefs = prefs,
+            backgroundedAtMs = { backgroundedAtMs },
+        )
+        lightingController.bind()
+        wireGlAudioSinks()
+
+        perfOverlayController = PerfOverlayController(
+            activity = this,
+            glView = glView,
+            prefs = prefs,
+            isSystemAudioMode = { systemAudioMode },
+            hueStats = {
+                if (::lightingController.isInitialized) lightingController.huePerfStats()
+                else PerfOverlayController.HueStats(false, 0L, 0L, -1L)
+            },
+        )
+        perfOverlayController.bind()
 
         ContextCompat.registerReceiver(
             this,
@@ -448,9 +345,6 @@ class MainActivity : AppCompatActivity() {
             findViewById(R.id.bar_cell_3),
             findViewById(R.id.bar_cell_4),
         )
-        btnAdvanced = findViewById(R.id.btn_advanced)
-        btnLifxAdvanced = findViewById(R.id.btn_lifx_advanced)
-        btnNanoleafAdvanced = findViewById(R.id.btn_nanoleaf_advanced)
         btnThemeDefault = findViewById(R.id.btn_theme_default)
         btnThemeNeon = findViewById(R.id.btn_theme_neon)
         btnThemeWarm = findViewById(R.id.btn_theme_warm)
@@ -458,16 +352,11 @@ class MainActivity : AppCompatActivity() {
         btnThemeMono = findViewById(R.id.btn_theme_mono)
         btnPrivacyPolicy = findViewById(R.id.btn_privacy_policy)
         btnAbout = findViewById(R.id.btn_about)
-        btnPerfOverlay = findViewById(R.id.btn_perf_overlay)
         btnSceneLabel = findViewById(R.id.btn_scene_label)
         heroVisName = findViewById(R.id.hero_vis_name)
         sceneLabel = findViewById(R.id.scene_label)
         btnPeakLuminance = findViewById(R.id.btn_peak_luminance)
         groupPeakLuminance = findViewById(R.id.group_peak_luminance)
-        perfOverlay = findViewById(R.id.perf_overlay)
-        perfFpsValue = findViewById(R.id.perf_fps_value)
-        perfFrameMs = findViewById(R.id.perf_frame_ms)
-        perfDetail = findViewById(R.id.perf_detail)
         tabBtnVisuals = findViewById(R.id.tab_btn_visuals)
         tabBtnLighting = findViewById(R.id.tab_btn_lighting)
         tabBtnSettings = findViewById(R.id.tab_btn_settings)
@@ -475,32 +364,8 @@ class MainActivity : AppCompatActivity() {
         tabLighting = findViewById(R.id.tab_lighting)
         tabSettings = findViewById(R.id.tab_settings)
         internalAudioWarning = findViewById(R.id.internal_audio_warning)
-        btnHueConnect = findViewById(R.id.btn_hue_connect)
-        hueAreaContainer = findViewById(R.id.hue_area_container)
-        btnHueSync = findViewById(R.id.btn_hue_sync)
-        hueStatus = findViewById(R.id.hue_status)
-        val statusHue = findViewById<View>(R.id.status_hue)
-        hueConn = statusHue.findViewById(R.id.tv_state)
-        imgHueState = statusHue.findViewById<android.widget.ImageView>(R.id.img_state)
-        hueStatusSpinner = statusHue.findViewById(R.id.status_spinner)
-        btnHueForget = statusHue.findViewById(R.id.btn_forget)
-        huePrerequisites = findViewById(R.id.hue_prerequisites)
-        hueAreaSection = findViewById(R.id.hue_section_areas)
-        hueSyncSection = findViewById(R.id.hue_section_sync)
-        
-        btnBrandHue = findViewById(R.id.btn_brand_hue)
-        btnBrandLifx = findViewById(R.id.btn_brand_lifx)
-        containerHue = findViewById(R.id.container_hue)
-        containerLifx = findViewById(R.id.container_lifx)
-        btnLifxScan = findViewById(R.id.btn_lifx_scan)
-        lifxScanSpinner = findViewById(R.id.lifx_scan_spinner)
-        lifxBulbContainer = findViewById(R.id.lifx_bulb_container)
-        btnLifxSync = findViewById(R.id.btn_lifx_sync)
-        val statusLifx = findViewById<View>(R.id.status_lifx)
-        tvLifxState = statusLifx.findViewById(R.id.tv_state)
-        imgLifxState = statusLifx.findViewById(R.id.img_state)
-        tvLifxState.text = "Not Scanned"
-        
+        // Lighting views (Hue/LIFX/Nanoleaf) are bound inside LightingController.
+
         prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         optionsSheet.visibility = View.GONE
     }
@@ -761,9 +626,7 @@ class MainActivity : AppCompatActivity() {
             updateBurnInButton(enabled)
         }
 
-        // Performance overlay toggle (persisted, default off).
-        setPerfOverlay(prefs.getBoolean(KEY_PERF_OVERLAY, false))
-        btnPerfOverlay.setOnClickListener { setPerfOverlay(!perfOverlayEnabled) }
+        // Performance overlay toggle is owned by perfOverlayController (bound in onCreate).
 
         // On-swipe visualiser-name label toggle (persisted, default on).
         setSceneLabelEnabled(prefs.getBoolean(KEY_SCENE_LABEL, true))
@@ -874,153 +737,6 @@ class MainActivity : AppCompatActivity() {
             prefs.edit().putInt(KEY_LINK_BAR_OFFSET, LinkSync.barOffsetBeats).apply()
             updateLinkDownbeatButton()
         }
-
-        // Advanced light-sync tuning (persisted). Restore saved slider positions
-        // into the strobe settings, then open the panel on tap. Beat sensitivity is
-        // no longer here — it's the global Beat Sensitivity preset (BeatSettings).
-        HueStrobeSettings.linkBeatFlashEnabled = prefs.getBoolean(KEY_ADV_LINK_BEAT_FLASH, HueStrobeSettings.linkBeatFlashEnabled)
-        HueStrobeSettings.colourSplit = prefs.getFloat(KEY_ADV_COLOUR, HueStrobeSettings.colourSplit)
-        HueStrobeSettings.restingGlow = prefs.getFloat(KEY_ADV_GLOW, HueStrobeSettings.restingGlow)
-        HueStrobeSettings.audioBrightness = prefs.getFloat(KEY_ADV_AUDIO_BRIGHT, HueStrobeSettings.audioBrightness)
-        HueStrobeSettings.audioFlash = prefs.getFloat(KEY_ADV_AUDIO_FLASH, HueStrobeSettings.audioFlash)
-        HueStrobeSettings.hueLookaheadMs = prefs.getFloat(KEY_ADV_HUE_LOOKAHEAD, HueStrobeSettings.hueLookaheadMs)
-        btnAdvanced.setOnClickListener { showAdvancedDialog() }
-        btnLifxAdvanced.setOnClickListener { showAdvancedDialog() }
-        btnNanoleafAdvanced.setOnClickListener { showAdvancedDialog() }
-    }
-
-    /**
-     * Advanced lighting panel. Adapts to the mode: with Ableton Link on it shows
-     * the beat-strobe controls (live meters + sensitivity/colour/glow); with Link
-     * off it shows the audio-reactive light-show controls (brightness/flash/sens).
-     */
-    private fun showAdvancedDialog() {
-        val view = layoutInflater.inflate(R.layout.dialog_advanced, null)
-        val linkMode = LinkSync.enabled
-
-        view.findViewById<TextView>(R.id.adv_title_text)
-            .setText(if (linkMode) R.string.adv_title_link else R.string.adv_title_audio)
-        view.findViewById<TextView>(R.id.adv_hint_text)
-            .setText(if (linkMode) R.string.adv_hint_link else R.string.adv_hint_audio)
-        view.findViewById<View>(R.id.group_link).visibility = if (linkMode) View.VISIBLE else View.GONE
-        view.findViewById<View>(R.id.group_audio).visibility = if (linkMode) View.GONE else View.VISIBLE
-
-        val btnLinkBeatFlash = view.findViewById<Button>(R.id.btn_link_beat_flash)
-        val seekColour = view.findViewById<SeekBar>(R.id.seek_colour)
-        val seekGlow = view.findViewById<SeekBar>(R.id.seek_glow)
-        val seekAudioBright = view.findViewById<SeekBar>(R.id.seek_audio_brightness)
-        val seekAudioFlash = view.findViewById<SeekBar>(R.id.seek_audio_flash)
-
-        val seekLookahead = view.findViewById<SeekBar>(R.id.seek_lookahead)
-        val labelLookahead = view.findViewById<TextView>(R.id.label_lookahead_value)
-
-        fun applyLinkBeatFlashLabel() {
-            btnLinkBeatFlash.setText(
-                if (HueStrobeSettings.linkBeatFlashEnabled) R.string.adv_link_beat_on
-                else R.string.adv_link_beat_off
-            )
-        }
-
-        fun applyPositions() {
-            applyLinkBeatFlashLabel()
-            seekColour.progress = (HueStrobeSettings.colourSplit * 100f).toInt()
-            seekGlow.progress = (HueStrobeSettings.restingGlow * 100f).toInt()
-            seekAudioBright.progress = (HueStrobeSettings.audioBrightness * 100f).toInt()
-            seekAudioFlash.progress = (HueStrobeSettings.audioFlash * 100f).toInt()
-            seekLookahead.progress = HueStrobeSettings.hueLookaheadMs.toInt()
-            labelLookahead.text = if (seekLookahead.progress == 0) "Off" else "-${seekLookahead.progress} ms"
-        }
-        applyPositions()
-
-        btnLinkBeatFlash.setOnClickListener {
-            val enabled = !HueStrobeSettings.linkBeatFlashEnabled
-            HueStrobeSettings.linkBeatFlashEnabled = enabled
-            prefs.edit().putBoolean(KEY_ADV_LINK_BEAT_FLASH, enabled).apply()
-            applyLinkBeatFlashLabel()
-        }
-        seekColour.onProgress { v -> HueStrobeSettings.colourSplit = v; prefs.edit().putFloat(KEY_ADV_COLOUR, v).apply() }
-        seekGlow.onProgress { v -> HueStrobeSettings.restingGlow = v; prefs.edit().putFloat(KEY_ADV_GLOW, v).apply() }
-        seekAudioBright.onProgress { v -> HueStrobeSettings.audioBrightness = v; prefs.edit().putFloat(KEY_ADV_AUDIO_BRIGHT, v).apply() }
-        seekAudioFlash.onProgress { v -> HueStrobeSettings.audioFlash = v; prefs.edit().putFloat(KEY_ADV_AUDIO_FLASH, v).apply() }
-        seekLookahead.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
-                if (fromUser) {
-                    HueStrobeSettings.hueLookaheadMs = progress.toFloat()
-                    labelLookahead.text = if (progress == 0) "Off" else "-${progress} ms"
-                    prefs.edit().putFloat(KEY_ADV_HUE_LOOKAHEAD, progress.toFloat()).apply()
-                }
-            }
-            override fun onStartTrackingTouch(seekBar: SeekBar) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar) {}
-        })
-
-        val dialog = AlertDialog.Builder(this).setView(view).create()
-        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
-        view.findViewById<Button>(R.id.btn_adv_done).setOnClickListener { dialog.dismiss() }
-        view.findViewById<Button>(R.id.btn_adv_reset).setOnClickListener {
-            HueStrobeSettings.resetToDefaults()
-            persistAdvanced()
-            applyPositions()
-        }
-
-        // Live diagnostics poll. The "Beat → lights" dot flashes whenever a beat
-        // is actually pushed to the bulbs (either mode); the mic/bass meters read
-        // the shared BeatBus and apply in both modes. The bass marker is the Link
-        // colour-split point, so it's hidden in audio mode.
-        val lightsDot = view.findViewById<View>(R.id.lights_dot)
-        val meterLevel = view.findViewById<ProgressBar>(R.id.meter_level)
-        val meterBass = view.findViewById<ProgressBar>(R.id.meter_bass)
-        val markerLevel = view.findViewById<View>(R.id.marker_level)
-        val markerBass = view.findViewById<View>(R.id.marker_bass)
-        markerBass.visibility = if (linkMode) View.VISIBLE else View.INVISIBLE
-        var lastLightBeat = hueController.lightBeatCount
-        val poll = object : Runnable {
-            override fun run() {
-                val lc = hueController.lightBeatCount
-                if (lc != lastLightBeat) { lastLightBeat = lc; flashDot(lightsDot) }
-                // Scale the level bar so the mic peak that reaches FULL brightness
-                // sits at the top; the trigger point then sits at levelBase/levelFull,
-                // marked by the line. The gate is the global Beat Sensitivity
-                // (shared with the visuals), so it applies in both modes.
-                val full = BeatSettings.levelFull.coerceAtLeast(1e-4f)
-                meterLevel.progress =
-                    (hueController.currentMicLevel / full * 100f).toInt().coerceIn(0, 100)
-                meterBass.progress = (hueController.currentBassRatio * 100f).toInt().coerceIn(0, 100)
-                val triggerFrac = (BeatSettings.levelBase / full).coerceIn(0f, 1f)
-                markerLevel.translationX = triggerFrac * (meterLevel.width - markerLevel.width)
-                if (linkMode) {
-                    val splitMid = ((HueStrobeSettings.bassLo + HueStrobeSettings.bassHi) * 0.5f).coerceIn(0f, 1f)
-                    markerBass.translationX = splitMid * (meterBass.width - markerBass.width)
-                }
-                linkHandler.postDelayed(this, 50L)
-            }
-        }
-        dialog.setOnDismissListener { linkHandler.removeCallbacks(poll) }
-        dialog.show()
-        linkHandler.post(poll)
-    }
-
-    /** Persist every Advanced lighting value (used after a reset). */
-    private fun persistAdvanced() {
-        prefs.edit()
-            .putBoolean(KEY_ADV_LINK_BEAT_FLASH, HueStrobeSettings.linkBeatFlashEnabled)
-            .putFloat(KEY_ADV_COLOUR, HueStrobeSettings.colourSplit)
-            .putFloat(KEY_ADV_GLOW, HueStrobeSettings.restingGlow)
-            .putFloat(KEY_ADV_AUDIO_BRIGHT, HueStrobeSettings.audioBrightness)
-            .putFloat(KEY_ADV_AUDIO_FLASH, HueStrobeSettings.audioFlash)
-            .putFloat(KEY_ADV_HUE_LOOKAHEAD, HueStrobeSettings.hueLookaheadMs)
-            .apply()
-    }
-
-    /** Concise SeekBar listener that reports the 0..1 position on user changes. */
-    private inline fun SeekBar.onProgress(crossinline action: (Float) -> Unit) {
-        setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(s: SeekBar, p: Int, fromUser: Boolean) {
-                if (fromUser) action(p / 100f)
-            }
-            override fun onStartTrackingTouch(s: SeekBar) {}
-            override fun onStopTrackingTouch(s: SeekBar) {}
-        })
     }
 
     /** Enable/disable Ableton Link: native session + multicast lock + status poll. */
@@ -1033,7 +749,7 @@ class MainActivity : AppCompatActivity() {
         btnLinkSync.isSelected = enabled
         btnLinkSync.setText(if (enabled) R.string.link_sync_on else R.string.link_sync_off)
         linkSettingsGroup.visibility = if (enabled) View.VISIBLE else View.GONE
-        updateAdvancedVisibility()
+        if (::lightingController.isInitialized) lightingController.refreshAdvancedVisibility()
 
         linkHandler.removeCallbacks(linkStatusPoller)
         if (enabled) {
@@ -1184,29 +900,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun setPerfOverlay(enabled: Boolean) {
-        perfOverlayEnabled = enabled
-        prefs.edit().putBoolean(KEY_PERF_OVERLAY, enabled).apply()
-        btnPerfOverlay.isSelected = enabled
-        btnPerfOverlay.setText(if (enabled) R.string.perf_overlay_on else R.string.perf_overlay_off)
-        if (enabled) {
-            perfOverlay.visibility = View.VISIBLE
-            lastHuePackets = if (::hueController.isInitialized) hueController.huePacketsSent else 0L
-            lastHuePpsTimeNs = System.nanoTime()
-            smoothedHuePps = 0f
-            displayedFps = 0f          // count up from zero — a small flourish on open
-            shownFps = -1
-            perfHandler.removeCallbacks(perfPoller)
-            perfHandler.removeCallbacks(perfFpsTicker)
-            perfHandler.post(perfPoller)
-            perfHandler.post(perfFpsTicker)
-        } else {
-            perfOverlay.visibility = View.GONE
-            perfHandler.removeCallbacks(perfPoller)
-            perfHandler.removeCallbacks(perfFpsTicker)
-        }
-    }
-
     /** Enable/disable the on-swipe visualiser-name label over the canvas. */
     private fun setSceneLabelEnabled(enabled: Boolean) {
         sceneLabelEnabled = enabled
@@ -1229,8 +922,8 @@ class MainActivity : AppCompatActivity() {
         // Drop below the performance overlay when it's showing, so they never clash.
         val d = resources.displayMetrics.density
         val lp = sceneLabel.layoutParams as android.view.ViewGroup.MarginLayoutParams
-        lp.topMargin = if (perfOverlayEnabled && perfOverlay.height > 0)
-            perfOverlay.bottom + (d * 12).toInt()
+        lp.topMargin = if (perfOverlayController.enabled && perfOverlayController.overlayView.height > 0)
+            perfOverlayController.overlayView.bottom + (d * 12).toInt()
         else
             (d * 72).toInt()
         sceneLabel.layoutParams = lp
@@ -1245,138 +938,6 @@ class MainActivity : AppCompatActivity() {
         }
         sceneLabelRunnable = hide
         sceneLabel.postDelayed(hide, 1100L)
-    }
-
-    private fun updatePerfOverlay() {
-        if (!perfOverlayEnabled) return
-
-        val audioMs = NativeBridge.nativeGetAudioCallbackMs()
-        val rate = NativeBridge.nativeGetSampleRate()
-        // Derive frame time from the (already EMA-smoothed) fps so the readout is
-        // calm and consistent with the hero number, instead of the raw per-frame
-        // dt which flickers every frame. Updated on the slow 500 ms cadence.
-        val frameMs = if (displayedFps > 1f) 1000f / displayedFps else glView.rendererFrameTimeMs
-        perfFrameMs.text = "%.1f ms".format(frameMs)
-
-        val sb = android.text.SpannableStringBuilder()
-        val dim = getColor(R.color.text_dim)
-        val amber = 0xFFFFBB33.toInt()
-
-        // Each row: a dim mono label padded to a fixed column, then the value.
-        fun appendRow(label: String, value: String, valueColor: Int = 0) {
-            val start = sb.length
-            sb.append(label.uppercase().padEnd(11))
-            sb.setSpan(android.text.style.ForegroundColorSpan(dim), start, sb.length, 0)
-            val vStart = sb.length
-            sb.append(value)
-            if (valueColor != 0) {
-                sb.setSpan(android.text.style.ForegroundColorSpan(valueColor), vStart, sb.length, 0)
-            }
-            sb.append("\n")
-        }
-
-        // Hardware load → CPU time within the GL frame.
-        val load = NativeBridge.nativeGetHardwareLoad()
-        val cpuMs = load[0] / 1000f
-        val cpuPercent = if (frameMs > 0) (cpuMs / frameMs * 100f).coerceIn(0f, 100f) else 0f
-        appendRow("CPU", "%.1f ms · %.0f%%".format(cpuMs, cpuPercent))
-
-        // Memory Usage
-        val debugMem = android.os.Debug.MemoryInfo()
-        android.os.Debug.getMemoryInfo(debugMem)
-        val javaMb = debugMem.dalvikPss / 1024
-        val nativeMb = debugMem.nativePss / 1024
-        val gfxMb = debugMem.getMemoryStat("summary.graphics")?.toIntOrNull()?.div(1024) ?: 0
-        val totalMb = debugMem.totalPss / 1024
-        
-        appendRow("RAM TOTAL", "%d MB".format(totalMb))
-        appendRow("  JAVA", "%d MB".format(javaMb))
-        appendRow("  NATIVE", "%d MB".format(nativeMb))
-        appendRow("  GRAPHICS", "%d MB".format(gfxMb))
-
-        // Audio capture.
-        appendRow("Audio", "%d Hz · %.1f ms".format(rate, audioMs))
-
-        // System audio / jitter (internal-audio mode only).
-        if (systemAudioMode) {
-            val metrics = NativeBridge.nativeGetSystemAudioMetrics()
-            val jitter = metrics[1]
-            // System audio is inherently buffered by Android (often ~40ms blocks),
-            // so we describe the state rather than raise an alarmist colour.
-            val status = if (jitter > 80f) "bursty" else "buffered"
-            appendRow("Shared", "%.1f ms · %s".format(jitter, status))
-        }
-
-        // Ableton Link.
-        if (LinkSync.enabled) {
-            val bpm = NativeBridge.nativeLinkTempo()
-            val peers = NativeBridge.nativeLinkPeers()
-            appendRow("Link", "%.0f bpm · %d peer%s".format(bpm, peers, if (peers == 1) "" else "s"))
-        }
-
-        // Philips Hue.
-        if (::hueController.isInitialized && hueController.isEnabled) {
-            val sent = hueController.huePacketsSent
-            val nowNs = System.nanoTime()
-            val elapsedS = (nowNs - lastHuePpsTimeNs) / 1_000_000_000.0
-            val rawPps = if (elapsedS > 0.01) ((sent - lastHuePackets) / elapsedS).toFloat() else 0f
-            lastHuePackets = sent
-            lastHuePpsTimeNs = nowNs
-            smoothedHuePps += (rawPps - smoothedHuePps) * 0.3f
-            val drops = hueController.huePacketsFailed
-            val rttStr = if (lastHueRttMs >= 0) "%d ms".format(lastHueRttMs) else "—"
-            appendRow("Hue", "%.0f pps · %s".format(smoothedHuePps, rttStr), if (drops > 0) amber else 0)
-        }
-
-        // Trim the trailing newline.
-        if (sb.isNotEmpty()) sb.delete(sb.length - 1, sb.length)
-
-        perfDetail.text = sb
-    }
-
-    /** Render the giant eased FPS number: brand white when healthy, amber/red when struggling. */
-    private fun renderHeroFps() {
-        val refreshRate = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-            display?.refreshRate ?: 60f
-        } else {
-            @Suppress("DEPRECATION")
-            windowManager.defaultDisplay.refreshRate
-        }
-        val v = kotlin.math.min(displayedFps, refreshRate + 0.5f)
-        
-        // When we're essentially locked to a vsync rate (60/90/120/144), show that
-        // exact number — otherwise a ~60.5 reading flickers between 60 and 61. Off
-        // a locked rate, a small deadband stops noise from twitching the integer.
-        val snapped = LOCKED_RATES.firstOrNull { Math.abs(v - it) <= FPS_SNAP_TOL }
-        val target = snapped ?: Math.round(v)
-        val changed = when {
-            shownFps < 0 -> true
-            snapped != null -> shownFps != snapped
-            else -> Math.abs(v - shownFps) >= FPS_HYSTERESIS
-        }
-        if (changed) {
-            val currentStr = (perfFpsValue.currentView as? TextView)?.text?.toString() ?: "0"
-            val currentInt = currentStr.toIntOrNull() ?: 0
-            
-            if (target > currentInt) {
-                perfFpsValue.inAnimation = android.view.animation.AnimationUtils.loadAnimation(this, R.anim.fps_in_up)
-                perfFpsValue.outAnimation = android.view.animation.AnimationUtils.loadAnimation(this, R.anim.fps_out_up)
-            } else if (target < currentInt) {
-                perfFpsValue.inAnimation = android.view.animation.AnimationUtils.loadAnimation(this, R.anim.fps_in_down)
-                perfFpsValue.outAnimation = android.view.animation.AnimationUtils.loadAnimation(this, R.anim.fps_out_down)
-            }
-            
-            shownFps = target
-            perfFpsValue.setText(target.toString())
-        }
-        
-        val color = when {
-            v < 30f -> 0xFFFF4444.toInt()
-            v < 55f -> 0xFFFFBB33.toInt()
-            else -> getColor(R.color.text_primary)
-        }
-        (perfFpsValue.getChildAt(0) as? TextView)?.setTextColor(color)
-        (perfFpsValue.getChildAt(1) as? TextView)?.setTextColor(color)
     }
 
     private fun setGlow(s: GlowSettings.Strength) {
@@ -1432,33 +993,16 @@ class MainActivity : AppCompatActivity() {
         btnHaptics.setText(if (enabled) R.string.haptics_on else R.string.haptics_off)
     }
 
-    // ----- Smart lighting (Philips Hue) -----
-
-    private fun wireHue() {
-        hueStore = HueCredentialStore(this)
-        hueController = HueLightController(this)
-        lifxController = com.lowlatency.visualizer.lifx.LifxController()
-        nanoleafController = com.lowlatency.visualizer.nanoleaf.NanoleafController(this)
-
-        // Audio processing hook -> route to active brand
-        glView.bandsSink = { low, mid, high -> 
-            if (::hueController.isInitialized) hueController.onBands(low, mid, high)
-            lifxController.onBands(low, mid, high)
-            nanoleafController.onBands(low, mid, high)
-        }
-        // Haptics fire off the shared BeatBus, which the renderer updates just
-        // before this per-frame tap. Audio presence + bass balance (for the Hue
-        // strobe) are measured in the renderer too, so this tap is just the tick.
+    /**
+     * Route the GL render-thread audio taps. Bands and Link beats fan out to the
+     * lighting brands via [lightingController]; haptics and the on-screen beat/drop
+     * diagnostic dots stay here (they're not lighting concerns).
+     */
+    private fun wireGlAudioSinks() {
+        glView.bandsSink = { low, mid, high -> lightingController.onBands(low, mid, high) }
         glView.pcmBeatSink = { pcm -> hapticController.onPcm(pcm) }
-        
-        // Raw (ungated) Link beat: drives the Hue/LIFX strobe timing (with lookahead)
-        // and flashes the diagnostic beat light when the menu is open. The visuals
-        // and haptics react to the *gated* beat via BeatBus instead. Runs on the
-        // GL thread, so the light update hops to the UI thread.
         glView.onLinkBeat = {
-            if (::hueController.isInitialized) hueController.onLinkBeat()
-            lifxController.onLinkBeat()
-            nanoleafController.onLinkBeat()
+            lightingController.onLinkBeat()
             // Step the virtual bar to Link's current beat-in-bar (post-nudge) and
             // pulse the beat dot. Only while the menu is open, to stay cheap.
             if (menuOpen) {
@@ -1466,668 +1010,7 @@ class MainActivity : AppCompatActivity() {
                 beatDot.post { flashBeatDot(); updateBarCells(cell) }
             }
         }
-        // Drop diagnostic light (detected energy surge); flashed while menu open.
         glView.onDrop = { if (menuOpen) dropDot.post { flashDot(dropDot) } }
-
-        btnHueConnect.setOnClickListener { onHueConnectClicked() }
-        btnHueSync.setOnClickListener { onHueSyncToggle() }
-        btnHueForget.setOnClickListener { confirmForgetBridge() }
-        buildLightControlUI()
-
-        btnBrandHue.setOnClickListener { switchBrand(LightingBrand.HUE) }
-        btnBrandLifx.setOnClickListener { switchBrand(LightingBrand.LIFX) }
-        findViewById<View>(R.id.btn_brand_nanoleaf).setOnClickListener { switchBrand(LightingBrand.NANOLEAF) }
-        switchBrand(LightingBrand.HUE)
-
-        btnLifxScan.setOnClickListener {
-            if (!isWifiConnected()) {
-                Toast.makeText(this, "Connect to Wi-Fi first", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-            lifxScanSpinner.visibility = View.VISIBLE
-            lifxBulbContainer.removeAllViews()
-            btnLifxScan.isEnabled = false
-            
-            tvLifxState.text = "Searching network..."
-            tvLifxState.setTextColor(getColor(R.color.text_primary))
-            imgLifxState.imageTintList = android.content.res.ColorStateList.valueOf(getColor(R.color.hue_pending))
-
-            lifxController.startDiscovery(
-                onBulbFound = { bulb ->
-                    runOnUiThread {
-                        val card = layoutInflater.inflate(R.layout.lifx_bulb_item, lifxBulbContainer, false)
-                        val bulbNameText = card.findViewById<TextView>(R.id.bulb_name)
-                        bulbNameText.text = bulb.label
-
-                        // The view starts unselected (matching LifxBulb default state)
-                        card.isSelected = false
-
-                        // Add simple scale animation on touch/click
-                        card.setOnClickListener { v ->
-                            val isChecked = !v.isSelected
-                            lifxController.setBulbSelected(bulb.ip, isChecked)
-                            v.isSelected = isChecked
-                            
-                            // Micro-animation "spring" bounce
-                            v.animate()
-                                .scaleX(0.95f).scaleY(0.95f)
-                                .setDuration(50)
-                                .withEndAction {
-                                    v.animate()
-                                        .scaleX(1.0f).scaleY(1.0f)
-                                        .setDuration(150)
-                                        .setInterpolator(android.view.animation.OvershootInterpolator(1.5f))
-                                        .start()
-                                }
-                                .start()
-                        }
-                        
-                        lifxBulbContainer.addView(card)
-                        btnLifxSync.isEnabled = true
-                        btnLifxSync.setText(R.string.hue_sync_off)
-                    }
-                },
-                onFinished = {
-                    runOnUiThread {
-                        lifxScanSpinner.visibility = View.GONE
-                        btnLifxScan.isEnabled = true
-                        if (lifxBulbContainer.childCount == 0) {
-                            tvLifxState.text = "No bulbs found"
-                            tvLifxState.setTextColor(getColor(R.color.text_destructive))
-                            imgLifxState.imageTintList = android.content.res.ColorStateList.valueOf(getColor(R.color.text_destructive))
-                            Toast.makeText(this@MainActivity, "No LIFX bulbs found on network.", Toast.LENGTH_SHORT).show()
-                        } else {
-                            tvLifxState.text = "Ready"
-                            tvLifxState.setTextColor(getColor(R.color.hue_connected))
-                            imgLifxState.imageTintList = android.content.res.ColorStateList.valueOf(getColor(R.color.hue_connected))
-                        }
-                    }
-                }
-            )
-        }
-
-        btnLifxSync.setOnClickListener {
-            if (!isWifiConnected()) {
-                Toast.makeText(this, "Connect to Wi-Fi first", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-            if (lifxSyncing) {
-                lifxController.disableStreaming()
-                lifxSyncing = false
-                btnLifxSync.setText(R.string.hue_sync_off)
-                btnLifxSync.isSelected = false
-                tvLifxState.text = "Ready"
-                updateAdvancedVisibility()
-            } else {
-                if (!lifxController.hasSelectedBulbs()) {
-                    Toast.makeText(this, "Please select at least one bulb first.", Toast.LENGTH_SHORT).show()
-                    return@setOnClickListener
-                }
-                lifxController.enableStreaming()
-                lifxSyncing = true
-                btnLifxSync.setText(R.string.hue_sync_on)
-                btnLifxSync.isSelected = true
-                
-                tvLifxState.text = "Streaming Active"
-                tvLifxState.setTextColor(getColor(R.color.hue_connected))
-                imgLifxState.imageTintList = android.content.res.ColorStateList.valueOf(getColor(R.color.hue_connected))
-                updateAdvancedVisibility()
-            }
-        }
-
-        // Nanoleaf UI
-        val btnNanoleafScan = findViewById<Button>(R.id.btn_nanoleaf_scan)
-        btnNanoleafSync = findViewById(R.id.btn_nanoleaf_sync)
-        val statusNanoleaf = findViewById<View>(R.id.status_nanoleaf)
-        val tvNanoleafState = statusNanoleaf.findViewById<TextView>(R.id.tv_state)
-        val imgNanoleafState = statusNanoleaf.findViewById<android.widget.ImageView>(R.id.img_state)
-        val btnNanoleafForget = statusNanoleaf.findViewById<Button>(R.id.btn_forget)
-        val tvNanoleafHint = findViewById<TextView>(R.id.tv_nanoleaf_hint)
-
-        btnNanoleafScan.setOnClickListener { 
-            if (!isWifiConnected()) {
-                Toast.makeText(this, "Connect to Wi-Fi first", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-            nanoleafController.search() 
-        }
-        
-        btnNanoleafSync.setOnClickListener {
-            if (btnNanoleafSync.text == getString(R.string.hue_sync_off)) {
-                nanoleafController.startSync()
-                btnNanoleafSync.text = getString(R.string.hue_sync_on)
-                btnNanoleafSync.isSelected = true
-            } else {
-                nanoleafController.stopSync()
-                btnNanoleafSync.text = getString(R.string.hue_sync_off)
-                btnNanoleafSync.isSelected = false
-            }
-        }
-        
-        btnNanoleafForget.setOnClickListener {
-            android.app.AlertDialog.Builder(this)
-                .setTitle("Forget Controller")
-                .setMessage("Are you sure you want to disconnect and forget this Nanoleaf controller?")
-                .setPositiveButton("Forget") { _, _ ->
-                    nanoleafController.forget()
-                    btnNanoleafSync.text = getString(R.string.hue_sync_off)
-                    btnNanoleafSync.isSelected = false
-                }
-                .setNegativeButton("Cancel", null)
-                .show()
-        }
-
-        nanoleafController.stateListener = { state ->
-            runOnUiThread {
-                when (state) {
-                    com.lowlatency.visualizer.nanoleaf.NanoleafController.State.DISCONNECTED -> {
-                        tvNanoleafState.text = "Disconnected"
-                        tvNanoleafState.setTextColor(getColor(R.color.text_dim))
-                        imgNanoleafState.imageTintList = android.content.res.ColorStateList.valueOf(getColor(R.color.hue_disconnected))
-                        btnNanoleafScan.visibility = View.VISIBLE
-                        btnNanoleafSync.isEnabled = false
-                        btnNanoleafForget.visibility = View.GONE
-                    }
-                    com.lowlatency.visualizer.nanoleaf.NanoleafController.State.SEARCHING -> {
-                        tvNanoleafState.text = "Searching network..."
-                        tvNanoleafState.setTextColor(getColor(R.color.text_primary))
-                        imgNanoleafState.imageTintList = android.content.res.ColorStateList.valueOf(getColor(R.color.hue_pending))
-                    }
-                    com.lowlatency.visualizer.nanoleaf.NanoleafController.State.FOUND_UNPAIRED -> {
-                        tvNanoleafState.text = "Found. Hold power button for 5-7s until lights flash."
-                        tvNanoleafState.setTextColor(getColor(R.color.text_primary))
-                        imgNanoleafState.imageTintList = android.content.res.ColorStateList.valueOf(getColor(R.color.hue_pending))
-                        btnNanoleafScan.visibility = View.GONE
-                    }
-                    com.lowlatency.visualizer.nanoleaf.NanoleafController.State.PAIRING -> {
-                        tvNanoleafState.text = "Pairing..."
-                    }
-                    com.lowlatency.visualizer.nanoleaf.NanoleafController.State.PAIRED -> {
-                        tvNanoleafState.text = "Ready"
-                        tvNanoleafState.setTextColor(getColor(R.color.hue_connected))
-                        imgNanoleafState.imageTintList = android.content.res.ColorStateList.valueOf(getColor(R.color.hue_connected))
-                        btnNanoleafScan.visibility = View.GONE
-                        btnNanoleafSync.isEnabled = true
-                        btnNanoleafForget.visibility = View.VISIBLE
-                    }
-                    com.lowlatency.visualizer.nanoleaf.NanoleafController.State.STREAMING -> {
-                        tvNanoleafState.text = "Streaming Active"
-                        btnNanoleafSync.text = getString(R.string.hue_sync_on)
-                        btnNanoleafSync.isSelected = true
-                    }
-                    com.lowlatency.visualizer.nanoleaf.NanoleafController.State.ERROR -> {
-                        tvNanoleafState.text = "Error Occurred"
-                        tvNanoleafState.setTextColor(getColor(R.color.text_destructive))
-                        imgNanoleafState.imageTintList = android.content.res.ColorStateList.valueOf(getColor(R.color.text_destructive))
-                    }
-                }
-                
-                tvNanoleafHint.visibility = if (state == com.lowlatency.visualizer.nanoleaf.NanoleafController.State.PAIRED || state == com.lowlatency.visualizer.nanoleaf.NanoleafController.State.STREAMING) View.GONE else View.VISIBLE
-                updateAdvancedVisibility()
-            }
-        }
-
-        val savedCreds = hueStore.loadCredentials()
-        if (savedCreds != null) {
-            huePrerequisites.visibility = View.GONE
-            btnHueConnect.setText(R.string.hue_reconnect)
-            btnHueForget.visibility = View.VISIBLE
-            updateHueConn(HueConn.CHECKING)
-            hueController.setup.pingBridge(savedCreds) { rtt ->
-                if (rtt != null) {
-                    updateHueConn(HueConn.REACHABLE)
-                    hueStatus.text = getString(R.string.hue_status_ready)
-                    startHuePingPoller()
-                    loadHueAreas()
-                } else {
-                    updateHueConn(HueConn.PAIRED)
-                    hueStatus.text = getString(R.string.hue_status_unreachable)
-                }
-            }
-        } else {
-            updateHueConn(HueConn.DISCONNECTED)
-        }
-    }
-
-    private fun onHueConnectClicked() {
-        val existing = hueStore.loadCredentials()
-        if (existing != null) {
-            updateHueConn(HueConn.CHECKING)
-            hueStatus.text = ""
-            hueController.setup.pingBridge(existing) { rtt ->
-                if (rtt != null) {
-                    updateHueConn(HueConn.REACHABLE)
-                    hueStatus.text = getString(R.string.hue_status_ready)
-                    startHuePingPoller()
-                    loadHueAreas()
-                } else {
-                    rediscoverBridge(existing)
-                }
-            }
-            return
-        }
-        hueStatus.setText(R.string.hue_status_searching)
-        updateHueConn(HueConn.SEARCHING)
-        hueController.setup.discoverBridges { bridges ->
-            val bridge = bridges.firstOrNull()
-            if (bridge == null) {
-                hueStatus.setText(R.string.hue_status_no_bridge)
-                updateHueConn(HueConn.DISCONNECTED)
-                return@discoverBridges
-            }
-            hueController.setup.pair(
-                bridgeIp = bridge.ip,
-                onCountdown = { s -> hueStatus.text = getString(R.string.hue_status_press_button, s) },
-                onSuccess = {
-                    huePrerequisites.visibility = View.GONE
-                    hueStatus.setText(R.string.hue_status_ready)
-                    updateHueConn(HueConn.REACHABLE)
-                    btnHueConnect.setText(R.string.hue_reconnect)
-                    btnHueForget.visibility = View.VISIBLE
-                    startHuePingPoller()
-                    loadHueAreas()
-                },
-                onError = { msg ->
-                    hueStatus.text = msg
-                    updateHueConn(HueConn.DISCONNECTED)
-                }
-            )
-        }
-    }
-
-    private fun confirmForgetBridge() {
-        AlertDialog.Builder(this)
-            .setTitle(R.string.hue_forget_title)
-            .setMessage(R.string.hue_forget_message)
-            .setPositiveButton(android.R.string.ok) { _, _ -> forgetHueBridge() }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
-    }
-
-    private fun rediscoverBridge(oldCreds: HueCredentials) {
-        updateHueConn(HueConn.SEARCHING)
-        hueStatus.setText(R.string.hue_status_searching)
-        hueController.setup.discoverBridges { bridges ->
-            val bridge = bridges.firstOrNull()
-            if (bridge == null) {
-                updateHueConn(HueConn.PAIRED)
-                hueStatus.text = getString(R.string.hue_status_unreachable)
-                return@discoverBridges
-            }
-            val updatedCreds = HueCredentials(bridge.ip, oldCreds.username, oldCreds.clientKey)
-            hueStore.saveCredentials(updatedCreds)
-            hueController.setup.pingBridge(updatedCreds) { rtt ->
-                if (rtt != null) {
-                    updateHueConn(HueConn.REACHABLE)
-                    hueStatus.text = getString(R.string.hue_status_ready)
-                    startHuePingPoller()
-                    loadHueAreas()
-                } else {
-                    updateHueConn(HueConn.PAIRED)
-                    hueStatus.text = getString(R.string.hue_status_unreachable)
-                }
-            }
-        }
-    }
-
-    private fun forgetHueBridge() {
-        if (::hueController.isInitialized && hueController.isEnabled) {
-            hueController.disable()
-            updateHueSyncButton(false)
-        }
-        stopHuePingPoller()
-        hueStore.clear()
-        selectedArea = null
-        hueAreas = emptyList()
-        hueAreaContainer.removeAllViews()
-        huePrerequisites.visibility = View.VISIBLE
-        btnHueConnect.setText(R.string.hue_connect)
-        btnHueSync.isEnabled = false
-        btnHueForget.visibility = View.GONE
-        updateHueConn(HueConn.DISCONNECTED)
-        hueStatus.setText(R.string.hue_status_idle)
-    }
-
-    private fun loadHueAreas() {
-        val creds = hueStore.loadCredentials() ?: return
-        hueController.setup.listEntertainmentAreas(
-            creds = creds,
-            onResult = { areas -> showHueAreas(areas) },
-            onError = { msg ->
-                hueStatus.text = msg
-                updateHueConn(HueConn.PAIRED)
-                stopHuePingPoller()
-            },
-            onAuthError = {
-                forgetHueBridge()
-                hueStatus.setText(R.string.hue_status_auth_expired)
-            },
-        )
-    }
-
-    private fun showHueAreas(areas: List<HueEntertainmentArea>) {
-        hueAreas = areas
-        hueAreaContainer.removeAllViews()
-        if (areas.isEmpty()) {
-            hueStatus.text = getString(R.string.hue_status_no_areas)
-            updateHueSections()
-            return
-        }
-        val h = resources.displayMetrics.density * 40
-        for (area in areas) {
-            val label = if (area.channels.isNotEmpty())
-                getString(R.string.hue_area_lights, area.name, area.channels.size)
-            else area.name
-            val b = Button(this).apply {
-                text = label
-                isAllCaps = false
-                textSize = 13f
-                setTextColor(ContextCompat.getColorStateList(this@MainActivity, R.color.btn_text))
-                setBackgroundResource(R.drawable.pill_button_bg)
-                stateListAnimator = null
-                layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, h.toInt()
-                ).apply { bottomMargin = (resources.displayMetrics.density * 8).toInt() }
-                setOnClickListener { selectHueArea(area) }
-            }
-            hueAreaContainer.addView(b)
-        }
-        val saved = areas.firstOrNull { it.id == hueStore.selectedAreaId }
-        if (saved != null) {
-            selectHueArea(saved)
-            hueStatus.text = getString(R.string.hue_status_ready)
-        } else {
-            hueStatus.setText(R.string.hue_select_area)
-            updateHueSections()
-        }
-    }
-
-    private fun selectHueArea(area: HueEntertainmentArea) {
-        selectedArea = area
-        hueStore.selectedAreaId = area.id
-        for (i in 0 until hueAreaContainer.childCount) {
-            hueAreaContainer.getChildAt(i).isSelected = (hueAreas.getOrNull(i)?.id == area.id)
-        }
-        btnHueSync.isEnabled = true
-        updateHueSections()
-    }
-
-    /**
-     * Returning to the foreground: a light-sync stream that was running may have
-     * silently died while away (Wi-Fi sleep ends the bridge's entertainment
-     * session; UDP sends still "succeed" so the UI stays "synced"). If we were
-     * away long enough for that to happen, rebuild the stream so the lights
-     * actually respond again — and the UI reflects the true result.
-     */
-    private fun refreshHueAfterResume() {
-        if (!::hueController.isInitialized || !hueController.isEnabled) return
-        val area = selectedArea ?: return
-        val awayMs = SystemClock.elapsedRealtime() - backgroundedAtMs
-        if (backgroundedAtMs == 0L || awayMs < HUE_RESYNC_AWAY_MS) return  // quick glance: keepalive held
-
-        btnHueSync.isEnabled = false
-        hueStatus.setText(R.string.hue_status_ready)
-        hueController.restart(area) { ok, err ->
-            btnHueSync.isEnabled = true
-            updateHueSyncButton(ok)
-            updateHueConn(if (ok) HueConn.STREAMING else HueConn.REACHABLE)
-            hueStatus.text = if (ok) getString(R.string.hue_status_synced) else (err ?: getString(R.string.hue_status_ready))
-            updateHueSections()
-        }
-    }
-
-    private fun onHueSyncToggle() {
-        if (hueController.isEnabled) {
-            hueController.disable()
-            updateHueSyncButton(false)
-            updateHueConn(HueConn.REACHABLE)
-            hueStatus.setText(R.string.hue_status_ready)
-            updateHueSections()
-            return
-        }
-        val area = selectedArea ?: run {
-            hueStatus.setText(R.string.hue_select_area)
-            return
-        }
-        btnHueSync.isEnabled = false
-        hueController.enable(area) { ok, err ->
-            btnHueSync.isEnabled = true
-            updateHueSyncButton(ok)
-            updateHueConn(if (ok) HueConn.STREAMING else HueConn.REACHABLE)
-            hueStatus.text = if (ok) getString(R.string.hue_status_synced) else (err ?: "Failed to sync.")
-            updateHueSections()
-        }
-    }
-
-    private fun updateHueSyncButton(on: Boolean) {
-        btnHueSync.isSelected = on
-        btnHueSync.setText(if (on) R.string.hue_sync_on else R.string.hue_sync_off)
-        updateAdvancedVisibility()
-    }
-
-    /**
-     * The Advanced panel tunes the Hue lights (audio mode and Link mode both), so
-     * show it whenever Hue sync is active. The panel adapts to whichever mode is on.
-     */
-    private fun updateAdvancedVisibility() {
-        val hueRelevant = ::hueController.isInitialized && hueController.isEnabled
-        btnAdvanced.visibility = if (hueRelevant) View.VISIBLE else View.GONE
-        
-        val lifxRelevant = ::lifxController.isInitialized && lifxController.isStreaming
-        btnLifxAdvanced.visibility = if (lifxRelevant) View.VISIBLE else View.GONE
-
-        val nanoRelevant = ::nanoleafController.isInitialized && nanoleafController.currentState == com.lowlatency.visualizer.nanoleaf.NanoleafController.State.STREAMING
-        btnNanoleafAdvanced.visibility = if (nanoRelevant) View.VISIBLE else View.GONE
-    }
-
-    // ----- Light control (scene presets + brightness) -----
-
-    private data class LightScene(
-        val label: String, val dotColor: Int, val on: Boolean,
-        val mirek: Int? = null, val x: Double? = null, val y: Double? = null,
-    )
-
-    private val lightScenes = listOf(
-        LightScene("Off",        0xFF666666.toInt(), on = false),
-        LightScene("Cool White", 0xFFD4E4FF.toInt(), on = true, mirek = 250),
-        LightScene("Warm White", 0xFFFFDEA0.toInt(), on = true, mirek = 370),
-        LightScene("Candlelight",0xFFFFB050.toInt(), on = true, mirek = 454),
-        LightScene("Red",        0xFFFF3030.toInt(), on = true, x = 0.675, y = 0.322),
-        LightScene("Blue",       0xFF3060FF.toInt(), on = true, x = 0.167, y = 0.04),
-        LightScene("Green",      0xFF30DD60.toInt(), on = true, x = 0.2, y = 0.68),
-        LightScene("Purple",     0xFF9030FF.toInt(), on = true, x = 0.27, y = 0.12),
-    )
-
-    private lateinit var lightControlSection: LinearLayout
-    private lateinit var sceneGrid: LinearLayout
-    private lateinit var brightnessSlider: SeekBar
-    private var currentHueState = HueConn.DISCONNECTED
-
-    private fun buildLightControlUI() {
-
-        lightControlSection = findViewById(R.id.hue_light_control)
-        sceneGrid = findViewById(R.id.hue_scene_grid)
-        brightnessSlider = findViewById(R.id.hue_brightness)
-
-        val dp = resources.displayMetrics.density
-        val h = (dp * 40).toInt()
-        val gap = (dp * 6).toInt()
-
-        for (i in lightScenes.indices step 2) {
-            val row = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                ).apply { bottomMargin = gap }
-            }
-            for (j in i until minOf(i + 2, lightScenes.size)) {
-                val scene = lightScenes[j]
-                val dot = GradientDrawable().apply {
-                    shape = GradientDrawable.OVAL
-                    setSize((dp * 10).toInt(), (dp * 10).toInt())
-                    // Derive a bright secondary color for the gradient to give a premium 3D/specular look
-                    val hsv = FloatArray(3)
-                    android.graphics.Color.colorToHSV(scene.dotColor, hsv)
-                    hsv[1] = (hsv[1] * 0.6f).coerceAtLeast(0f)  // desaturate
-                    hsv[2] = (hsv[2] * 1.2f).coerceAtMost(1f)   // brighten
-                    val brightColor = android.graphics.Color.HSVToColor(hsv)
-                    orientation = GradientDrawable.Orientation.TL_BR
-                    colors = intArrayOf(brightColor, scene.dotColor)
-                }
-                val btn = Button(this).apply {
-                    text = scene.label
-                    isAllCaps = false
-                    textSize = 12f
-                    setTextColor(ContextCompat.getColorStateList(this@MainActivity, R.color.btn_text))
-                    setBackgroundResource(R.drawable.pill_button_bg)
-                    stateListAnimator = null
-                    setCompoundDrawablesRelativeWithIntrinsicBounds(dot, null, null, null)
-                    compoundDrawablePadding = (dp * 8).toInt()
-                    setPaddingRelative((dp * 16).toInt(), 0, (dp * 12).toInt(), 0)
-                    layoutParams = LinearLayout.LayoutParams(0, h, 1f).apply {
-                        if (j == i) marginEnd = gap / 2 else marginStart = gap / 2
-                    }
-                    setOnClickListener { applyLightScene(scene) }
-                }
-                row.addView(btn)
-            }
-            sceneGrid.addView(row)
-        }
-
-        brightnessSlider.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(s: SeekBar, progress: Int, fromUser: Boolean) {}
-            override fun onStartTrackingTouch(s: SeekBar) {}
-            override fun onStopTrackingTouch(s: SeekBar) {
-                val area = selectedArea ?: return
-                val creds = hueStore.loadCredentials() ?: return
-                val bri = s.progress.coerceIn(1, 100)
-                hueController.setup.controlLights(creds, area.lightIds, on = true, brightness = bri)
-            }
-        })
-    }
-
-    private fun applyLightScene(scene: LightScene) {
-        val area = selectedArea ?: return
-        val creds = hueStore.loadCredentials() ?: return
-        if (!scene.on) {
-            hueController.setup.controlLights(creds, area.lightIds, on = false)
-        } else {
-            hueController.setup.controlLights(
-                creds, area.lightIds,
-                on = true,
-                brightness = brightnessSlider.progress.coerceIn(1, 100),
-                mirek = scene.mirek, x = scene.x, y = scene.y,
-            )
-        }
-    }
-
-    private fun setViewGroupEnabled(viewGroup: ViewGroup, enabled: Boolean) {
-        viewGroup.isEnabled = enabled
-        for (i in 0 until viewGroup.childCount) {
-            val child = viewGroup.getChildAt(i)
-            child.isEnabled = enabled
-            if (child is ViewGroup) {
-                setViewGroupEnabled(child, enabled)
-            }
-        }
-    }
-
-    private fun updateHueSections() {
-        if (!::lightControlSection.isInitialized) return
-        val reachable = currentHueState == HueConn.REACHABLE || currentHueState == HueConn.STREAMING
-        val hasSelected = reachable && selectedArea != null
-
-        // All sections are always visible to act as "ghosted teasers"
-        hueAreaSection.visibility = View.VISIBLE
-        lightControlSection.visibility = View.VISIBLE
-        hueSyncSection.visibility = View.VISIBLE
-
-        val areaEnabled = reachable
-        hueAreaSection.alpha = if (areaEnabled) 1.0f else 0.3f
-        setViewGroupEnabled(hueAreaSection, areaEnabled)
-
-        // Light control is enabled if an area is selected AND we're not currently streaming
-        val controlEnabled = hasSelected && currentHueState == HueConn.REACHABLE
-        lightControlSection.alpha = if (controlEnabled) 1.0f else 0.3f
-        setViewGroupEnabled(lightControlSection, controlEnabled)
-
-        val syncEnabled = hasSelected
-        hueSyncSection.alpha = if (syncEnabled) 1.0f else 0.3f
-        setViewGroupEnabled(hueSyncSection, syncEnabled)
-    }
-
-    private enum class HueConn { DISCONNECTED, SEARCHING, CHECKING, PAIRED, REACHABLE, STREAMING }
-
-    /** Update the colored connection-state dot + label in the Lighting tab. */
-    private fun updateHueConn(state: HueConn) {
-        currentHueState = state
-        val colorRes: Int
-        when (state) {
-            HueConn.DISCONNECTED -> {
-                hueConn.setText(R.string.hue_conn_disconnected)
-                colorRes = R.color.hue_disconnected
-            }
-            HueConn.SEARCHING -> {
-                hueConn.setText(R.string.hue_conn_searching)
-                colorRes = R.color.hue_pending
-            }
-            HueConn.CHECKING -> {
-                hueConn.setText(R.string.hue_conn_checking)
-                colorRes = R.color.hue_pending
-            }
-            HueConn.PAIRED -> {
-                hueConn.setText(R.string.hue_conn_paired)
-                colorRes = R.color.hue_pending
-            }
-            HueConn.REACHABLE -> {
-                hueConn.setText(R.string.hue_conn_reachable)
-                colorRes = R.color.hue_connected
-            }
-            HueConn.STREAMING -> {
-                hueConn.setText(R.string.hue_conn_streaming)
-                colorRes = R.color.hue_connected
-            }
-        }
-        val resolvedColor = ContextCompat.getColor(this, colorRes)
-        hueConn.setTextColor(resolvedColor)
-        imgHueState.imageTintList = android.content.res.ColorStateList.valueOf(resolvedColor)
-        
-        when (state) {
-            HueConn.DISCONNECTED -> {
-                btnHueConnect.visibility = View.VISIBLE
-                btnHueConnect.isEnabled = true
-                hueStatusSpinner.visibility = View.GONE
-            }
-            HueConn.SEARCHING, HueConn.CHECKING -> {
-                btnHueConnect.visibility = View.VISIBLE
-                btnHueConnect.isEnabled = false
-                hueStatusSpinner.visibility = View.VISIBLE
-            }
-            HueConn.PAIRED -> {
-                btnHueConnect.visibility = View.VISIBLE
-                btnHueConnect.isEnabled = true
-                // Keep spinning if we are in the "Press button" countdown
-                hueStatusSpinner.visibility = if (hueStatus.text.contains("Press")) View.VISIBLE else View.GONE
-            }
-            HueConn.REACHABLE, HueConn.STREAMING -> {
-                btnHueConnect.visibility = View.GONE
-                hueStatusSpinner.visibility = View.GONE
-            }
-        }
-        
-        updateHueSections()
-    }
-
-    private fun startHuePingPoller() {
-        if (huePingPollerRunning) return
-        huePingPollerRunning = true
-        huePingHandler.postDelayed(huePingPoller, 5000L)
-    }
-
-    private fun stopHuePingPoller() {
-        huePingPollerRunning = false
-        huePingHandler.removeCallbacks(huePingPoller)
     }
 
     private fun syncMenuState() {
@@ -2145,27 +1028,8 @@ class MainActivity : AppCompatActivity() {
         tabBtnLighting.alpha = if (systemAudioMode) 0.5f else 1.0f
 
         if (systemAudioMode) {
-            if (::hueController.isInitialized && hueController.isEnabled) {
-                hueController.disable()
-                updateHueSyncButton(false)
-                updateHueConn(HueConn.REACHABLE)
-                hueStatus.setText(R.string.hue_status_ready)
-                updateHueSections()
-            }
-            if (lifxSyncing) {
-                lifxController.disableStreaming()
-                lifxSyncing = false
-                btnLifxSync.setText(R.string.hue_sync_off)
-                btnLifxSync.isSelected = false
-                if (::tvLifxState.isInitialized) {
-                    tvLifxState.text = "Ready"
-                }
-            }
-            if (btnNanoleafSync.text == getString(R.string.hue_sync_on)) {
-                nanoleafController.stopSync()
-                btnNanoleafSync.text = getString(R.string.hue_sync_off)
-                btnNanoleafSync.isSelected = false
-            }
+            // Light sync is mic-only; stop every brand when on internal audio.
+            if (::lightingController.isInitialized) lightingController.onSystemAudioEngaged()
             if (tabBtnLighting.isSelected) {
                 selectTab(TAB_VISUALS)
             }
@@ -2393,46 +1257,22 @@ class MainActivity : AppCompatActivity() {
         glView.onResume()
         updatePeakLuminance(prefs.getBoolean(KEY_PEAK_LUMINANCE, true))
         if (!systemAudioMode) ensureMicAndStart()
-        if (::hueController.isInitialized) hueController.paused = false
-        refreshHueAfterResume()
         if (LinkSync.enabled) {
             NativeBridge.nativeLinkSetEnabled(true)
             acquireMulticastLock()
             linkHandler.post(linkStatusPoller)
         }
-        if (perfOverlayEnabled) {
-            perfHandler.post(perfPoller)
-            perfHandler.post(perfFpsTicker)
-        }
-        if (huePingPollerRunning) {
-            huePingHandler.removeCallbacks(huePingPoller)
-            huePingHandler.post(huePingPoller)
-        } else if (::hueStore.isInitialized && hueStore.loadCredentials() != null) {
-            startHuePingPoller()
-            if (!hueController.isEnabled) {
-                val creds = hueStore.loadCredentials() ?: return
-                hueController.setup.pingBridge(creds) { rtt ->
-                    if (rtt != null) {
-                        updateHueConn(HueConn.REACHABLE)
-                        hueStatus.text = getString(R.string.hue_status_ready)
-                        if (hueAreas.isEmpty()) loadHueAreas()
-                    } else {
-                        updateHueConn(HueConn.PAIRED)
-                    }
-                }
-            }
-        }
+        if (::perfOverlayController.isInitialized) perfOverlayController.onResume()
+        if (::lightingController.isInitialized) lightingController.onResume()
     }
 
     override fun onPause() {
         super.onPause()
         glView.onPause()
         if (!systemAudioMode) NativeBridge.nativeStop()
-        if (::hueController.isInitialized) hueController.paused = true
         backgroundedAtMs = SystemClock.elapsedRealtime()
-        perfHandler.removeCallbacks(perfPoller)
-        perfHandler.removeCallbacks(perfFpsTicker)
-        huePingHandler.removeCallbacks(huePingPoller)
+        if (::perfOverlayController.isInitialized) perfOverlayController.onPause()
+        if (::lightingController.isInitialized) lightingController.onPause()
         linkHandler.removeCallbacks(linkStatusPoller)
         if (LinkSync.enabled) {
             NativeBridge.nativeLinkSetEnabled(false)
@@ -2441,10 +1281,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
-        stopHuePingPoller()
-        perfHandler.removeCallbacks(perfPoller)
-        perfHandler.removeCallbacks(perfFpsTicker)
-        if (::hueController.isInitialized) hueController.disable()
+        if (::perfOverlayController.isInitialized) perfOverlayController.onDestroy()
+        if (::lightingController.isInitialized) lightingController.onDestroy()
         if (::hapticController.isInitialized) hapticController.release()
         linkHandler.removeCallbacks(linkStatusPoller)
         NativeBridge.nativeLinkSetEnabled(false)
@@ -2473,16 +1311,10 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_ADV_AUDIO_BRIGHT = "adv_audio_brightness"
         private const val KEY_ADV_AUDIO_FLASH = "adv_audio_flash"
         private const val KEY_ADV_HUE_LOOKAHEAD = "adv_hue_lookahead"
-        private const val KEY_PERF_OVERLAY = "perf_overlay_enabled"
         private const val KEY_SCENE_LABEL = "scene_label_enabled"
         // Background longer than this and a Hue entertainment stream has likely
         // timed out on the bridge, so we rebuild it on resume rather than trust it.
         private const val HUE_RESYNC_AWAY_MS = 3000L
-        // FPS readout: snap to a vsync rate within this many fps (kills 60↔61
-        // flicker); off a locked rate, require this much change before re-drawing.
-        private val LOCKED_RATES = intArrayOf(60, 90, 120, 144)
-        private const val FPS_SNAP_TOL = 6.0f
-        private const val FPS_HYSTERESIS = 1.5f
         private const val KEY_PEAK_LUMINANCE = "peak_luminance_enabled"
         private const val KEY_FAVOURITES = "favourite_scenes"
         private const val KEY_SCREENSHARE_RATIONALE = "screenshare_rationale_shown"
@@ -2494,24 +1326,5 @@ class MainActivity : AppCompatActivity() {
         private const val SPLASH_FADE_MS = 350L
         private const val INTRO_HINT_DURATION_MS = 5000L
         private const val PERMISSION_FALLBACK_MS = 6000L  // ask anyway if intro never finishes
-    }
-
-    private fun switchBrand(brand: LightingBrand) {
-        activeBrand = brand
-
-        val btnBrandHue = findViewById<Button>(R.id.btn_brand_hue)
-        val btnBrandLifx = findViewById<Button>(R.id.btn_brand_lifx)
-        val btnBrandNanoleaf = findViewById<Button>(R.id.btn_brand_nanoleaf)
-        val containerHue = findViewById<View>(R.id.container_hue)
-        val containerLifx = findViewById<View>(R.id.container_lifx)
-        val containerNanoleaf = findViewById<View>(R.id.container_nanoleaf)
-
-        btnBrandHue.isSelected = (brand == LightingBrand.HUE)
-        btnBrandLifx.isSelected = (brand == LightingBrand.LIFX)
-        btnBrandNanoleaf.isSelected = (brand == LightingBrand.NANOLEAF)
-
-        containerHue.visibility = if (brand == LightingBrand.HUE) View.VISIBLE else View.GONE
-        containerLifx.visibility = if (brand == LightingBrand.LIFX) View.VISIBLE else View.GONE
-        containerNanoleaf.visibility = if (brand == LightingBrand.NANOLEAF) View.VISIBLE else View.GONE
     }
 }
