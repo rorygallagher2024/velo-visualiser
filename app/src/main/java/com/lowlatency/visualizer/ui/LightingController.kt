@@ -855,18 +855,16 @@ class LightingController(
         lightControlSection.visibility = View.VISIBLE
         hueSyncSection.visibility = View.VISIBLE
 
-        val areaEnabled = reachable
-        hueAreaSection.alpha = if (areaEnabled) 1.0f else 0.3f
-        setViewGroupEnabled(hueAreaSection, areaEnabled)
+        hueAreaSection.alpha = if (reachable) 1.0f else 0.3f
+        setViewGroupEnabled(hueAreaSection, reachable)
 
         // Light control is enabled if an area is selected AND we're not currently streaming
         val controlEnabled = hasSelected && currentHueState == HueConn.REACHABLE
         lightControlSection.alpha = if (controlEnabled) 1.0f else 0.3f
         setViewGroupEnabled(lightControlSection, controlEnabled)
 
-        val syncEnabled = hasSelected
-        hueSyncSection.alpha = if (syncEnabled) 1.0f else 0.3f
-        setViewGroupEnabled(hueSyncSection, syncEnabled)
+        hueSyncSection.alpha = if (hasSelected) 1.0f else 0.3f
+        setViewGroupEnabled(hueSyncSection, hasSelected)
     }
 
     /** Update the colored connection-state dot + label in the Lighting tab. */
