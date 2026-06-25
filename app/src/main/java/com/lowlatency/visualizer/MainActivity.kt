@@ -366,7 +366,7 @@ class MainActivity : AppCompatActivity() {
         internalAudioWarning = findViewById(R.id.internal_audio_warning)
         // Lighting views (Hue/LIFX/Nanoleaf) are bound inside LightingController.
 
-        prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
         optionsSheet.visibility = View.GONE
     }
 
@@ -378,7 +378,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * The VELO wordmark is now an HDR particle cloud rendered by the GL engine
+     * The VELO wordmark is an HDR particle cloud rendered by the GL engine
      * itself (see [VisualizerSurfaceView] / IntroLogoScene). This overlay is just
      * a brief black mask over GL initialisation — fade it out fast, then let the
      * GL intro play and surface the gesture hint once it dissolves.
@@ -847,7 +847,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun acquireMulticastLock() {
         if (multicastLock?.isHeld == true) return
-        val wifi = applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager ?: return
+        val wifi = applicationContext.getSystemService(WIFI_SERVICE) as? WifiManager ?: return
         multicastLock = wifi.createMulticastLock("velo-ableton-link").apply {
             setReferenceCounted(false)
             acquire()
@@ -1305,16 +1305,7 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_LINK_ANTICIPATE = "ableton_link_anticipate"
         private const val KEY_LINK_BAR_OFFSET = "ableton_link_bar_offset"
         private const val KEY_LINK_EXTRAS = "ableton_link_experimental_extras"
-        private const val KEY_ADV_LINK_BEAT_FLASH = "adv_link_beat_flash"
-        private const val KEY_ADV_COLOUR = "adv_colour_split"
-        private const val KEY_ADV_GLOW = "adv_resting_glow"
-        private const val KEY_ADV_AUDIO_BRIGHT = "adv_audio_brightness"
-        private const val KEY_ADV_AUDIO_FLASH = "adv_audio_flash"
-        private const val KEY_ADV_HUE_LOOKAHEAD = "adv_hue_lookahead"
         private const val KEY_SCENE_LABEL = "scene_label_enabled"
-        // Background longer than this and a Hue entertainment stream has likely
-        // timed out on the bridge, so we rebuild it on resume rather than trust it.
-        private const val HUE_RESYNC_AWAY_MS = 3000L
         private const val KEY_PEAK_LUMINANCE = "peak_luminance_enabled"
         private const val KEY_FAVOURITES = "favourite_scenes"
         private const val KEY_SCREENSHARE_RATIONALE = "screenshare_rationale_shown"
