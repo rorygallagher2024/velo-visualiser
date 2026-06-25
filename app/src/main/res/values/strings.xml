@@ -175,6 +175,8 @@
     <string name="hue_reconnect">Reconnect</string>
     <string name="hue_sync_on">Light Sync: On</string>
     <string name="hue_sync_off">Light Sync: Off</string>
+    <string name="wled_scan">Scan for WLED Devices</string>
+    <string name="wled_blurb">WLED runs on DIY ESP32/ESP8266 LED controllers on your Wi-Fi. Make sure your phone is on the same network, then scan to find and sync your devices.</string>
     <string name="hue_local_note">Works over your local Wi-Fi only — your phone and Hue Bridge must be on the same network. No Hue cloud account is used. Light sync uses the Microphone source.</string>
     <string name="hue_mic_only">Light sync works with the Microphone source. Switch the audio source to Microphone.</string>
     <string name="hue_status_idle"></string>

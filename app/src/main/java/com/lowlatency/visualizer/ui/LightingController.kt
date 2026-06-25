@@ -27,6 +27,8 @@ import com.lowlatency.visualizer.hue.HueEntertainmentArea
 import com.lowlatency.visualizer.hue.HueLightController
 import com.lowlatency.visualizer.lifx.LifxController
 import com.lowlatency.visualizer.nanoleaf.NanoleafController
+import com.lowlatency.visualizer.ui.lighting.LightBrandPanel
+import com.lowlatency.visualizer.ui.lighting.WledBrandPanel
 
 /**
  * Owns the entire Lighting tab: the brand selector (Hue / LIFX / Nanoleaf), each
@@ -50,6 +52,10 @@ class LightingController(
     private lateinit var lifxController: LifxController
     private lateinit var nanoleafController: NanoleafController
     private lateinit var hueStore: HueCredentialStore
+
+    // New-style brand panels (behind LightBrandPanel). WLED is the first; the
+    // original three brands are still inline above and can migrate here later.
+    private val wledPanel: LightBrandPanel = WledBrandPanel(activity) { updateAdvancedVisibility() }
 
     private var hueAreas: List<HueEntertainmentArea> = emptyList()
     private var selectedArea: HueEntertainmentArea? = null
@@ -125,6 +131,7 @@ class LightingController(
         if (::hueController.isInitialized) hueController.onBands(low, mid, high)
         lifxController.onBands(low, mid, high)
         nanoleafController.onBands(low, mid, high)
+        wledPanel.onBands(low, mid, high)
     }
 
     /** Raw (ungated) Link beat from the GL thread; fan out to every brand. */
@@ -132,6 +139,7 @@ class LightingController(
         if (::hueController.isInitialized) hueController.onLinkBeat()
         lifxController.onLinkBeat()
         nanoleafController.onLinkBeat()
+        wledPanel.onLinkBeat()
     }
 
     /** Re-evaluate which Advanced buttons are visible (called when Link mode flips). */
@@ -175,6 +183,7 @@ class LightingController(
             btnNanoleafSync.text = activity.getString(R.string.hue_sync_off)
             btnNanoleafSync.isSelected = false
         }
+        wledPanel.stopForSystemAudio()
     }
 
     fun onResume() {
@@ -203,11 +212,13 @@ class LightingController(
     fun onPause() {
         if (::hueController.isInitialized) hueController.paused = true
         huePingHandler.removeCallbacks(huePingPoller)
+        wledPanel.onPause()
     }
 
     fun onDestroy() {
         stopHuePingPoller()
         if (::hueController.isInitialized) hueController.disable()
+        wledPanel.onDestroy()
     }
 
     private fun isWifiConnected(): Boolean {
@@ -273,6 +284,12 @@ class LightingController(
         btnBrandHue.setOnClickListener { switchBrand(LightingBrand.HUE) }
         btnBrandLifx.setOnClickListener { switchBrand(LightingBrand.LIFX) }
         activity.findViewById<View>(R.id.btn_brand_nanoleaf).setOnClickListener { switchBrand(LightingBrand.NANOLEAF) }
+
+        // WLED panel (new-style LightBrandPanel).
+        wledPanel.bind()
+        wledPanel.selectorButton.setOnClickListener { switchBrand(LightingBrand.WLED) }
+        wledPanel.advancedButton?.setOnClickListener { showAdvancedDialog() }
+
         switchBrand(LightingBrand.HUE)
 
         btnLifxScan.setOnClickListener {
@@ -717,6 +734,8 @@ class LightingController(
 
         val nanoRelevant = ::nanoleafController.isInitialized && nanoleafController.currentState == NanoleafController.State.STREAMING
         btnNanoleafAdvanced.visibility = if (nanoRelevant) View.VISIBLE else View.GONE
+
+        wledPanel.advancedButton?.visibility = if (wledPanel.isSyncing) View.VISIBLE else View.GONE
     }
 
     // ----- Light control (scene presets + brightness) -----
@@ -930,10 +949,12 @@ class LightingController(
         btnBrandHue.isSelected = (brand == LightingBrand.HUE)
         btnBrandLifx.isSelected = (brand == LightingBrand.LIFX)
         btnBrandNanoleaf.isSelected = (brand == LightingBrand.NANOLEAF)
+        wledPanel.selectorButton.isSelected = (brand == LightingBrand.WLED)
 
         containerHue.visibility = if (brand == LightingBrand.HUE) View.VISIBLE else View.GONE
         containerLifx.visibility = if (brand == LightingBrand.LIFX) View.VISIBLE else View.GONE
         containerNanoleaf.visibility = if (brand == LightingBrand.NANOLEAF) View.VISIBLE else View.GONE
+        wledPanel.container.visibility = if (brand == LightingBrand.WLED) View.VISIBLE else View.GONE
     }
 
     // ----- Advanced tuning dialog -----
@@ -1076,7 +1097,7 @@ class LightingController(
         })
     }
 
-    enum class LightingBrand { HUE, LIFX, NANOLEAF }
+    enum class LightingBrand { HUE, LIFX, NANOLEAF, WLED }
     private enum class HueConn { DISCONNECTED, SEARCHING, CHECKING, PAIRED, REACHABLE, STREAMING }
 
     companion object {
