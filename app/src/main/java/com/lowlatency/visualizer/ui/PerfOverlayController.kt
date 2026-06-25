@@ -14,16 +14,17 @@ import com.lowlatency.visualizer.LinkSync
 import com.lowlatency.visualizer.NativeBridge
 import com.lowlatency.visualizer.R
 import com.lowlatency.visualizer.VisualizerSurfaceView
+import kotlin.math.abs
+import kotlin.math.roundToInt
+import androidx.core.content.edit
 
 /**
  * Owns the on-canvas performance overlay: the giant eased FPS readout plus the
  * mono diagnostic block (CPU, RAM, audio, Link, Hue). Self-contained — it binds
- * its own views, persists its toggle, and drives its own pollers. [MainActivity]
+ * its own views, persists its toggle, and drives its own pollers. MainActivity
  * just forwards the lifecycle and supplies the few cross-cutting values the
  * overlay reports (audio source, Hue stream stats).
  *
- * This is the first "section controller" extracted from MainActivity; the
- * behaviour is a verbatim move of the old perf-overlay code.
  */
 class PerfOverlayController(
     private val activity: AppCompatActivity,
@@ -92,7 +93,7 @@ class PerfOverlayController(
 
     fun setEnabled(enable: Boolean) {
         enabled = enable
-        prefs.edit().putBoolean(KEY_PERF_OVERLAY, enable).apply()
+        prefs.edit { putBoolean(KEY_PERF_OVERLAY, enable) }
         btnPerfOverlay.isSelected = enable
         btnPerfOverlay.setText(if (enable) R.string.perf_overlay_on else R.string.perf_overlay_off)
         if (enable) {
@@ -231,12 +232,12 @@ class PerfOverlayController(
         // When we're essentially locked to a vsync rate (60/90/120/144), show that
         // exact number — otherwise a ~60.5 reading flickers between 60 and 61. Off
         // a locked rate, a small deadband stops noise from twitching the integer.
-        val snapped = LOCKED_RATES.firstOrNull { Math.abs(v - it) <= FPS_SNAP_TOL }
-        val target = snapped ?: Math.round(v)
+        val snapped = LOCKED_RATES.firstOrNull { abs(v - it) <= FPS_SNAP_TOL }
+        val target = snapped ?: v.roundToInt()
         val changed = when {
             shownFps < 0 -> true
             snapped != null -> shownFps != snapped
-            else -> Math.abs(v - shownFps) >= FPS_HYSTERESIS
+            else -> abs(v - shownFps) >= FPS_HYSTERESIS
         }
         if (changed) {
             val currentStr = (perfFpsValue.currentView as? TextView)?.text?.toString() ?: "0"
