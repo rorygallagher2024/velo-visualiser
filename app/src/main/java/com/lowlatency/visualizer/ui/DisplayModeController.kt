@@ -218,7 +218,7 @@ class DisplayModeController(
         private const val EXIT_FADE_MS = 220L
         private const val EXIT_ARM_MS = 2500L     // window for the confirming second tap
         private const val PRESENCE_SMOOTH = 0.25f
-        private const val SHIFT_SPEED = 0.012        // radians/tick — a slow orbit
+        private const val SHIFT_SPEED = 0.0022       // radians/tick — a ~2.5-min orbit, imperceptibly slow but still migrates pixels for burn-in
         private const val SHIFT_RADIUS_DP = 12f
         private const val AUTO_DIM_MS = 25_000f
         private const val AUTO_DIM_MIN_ALPHA = 0.55f
