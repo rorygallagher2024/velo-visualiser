@@ -45,13 +45,14 @@ Velo listens to the **actual sound** in the room and moves with it instantly. Th
 
 ## The full feature list
 
-- **29 audio and beat reactive visualizers**: Waveforms, spectra, particle fluids, scrolling spectrograms, dot-matrix LED meters, and more.
+- **30 audio and beat reactive visualizers**: Waveforms, spectra, particle fluids, scrolling spectrograms, dot-matrix LED meters, and more.
 - **HDR Effects**: Including post-processing for real luminous glow on capable HDR displays and a selectable glow strength.
 - **Ableton Link sync**: Lock beat-driven effects to Traktor, Ableton Live, and other Link software over Wi-Fi; the mic still drives the visuals while Link sets the beat.
 - **Real-time Room Lighting Control with Philips Hue, LIFX & Nanoleaf Integration**: Direct local UDP streaming over the Hue Entertainment API, LIFX LAN Protocol, and Nanoleaf ExtControl. Also works in co-ordination with Ableton Link to drive a synchronised beat to the bulbs. Includes advanced controls for calibration and the ability to send Ableton Link beats early for perfect synchronisation.
 - **Two audio sources**: Raw low-latency microphone capture or internal/system audio via screen-share (Warning: Low latency not supported via screen-sharing).
 - **Global colour themes**: Re-tint visuals to your desired colour scheme (Neon, Warm, Cool, Mono…).
 - **Vibrate-on-beat haptics**: Bass-onset detection triggers physical pulses.
+- **Display Mode**: An ambient, burn-in-safe standby screen — an oversized clock, live BPM, and an audio-presence meter over the dimmed visuals — turning a propped-up phone into a desk/shelf piece.
 - **Foldable & Tablet Support**: Open a foldable phone and the render loop will survive the screen state changes without recreating.
 - **Diagnostics Overlay Toggle**: Displays FPS, audio latency, Ableton link status, Hue drop rates and more.
 

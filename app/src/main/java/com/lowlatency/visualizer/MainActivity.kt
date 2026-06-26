@@ -81,6 +81,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnOdyssey: Button
     private lateinit var btnLogoParticle: Button
     private lateinit var btnCrystalSwarm: Button
+    private lateinit var btnLiquidLight: Button
     private lateinit var btnBurnin: Button
     private lateinit var btnGlowOff: Button
     private lateinit var btnGlowSubtle: Button
@@ -322,6 +323,7 @@ class MainActivity : AppCompatActivity() {
         btnOdyssey = findViewById(R.id.btn_odyssey)
         btnLogoParticle = findViewById(R.id.btn_logo_particle)
         btnCrystalSwarm = findViewById(R.id.btn_crystal_swarm)
+        btnLiquidLight = findViewById(R.id.btn_liquid_light)
         btnBurnin = findViewById(R.id.btn_burnin)
         btnGlowOff = findViewById(R.id.btn_glow_off)
         btnGlowSubtle = findViewById(R.id.btn_glow_subtle)
@@ -511,6 +513,7 @@ class MainActivity : AppCompatActivity() {
             Triple(btnReactionDiffusion, 20, btnReactionDiffusion.text.toString()),
             Triple(btnPlasmaStorm, 23, btnPlasmaStorm.text.toString()),
             Triple(btnOdyssey, 25, btnOdyssey.text.toString()),
+            Triple(btnLiquidLight, 29, btnLiquidLight.text.toString()),
         )
         glView.sceneOrder = visButtons.map { it.second }
         glView.onSceneChanged = {
