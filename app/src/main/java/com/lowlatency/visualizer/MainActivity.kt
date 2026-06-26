@@ -32,6 +32,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.text.HtmlCompat
+import com.lowlatency.visualizer.ui.DisplayModeController
 import com.lowlatency.visualizer.ui.LightingController
 import com.lowlatency.visualizer.ui.MenuSheetController
 import com.lowlatency.visualizer.ui.PerfOverlayController
@@ -111,6 +112,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var groupPeakLuminance: View
     private lateinit var perfOverlayController: PerfOverlayController
     private lateinit var menuSheetController: MenuSheetController
+    private lateinit var displayModeController: DisplayModeController
     private lateinit var heroVisName: TextView
     private lateinit var btnSceneLabel: Button
     private lateinit var sceneLabel: TextView
@@ -246,6 +248,13 @@ class MainActivity : AppCompatActivity() {
             onBeforeOpen = { syncMenuState() },
         )
         menuSheetController.bind()
+
+        displayModeController = DisplayModeController(this)
+        displayModeController.bind()
+        findViewById<Button>(R.id.btn_display_mode).setOnClickListener {
+            menuSheetController.close()
+            displayModeController.enter()
+        }
 
         ContextCompat.registerReceiver(
             this,
@@ -427,6 +436,7 @@ class MainActivity : AppCompatActivity() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 when {
+                    displayModeController.isActive -> displayModeController.exit()
                     menuSheetController.isOpen -> menuSheetController.close()
                     else -> { isEnabled = false; onBackPressedDispatcher.onBackPressed() }
                 }
@@ -1169,6 +1179,7 @@ class MainActivity : AppCompatActivity() {
         }
         if (::perfOverlayController.isInitialized) perfOverlayController.onResume()
         if (::lightingController.isInitialized) lightingController.onResume()
+        if (::displayModeController.isInitialized) displayModeController.onResume()
     }
 
     override fun onPause() {
@@ -1178,6 +1189,7 @@ class MainActivity : AppCompatActivity() {
         backgroundedAtMs = SystemClock.elapsedRealtime()
         if (::perfOverlayController.isInitialized) perfOverlayController.onPause()
         if (::lightingController.isInitialized) lightingController.onPause()
+        if (::displayModeController.isInitialized) displayModeController.onPause()
         linkHandler.removeCallbacks(linkStatusPoller)
         if (LinkSync.enabled) {
             NativeBridge.nativeLinkSetEnabled(false)
@@ -1188,6 +1200,7 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         if (::perfOverlayController.isInitialized) perfOverlayController.onDestroy()
         if (::lightingController.isInitialized) lightingController.onDestroy()
+        if (::displayModeController.isInitialized) displayModeController.onDestroy()
         if (::hapticController.isInitialized) hapticController.release()
         linkHandler.removeCallbacks(linkStatusPoller)
         NativeBridge.nativeLinkSetEnabled(false)

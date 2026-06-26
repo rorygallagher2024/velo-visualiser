@@ -43,6 +43,9 @@
     <string name="cat_immersive">Immersive</string>
     <string name="section_visuals">Visuals</string>
     <string name="display_label">Display</string>
+    <string name="display_mode">Display Mode</string>
+    <string name="display_mode_hint">Tap anywhere to exit</string>
+    <string name="display_bpm_unit">BPM</string>
     <string name="burnin_on">Burn-in Protection: On</string>
     <string name="burnin_off">Burn-in Protection: Off</string>
     <string name="glow_label">Bloom Intensity</string>
