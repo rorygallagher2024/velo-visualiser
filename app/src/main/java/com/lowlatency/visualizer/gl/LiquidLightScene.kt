@@ -12,9 +12,8 @@ import kotlin.math.max
 /**
  * Visual 29 — "Liquid Light".
  *
- * A modern take on the old Winamp / MilkDrop feedback visuals, cranked for
- * colour. The signature MilkDrop trick is frame feedback: each frame the
- * previous frame is sampled through a slowly warping transform (zoom + rotate +
+ * A modern take on the class music visualisers, cranked for
+ * colour. Eeach frame the previous frame is sampled through a slowly warping transform (zoom + rotate +
  * swirl) and faded, so everything smears into liquid tunnels and trails. On top
  * of that we draw a rainbow radial waveform straight from the live PCM, so the
  * audio literally carves the light.
@@ -92,11 +91,15 @@ void main() {
     float ring = smoothstep(lineW, 0.0, abs(r - targetR));
     vec3 ringCol = rainbow(idx * 1.5 + u_hue) * ring * (1.0 + u_pulse * 1.8);
 
-    // Accumulate trails + ring, then carve a dark vanishing point at the centre.
-    // The centre is the zoom fixed-point, so without this it accumulates every
-    // hue and blows out to white — masking it to black keeps the tunnel clean.
-    vec3 col = prev + ringCol;
-    col *= smoothstep(0.03, 0.13, r);
+    // Saturated, slowly hue-cycling core. A *neutral* core would accumulate at the
+    // zoom fixed-point into white; a saturated one (deepened below, unequal
+    // channels, hue ~constant over the short feedback window) instead builds into
+    // a vivid evolving colour that radiates outward — so the centre stays colourful.
+    vec3 coreHue = rainbow(u_hue * 0.7 + 0.15);
+    coreHue = mix(vec3(dot(coreHue, vec3(0.333))), coreHue, 1.7);   // deepen saturation
+    float core = exp(-r * r * 24.0) * (0.04 + u_pulse * 0.16);
+
+    vec3 col = prev + ringCol + coreHue * core;
     frag = vec4(col, 1.0);
 }
 """
