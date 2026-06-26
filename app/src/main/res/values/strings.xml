@@ -45,7 +45,8 @@
     <string name="section_visuals">Visuals</string>
     <string name="display_label">Display</string>
     <string name="display_mode">Display Mode</string>
-    <string name="display_mode_hint">Tap anywhere to exit</string>
+    <string name="display_mode_hint">Tap twice to exit</string>
+    <string name="display_mode_hint_again">Tap again to exit</string>
     <string name="display_bpm_unit">BPM</string>
     <string name="burnin_on">Burn-in Protection: On</string>
     <string name="burnin_off">Burn-in Protection: Off</string>

@@ -48,6 +48,15 @@ class DisplayModeController(
     private var lastBpmShown = -2
     private var phase = 0.0
 
+    // Exit needs a confirming second tap (guards against accidental presses): the
+    // first tap arms this window and shows "tap again to exit"; it disarms if no
+    // second tap arrives in time.
+    private var exitArmed = false
+    private val disarmExit = Runnable {
+        exitArmed = false
+        hideHint()
+    }
+
     private val handler = Handler(Looper.getMainLooper())
     private val ticker = object : Runnable {
         override fun run() {
@@ -67,12 +76,23 @@ class DisplayModeController(
         exitHint = activity.findViewById(R.id.display_exit_hint)
         presenceFill.pivotX = 0f
         shiftRadiusPx = SHIFT_RADIUS_DP * activity.resources.displayMetrics.density
-        overlay.setOnClickListener { exit() }
+        overlay.setOnClickListener {
+            if (exitArmed) {
+                exit()
+            } else {
+                exitArmed = true
+                showHint(R.string.display_mode_hint_again)
+                handler.removeCallbacks(disarmExit)
+                handler.postDelayed(disarmExit, EXIT_ARM_MS)
+            }
+        }
     }
 
     fun enter() {
         if (isActive) return
         isActive = true
+        exitArmed = false
+        handler.removeCallbacks(disarmExit)
         smoothedPresence = 0f
         elapsedMs = 0L
         lastClockMinute = -1
@@ -95,7 +115,9 @@ class DisplayModeController(
     fun exit() {
         if (!isActive) return
         isActive = false
+        exitArmed = false
         handler.removeCallbacks(ticker)
+        handler.removeCallbacks(disarmExit)
         exitHint.animate().cancel()
         overlay.animate().alpha(0f).setDuration(EXIT_FADE_MS)
             .withEndAction { overlay.visibility = View.GONE }
@@ -106,17 +128,37 @@ class DisplayModeController(
         if (isActive) { handler.removeCallbacks(ticker); handler.post(ticker) }
     }
 
-    fun onPause() = handler.removeCallbacks(ticker)
+    fun onPause() {
+        handler.removeCallbacks(ticker)
+        handler.removeCallbacks(disarmExit)
+        exitArmed = false
+    }
 
-    fun onDestroy() = handler.removeCallbacks(ticker)
+    fun onDestroy() {
+        handler.removeCallbacks(ticker)
+        handler.removeCallbacks(disarmExit)
+    }
 
-    /** Briefly show the "tap to exit" hint, then fade it away. */
+    /** On entry, briefly show how to exit ("tap twice"), then fade it away. */
     private fun flashExitHint() {
+        exitHint.setText(R.string.display_mode_hint)
         exitHint.animate().cancel()
         exitHint.alpha = 0f
         exitHint.animate().alpha(0.7f).setDuration(450L).withEndAction {
             exitHint.animate().alpha(0f).setStartDelay(2200L).setDuration(700L).start()
         }.start()
+    }
+
+    /** Show the armed "tap again to exit" prompt and hold it until disarm/exit. */
+    private fun showHint(textRes: Int) {
+        exitHint.setText(textRes)
+        exitHint.animate().cancel()
+        exitHint.animate().alpha(0.85f).setDuration(200L).start()
+    }
+
+    private fun hideHint() {
+        exitHint.animate().cancel()
+        exitHint.animate().alpha(0f).setDuration(500L).start()
     }
 
     private fun tick() {
@@ -174,6 +216,7 @@ class DisplayModeController(
         private const val FRAME_MS = 50L            // 20 Hz: presence stays live, cost negligible
         private const val ENTER_FADE_MS = 280L
         private const val EXIT_FADE_MS = 220L
+        private const val EXIT_ARM_MS = 2500L     // window for the confirming second tap
         private const val PRESENCE_SMOOTH = 0.25f
         private const val SHIFT_SPEED = 0.012        // radians/tick — a slow orbit
         private const val SHIFT_RADIUS_DP = 12f
