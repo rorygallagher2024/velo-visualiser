@@ -172,9 +172,12 @@ Velo Visualiser is **free and open source software**, licensed under the
 **GNU General Public License v3.0** — see [LICENSE](LICENSE).
 
 You're free to use, study, modify, and redistribute it. Any distributed
-derivative must also remain GPLv3. (The GPL is required here because the app
-integrates [Ableton Link](https://github.com/Ableton/link), which is GPLv2+
-unless used under a commercial licence from Ableton.)
+derivative must also remain GPLv3. We hold a commercial licence for
+[Ableton Link](https://github.com/Ableton/link) (which is GPLv2+ otherwise), so
+GPLv3 here is a deliberate choice, not an obligation.
+
+The **Velo name, logo, and icons are trademarks and are not covered by the GPL**
+— see [TRADEMARKS.md](TRADEMARKS.md). Forks must rebrand.
 
 No data collection, no ads, no tracking — local-only, and it'll stay that way.
 
