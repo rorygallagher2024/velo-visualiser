@@ -1,11 +1,6 @@
 package com.lowlatency.visualizer
 
-import android.animation.ValueAnimator
-import android.animation.TimeInterpolator
-import android.graphics.RenderEffect
-import android.graphics.Shader
 import android.Manifest
-import android.annotation.SuppressLint
 import android.app.Dialog
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -24,12 +19,8 @@ import android.os.Looper
 import android.os.SystemClock
 import android.provider.Settings
 import android.util.Log
-import android.view.GestureDetector
-import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
-import android.view.animation.OvershootInterpolator
-import android.view.animation.AnticipateInterpolator
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -42,8 +33,8 @@ import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.text.HtmlCompat
 import com.lowlatency.visualizer.ui.LightingController
+import com.lowlatency.visualizer.ui.MenuSheetController
 import com.lowlatency.visualizer.ui.PerfOverlayController
-import kotlin.math.abs
 
 /**
  * UI shell. Hosts the OpenGL canvas plus a translucent overlay layer:
@@ -56,8 +47,6 @@ import kotlin.math.abs
 class MainActivity : AppCompatActivity() {
 
     private lateinit var glView: VisualizerSurfaceView
-    private lateinit var scrim: View
-    private lateinit var optionsSheet: View
     private lateinit var splashOverlay: View
     private lateinit var introHint: View
     private lateinit var segMic: Button
@@ -121,6 +110,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnPeakLuminance: Button
     private lateinit var groupPeakLuminance: View
     private lateinit var perfOverlayController: PerfOverlayController
+    private lateinit var menuSheetController: MenuSheetController
     private lateinit var heroVisName: TextView
     private lateinit var btnSceneLabel: Button
     private lateinit var sceneLabel: TextView
@@ -147,10 +137,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var lightingController: LightingController
 
     private var systemAudioMode = false
-    private var menuOpen = false
     private var deferredPermissionRequest = false
 
-    private var blurAnimator: ValueAnimator? = null
 
     private var lastPeerCount = 0
     private var linkNotifyRunnable: Runnable? = null
@@ -252,6 +240,13 @@ class MainActivity : AppCompatActivity() {
         )
         perfOverlayController.bind()
 
+        menuSheetController = MenuSheetController(
+            activity = this,
+            glView = glView,
+            onBeforeOpen = { syncMenuState() },
+        )
+        menuSheetController.bind()
+
         ContextCompat.registerReceiver(
             this,
             captureStopReceiver,
@@ -285,8 +280,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun bindViews() {
         glView = findViewById(R.id.gl_view)
-        scrim = findViewById(R.id.scrim)
-        optionsSheet = findViewById(R.id.options_sheet)
         splashOverlay = findViewById(R.id.splash_overlay)
         introHint = findViewById(R.id.intro_hint)
         segMic = findViewById(R.id.seg_mic)
@@ -366,8 +359,7 @@ class MainActivity : AppCompatActivity() {
         internalAudioWarning = findViewById(R.id.internal_audio_warning)
         // Lighting views (Hue/LIFX/Nanoleaf) are bound inside LightingController.
 
-        prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        optionsSheet.visibility = View.GONE
+        prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
     }
 
     /** The app's versionName from the manifest/Gradle (e.g. "1.1"). */
@@ -378,7 +370,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * The VELO wordmark is now an HDR particle cloud rendered by the GL engine
+     * The VELO wordmark is an HDR particle cloud rendered by the GL engine
      * itself (see [VisualizerSurfaceView] / IntroLogoScene). This overlay is just
      * a brief black mask over GL initialisation — fade it out fast, then let the
      * GL intro play and surface the gesture hint once it dissolves.
@@ -416,7 +408,7 @@ class MainActivity : AppCompatActivity() {
         introHint.animate().alpha(1f).setDuration(600).start()
         
         introHint.postDelayed({
-            if (menuOpen) {
+            if (menuSheetController.isOpen) {
                 // If the user already opened the menu, just hide it immediately
                 introHint.visibility = View.GONE
             } else {
@@ -429,38 +421,13 @@ class MainActivity : AppCompatActivity() {
 
     // ----- Gestures: swipe-up opens the menu, swipe-down / tap-outside closes -----
 
-    @SuppressLint("ClickableViewAccessibility")
     private fun wireGestures() {
-        glView.onSwipeUp = { showMenu() }
-
-        scrim.setOnClickListener { hideMenu() }
-
-        // Fast swipe-down on the sheet dismisses it. The sheet is a ScrollView,
-        // so the listener must NOT consume touches (return false) — otherwise the
-        // ScrollView can't scroll its content on short screens. The detector still
-        // observes every event and fires onFling for the dismiss gesture.
-        val sheetGestures = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
-            override fun onDown(e: MotionEvent) = false
-            override fun onFling(
-                e1: MotionEvent?, e2: MotionEvent, vx: Float, vy: Float
-            ): Boolean {
-                if (vy > SWIPE_DOWN_VELOCITY && abs(vy) > abs(vx)) {
-                    // Only dismiss if the ScrollView is already at the top.
-                    // This prevents accidental closure while scrolling up.
-                    if (optionsSheet.scrollY == 0) {
-                        hideMenu()
-                        return true
-                    }
-                }
-                return false
-            }
-        })
-        optionsSheet.setOnTouchListener { _, ev -> sheetGestures.onTouchEvent(ev); false }
-
+        // The settings sheet (interactive swipe-up drag, scrim, swipe-down dismiss,
+        // blur) is owned by menuSheetController, bound in onCreate.
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 when {
-                    menuOpen -> hideMenu()
+                    menuSheetController.isOpen -> menuSheetController.close()
                     else -> { isEnabled = false; onBackPressedDispatcher.onBackPressed() }
                 }
             }
@@ -491,68 +458,6 @@ class MainActivity : AppCompatActivity() {
                 weight = if (active) 1f else 0f
                 height = if (active) 0 else LinearLayout.LayoutParams.WRAP_CONTENT
             }
-        }
-    }
-
-    private fun showMenu() {
-        if (menuOpen) return
-        menuOpen = true
-        syncMenuState()
-
-        scrim.alpha = 0f
-        scrim.visibility = View.VISIBLE
-        scrim.animate().alpha(1f).setDuration(180).start()
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            optionsSheet.background.mutate().alpha = 210 // ~82% translucent glass
-            animateBlur(32f, 350, OvershootInterpolator(1.1f))
-        }
-
-        val off = resources.displayMetrics.heightPixels.toFloat()
-        optionsSheet.translationY = off
-        optionsSheet.visibility = View.VISIBLE
-        optionsSheet.animate().translationY(0f).setDuration(350)
-            .setInterpolator(OvershootInterpolator(1.1f))
-            .start()
-    }
-
-    private fun hideMenu() {
-        if (!menuOpen) return
-        menuOpen = false
-
-        scrim.animate().alpha(0f).setDuration(250)
-            .withEndAction { scrim.visibility = View.GONE }.start()
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            animateBlur(0f, 250, AnticipateInterpolator(1.1f))
-        }
-
-        optionsSheet.animate().translationY(optionsSheet.height.toFloat()).setDuration(250)
-            .setInterpolator(AnticipateInterpolator(1.1f))
-            .withEndAction {
-                optionsSheet.visibility = View.GONE
-            }
-            .start()
-    }
-
-    private fun animateBlur(targetRadius: Float, animDuration: Long, animInterpolator: TimeInterpolator) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
-
-        blurAnimator?.cancel()
-        val currentRadius = (blurAnimator?.animatedValue as? Float) ?: if (targetRadius > 0f) 0f else 32f
-
-        blurAnimator = ValueAnimator.ofFloat(currentRadius, targetRadius).apply {
-            duration = animDuration
-            interpolator = animInterpolator
-            addUpdateListener { anim ->
-                val r = anim.animatedValue as Float
-                if (r > 0.5f) {
-                    glView.setRenderEffect(RenderEffect.createBlurEffect(r, r, Shader.TileMode.CLAMP))
-                } else {
-                    glView.setRenderEffect(null)
-                }
-            }
-            start()
         }
     }
 
@@ -602,7 +507,7 @@ class MainActivity : AppCompatActivity() {
             updateVisualizerSelection()
             // Flash the name over the canvas on a swipe (menu closed); when the
             // menu is open the hero header already names the active scene.
-            if (!menuOpen) showSceneLabel()
+            if (!menuSheetController.isOpen) showSceneLabel()
         }
 
         prefs.getStringSet(KEY_FAVOURITES, emptySet())?.forEach {
@@ -847,7 +752,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun acquireMulticastLock() {
         if (multicastLock?.isHeld == true) return
-        val wifi = applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager ?: return
+        val wifi = applicationContext.getSystemService(WIFI_SERVICE) as? WifiManager ?: return
         multicastLock = wifi.createMulticastLock("velo-ableton-link").apply {
             setReferenceCounted(false)
             acquire()
@@ -1005,12 +910,12 @@ class MainActivity : AppCompatActivity() {
             lightingController.onLinkBeat()
             // Step the virtual bar to Link's current beat-in-bar (post-nudge) and
             // pulse the beat dot. Only while the menu is open, to stay cheap.
-            if (menuOpen) {
+            if (menuSheetController.isOpen) {
                 val cell = (Math.round(BeatPulse.barPhase * 4f) % 4 + 4) % 4
                 beatDot.post { flashBeatDot(); updateBarCells(cell) }
             }
         }
-        glView.onDrop = { if (menuOpen) dropDot.post { flashDot(dropDot) } }
+        glView.onDrop = { if (menuSheetController.isOpen) dropDot.post { flashDot(dropDot) } }
     }
 
     private fun syncMenuState() {
@@ -1305,20 +1210,10 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_LINK_ANTICIPATE = "ableton_link_anticipate"
         private const val KEY_LINK_BAR_OFFSET = "ableton_link_bar_offset"
         private const val KEY_LINK_EXTRAS = "ableton_link_experimental_extras"
-        private const val KEY_ADV_LINK_BEAT_FLASH = "adv_link_beat_flash"
-        private const val KEY_ADV_COLOUR = "adv_colour_split"
-        private const val KEY_ADV_GLOW = "adv_resting_glow"
-        private const val KEY_ADV_AUDIO_BRIGHT = "adv_audio_brightness"
-        private const val KEY_ADV_AUDIO_FLASH = "adv_audio_flash"
-        private const val KEY_ADV_HUE_LOOKAHEAD = "adv_hue_lookahead"
         private const val KEY_SCENE_LABEL = "scene_label_enabled"
-        // Background longer than this and a Hue entertainment stream has likely
-        // timed out on the bridge, so we rebuild it on resume rather than trust it.
-        private const val HUE_RESYNC_AWAY_MS = 3000L
         private const val KEY_PEAK_LUMINANCE = "peak_luminance_enabled"
         private const val KEY_FAVOURITES = "favourite_scenes"
         private const val KEY_SCREENSHARE_RATIONALE = "screenshare_rationale_shown"
-        private const val SWIPE_DOWN_VELOCITY = 1200f
         private const val TAB_VISUALS = 0
         private const val TAB_LIGHTING = 1
         private const val TAB_SETTINGS = 2

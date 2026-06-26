@@ -7,6 +7,8 @@ import android.util.AttributeSet
 import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.Surface
+import android.view.VelocityTracker
+import android.view.ViewConfiguration
 import com.lowlatency.visualizer.gl.HdrEGLConfigChooser
 import com.lowlatency.visualizer.gl.VisualizerRenderer
 import kotlin.math.abs
@@ -28,8 +30,17 @@ class VisualizerSurfaceView @JvmOverloads constructor(
     /** Invoked on a single tap (no GL coupling — pure UI intent). */
     var onTap: (() -> Unit)? = null
 
-    /** Invoked on an upward fling that starts near the bottom edge. */
-    var onSwipeUp: (() -> Unit)? = null
+    /**
+     * Interactive swipe-up-to-open-menu, driven by raw touch so the sheet can
+     * follow the finger (instead of a fixed canned fling animation):
+     *  - [onMenuDragStart]   the user began an upward drag from the bottom region.
+     *  - [onMenuDrag]        called each move with px dragged upward from the start (>=0).
+     *  - [onMenuDragRelease] finger lifted; arg is the upward velocity in px/s
+     *                        (positive = flicking up). The Activity decides settle.
+     */
+    var onMenuDragStart: (() -> Unit)? = null
+    var onMenuDrag: ((Float) -> Unit)? = null
+    var onMenuDragRelease: ((Float) -> Unit)? = null
 
     /** Invoked on the UI thread when the scene is changed (via swipe or select). */
     var onSceneChanged: ((Int) -> Unit)? = null
@@ -82,24 +93,25 @@ class VisualizerSurfaceView @JvmOverloads constructor(
                 e1: MotionEvent?, e2: MotionEvent,
                 velocityX: Float, velocityY: Float
             ): Boolean {
-                val horizontal = abs(velocityX) > abs(velocityY)
-                if (horizontal && abs(velocityX) > SWIPE_VELOCITY) {
-                    // Left => next scene, right => previous (within favourites if set).
+                // Horizontal fling => change scene. The vertical (menu) gesture is
+                // handled interactively in onTouchEvent, not here.
+                if (abs(velocityX) > abs(velocityY) && abs(velocityX) > SWIPE_VELOCITY) {
                     swipeScene(if (velocityX < 0) 1 else -1)
                     return true
-                }
-                if (!horizontal && velocityY < -SWIPE_VELOCITY) {
-                    // Upward fling starting in the bottom third opens the menu.
-                    val startedLow = e1 != null && e1.y > height * 0.66f
-                    if (startedLow) {
-                        onSwipeUp?.invoke()
-                        return true
-                    }
                 }
                 return false
             }
         }
     )
+
+    // ----- Interactive swipe-up drag (menu) -----
+    private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
+    private var velocityTracker: VelocityTracker? = null
+    private var downX = 0f
+    private var downY = 0f
+    private var startedLow = false
+    private var gestureDecided = false
+    private var menuDragging = false
 
     /** Enable/disable OLED burn-in protection (idle dimming + orbit dimming). */
     var burnInEnabled: Boolean
@@ -187,7 +199,62 @@ class VisualizerSurfaceView @JvmOverloads constructor(
 
     @Suppress("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        return gestureDetector.onTouchEvent(event)
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                downX = event.x
+                downY = event.y
+                startedLow = event.y > height * MENU_GRAB_ZONE
+                gestureDecided = false
+                menuDragging = false
+                velocityTracker?.recycle()
+                velocityTracker = VelocityTracker.obtain()
+                velocityTracker?.addMovement(event)
+                gestureDetector.onTouchEvent(event)
+                return true
+            }
+            MotionEvent.ACTION_MOVE -> {
+                velocityTracker?.addMovement(event)
+                if (!gestureDecided) {
+                    val dx = event.x - downX
+                    val dy = event.y - downY
+                    if (abs(dx) > touchSlop || abs(dy) > touchSlop) {
+                        gestureDecided = true
+                        // Upward drag from the bottom region (and not during the
+                        // intro) becomes an interactive menu pull.
+                        if (startedLow && dy < 0 && abs(dy) > abs(dx) &&
+                            onMenuDragStart != null && !renderer.introActive
+                        ) {
+                            menuDragging = true
+                            onMenuDragStart?.invoke()
+                        }
+                    }
+                }
+                if (menuDragging) {
+                    onMenuDrag?.invoke((downY - event.y).coerceAtLeast(0f))
+                    return true
+                }
+                gestureDetector.onTouchEvent(event)
+                return true
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                if (menuDragging) {
+                    velocityTracker?.addMovement(event)
+                    velocityTracker?.computeCurrentVelocity(1000)
+                    val upwardVel = -(velocityTracker?.yVelocity ?: 0f)
+                    onMenuDragRelease?.invoke(upwardVel)
+                    menuDragging = false
+                } else {
+                    gestureDetector.onTouchEvent(event)
+                }
+                velocityTracker?.recycle()
+                velocityTracker = null
+                return true
+            }
+            else -> {
+                gestureDetector.onTouchEvent(event)
+                return true
+            }
+        }
     }
 
     override fun surfaceCreated(holder: android.view.SurfaceHolder) {
@@ -199,5 +266,6 @@ class VisualizerSurfaceView @JvmOverloads constructor(
 
     companion object {
         private const val SWIPE_VELOCITY = 800f   // px/s threshold
+        private const val MENU_GRAB_ZONE = 0.5f   // upward drag below this fraction opens the menu
     }
 }
