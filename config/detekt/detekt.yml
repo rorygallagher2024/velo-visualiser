@@ -1,0 +1,54 @@
+# Detekt — tuned as a complexity/size guard for this project. Merged on top of
+# detekt's defaults (buildUponDefaultConfig = true). The point is to catch bloat
+# creep (large classes, long/complex methods) — the noisier style rulesets are
+# turned off so this stays a signal, not a nag. Existing debt is grandfathered in
+# config/detekt/baseline.xml; only NEW violations fail the build.
+
+build:
+  maxIssues: 0   # any non-baselined issue fails `detekt`
+
+complexity:
+  active: true
+  CyclomaticComplexMethod:
+    active: true
+    threshold: 15
+  CognitiveComplexMethod:
+    active: true
+    threshold: 20
+  LongMethod:
+    active: true
+    threshold: 70
+  LongParameterList:
+    active: true
+    functionThreshold: 8
+    constructorThreshold: 8
+    ignoreDefaultParameters: true
+  LargeClass:
+    active: true
+    threshold: 600
+  TooManyFunctions:
+    active: true
+    thresholdInFiles: 30
+    thresholdInClasses: 30
+    thresholdInInterfaces: 20
+    thresholdInObjects: 30
+    thresholdInEnums: 30
+    ignorePrivate: false
+  NestedBlockDepth:
+    active: true
+    threshold: 5
+
+# Keep detekt focused on complexity/size — silence the broad style/formatting
+# rulesets so this guard doesn't drown the signal in nits.
+comments:
+  active: false
+style:
+  active: false
+naming:
+  active: false
+exceptions:
+  active: false
+performance:
+  active: false
+potential-bugs:
+  active: false

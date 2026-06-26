@@ -1,0 +1,44 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>CognitiveComplexMethod:HueLightController.kt$HueLightController$private fun startSender( creds: HueCredentials, area: HueEntertainmentArea, onResult: (Boolean, String?) -&gt; Unit, )</ID>
+    <ID>CognitiveComplexMethod:HueSetupManager.kt$HueSetupManager$fun listEntertainmentAreas( creds: HueCredentials, onResult: (List&lt;HueEntertainmentArea&gt;) -&gt; Unit, onError: (String) -&gt; Unit, onAuthError: (() -&gt; Unit)? = null, )</ID>
+    <ID>CognitiveComplexMethod:LifxController.kt$LifxController$private fun calculateLinkColor(): LifxColor</ID>
+    <ID>CognitiveComplexMethod:LifxController.kt$LifxController$private fun startSender()</ID>
+    <ID>CognitiveComplexMethod:LightingController.kt$LightingController$fun bind()</ID>
+    <ID>CognitiveComplexMethod:LightingController.kt$LightingController$private fun showAdvancedDialog()</ID>
+    <ID>CognitiveComplexMethod:NanoleafController.kt$NanoleafController$fun checkReachability()</ID>
+    <ID>CognitiveComplexMethod:NanoleafController.kt$NanoleafController$fun startSync()</ID>
+    <ID>CognitiveComplexMethod:PerfOverlayController.kt$PerfOverlayController$private fun updatePerfOverlay()</ID>
+    <ID>CognitiveComplexMethod:VisualizerRenderer.kt$VisualizerRenderer$override fun onDrawFrame(gl: GL10?)</ID>
+    <ID>CognitiveComplexMethod:WledController.kt$WledController$private fun calculateLinkColor(): RGB</ID>
+    <ID>CognitiveComplexMethod:WledController.kt$WledController$private fun startSender()</ID>
+    <ID>ComplexCondition:VisualizerSurfaceView.kt$VisualizerSurfaceView$startedLow &amp;&amp; dy &lt; 0 &amp;&amp; abs(dy) &gt; abs(dx) &amp;&amp; onMenuDragStart != null &amp;&amp; !renderer.introActive</ID>
+    <ID>CyclomaticComplexMethod:HueLightController.kt$HueLightController$private fun startSender( creds: HueCredentials, area: HueEntertainmentArea, onResult: (Boolean, String?) -&gt; Unit, )</ID>
+    <ID>CyclomaticComplexMethod:HueSetupManager.kt$HueSetupManager$fun listEntertainmentAreas( creds: HueCredentials, onResult: (List&lt;HueEntertainmentArea&gt;) -&gt; Unit, onError: (String) -&gt; Unit, onAuthError: (() -&gt; Unit)? = null, )</ID>
+    <ID>CyclomaticComplexMethod:LightingController.kt$LightingController$fun bind()</ID>
+    <ID>CyclomaticComplexMethod:PerfOverlayController.kt$PerfOverlayController$private fun renderHeroFps()</ID>
+    <ID>CyclomaticComplexMethod:PerfOverlayController.kt$PerfOverlayController$private fun updatePerfOverlay()</ID>
+    <ID>CyclomaticComplexMethod:VisualizerRenderer.kt$VisualizerRenderer$override fun onDrawFrame(gl: GL10?)</ID>
+    <ID>CyclomaticComplexMethod:VisualizerRenderer.kt$VisualizerRenderer$private fun createScene(index: Int): GlScene</ID>
+    <ID>CyclomaticComplexMethod:VisualizerSurfaceView.kt$VisualizerSurfaceView$@Suppress("ClickableViewAccessibility") override fun onTouchEvent(event: MotionEvent): Boolean</ID>
+    <ID>EmptyFunctionBlock:HueSetupManager.kt$HueSetupManager.&lt;no name provided&gt;${}</ID>
+    <ID>EmptyFunctionBlock:HueSetupManager.kt$HueSetupManager.&lt;no name provided&gt;.&lt;no name provided&gt;${}</ID>
+    <ID>EmptyFunctionBlock:LightingController.kt$LightingController.&lt;no name provided&gt;${}</ID>
+    <ID>EmptyFunctionBlock:NanoleafController.kt$NanoleafController.&lt;no name provided&gt;${}</ID>
+    <ID>EmptyFunctionBlock:NanoleafController.kt$NanoleafController.&lt;no name provided&gt;.&lt;no name provided&gt;${}</ID>
+    <ID>EmptyFunctionBlock:SpectrogramScene.kt$SpectrogramScene${}</ID>
+    <ID>LargeClass:LightingController.kt$LightingController</ID>
+    <ID>LargeClass:MainActivity.kt$MainActivity : AppCompatActivity</ID>
+    <ID>LongMethod:HueLightController.kt$HueLightController$private fun startSender( creds: HueCredentials, area: HueEntertainmentArea, onResult: (Boolean, String?) -&gt; Unit, )</ID>
+    <ID>LongMethod:LightingController.kt$LightingController$fun bind()</ID>
+    <ID>LongMethod:MainActivity.kt$MainActivity$private fun bindViews()</ID>
+    <ID>LongMethod:MainActivity.kt$MainActivity$private fun wireMenuControls()</ID>
+    <ID>LongMethod:NanoleafController.kt$NanoleafController$fun startSync()</ID>
+    <ID>LongMethod:VisualizerRenderer.kt$VisualizerRenderer$override fun onDrawFrame(gl: GL10?)</ID>
+    <ID>NestedBlockDepth:LightingController.kt$LightingController$private fun buildLightControlUI()</ID>
+    <ID>TooManyFunctions:LightingController.kt$LightingController</ID>
+    <ID>TooManyFunctions:MainActivity.kt$MainActivity : AppCompatActivity</ID>
+  </CurrentIssues>
+</SmellBaseline>

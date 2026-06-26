@@ -1,11 +1,6 @@
 package com.lowlatency.visualizer
 
-import android.animation.ValueAnimator
-import android.animation.TimeInterpolator
-import android.graphics.RenderEffect
-import android.graphics.Shader
 import android.Manifest
-import android.annotation.SuppressLint
 import android.app.Dialog
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -24,11 +19,8 @@ import android.os.Looper
 import android.os.SystemClock
 import android.provider.Settings
 import android.util.Log
-import android.view.GestureDetector
-import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
-import android.view.animation.DecelerateInterpolator
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -41,8 +33,8 @@ import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.text.HtmlCompat
 import com.lowlatency.visualizer.ui.LightingController
+import com.lowlatency.visualizer.ui.MenuSheetController
 import com.lowlatency.visualizer.ui.PerfOverlayController
-import kotlin.math.abs
 
 /**
  * UI shell. Hosts the OpenGL canvas plus a translucent overlay layer:
@@ -55,8 +47,6 @@ import kotlin.math.abs
 class MainActivity : AppCompatActivity() {
 
     private lateinit var glView: VisualizerSurfaceView
-    private lateinit var scrim: View
-    private lateinit var optionsSheet: View
     private lateinit var splashOverlay: View
     private lateinit var introHint: View
     private lateinit var segMic: Button
@@ -120,6 +110,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnPeakLuminance: Button
     private lateinit var groupPeakLuminance: View
     private lateinit var perfOverlayController: PerfOverlayController
+    private lateinit var menuSheetController: MenuSheetController
     private lateinit var heroVisName: TextView
     private lateinit var btnSceneLabel: Button
     private lateinit var sceneLabel: TextView
@@ -146,13 +137,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var lightingController: LightingController
 
     private var systemAudioMode = false
-    private var menuOpen = false
     private var deferredPermissionRequest = false
 
-    private var blurAnimator: ValueAnimator? = null
-    private var currentBlurRadius = 0f
-    private var sheetDragActive = false
-    private var sheetTravel = 0f
 
     private var lastPeerCount = 0
     private var linkNotifyRunnable: Runnable? = null
@@ -254,6 +240,13 @@ class MainActivity : AppCompatActivity() {
         )
         perfOverlayController.bind()
 
+        menuSheetController = MenuSheetController(
+            activity = this,
+            glView = glView,
+            onBeforeOpen = { syncMenuState() },
+        )
+        menuSheetController.bind()
+
         ContextCompat.registerReceiver(
             this,
             captureStopReceiver,
@@ -287,8 +280,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun bindViews() {
         glView = findViewById(R.id.gl_view)
-        scrim = findViewById(R.id.scrim)
-        optionsSheet = findViewById(R.id.options_sheet)
         splashOverlay = findViewById(R.id.splash_overlay)
         introHint = findViewById(R.id.intro_hint)
         segMic = findViewById(R.id.seg_mic)
@@ -369,7 +360,6 @@ class MainActivity : AppCompatActivity() {
         // Lighting views (Hue/LIFX/Nanoleaf) are bound inside LightingController.
 
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
-        optionsSheet.visibility = View.GONE
     }
 
     /** The app's versionName from the manifest/Gradle (e.g. "1.1"). */
@@ -418,7 +408,7 @@ class MainActivity : AppCompatActivity() {
         introHint.animate().alpha(1f).setDuration(600).start()
         
         introHint.postDelayed({
-            if (menuOpen) {
+            if (menuSheetController.isOpen) {
                 // If the user already opened the menu, just hide it immediately
                 introHint.visibility = View.GONE
             } else {
@@ -431,42 +421,13 @@ class MainActivity : AppCompatActivity() {
 
     // ----- Gestures: swipe-up opens the menu, swipe-down / tap-outside closes -----
 
-    @SuppressLint("ClickableViewAccessibility")
     private fun wireGestures() {
-        // Interactive swipe-up: the sheet follows the finger, then settles open or
-        // closed on release based on position + velocity.
-        glView.onMenuDragStart = { beginSheetDrag() }
-        glView.onMenuDrag = { dyUp -> updateSheetDrag(dyUp) }
-        glView.onMenuDragRelease = { vUp -> endSheetDrag(vUp) }
-
-        scrim.setOnClickListener { hideMenu() }
-
-        // Fast swipe-down on the sheet dismisses it. The sheet is a ScrollView,
-        // so the listener must NOT consume touches (return false) — otherwise the
-        // ScrollView can't scroll its content on short screens. The detector still
-        // observes every event and fires onFling for the dismiss gesture.
-        val sheetGestures = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
-            override fun onDown(e: MotionEvent) = false
-            override fun onFling(
-                e1: MotionEvent?, e2: MotionEvent, vx: Float, vy: Float
-            ): Boolean {
-                if (vy > SWIPE_DOWN_VELOCITY && abs(vy) > abs(vx)) {
-                    // Only dismiss if the ScrollView is already at the top.
-                    // This prevents accidental closure while scrolling up.
-                    if (optionsSheet.scrollY == 0) {
-                        hideMenu()
-                        return true
-                    }
-                }
-                return false
-            }
-        })
-        optionsSheet.setOnTouchListener { _, ev -> sheetGestures.onTouchEvent(ev); false }
-
+        // The settings sheet (interactive swipe-up drag, scrim, swipe-down dismiss,
+        // blur) is owned by menuSheetController, bound in onCreate.
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 when {
-                    menuOpen -> hideMenu()
+                    menuSheetController.isOpen -> menuSheetController.close()
                     else -> { isEnabled = false; onBackPressedDispatcher.onBackPressed() }
                 }
             }
@@ -497,122 +458,6 @@ class MainActivity : AppCompatActivity() {
                 weight = if (active) 1f else 0f
                 height = if (active) 0 else LinearLayout.LayoutParams.WRAP_CONTENT
             }
-        }
-    }
-
-    /** Travel distance from fully-closed (sheet off the bottom) to open. */
-    private fun sheetTravelPx(): Float =
-        (if (optionsSheet.height > 0) optionsSheet.height else resources.displayMetrics.heightPixels).toFloat()
-
-    private fun hideMenu() {
-        if (!menuOpen) return
-        sheetDragActive = false
-        settleSheet(open = false, speedPxPerS = 0f)
-    }
-
-    /** A finger-down upward drag began: prime the sheet at the closed position so
-     *  it can track the finger from off-screen. */
-    private fun beginSheetDrag() {
-        if (sheetDragActive) return
-        sheetDragActive = true
-        menuOpen = true
-        syncMenuState()
-        optionsSheet.animate().cancel()
-        scrim.animate().cancel()
-        sheetTravel = sheetTravelPx()
-        optionsSheet.translationY = sheetTravel
-        optionsSheet.visibility = View.VISIBLE
-        scrim.alpha = 0f
-        scrim.visibility = View.VISIBLE
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            optionsSheet.background.mutate().alpha = 210 // ~82% translucent glass
-        }
-    }
-
-    /** The sheet tracks the finger 1:1; scrim/blur/handle follow drag progress. */
-    private fun updateSheetDrag(dyUp: Float) {
-        if (!sheetDragActive) return
-        val ty = (sheetTravel - dyUp).coerceIn(0f, sheetTravel)
-        optionsSheet.translationY = ty
-        val progress = if (sheetTravel > 0f) 1f - ty / sheetTravel else 0f
-        scrim.alpha = progress
-        setBlurRadius(progress * MENU_BLUR_MAX)
-    }
-
-    /** Finger lifted: settle open or closed from position + velocity. */
-    private fun endSheetDrag(velUpPxPerS: Float) {
-        if (!sheetDragActive) return
-        sheetDragActive = false
-        val progress = if (sheetTravel > 0f) 1f - optionsSheet.translationY / sheetTravel else 0f
-        val open = when {
-            velUpPxPerS > SHEET_SETTLE_VELOCITY -> true
-            velUpPxPerS < -SHEET_SETTLE_VELOCITY -> false
-            else -> progress > 0.4f
-        }
-        settleSheet(open, abs(velUpPxPerS))
-    }
-
-    /** Animate the sheet to its open/closed rest state, easing at a speed that
-     *  hands off from the gesture's velocity. */
-    private fun settleSheet(open: Boolean, speedPxPerS: Float) {
-        menuOpen = open
-        if (open) {
-            optionsSheet.visibility = View.VISIBLE
-            scrim.visibility = View.VISIBLE
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                optionsSheet.background.mutate().alpha = 210
-            }
-        }
-        val target = if (open) 0f else sheetTravelPx()
-        val distance = abs(optionsSheet.translationY - target)
-        val dur = if (speedPxPerS > 1f) (distance / speedPxPerS * 1000f).toLong().coerceIn(140L, 360L) else 300L
-        val interp = DecelerateInterpolator(1.4f)
-
-        optionsSheet.animate().translationY(target).setDuration(dur).setInterpolator(interp)
-            .withEndAction { if (!open) optionsSheet.visibility = View.GONE }
-            .start()
-
-        scrim.animate().alpha(if (open) 1f else 0f).setDuration(dur).setInterpolator(interp)
-            .withEndAction { if (!open) scrim.visibility = View.GONE }
-            .start()
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            animateBlur(if (open) MENU_BLUR_MAX else 0f, dur, interp)
-        }
-    }
-
-    /** Immediately set the canvas blur radius (used during the interactive drag,
-     *  bypassing the animator so it tracks the finger without lag). */
-    private fun setBlurRadius(r: Float) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
-        blurAnimator?.cancel()
-        currentBlurRadius = r
-        if (r > 0.5f) {
-            glView.setRenderEffect(RenderEffect.createBlurEffect(r, r, Shader.TileMode.CLAMP))
-        } else {
-            glView.setRenderEffect(null)
-        }
-    }
-
-    private fun animateBlur(targetRadius: Float, animDuration: Long, animInterpolator: TimeInterpolator) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
-
-        blurAnimator?.cancel()
-        // Resume from the live radius (the drag may have left it mid-way) so the
-        // settle doesn't snap the blur back to 0/32 and flicker.
-        blurAnimator = ValueAnimator.ofFloat(currentBlurRadius, targetRadius).apply {
-            duration = animDuration
-            interpolator = animInterpolator
-            addUpdateListener { anim ->
-                val r = anim.animatedValue as Float
-                currentBlurRadius = r
-                if (r > 0.5f) {
-                    glView.setRenderEffect(RenderEffect.createBlurEffect(r, r, Shader.TileMode.CLAMP))
-                } else {
-                    glView.setRenderEffect(null)
-                }
-            }
-            start()
         }
     }
 
@@ -662,7 +507,7 @@ class MainActivity : AppCompatActivity() {
             updateVisualizerSelection()
             // Flash the name over the canvas on a swipe (menu closed); when the
             // menu is open the hero header already names the active scene.
-            if (!menuOpen) showSceneLabel()
+            if (!menuSheetController.isOpen) showSceneLabel()
         }
 
         prefs.getStringSet(KEY_FAVOURITES, emptySet())?.forEach {
@@ -1065,12 +910,12 @@ class MainActivity : AppCompatActivity() {
             lightingController.onLinkBeat()
             // Step the virtual bar to Link's current beat-in-bar (post-nudge) and
             // pulse the beat dot. Only while the menu is open, to stay cheap.
-            if (menuOpen) {
+            if (menuSheetController.isOpen) {
                 val cell = (Math.round(BeatPulse.barPhase * 4f) % 4 + 4) % 4
                 beatDot.post { flashBeatDot(); updateBarCells(cell) }
             }
         }
-        glView.onDrop = { if (menuOpen) dropDot.post { flashDot(dropDot) } }
+        glView.onDrop = { if (menuSheetController.isOpen) dropDot.post { flashDot(dropDot) } }
     }
 
     private fun syncMenuState() {
@@ -1369,9 +1214,6 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_PEAK_LUMINANCE = "peak_luminance_enabled"
         private const val KEY_FAVOURITES = "favourite_scenes"
         private const val KEY_SCREENSHARE_RATIONALE = "screenshare_rationale_shown"
-        private const val SWIPE_DOWN_VELOCITY = 1200f
-        private const val MENU_BLUR_MAX = 32f
-        private const val SHEET_SETTLE_VELOCITY = 600f  // px/s flick that decisively opens/closes
         private const val TAB_VISUALS = 0
         private const val TAB_LIGHTING = 1
         private const val TAB_SETTINGS = 2

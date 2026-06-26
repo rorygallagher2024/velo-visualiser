@@ -1,6 +1,16 @@
 plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
+    id 'io.gitlab.arturbosch.detekt'
+}
+
+// Static-analysis guard, focused on complexity/size so bloat is caught
+// automatically (e.g. a controller's logic creeping back into MainActivity).
+detekt {
+    buildUponDefaultConfig = true
+    config.setFrom(files("$rootDir/config/detekt/detekt.yml"))
+    baseline = file("$rootDir/config/detekt/baseline.xml")
+    source.setFrom(files("src/main/java"))
 }
 
 android {
@@ -12,8 +22,8 @@ android {
         minSdk 29            // AudioPlaybackCapture (MediaProjection audio) requires API 29
         targetSdk 37         // Android 17 — latest target
         // Bump the minor version on each change; shown at the bottom of the menu.
-        versionCode 64
-        versionName "1.76"
+        versionCode 65
+        versionName "1.77"
 
         // --- NDK / native build ---
         ndk {
