@@ -28,8 +28,7 @@ import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
-import android.view.animation.OvershootInterpolator
-import android.view.animation.AnticipateInterpolator
+import android.view.animation.DecelerateInterpolator
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -151,6 +150,9 @@ class MainActivity : AppCompatActivity() {
     private var deferredPermissionRequest = false
 
     private var blurAnimator: ValueAnimator? = null
+    private var currentBlurRadius = 0f
+    private var sheetDragActive = false
+    private var sheetTravel = 0f
 
     private var lastPeerCount = 0
     private var linkNotifyRunnable: Runnable? = null
@@ -431,7 +433,11 @@ class MainActivity : AppCompatActivity() {
 
     @SuppressLint("ClickableViewAccessibility")
     private fun wireGestures() {
-        glView.onSwipeUp = { showMenu() }
+        // Interactive swipe-up: the sheet follows the finger, then settles open or
+        // closed on release based on position + velocity.
+        glView.onMenuDragStart = { beginSheetDrag() }
+        glView.onMenuDrag = { dyUp -> updateSheetDrag(dyUp) }
+        glView.onMenuDragRelease = { vUp -> endSheetDrag(vUp) }
 
         scrim.setOnClickListener { hideMenu() }
 
@@ -494,58 +500,112 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun showMenu() {
-        if (menuOpen) return
-        menuOpen = true
-        syncMenuState()
-
-        scrim.alpha = 0f
-        scrim.visibility = View.VISIBLE
-        scrim.animate().alpha(1f).setDuration(180).start()
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            optionsSheet.background.mutate().alpha = 210 // ~82% translucent glass
-            animateBlur(32f, 350, OvershootInterpolator(1.1f))
-        }
-
-        val off = resources.displayMetrics.heightPixels.toFloat()
-        optionsSheet.translationY = off
-        optionsSheet.visibility = View.VISIBLE
-        optionsSheet.animate().translationY(0f).setDuration(350)
-            .setInterpolator(OvershootInterpolator(1.1f))
-            .start()
-    }
+    /** Travel distance from fully-closed (sheet off the bottom) to open. */
+    private fun sheetTravelPx(): Float =
+        (if (optionsSheet.height > 0) optionsSheet.height else resources.displayMetrics.heightPixels).toFloat()
 
     private fun hideMenu() {
         if (!menuOpen) return
-        menuOpen = false
+        sheetDragActive = false
+        settleSheet(open = false, speedPxPerS = 0f)
+    }
 
-        scrim.animate().alpha(0f).setDuration(250)
-            .withEndAction { scrim.visibility = View.GONE }.start()
+    /** A finger-down upward drag began: prime the sheet at the closed position so
+     *  it can track the finger from off-screen. */
+    private fun beginSheetDrag() {
+        if (sheetDragActive) return
+        sheetDragActive = true
+        menuOpen = true
+        syncMenuState()
+        optionsSheet.animate().cancel()
+        scrim.animate().cancel()
+        sheetTravel = sheetTravelPx()
+        optionsSheet.translationY = sheetTravel
+        optionsSheet.visibility = View.VISIBLE
+        scrim.alpha = 0f
+        scrim.visibility = View.VISIBLE
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            optionsSheet.background.mutate().alpha = 210 // ~82% translucent glass
+        }
+    }
+
+    /** The sheet tracks the finger 1:1; scrim/blur/handle follow drag progress. */
+    private fun updateSheetDrag(dyUp: Float) {
+        if (!sheetDragActive) return
+        val ty = (sheetTravel - dyUp).coerceIn(0f, sheetTravel)
+        optionsSheet.translationY = ty
+        val progress = if (sheetTravel > 0f) 1f - ty / sheetTravel else 0f
+        scrim.alpha = progress
+        setBlurRadius(progress * MENU_BLUR_MAX)
+    }
+
+    /** Finger lifted: settle open or closed from position + velocity. */
+    private fun endSheetDrag(velUpPxPerS: Float) {
+        if (!sheetDragActive) return
+        sheetDragActive = false
+        val progress = if (sheetTravel > 0f) 1f - optionsSheet.translationY / sheetTravel else 0f
+        val open = when {
+            velUpPxPerS > SHEET_SETTLE_VELOCITY -> true
+            velUpPxPerS < -SHEET_SETTLE_VELOCITY -> false
+            else -> progress > 0.4f
+        }
+        settleSheet(open, abs(velUpPxPerS))
+    }
+
+    /** Animate the sheet to its open/closed rest state, easing at a speed that
+     *  hands off from the gesture's velocity. */
+    private fun settleSheet(open: Boolean, speedPxPerS: Float) {
+        menuOpen = open
+        if (open) {
+            optionsSheet.visibility = View.VISIBLE
+            scrim.visibility = View.VISIBLE
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                optionsSheet.background.mutate().alpha = 210
+            }
+        }
+        val target = if (open) 0f else sheetTravelPx()
+        val distance = abs(optionsSheet.translationY - target)
+        val dur = if (speedPxPerS > 1f) (distance / speedPxPerS * 1000f).toLong().coerceIn(140L, 360L) else 300L
+        val interp = DecelerateInterpolator(1.4f)
+
+        optionsSheet.animate().translationY(target).setDuration(dur).setInterpolator(interp)
+            .withEndAction { if (!open) optionsSheet.visibility = View.GONE }
+            .start()
+
+        scrim.animate().alpha(if (open) 1f else 0f).setDuration(dur).setInterpolator(interp)
+            .withEndAction { if (!open) scrim.visibility = View.GONE }
+            .start()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            animateBlur(0f, 250, AnticipateInterpolator(1.1f))
+            animateBlur(if (open) MENU_BLUR_MAX else 0f, dur, interp)
         }
+    }
 
-        optionsSheet.animate().translationY(optionsSheet.height.toFloat()).setDuration(250)
-            .setInterpolator(AnticipateInterpolator(1.1f))
-            .withEndAction {
-                optionsSheet.visibility = View.GONE
-            }
-            .start()
+    /** Immediately set the canvas blur radius (used during the interactive drag,
+     *  bypassing the animator so it tracks the finger without lag). */
+    private fun setBlurRadius(r: Float) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+        blurAnimator?.cancel()
+        currentBlurRadius = r
+        if (r > 0.5f) {
+            glView.setRenderEffect(RenderEffect.createBlurEffect(r, r, Shader.TileMode.CLAMP))
+        } else {
+            glView.setRenderEffect(null)
+        }
     }
 
     private fun animateBlur(targetRadius: Float, animDuration: Long, animInterpolator: TimeInterpolator) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
 
         blurAnimator?.cancel()
-        val currentRadius = (blurAnimator?.animatedValue as? Float) ?: if (targetRadius > 0f) 0f else 32f
-
-        blurAnimator = ValueAnimator.ofFloat(currentRadius, targetRadius).apply {
+        // Resume from the live radius (the drag may have left it mid-way) so the
+        // settle doesn't snap the blur back to 0/32 and flicker.
+        blurAnimator = ValueAnimator.ofFloat(currentBlurRadius, targetRadius).apply {
             duration = animDuration
             interpolator = animInterpolator
             addUpdateListener { anim ->
                 val r = anim.animatedValue as Float
+                currentBlurRadius = r
                 if (r > 0.5f) {
                     glView.setRenderEffect(RenderEffect.createBlurEffect(r, r, Shader.TileMode.CLAMP))
                 } else {
@@ -1310,6 +1370,8 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_FAVOURITES = "favourite_scenes"
         private const val KEY_SCREENSHARE_RATIONALE = "screenshare_rationale_shown"
         private const val SWIPE_DOWN_VELOCITY = 1200f
+        private const val MENU_BLUR_MAX = 32f
+        private const val SHEET_SETTLE_VELOCITY = 600f  // px/s flick that decisively opens/closes
         private const val TAB_VISUALS = 0
         private const val TAB_LIGHTING = 1
         private const val TAB_SETTINGS = 2
