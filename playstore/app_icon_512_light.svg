@@ -1,0 +1,17 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" width="512" height="512">
+  <title>Velo App Icon</title>
+  <desc>A spectrum-gradient V chevron with a soft glow.</desc>
+  <defs>
+    <linearGradient id="vGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#FF4D9D"/><stop offset="20%" stop-color="#B14DFF"/><stop offset="40%" stop-color="#4D7DFF"/><stop offset="60%" stop-color="#2BD9D9"/><stop offset="80%" stop-color="#4DFF88"/><stop offset="100%" stop-color="#FFE24D"/></linearGradient>
+    <linearGradient id="scopeGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#FF4D9D"/><stop offset="20%" stop-color="#B14DFF"/><stop offset="40%" stop-color="#4D7DFF"/><stop offset="60%" stop-color="#2BD9D9"/><stop offset="80%" stop-color="#4DFF88"/><stop offset="100%" stop-color="#FFE24D"/></linearGradient>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="10.0"/>
+    </filter>
+  </defs>
+  <clipPath id="r"><rect width="512" height="512" rx="114" ry="114"/></clipPath>
+  <g clip-path="url(#r)">
+    <rect width="512" height="512" fill="#F4F3EF"/>
+    <path d="M 150.0 156.0 L 256.0 359.5 L 362.0 156.0" fill="none" stroke="url(#vGrad)" stroke-width="44.1" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)" opacity="0.9"/>
+    <path d="M 150.0 156.0 L 256.0 359.5 L 362.0 156.0" fill="none" stroke="url(#vGrad)" stroke-width="44.1" stroke-linecap="round" stroke-linejoin="round" />
+  </g>
+</svg>

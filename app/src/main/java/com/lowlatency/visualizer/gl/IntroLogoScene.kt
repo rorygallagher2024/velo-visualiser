@@ -42,16 +42,11 @@ class IntroLogoScene {
     private var uTime = 0
     private var uIntensity = 0
     private var uSizeScale = 0
-    private var uAccent = 0
 
     private var vbo = 0
     private var particleCount = 0
     private var aspect = 1f
     private var sizeScale = 1f
-
-    // Monochrome brand: a dim cool-white seed that brightens to white as the V
-    // forms (see fragment shader). No colour — the splash is strictly B&W.
-    private val accent = floatArrayOf(0.80f, 0.80f, 0.85f)
 
     fun onCreated() {
         program = ShaderUtil.buildProgram(VERTEX_SHADER, FRAGMENT_SHADER)
@@ -65,7 +60,6 @@ class IntroLogoScene {
         uTime = GLES20.glGetUniformLocation(program, "u_time")
         uIntensity = GLES20.glGetUniformLocation(program, "u_intensity")
         uSizeScale = GLES20.glGetUniformLocation(program, "u_sizeScale")
-        uAccent = GLES20.glGetUniformLocation(program, "u_accent")
 
         val data = buildParticles()
         particleCount = data.size / FLOATS_PER_PARTICLE
@@ -110,7 +104,6 @@ class IntroLogoScene {
         GLES20.glUniform1f(uTime, timeSec)
         GLES20.glUniform1f(uIntensity, intensity)
         GLES20.glUniform1f(uSizeScale, sizeScale)
-        GLES20.glUniform3f(uAccent, accent[0], accent[1], accent[2])
 
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, vbo)
         val stride = FLOATS_PER_PARTICLE * 4
@@ -229,6 +222,7 @@ class IntroLogoScene {
             uniform float u_sizeScale;
             out float v_assemble;
             out float v_disperse;
+            out float v_hue;
 
             float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
             vec2 hash2(float n) { return fract(sin(vec2(n, n + 1.0)) * vec2(43758.5453, 22578.1459)); }
@@ -276,16 +270,29 @@ class IntroLogoScene {
 
                 v_assemble = u_assemble;
                 v_disperse = u_disperse;
+
+                // Per-particle hue: a smooth rainbow banded across the V (so it
+                // reads as a spectrum, not noise), with a little per-particle
+                // jitter, a slow drift, and an extra spread as it shatters.
+                float baseHue = fract(aTarget.y * 0.55 + aTarget.x * 0.18 + 0.5);
+                float jitter = (hash(vec2(aSeed, 7.0)) - 0.5) * 0.06;
+                v_hue = baseHue + jitter + u_time * 0.03
+                        + u_disperse * (hash(vec2(aSeed, 3.0)) - 0.5) * 0.7;
             }
         """
 
         private val FRAGMENT_SHADER = """#version 300 es
             precision highp float;
-            uniform vec3 u_accent;
             uniform float u_intensity;
             in float v_assemble;
             in float v_disperse;
+            in float v_hue;
             out vec4 fragColor;
+
+            const float TAU = 6.28318530718;
+            vec3 rainbow(float h) {
+                return 0.5 + 0.5 * cos(TAU * (h + vec3(0.0, 0.33, 0.67)));
+            }
 
             void main() {
                 vec2 c = gl_PointCoord * 2.0 - 1.0;
@@ -293,13 +300,16 @@ class IntroLogoScene {
                 if (d > 1.0) discard;
                 float core = exp(-d * 3.5);
 
-                // Monochrome: dim cool-white seed -> bright white as the V forms,
-                // and a clean white flash on shatter. No colour.
-                vec3 col = mix(u_accent, vec3(1.30, 1.30, 1.38), clamp(v_assemble, 0.0, 1.0));
-                col = mix(col, vec3(1.50, 1.50, 1.60), v_disperse * 0.5);
+                // Vivid per-particle rainbow. Deepen saturation, stay dim before
+                // the V assembles, then keep the colour right through the shatter
+                // (intensify rather than wash to white) — a music-visualiser bloom.
+                vec3 col = rainbow(v_hue);
+                col = mix(vec3(dot(col, vec3(0.333))), col, 1.45);   // saturate
+                col *= mix(0.35, 1.0, clamp(v_assemble, 0.0, 1.0));  // ignite up
+                col += col * v_disperse * 0.7;                       // flare on dissolve
 
                 // HDR overdrive (>1) so the bloom pass makes the cloud glow.
-                col *= core * u_intensity * 1.7;
+                col *= core * u_intensity * 1.9;
                 fragColor = vec4(col, 1.0);
             }
         """

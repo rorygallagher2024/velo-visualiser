@@ -2,7 +2,7 @@
 <resources>
     <color name="scope_background">#FF000000</color>
     <color name="scope_line">#FF26FF8C</color>
-    <color name="ic_launcher_background">#FF101010</color>   <!-- near-black — monochrome brand background -->
+    <color name="ic_launcher_background">#FF0A0A0F</color>   <!-- deep near-black — the spectrum V glows against it -->
 
 
     <!-- UI overlay palette — warm charcoal panel,
