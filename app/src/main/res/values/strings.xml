@@ -38,11 +38,15 @@
     <string name="vis_odyssey">Odyssey</string>
     <string name="vis_logo_particle">Logo Particles</string>
     <string name="vis_crystal_swarm">Crystalline Swarm</string>
+    <string name="vis_liquid_light">Liquid Light</string>
     <string name="cat_instruments">Instruments</string>
     <string name="cat_reactive">Reactive</string>
     <string name="cat_immersive">Immersive</string>
     <string name="section_visuals">Visuals</string>
     <string name="display_label">Display</string>
+    <string name="display_mode">Display Mode</string>
+    <string name="display_mode_hint">Tap anywhere to exit</string>
+    <string name="display_bpm_unit">BPM</string>
     <string name="burnin_on">Burn-in Protection: On</string>
     <string name="burnin_off">Burn-in Protection: Off</string>
     <string name="glow_label">Bloom Intensity</string>

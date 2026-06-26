@@ -696,6 +696,18 @@
                 android:textSize="14sp"
                 android:stateListAnimator="@null" />
 
+            <Button
+                android:id="@+id/btn_liquid_light"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_liquid_light"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="14sp"
+                android:stateListAnimator="@null" />
+
         </LinearLayout>
 
         </LinearLayout>
@@ -1358,6 +1370,19 @@
             android:layout_marginBottom="8dp"
             android:background="@drawable/pill_button_bg"
             android:text="@string/burnin_on"
+            android:textColor="@color/btn_text"
+            android:textAllCaps="false"
+            android:textSize="14sp"
+            android:stateListAnimator="@null" />
+
+        <!-- Enter the ambient standby / Display Mode (clock + BPM over dimmed scene) -->
+        <Button
+            android:id="@+id/btn_display_mode"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/pill_button_bg"
+            android:text="@string/display_mode"
             android:textColor="@color/btn_text"
             android:textAllCaps="false"
             android:textSize="14sp"
@@ -2088,6 +2113,115 @@
 
         </LinearLayout>
     </ScrollView>
+
+    <!-- Display / standby mode: oversized clock + live BPM + presence meter over
+         the dimmed live scene. A deliberate full-screen takeover (not persistent
+         chrome) — entered from Settings ▸ Display, exited by tapping anywhere.
+         Burn-in-safe: the content group is pixel-shifted and auto-dims. -->
+    <FrameLayout
+        android:id="@+id/display_mode_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#D9000000"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:id="@+id/display_mode_content"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:orientation="vertical"
+            android:gravity="center_horizontal">
+
+            <TextView
+                android:id="@+id/display_clock"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/inter"
+                android:fontWeight="200"
+                android:textColor="@color/text_primary"
+                android:textSize="96sp"
+                android:letterSpacing="0.01"
+                android:fontFeatureSettings="tnum"
+                android:includeFontPadding="false"
+                android:text="00:00" />
+
+            <TextView
+                android:id="@+id/display_date"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:fontFamily="@font/space_mono"
+                android:textColor="@color/text_dim"
+                android:textSize="13sp"
+                android:letterSpacing="0.22"
+                android:textAllCaps="true"
+                android:text="" />
+
+            <LinearLayout
+                android:id="@+id/display_bpm_row"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="32dp"
+                android:orientation="horizontal"
+                android:gravity="bottom"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/display_bpm"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="@font/space_mono"
+                    android:textColor="@color/text_primary"
+                    android:textSize="22sp"
+                    android:fontFeatureSettings="tnum"
+                    android:text="—" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="7dp"
+                    android:layout_marginBottom="2dp"
+                    android:fontFamily="@font/space_mono"
+                    android:textColor="@color/text_dim"
+                    android:textSize="11sp"
+                    android:letterSpacing="0.18"
+                    android:text="@string/display_bpm_unit" />
+            </LinearLayout>
+
+            <!-- Live audio-presence meter (fills left→right via scaleX). -->
+            <View
+                android:id="@+id/display_presence_track"
+                android:layout_width="180dp"
+                android:layout_height="2dp"
+                android:layout_marginTop="26dp"
+                android:background="@color/sheet_stroke" />
+
+            <View
+                android:id="@+id/display_presence_fill"
+                android:layout_width="180dp"
+                android:layout_height="2dp"
+                android:layout_marginTop="-2dp"
+                android:background="@color/text_primary"
+                android:scaleX="0" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/display_exit_hint"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|center_horizontal"
+            android:layout_marginBottom="52dp"
+            android:fontFamily="@font/space_mono"
+            android:textColor="@color/text_dim"
+            android:textSize="12sp"
+            android:letterSpacing="0.18"
+            android:textAllCaps="true"
+            android:alpha="0"
+            android:text="@string/display_mode_hint" />
+    </FrameLayout>
 
     <!-- Startup mask: plain black over GL init; fades out fast so the GL-rendered
          VELO particle intro (IntroLogoScene) is visible from ignition. -->

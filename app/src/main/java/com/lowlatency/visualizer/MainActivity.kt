@@ -32,6 +32,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.text.HtmlCompat
+import com.lowlatency.visualizer.ui.DisplayModeController
 import com.lowlatency.visualizer.ui.LightingController
 import com.lowlatency.visualizer.ui.MenuSheetController
 import com.lowlatency.visualizer.ui.PerfOverlayController
@@ -80,6 +81,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnOdyssey: Button
     private lateinit var btnLogoParticle: Button
     private lateinit var btnCrystalSwarm: Button
+    private lateinit var btnLiquidLight: Button
     private lateinit var btnBurnin: Button
     private lateinit var btnGlowOff: Button
     private lateinit var btnGlowSubtle: Button
@@ -111,6 +113,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var groupPeakLuminance: View
     private lateinit var perfOverlayController: PerfOverlayController
     private lateinit var menuSheetController: MenuSheetController
+    private lateinit var displayModeController: DisplayModeController
     private lateinit var heroVisName: TextView
     private lateinit var btnSceneLabel: Button
     private lateinit var sceneLabel: TextView
@@ -247,6 +250,13 @@ class MainActivity : AppCompatActivity() {
         )
         menuSheetController.bind()
 
+        displayModeController = DisplayModeController(this)
+        displayModeController.bind()
+        findViewById<Button>(R.id.btn_display_mode).setOnClickListener {
+            menuSheetController.close()
+            displayModeController.enter()
+        }
+
         ContextCompat.registerReceiver(
             this,
             captureStopReceiver,
@@ -313,6 +323,7 @@ class MainActivity : AppCompatActivity() {
         btnOdyssey = findViewById(R.id.btn_odyssey)
         btnLogoParticle = findViewById(R.id.btn_logo_particle)
         btnCrystalSwarm = findViewById(R.id.btn_crystal_swarm)
+        btnLiquidLight = findViewById(R.id.btn_liquid_light)
         btnBurnin = findViewById(R.id.btn_burnin)
         btnGlowOff = findViewById(R.id.btn_glow_off)
         btnGlowSubtle = findViewById(R.id.btn_glow_subtle)
@@ -427,6 +438,7 @@ class MainActivity : AppCompatActivity() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 when {
+                    displayModeController.isActive -> displayModeController.exit()
                     menuSheetController.isOpen -> menuSheetController.close()
                     else -> { isEnabled = false; onBackPressedDispatcher.onBackPressed() }
                 }
@@ -501,6 +513,7 @@ class MainActivity : AppCompatActivity() {
             Triple(btnReactionDiffusion, 20, btnReactionDiffusion.text.toString()),
             Triple(btnPlasmaStorm, 23, btnPlasmaStorm.text.toString()),
             Triple(btnOdyssey, 25, btnOdyssey.text.toString()),
+            Triple(btnLiquidLight, 29, btnLiquidLight.text.toString()),
         )
         glView.sceneOrder = visButtons.map { it.second }
         glView.onSceneChanged = {
@@ -1169,6 +1182,7 @@ class MainActivity : AppCompatActivity() {
         }
         if (::perfOverlayController.isInitialized) perfOverlayController.onResume()
         if (::lightingController.isInitialized) lightingController.onResume()
+        if (::displayModeController.isInitialized) displayModeController.onResume()
     }
 
     override fun onPause() {
@@ -1178,6 +1192,7 @@ class MainActivity : AppCompatActivity() {
         backgroundedAtMs = SystemClock.elapsedRealtime()
         if (::perfOverlayController.isInitialized) perfOverlayController.onPause()
         if (::lightingController.isInitialized) lightingController.onPause()
+        if (::displayModeController.isInitialized) displayModeController.onPause()
         linkHandler.removeCallbacks(linkStatusPoller)
         if (LinkSync.enabled) {
             NativeBridge.nativeLinkSetEnabled(false)
@@ -1188,6 +1203,7 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         if (::perfOverlayController.isInitialized) perfOverlayController.onDestroy()
         if (::lightingController.isInitialized) lightingController.onDestroy()
+        if (::displayModeController.isInitialized) displayModeController.onDestroy()
         if (::hapticController.isInitialized) hapticController.release()
         linkHandler.removeCallbacks(linkStatusPoller)
         NativeBridge.nativeLinkSetEnabled(false)

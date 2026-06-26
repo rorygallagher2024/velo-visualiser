@@ -45,13 +45,14 @@ Velo listens to the **actual sound** in the room and moves with it instantly. Th
 
 ## The full feature list
 
-- **29 audio and beat reactive visualizers**: Waveforms, spectra, particle fluids, scrolling spectrograms, dot-matrix LED meters, and more.
+- **30 audio and beat reactive visualizers**: Waveforms, spectra, particle fluids, scrolling spectrograms, dot-matrix LED meters, and more.
 - **HDR Effects**: Including post-processing for real luminous glow on capable HDR displays and a selectable glow strength.
 - **Ableton Link sync**: Lock beat-driven effects to Traktor, Ableton Live, and other Link software over Wi-Fi; the mic still drives the visuals while Link sets the beat.
 - **Real-time Room Lighting Control with Philips Hue, LIFX & Nanoleaf Integration**: Direct local UDP streaming over the Hue Entertainment API, LIFX LAN Protocol, and Nanoleaf ExtControl. Also works in co-ordination with Ableton Link to drive a synchronised beat to the bulbs. Includes advanced controls for calibration and the ability to send Ableton Link beats early for perfect synchronisation.
 - **Two audio sources**: Raw low-latency microphone capture or internal/system audio via screen-share (Warning: Low latency not supported via screen-sharing).
 - **Global colour themes**: Re-tint visuals to your desired colour scheme (Neon, Warm, Cool, Mono…).
 - **Vibrate-on-beat haptics**: Bass-onset detection triggers physical pulses.
+- **Display Mode**: An ambient, burn-in-safe standby screen — an oversized clock, live BPM, and an audio-presence meter over the dimmed visuals — turning a propped-up phone into a desk/shelf piece.
 - **Foldable & Tablet Support**: Open a foldable phone and the render loop will survive the screen state changes without recreating.
 - **Diagnostics Overlay Toggle**: Displays FPS, audio latency, Ableton link status, Hue drop rates and more.
 
@@ -172,9 +173,12 @@ Velo Visualiser is **free and open source software**, licensed under the
 **GNU General Public License v3.0** — see [LICENSE](LICENSE).
 
 You're free to use, study, modify, and redistribute it. Any distributed
-derivative must also remain GPLv3. (The GPL is required here because the app
-integrates [Ableton Link](https://github.com/Ableton/link), which is GPLv2+
-unless used under a commercial licence from Ableton.)
+derivative must also remain GPLv3. We hold a commercial licence for
+[Ableton Link](https://github.com/Ableton/link) (which is GPLv2+ otherwise), so
+GPLv3 here is a deliberate choice, not an obligation.
+
+The **Velo name, logo, and icons are trademarks and are not covered by the GPL**
+— see [TRADEMARKS.md](TRADEMARKS.md). Forks must rebrand.
 
 No data collection, no ads, no tracking — local-only, and it'll stay that way.
 

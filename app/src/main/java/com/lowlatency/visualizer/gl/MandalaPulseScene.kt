@@ -4,14 +4,25 @@ import android.opengl.GLES20
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
+import kotlin.math.exp
+import kotlin.math.max
 
 /**
  * Visual 15 — "Mandala Pulse".
  *
- * A hypnotic, symmetric mandala pattern that pulses with the audio.
- *   - Lows -> Scale the entire pattern and pulse the core.
- *   - Mids -> Control rotation speed and color shifts.
- *   - Highs -> Add sharp detail "shimmer" to the outer rings.
+ * A layered, kaleidoscopic mandala that breathes with the music. Rather than one
+ * flat fold, it stacks three counter-rotating octaves of petal rings (12 / 24 /
+ * 36-fold) over a pulsing core, with anti-aliased filigree, a high-frequency
+ * shimmer ring, and an evolving warm-core → cool-rim palette. Highlights are
+ * emitted above 1.0 so the renderer's bloom makes the linework glow, and beats
+ * punch it via the post pipeline.
+ *
+ * The audio is smoothed here with asymmetric attack/release envelopes (fast in,
+ * slow out) so the mandala swells and settles musically instead of strobing on
+ * the raw, jittery FFT bands:
+ *   - Lows  → breathing zoom + core bloom (a peak-held bass *pulse*).
+ *   - Mids  → rotation speed + palette drift.
+ *   - Highs → outer-ring detail + the shimmer sparkle.
  */
 class MandalaPulseScene : GlScene {
 
@@ -26,44 +37,89 @@ class MandalaPulseScene : GlScene {
             uniform vec2  u_resolution;
             uniform float u_time;
             uniform float u_dim;
-            uniform float u_low;
+            uniform float u_low;     // smoothed band envelopes
             uniform float u_mid;
             uniform float u_high;
+            uniform float u_energy;  // overall weighted energy
+            uniform float u_pulse;   // peak-held bass pulse 0..1
             out vec4 fragColor;
 
-            vec3 palette(float t) {
-                return 0.5 + 0.5 * cos(6.28318 * (t + vec3(0.0, 0.33, 0.67)));
+            const float TAU = 6.28318530718;
+
+            mat2 rot(float a) { float c = cos(a), s = sin(a); return mat2(c, -s, s, c); }
+
+            // Iñigo-Quílez cosine palette — warm gold core drifting to cool blue rim.
+            vec3 pal(float t) {
+                return 0.5 + 0.5 * cos(TAU * (vec3(1.0, 0.9, 0.75) * t
+                       + vec3(0.0, 0.18, 0.45)));
+            }
+
+            // Kaleidoscopic fold to n mirrored sectors; returns radius, rewrites p.
+            float kaleido(inout vec2 p, float n) {
+                float r = length(p);
+                float a = atan(p.y, p.x);
+                float sector = TAU / n;
+                a = mod(a, sector);
+                a = abs(a - sector * 0.5);          // mirror within the sector
+                p = vec2(cos(a), sin(a)) * r;
+                return r;
+            }
+
+            // Anti-aliased glowing line where field d crosses 0 (width w).
+            float aaLine(float d, float w) {
+                float aa = fwidth(d) * 1.5 + 1e-4;
+                return smoothstep(w + aa, w - aa, abs(d));
             }
 
             void main() {
-                vec2 uv = (gl_FragCoord.xy - 0.5 * u_resolution) / min(u_resolution.x, u_resolution.y);
-                
-                // Audio-reactive scaling
-                uv *= 1.5 - u_low * 0.5;
-                
-                float r = length(uv);
-                float a = atan(uv.y, uv.x);
+                vec2 uv = (gl_FragCoord.xy - 0.5 * u_resolution)
+                          / min(u_resolution.x, u_resolution.y);
+                uv *= 2.05;
+                // Breathing zoom on the bass pulse.
+                uv /= (1.0 + u_pulse * 0.20 + u_low * 0.10);
 
-                // Symmetric folding (mandala)
-                float sides = 8.0;
-                float tau = 6.28318;
-                float ma = mod(a + u_time * 0.2 + u_mid, tau / sides) - tau / (sides * 2.0);
-                vec2 p = vec2(cos(ma), sin(ma)) * r;
+                float r0 = length(uv);
+                vec3 col = vec3(0.0);
 
-                // Pattern layers
-                float pattern = 0.0;
-                pattern += abs(sin(p.x * 10.0 + u_time)) * smoothstep(0.5, 0.45, r);
-                pattern += abs(sin(p.y * 20.0 - u_time * 2.0)) * smoothstep(0.3, 0.25, r) * u_high;
-                
-                // Central core
-                float core = smoothstep(0.1 + u_low * 0.1, 0.0, r);
-                
-                // Ring spikes
-                float spikes = step(0.8, fract(r * 10.0 + u_time)) * u_high;
+                float spin = u_time * (0.05 + u_mid * 0.18);
 
-                vec3 col = palette(r * 0.5 + u_mid + u_time * 0.1) * pattern;
-                col += vec3(1.0, 0.8, 0.5) * core * (1.0 + u_low * 2.0);
-                col += palette(u_mid * 2.0) * spikes * smoothstep(0.6, 0.4, r);
+                // Three nested octaves of petal rings, alternating spin direction.
+                for (int i = 0; i < 3; i++) {
+                    float fi = float(i);
+                    float dir = (mod(fi, 2.0) < 0.5) ? 1.0 : -1.0;
+                    vec2 p = uv * rot(spin * dir + fi * 0.7);
+                    float n = 12.0 + fi * 12.0;                 // 12, 24, 36 petals
+                    float r = kaleido(p, n);
+
+                    float lobe = p.y / max(r, 1e-3);            // angular pos in sector
+                    float ring  = sin(r * (8.0 + fi * 6.0) - u_time * (0.8 + fi * 0.3));
+                    float petal = sin(lobe * (3.0 + fi) + r * 4.0);
+                    float field = ring * 0.6 + petal * 0.4;
+
+                    float line = aaLine(field, 0.05 + u_high * 0.05);
+                    // Radial window so each octave owns a band of radius.
+                    float band = smoothstep(0.02, 0.28, r) * smoothstep(1.25, 0.5, r);
+                    float amp  = (i == 2) ? u_high : (i == 0 ? u_low : u_mid);
+                    float w = band * (0.45 + amp * 1.1);
+
+                    col += pal(r * 0.42 + fi * 0.16 + u_time * 0.05 + u_mid * 0.3) * line * w;
+                }
+
+                // Central core bloom — pulses hard on bass, tints toward cool on highs.
+                float core = exp(-r0 * r0 * 6.0);
+                vec3 coreCol = mix(vec3(1.0, 0.72, 0.38), vec3(0.55, 0.82, 1.0), u_high);
+                col += coreCol * core * (0.55 + u_pulse * 2.6);
+
+                // Outer shimmer ring — fine sparkle driven by treble.
+                vec2 sp = uv;
+                float rs = kaleido(sp, 48.0);
+                float spark = aaLine(sin(rs * 38.0 - u_time * 3.0), 0.05);
+                spark *= smoothstep(0.55, 0.9, rs) * smoothstep(1.45, 1.0, rs);
+                col += vec3(0.72, 0.86, 1.0) * spark * u_high * 1.6;
+
+                // HDR lift so the linework blooms; gentle vignette for depth.
+                col *= 1.0 + u_energy * 0.9;
+                col *= smoothstep(1.85, 0.15, r0);
 
                 fragColor = vec4(col * u_dim, 1.0);
             }
@@ -82,9 +138,18 @@ class MandalaPulseScene : GlScene {
     private var uLow = 0
     private var uMid = 0
     private var uHigh = 0
+    private var uEnergy = 0
+    private var uPulse = 0
 
     private var width = 1f
     private var height = 1f
+
+    // Smoothed audio envelopes (fast attack, slow release) + peak-held bass pulse.
+    private var sLow = 0f
+    private var sMid = 0f
+    private var sHigh = 0f
+    private var pulse = 0f
+    private var lastT = -1f
 
     override fun onCreated() {
         program = ShaderUtil.buildProgram(VERTEX_SHADER, FRAGMENT_SHADER)
@@ -95,6 +160,8 @@ class MandalaPulseScene : GlScene {
         uLow = GLES20.glGetUniformLocation(program, "u_low")
         uMid = GLES20.glGetUniformLocation(program, "u_mid")
         uHigh = GLES20.glGetUniformLocation(program, "u_high")
+        uEnergy = GLES20.glGetUniformLocation(program, "u_energy")
+        uPulse = GLES20.glGetUniformLocation(program, "u_pulse")
     }
 
     override fun onResize(width: Int, height: Int, aspect: Float) {
@@ -102,15 +169,34 @@ class MandalaPulseScene : GlScene {
         this.height = height.toFloat()
     }
 
+    /** Frame-rate-independent one-pole envelope: fast toward rising input, slow on release. */
+    private fun env(current: Float, target: Float, attackPerSec: Float, releasePerSec: Float, dt: Float): Float {
+        val rate = if (target > current) attackPerSec else releasePerSec
+        return current + (target - current) * (1f - exp(-rate * dt))
+    }
+
     override fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
+        val dt = if (lastT < 0f) 0.016f else (timeSec - lastT).coerceIn(0f, 0.1f)
+        lastT = timeSec
+
+        sLow = env(sLow, bands[0], 18f, 4f, dt)
+        sMid = env(sMid, bands[1], 14f, 3.2f, dt)
+        sHigh = env(sHigh, bands[2], 24f, 6f, dt)
+        // Peak-held bass pulse: snaps up to transients, eases back down.
+        pulse = max(pulse - dt * 2.2f, 0f)
+        if (bands[0] > pulse) pulse = bands[0]
+        val energy = sLow * 0.5f + sMid * 0.3f + sHigh * 0.2f
+
         GLES20.glDisable(GLES20.GL_BLEND)
         GLES20.glUseProgram(program)
         GLES20.glUniform2f(uResolution, width, height)
         GLES20.glUniform1f(uTime, timeSec)
         GLES20.glUniform1f(uDim, dim)
-        GLES20.glUniform1f(uLow, bands[0])
-        GLES20.glUniform1f(uMid, bands[1])
-        GLES20.glUniform1f(uHigh, bands[2])
+        GLES20.glUniform1f(uLow, sLow)
+        GLES20.glUniform1f(uMid, sMid)
+        GLES20.glUniform1f(uHigh, sHigh)
+        GLES20.glUniform1f(uEnergy, energy)
+        GLES20.glUniform1f(uPulse, pulse)
 
         GLES20.glEnableVertexAttribArray(aPos)
         GLES20.glVertexAttribPointer(aPos, 2, GLES20.GL_FLOAT, false, 0, quad)
