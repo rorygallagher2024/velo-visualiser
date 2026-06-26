@@ -34,6 +34,7 @@ class DisplayModeController(
     private lateinit var clock: TextView
     private lateinit var date: TextView
     private lateinit var bpm: TextView
+    private lateinit var bpmRow: View
     private lateinit var presenceFill: View
     private lateinit var exitHint: TextView
 
@@ -61,6 +62,7 @@ class DisplayModeController(
         clock = activity.findViewById(R.id.display_clock)
         date = activity.findViewById(R.id.display_date)
         bpm = activity.findViewById(R.id.display_bpm)
+        bpmRow = activity.findViewById(R.id.display_bpm_row)
         presenceFill = activity.findViewById(R.id.display_presence_fill)
         exitHint = activity.findViewById(R.id.display_exit_hint)
         presenceFill.pivotX = 0f
@@ -137,11 +139,17 @@ class DisplayModeController(
     }
 
     private fun renderBpm(force: Boolean) {
-        val tempo = if (LinkSync.enabled) NativeBridge.nativeLinkTempo() else 0.0
-        val shown = if (tempo > 0.0) tempo.roundToInt() else -1
+        // No BPM source unless Ableton Link is on — hide the whole readout when off.
+        val linkOn = LinkSync.enabled
+        val shown = if (linkOn) NativeBridge.nativeLinkTempo().roundToInt() else -1
         if (!force && shown == lastBpmShown) return
         lastBpmShown = shown
-        bpm.text = if (shown > 0) shown.toString() else "—"
+        if (linkOn) {
+            bpmRow.visibility = View.VISIBLE
+            bpm.text = if (shown > 0) shown.toString() else "—"
+        } else {
+            bpmRow.visibility = View.GONE
+        }
     }
 
     private fun renderPresence() {
