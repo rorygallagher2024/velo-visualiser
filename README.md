@@ -11,7 +11,7 @@ When you open Velo, you'll see the default oscilloscope visualisation which resp
 * **Human tactile perception** (the 20–30 ms it takes your brain to register touching a drum pad).
 * **The physical speed of sound** travelling from speakers on one side of the room to another (3.4 metres in 10 ms).
 
-A bare-metal C++/Oboe audio engine and custom OpenGL ES 3.1 shaders bypass standard Android bottlenecks to deliver sub-10 ms audio-to-pixel response, whilst also capable of driving Philips Hue lights and device haptics in real-time.
+A bare-metal C++/Oboe audio engine and custom OpenGL ES 3.1 shaders bypass standard Android bottlenecks to deliver sub-10 ms audio-to-pixel response, whilst also capable of driving smart home lighting and device haptics in real-time.
 
 Beyond its absolute speed and zero-lag smart lighting integration, Velo's visuals are a great showcase for premium Android hardware because it can push modern flagship devices to their limits combining 120Hz tear-free OLED motion, true HDR luminance, and dynamic scaling for tablet displays and foldables.
 
