@@ -46,6 +46,8 @@
     <string name="section_visuals">Visuals</string>
     <string name="display_label">Display</string>
     <string name="ambient_mode">Ambient Mode</string>
+    <string name="ambient_style_classic">Ambient Style: Classic</string>
+    <string name="ambient_style_window">Ambient Style: Window</string>
     <string name="shuffle_on">Shuffle Scenes: On</string>
     <string name="shuffle_off">Shuffle Scenes: Off</string>
     <string name="ambient_mode_hint">Tap twice to exit</string>

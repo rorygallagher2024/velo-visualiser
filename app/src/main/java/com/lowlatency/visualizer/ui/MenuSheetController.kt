@@ -70,6 +70,21 @@ class MenuSheetController(
         optionsSheet.setOnTouchListener { _, ev -> sheetGestures.onTouchEvent(ev); false }
     }
 
+    /**
+     * Open the sheet programmatically (e.g. a swipe-up from Ambient Mode, where the
+     * GL view never sees the gesture). Lifts the scrim + sheet above any full-screen
+     * overlay so they show on top; the overlay below keeps running, so closing the
+     * sheet returns to it.
+     */
+    fun openOverlay() {
+        if (isOpen) return
+        scrim.bringToFront()
+        optionsSheet.bringToFront()
+        beginDrag()                 // primes the sheet off-screen + refreshes contents
+        sheetDragActive = false     // not a finger drag — settle handles the animation
+        settle(open = true, speedPxPerS = 0f)
+    }
+
     /** Animate the sheet shut (scrim tap / back press / swipe-down). */
     fun close() {
         if (!isOpen) return
