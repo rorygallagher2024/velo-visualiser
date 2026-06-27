@@ -8,7 +8,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import com.lowlatency.visualizer.BeatBus
-import com.lowlatency.visualizer.HueStrobeSettings
+import com.lowlatency.visualizer.LightingSettings
 import com.lowlatency.visualizer.LinkSync
 import com.lowlatency.visualizer.NativeBridge
 import org.json.JSONObject
@@ -334,8 +334,7 @@ class NanoleafController(context: Context) {
     private val AUDIO_HUE_BASS = 280f
     private val AUDIO_HUE_TREBLE = 190f
     private val SAT_AUDIO = 0.9f
-    private val MIN_BRIGHT = 0.05f
-    private val FLASH_DECAY = 0.85f
+    private val FLASH_DECAY = 0.85f   // brightness floor / glow now shared in LightingSettings
 
     private var senderFlash = 0f
     private var senderLastBeat = -1L
@@ -350,7 +349,7 @@ class NanoleafController(context: Context) {
     }
 
     private fun calculateAudioColor(l: Float, m: Float, h: Float): RGB {
-        val cfg = HueStrobeSettings
+        val cfg = LightingSettings
         val bc = BeatBus.beatCount.toLong()
         if (bc != senderLastBeat) {
             senderFlash = BeatBus.loudness
@@ -365,14 +364,16 @@ class NanoleafController(context: Context) {
         }
 
         senderFlash *= FLASH_DECAY
-        val finalBri = kotlin.math.sqrt((MIN_BRIGHT + cfg.restingGlow * 0.3f + senderFlash).coerceIn(0f, 1f))
-        
+        // Shared curve: a dim base now tracks the mic energy (previously beat-only),
+        // the beat punches on top — identical across all brands.
+        val finalBri = cfg.audioBrightnessValue(l, m, h, senderFlash)
+
         return hsvToRgb(senderCurrentHue, senderCurrentSat, finalBri)
     }
     private val PURPLE_HUE = 280f
 
     private fun calculateLinkColor(): RGB {
-        val cfg = HueStrobeSettings
+        val cfg = LightingSettings
         val phase = NativeBridge.nativeLinkBeatPhase().toFloat()
         
         val isLinkOnBeat = phase < 0.1f
@@ -380,15 +381,15 @@ class NanoleafController(context: Context) {
 
         if (cfg.linkBeatFlashEnabled && BeatBus.gateOpen) {
             if (isLinkOnBeat && currentBeat.toLong() != senderLastBeat) {
-                senderFlash = 0.2f + 0.8f * BeatBus.loudness
+                senderFlash = cfg.beatFlashAmp(BeatBus.loudness)
                 senderLastBeat = currentBeat.toLong()
             }
         }
-        
+
         val hue = PURPLE_HUE
         val activeFlash = if (cfg.linkBeatFlashEnabled) senderFlash else 0.5f
-        
-        val bri = kotlin.math.sqrt((MIN_BRIGHT + cfg.restingGlow * 0.3f + activeFlash).coerceIn(0f, 1f))
+
+        val bri = cfg.linkBrightnessValue(activeFlash)
         senderFlash *= FLASH_DECAY
 
         return hsvToRgb(hue, 0.9f, bri)

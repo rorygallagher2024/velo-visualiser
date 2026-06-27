@@ -3,7 +3,7 @@ package com.lowlatency.visualizer.lifx
 
 import android.util.Log
 import com.lowlatency.visualizer.BeatBus
-import com.lowlatency.visualizer.HueStrobeSettings
+import com.lowlatency.visualizer.LightingSettings
 import com.lowlatency.visualizer.LinkSync
 import com.lowlatency.visualizer.NativeBridge
 import java.net.DatagramPacket
@@ -238,7 +238,7 @@ class LifxController {
     }
 
     private fun calculateLinkColor(): LifxColor {
-        val cfg = HueStrobeSettings
+        val cfg = LightingSettings
         val bc = linkBeatCount
         var shouldFlash = false
 
@@ -274,27 +274,26 @@ class LifxController {
             senderCurrentSat = SAT_TREBLE + (SAT_BASS - SAT_TREBLE) * cs
             
             if (cfg.linkBeatFlashEnabled) {
-                senderFlash = MIN_BEAT_AMP + (1f - MIN_BEAT_AMP) * BeatBus.loudness
+                senderFlash = cfg.beatFlashAmp(BeatBus.loudness)
             }
         }
         senderFlash *= FLASH_DECAY
-        val finalBri = kotlin.math.sqrt((MIN_BRIGHT + cfg.restingGlow * 0.3f + senderFlash).coerceIn(0f, 1f))
+        val finalBri = cfg.linkBrightnessValue(senderFlash)
         return LifxColor(senderCurrentHue, senderCurrentSat, finalBri)
     }
 
     private fun calculateAudioColor(l: Float, m: Float, h: Float): LifxColor {
-        val cfg = HueStrobeSettings
+        val cfg = LightingSettings
         val bc = BeatBus.beatCount
         if (bc != senderLastBeat) { 
             senderFlash = BeatBus.loudness
             senderLastBeat = bc 
         }
         senderFlash *= FLASH_DECAY
-        
+
         val total = l + m + h + 1e-3f
         val centroid = ((m * 0.5f + h) / total).coerceIn(0f, 1f)
-        val energy = (kotlin.math.max(l, kotlin.math.max(m, h)) * cfg.audioBrightMul).coerceIn(0f, 1f)
-        val finalBri = MIN_BRIGHT + (1f - MIN_BRIGHT) * kotlin.math.sqrt((energy + senderFlash * 0.7f).coerceIn(0f, 1f))
+        val finalBri = cfg.audioBrightnessValue(l, m, h, senderFlash)
         val finalSat = (AUDIO_SAT - senderFlash * 0.30f).coerceIn(0.6f, 1f)
         val finalHue = AUDIO_HUE_BASS + (AUDIO_HUE_TREBLE - AUDIO_HUE_BASS) * centroid
         return LifxColor(finalHue, finalSat, finalBri)
@@ -360,12 +359,11 @@ class LifxController {
     companion object {
         private const val TAG = "LifxController"
         private const val SEND_HZ = 50L          
-        private const val SPIN_MARGIN_NS = 2_000_000L  
-        private const val MIN_BRIGHT = 0.06f      
-        private const val FLASH_DECAY = 0.80f     
+        private const val SPIN_MARGIN_NS = 2_000_000L
+        private const val FLASH_DECAY = 0.80f
 
-        private const val MIN_BEAT_AMP = 0.06f    
-        private const val RED_HUE = 360f          
+        // Brightness floor / beat amplitude / resting glow are shared in LightingSettings.
+        private const val RED_HUE = 360f
         private const val PURPLE_HUE = 265f       
         private const val SAT_BASS = 1.0f         
         private const val SAT_TREBLE = 0.70f      
