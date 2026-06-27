@@ -33,7 +33,6 @@
     <ID>LargeClass:MainActivity.kt$MainActivity : AppCompatActivity</ID>
     <ID>LongMethod:HueLightController.kt$HueLightController$private fun startSender( creds: HueCredentials, area: HueEntertainmentArea, onResult: (Boolean, String?) -&gt; Unit, )</ID>
     <ID>LongMethod:LightingController.kt$LightingController$fun bind()</ID>
-    <ID>LongMethod:MainActivity.kt$MainActivity$private fun bindViews()</ID>
     <ID>LongMethod:MainActivity.kt$MainActivity$private fun wireMenuControls()</ID>
     <ID>LongMethod:NanoleafController.kt$NanoleafController$fun startSync()</ID>
     <ID>LongMethod:VisualizerRenderer.kt$VisualizerRenderer$override fun onDrawFrame(gl: GL10?)</ID>

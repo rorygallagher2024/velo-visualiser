@@ -36,6 +36,7 @@ import com.lowlatency.visualizer.ui.DisplayModeController
 import com.lowlatency.visualizer.ui.LightingController
 import com.lowlatency.visualizer.ui.MenuSheetController
 import com.lowlatency.visualizer.ui.PerfOverlayController
+import com.lowlatency.visualizer.ui.ScenesController
 import com.lowlatency.visualizer.ui.ShuffleController
 
 /**
@@ -53,36 +54,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var introHint: View
     private lateinit var segMic: Button
     private lateinit var segInternal: Button
-    private lateinit var btnOscilloscope: Button
-    private lateinit var btnTunnel: Button
-    private lateinit var btnFluid: Button
-    private lateinit var btnLaser: Button
-    private lateinit var btnCircular: Button
-    private lateinit var btnBars: Button
-    private lateinit var btnBloom: Button
-    private lateinit var btnStarscape: Button
-    private lateinit var btnRawScope: Button
-    private lateinit var btnSpectrogram: Button
-    private lateinit var btnFireworks: Button
-    private lateinit var btnPhyllotaxis: Button
-    private lateinit var btnElectricIris: Button
-    private lateinit var btnMandala: Button
-    private lateinit var btnAudioWeb: Button
-    private lateinit var btnTopoRidge: Button
-    private lateinit var btnLedMatrix: Button
-    private lateinit var btnLedMatrix3d: Button
-    private lateinit var btnMechanicalMeter: Button
-    private lateinit var btnBeatPulse: Button
-    private lateinit var btnMandelbox: Button
-    private lateinit var btnReactionDiffusion: Button
-    private lateinit var btnCymatics: Button
-    private lateinit var btnStrangeAttractor: Button
-    private lateinit var btnPlasmaStorm: Button
-    private lateinit var btnAuroraDrift: Button
-    private lateinit var btnOdyssey: Button
-    private lateinit var btnLogoParticle: Button
-    private lateinit var btnCrystalSwarm: Button
-    private lateinit var btnLiquidLight: Button
     private lateinit var btnBurnin: Button
     private lateinit var btnGlowOff: Button
     private lateinit var btnGlowSubtle: Button
@@ -117,18 +88,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var displayModeController: DisplayModeController
     private lateinit var shuffleController: ShuffleController
     private lateinit var secondaryDisplayController: com.lowlatency.visualizer.ui.SecondaryDisplayController
-    private lateinit var heroVisName: TextView
-    private lateinit var btnSceneLabel: Button
-    private lateinit var sceneLabel: TextView
-    private var sceneLabelRunnable: Runnable? = null
-    private var sceneLabelEnabled = true
+    private lateinit var scenesController: ScenesController
     private lateinit var hapticController: HapticController
     private lateinit var prefs: SharedPreferences
-
-    // Visualizer buttons paired with their scene index + base label (for the
-    // favourite ★ prefix). Built in wireMenuControls.
-    private lateinit var visButtons: List<Triple<Button, Int, String>>
-    private val favourites = linkedSetOf<Int>()
 
     // --- Settings tabs ---
     private lateinit var tabBtnVisuals: Button
@@ -227,47 +189,7 @@ class MainActivity : AppCompatActivity() {
         wireTabs()
         wireMenuControls()
         checkHdrSupport()
-
-        lightingController = LightingController(
-            activity = this,
-            prefs = prefs,
-            backgroundedAtMs = { backgroundedAtMs },
-        )
-        lightingController.bind()
-        wireGlAudioSinks()
-
-        perfOverlayController = PerfOverlayController(
-            activity = this,
-            glView = glView,
-            prefs = prefs,
-            isSystemAudioMode = { systemAudioMode },
-            hueStats = {
-                if (::lightingController.isInitialized) lightingController.huePerfStats()
-                else PerfOverlayController.HueStats(false, 0L, 0L, -1L)
-            },
-        )
-        perfOverlayController.bind()
-
-        menuSheetController = MenuSheetController(
-            activity = this,
-            glView = glView,
-            onBeforeOpen = { syncMenuState() },
-        )
-        menuSheetController.bind()
-
-        displayModeController = DisplayModeController(
-            this,
-            prefs,
-            onSwipeScene = { dir -> glView.cycleScene(dir) },
-            onOpenMenu = { menuSheetController.openOverlay() },
-        )
-        displayModeController.bind()
-
-        shuffleController = ShuffleController(this, prefs, advanceScene = { glView.shuffleScene() })
-        shuffleController.bind()
-        
-        secondaryDisplayController = com.lowlatency.visualizer.ui.SecondaryDisplayController(this, glView, btnCastDisplay, castOverlay)
-        secondaryDisplayController.bind()
+        initControllers()
 
         findViewById<Button>(R.id.btn_display_mode).setOnClickListener {
             menuSheetController.close()
@@ -311,36 +233,6 @@ class MainActivity : AppCompatActivity() {
         introHint = findViewById(R.id.intro_hint)
         segMic = findViewById(R.id.seg_mic)
         segInternal = findViewById(R.id.seg_internal)
-        btnOscilloscope = findViewById(R.id.btn_oscilloscope)
-        btnTunnel = findViewById(R.id.btn_tunnel)
-        btnFluid = findViewById(R.id.btn_fluid)
-        btnLaser = findViewById(R.id.btn_laser)
-        btnCircular = findViewById(R.id.btn_circular)
-        btnBars = findViewById(R.id.btn_bars)
-        btnBloom = findViewById(R.id.btn_bloom)
-        btnStarscape = findViewById(R.id.btn_starscape)
-        btnRawScope = findViewById(R.id.btn_rawscope)
-        btnSpectrogram = findViewById(R.id.btn_spectrogram)
-        btnFireworks = findViewById(R.id.btn_fireworks)
-        btnPhyllotaxis = findViewById(R.id.btn_phyllotaxis)
-        btnElectricIris = findViewById(R.id.btn_electric_iris)
-        btnMandala = findViewById(R.id.btn_mandala)
-        btnAudioWeb = findViewById(R.id.btn_audio_web)
-        btnTopoRidge = findViewById(R.id.btn_topo_ridge)
-        btnLedMatrix = findViewById(R.id.btn_led_matrix)
-        btnLedMatrix3d = findViewById(R.id.btn_led_matrix_3d)
-        btnMechanicalMeter = findViewById(R.id.btn_mechanical_meter)
-        btnBeatPulse = findViewById(R.id.btn_beat_pulse)
-        btnMandelbox = findViewById(R.id.btn_mandelbox)
-        btnReactionDiffusion = findViewById(R.id.btn_reaction_diffusion)
-        btnCymatics = findViewById(R.id.btn_cymatics)
-        btnStrangeAttractor = findViewById(R.id.btn_strange_attractor)
-        btnPlasmaStorm = findViewById(R.id.btn_plasma_storm)
-        btnAuroraDrift = findViewById(R.id.btn_aurora_drift)
-        btnOdyssey = findViewById(R.id.btn_odyssey)
-        btnLogoParticle = findViewById(R.id.btn_logo_particle)
-        btnCrystalSwarm = findViewById(R.id.btn_crystal_swarm)
-        btnLiquidLight = findViewById(R.id.btn_liquid_light)
         btnBurnin = findViewById(R.id.btn_burnin)
         btnGlowOff = findViewById(R.id.btn_glow_off)
         btnGlowSubtle = findViewById(R.id.btn_glow_subtle)
@@ -373,9 +265,6 @@ class MainActivity : AppCompatActivity() {
         btnThemeMono = findViewById(R.id.btn_theme_mono)
         btnPrivacyPolicy = findViewById(R.id.btn_privacy_policy)
         btnAbout = findViewById(R.id.btn_about)
-        btnSceneLabel = findViewById(R.id.btn_scene_label)
-        heroVisName = findViewById(R.id.hero_vis_name)
-        sceneLabel = findViewById(R.id.scene_label)
         btnPeakLuminance = findViewById(R.id.btn_peak_luminance)
         groupPeakLuminance = findViewById(R.id.group_peak_luminance)
         tabBtnVisuals = findViewById(R.id.tab_btn_visuals)
@@ -390,6 +279,63 @@ class MainActivity : AppCompatActivity() {
         // Lighting views (Hue/LIFX/Nanoleaf) are bound inside LightingController.
 
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+    }
+
+    private fun initControllers() {
+        lightingController = LightingController(
+            activity = this,
+            prefs = prefs,
+            backgroundedAtMs = { backgroundedAtMs },
+        )
+        lightingController.bind()
+        wireGlAudioSinks()
+
+        perfOverlayController = PerfOverlayController(
+            activity = this,
+            glView = glView,
+            prefs = prefs,
+            isSystemAudioMode = { systemAudioMode },
+            hueStats = {
+                if (::lightingController.isInitialized) lightingController.huePerfStats()
+                else PerfOverlayController.HueStats(false, 0L, 0L, -1L)
+            },
+        )
+        perfOverlayController.bind()
+
+        menuSheetController = MenuSheetController(
+            activity = this,
+            glView = glView,
+            onBeforeOpen = { syncMenuState() },
+        )
+        menuSheetController.bind()
+
+        displayModeController = DisplayModeController(
+            this,
+            prefs,
+            onSwipeScene = { dir -> glView.cycleScene(dir) },
+            onOpenMenu = { menuSheetController.openOverlay() },
+        )
+        displayModeController.bind()
+
+        shuffleController = ShuffleController(this, prefs, advanceScene = { glView.shuffleScene() })
+        shuffleController.bind()
+
+        scenesController = ScenesController(
+            activity = this,
+            glView = glView,
+            prefs = prefs,
+            isMenuOpen = { menuSheetController.isOpen },
+            perfOverlayBottom = {
+                if (perfOverlayController.enabled && perfOverlayController.overlayView.height > 0)
+                    perfOverlayController.overlayView.bottom
+                else 0
+            },
+            onManualSceneChange = { shuffleController.onSceneChanged() },
+        )
+        scenesController.bind()
+
+        secondaryDisplayController = com.lowlatency.visualizer.ui.SecondaryDisplayController(this, glView, btnCastDisplay, castOverlay)
+        secondaryDisplayController.bind()
     }
 
     /** The app's versionName from the manifest/Gradle (e.g. "1.1"). */
@@ -500,63 +446,6 @@ class MainActivity : AppCompatActivity() {
         segMic.setOnClickListener { selectMicrophone() }
         segInternal.setOnClickListener { selectInternalAudio() }
 
-        // Visualizer buttons: tap = select, long-press = toggle favourite.
-        visButtons = listOf(
-            // Instruments
-            Triple(btnOscilloscope, 0, btnOscilloscope.text.toString()),
-            Triple(btnRawScope, 8, btnRawScope.text.toString()),
-            Triple(btnBars, 5, btnBars.text.toString()),
-            Triple(btnCircular, 4, btnCircular.text.toString()),
-            Triple(btnSpectrogram, 9, btnSpectrogram.text.toString()),
-            Triple(btnLedMatrix, 16, btnLedMatrix.text.toString()),
-            Triple(btnLedMatrix3d, 28, btnLedMatrix3d.text.toString()),
-            Triple(btnMechanicalMeter, 17, btnMechanicalMeter.text.toString()),
-            // Reactive
-            Triple(btnCymatics, 21, btnCymatics.text.toString()),
-            Triple(btnBeatPulse, 18, btnBeatPulse.text.toString()),
-            Triple(btnFireworks, 10, btnFireworks.text.toString()),
-            Triple(btnStarscape, 7, btnStarscape.text.toString()),
-            Triple(btnBloom, 6, btnBloom.text.toString()),
-            Triple(btnElectricIris, 12, btnElectricIris.text.toString()),
-            Triple(btnAuroraDrift, 24, btnAuroraDrift.text.toString()),
-            Triple(btnTunnel, 1, btnTunnel.text.toString()),
-            Triple(btnLaser, 3, btnLaser.text.toString()),
-            Triple(btnPhyllotaxis, 11, btnPhyllotaxis.text.toString()),
-            Triple(btnMandala, 13, btnMandala.text.toString()),
-            Triple(btnAudioWeb, 14, btnAudioWeb.text.toString()),
-            Triple(btnTopoRidge, 15, btnTopoRidge.text.toString()),
-            Triple(btnStrangeAttractor, 22, btnStrangeAttractor.text.toString()),
-            Triple(btnLogoParticle, 26, btnLogoParticle.text.toString()),
-            // Immersive
-            Triple(btnFluid, 2, btnFluid.text.toString()),
-            Triple(btnCrystalSwarm, 27, btnCrystalSwarm.text.toString()),
-            Triple(btnMandelbox, 19, btnMandelbox.text.toString()),
-            Triple(btnReactionDiffusion, 20, btnReactionDiffusion.text.toString()),
-            Triple(btnPlasmaStorm, 23, btnPlasmaStorm.text.toString()),
-            Triple(btnOdyssey, 25, btnOdyssey.text.toString()),
-            Triple(btnLiquidLight, 29, btnLiquidLight.text.toString()),
-        )
-        glView.sceneOrder = visButtons.map { it.second }
-        glView.onSceneChanged = {
-            updateVisualizerSelection()
-            // Flash the name over the canvas on a swipe (menu closed); when the
-            // menu is open the hero header already names the active scene.
-            if (!menuSheetController.isOpen) showSceneLabel()
-            // Reset the shuffle countdown so a manual change gets a full interval.
-            if (::shuffleController.isInitialized) shuffleController.onSceneChanged()
-            prefs.edit().putInt(SecondaryVisualizerActivity.KEY_ACTIVE_SCENE, it).apply()
-        }
-
-        prefs.getStringSet(KEY_FAVOURITES, emptySet())?.forEach {
-            it.toIntOrNull()?.let { idx -> favourites.add(idx) }
-        }
-        updateFavouritesOrder()
-        visButtons.forEach { (b, idx, _) ->
-            b.setOnClickListener { glView.selectScene(idx); updateVisualizerSelection() }
-            b.setOnLongClickListener { toggleFavourite(idx); true }
-        }
-        updateVisualizerSelection()
-
         // Burn-in protection toggle (persisted, default off).
         val burnIn = prefs.getBoolean(KEY_BURNIN, false)
         glView.burnInEnabled = burnIn
@@ -569,10 +458,6 @@ class MainActivity : AppCompatActivity() {
         }
 
         // Performance overlay toggle is owned by perfOverlayController (bound in onCreate).
-
-        // On-swipe visualiser-name label toggle (persisted, default on).
-        setSceneLabelEnabled(prefs.getBoolean(KEY_SCENE_LABEL, true))
-        btnSceneLabel.setOnClickListener { setSceneLabelEnabled(!sceneLabelEnabled) }
 
         // Peak luminance (HDR+) toggle (persisted, default off).
         val peak = prefs.getBoolean(KEY_PEAK_LUMINANCE, true)
@@ -842,46 +727,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /** Enable/disable the on-swipe visualiser-name label over the canvas. */
-    private fun setSceneLabelEnabled(enabled: Boolean) {
-        sceneLabelEnabled = enabled
-        prefs.edit().putBoolean(KEY_SCENE_LABEL, enabled).apply()
-        btnSceneLabel.isSelected = enabled
-        btnSceneLabel.setText(if (enabled) R.string.scene_label_on else R.string.scene_label_off)
-        if (!enabled) {
-            sceneLabelRunnable?.let { sceneLabel.removeCallbacks(it) }
-            sceneLabel.animate().cancel()
-            sceneLabel.visibility = View.GONE
-        }
-    }
-
-    /** Briefly flash the active-visualiser name over the canvas on a swipe. */
-    private fun showSceneLabel() {
-        if (!sceneLabelEnabled) return
-        val name = heroVisName.text
-        if (name.isNullOrBlank()) return
-        sceneLabel.text = name
-        // Drop below the performance overlay when it's showing, so they never clash.
-        val d = resources.displayMetrics.density
-        val lp = sceneLabel.layoutParams as android.view.ViewGroup.MarginLayoutParams
-        lp.topMargin = if (perfOverlayController.enabled && perfOverlayController.overlayView.height > 0)
-            perfOverlayController.overlayView.bottom + (d * 12).toInt()
-        else
-            (d * 72).toInt()
-        sceneLabel.layoutParams = lp
-        sceneLabelRunnable?.let { sceneLabel.removeCallbacks(it) }
-        sceneLabel.animate().cancel()
-        sceneLabel.visibility = View.VISIBLE
-        sceneLabel.alpha = 0f
-        sceneLabel.animate().alpha(1f).setDuration(180L).start()
-        val hide = Runnable {
-            sceneLabel.animate().alpha(0f).setDuration(450L)
-                .withEndAction { sceneLabel.visibility = View.GONE }.start()
-        }
-        sceneLabelRunnable = hide
-        sceneLabel.postDelayed(hide, 1100L)
-    }
-
     private fun setGlow(s: GlowSettings.Strength) {
         GlowSettings.strength = s
         prefs.edit().putString(KEY_GLOW, s.key).apply()
@@ -911,25 +756,6 @@ class MainActivity : AppCompatActivity() {
         btnThemeMono.isSelected = t == ThemeSettings.Theme.MONO
     }
 
-    /** Long-press a visualizer to add/remove it from the swipe favourites. */
-    private fun toggleFavourite(index: Int) {
-        if (!favourites.add(index)) favourites.remove(index)
-        prefs.edit().putStringSet(KEY_FAVOURITES, favourites.map { it.toString() }.toSet()).apply()
-        updateFavouritesOrder()
-        updateVisualizerSelection()
-        val fav = favourites.contains(index)
-        Toast.makeText(
-            this,
-            if (fav) "Added to swipe favourites" else "Removed from favourites",
-            Toast.LENGTH_SHORT,
-        ).show()
-    }
-
-    private fun updateFavouritesOrder() {
-        val order = glView.sceneOrder
-        glView.favourites = favourites.toList().sortedBy { order.indexOf(it) }
-    }
-
     private fun updateHapticsButton(enabled: Boolean) {
         btnHaptics.isSelected = enabled
         btnHaptics.setText(if (enabled) R.string.haptics_on else R.string.haptics_off)
@@ -957,7 +783,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun syncMenuState() {
         updateSourceSelection()
-        updateVisualizerSelection()
+        if (::scenesController.isInitialized) scenesController.updateSelection()
         updateStatus()
     }
 
@@ -975,15 +801,6 @@ class MainActivity : AppCompatActivity() {
             if (tabBtnLighting.isSelected) {
                 selectTab(TAB_VISUALS)
             }
-        }
-    }
-
-    private fun updateVisualizerSelection() {
-        val current = glView.sceneIndex
-        for ((b, idx, base) in visButtons) {
-            b.isSelected = idx == current
-            b.text = if (favourites.contains(idx)) "★ $base" else base
-            if (idx == current) heroVisName.text = base
         }
     }
 
@@ -1264,9 +1081,7 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_LINK_ANTICIPATE = "ableton_link_anticipate"
         private const val KEY_LINK_BAR_OFFSET = "ableton_link_bar_offset"
         private const val KEY_LINK_EXTRAS = "ableton_link_experimental_extras"
-        private const val KEY_SCENE_LABEL = "scene_label_enabled"
         private const val KEY_PEAK_LUMINANCE = "peak_luminance_enabled"
-        private const val KEY_FAVOURITES = "favourite_scenes"
         private const val KEY_SCREENSHARE_RATIONALE = "screenshare_rationale_shown"
         private const val TAB_VISUALS = 0
         private const val TAB_LIGHTING = 1
