@@ -1997,9 +1997,11 @@
                 android:layout_height="wrap_content"
                 android:text="LIFX creates Wi-Fi smart bulbs. Unlike Philips Hue, they connect directly to your router without requiring a bridge.\n\nMake sure your phone is connected to the same Wi-Fi network as your bulbs to sync them with the visualizer."
                 android:textColor="@color/text_primary"
-                android:textSize="14sp"
-                android:lineSpacingExtra="4sp"
-                android:paddingBottom="16dp"
+                android:textSize="13sp"
+                android:lineSpacingMultiplier="1.2"
+                android:padding="16dp"
+                android:background="@drawable/segment_button_bg"
+                android:layout_marginBottom="16dp"
                 android:gravity="start" />
 
             <Button
@@ -2107,9 +2109,11 @@
                 android:layout_height="wrap_content"
                 android:text="@string/nanoleaf_hint"
                 android:textColor="@color/text_primary"
-                android:textSize="14sp"
-                android:lineSpacingExtra="4sp"
-                android:paddingBottom="16dp"
+                android:textSize="13sp"
+                android:lineSpacingMultiplier="1.2"
+                android:padding="16dp"
+                android:background="@drawable/segment_button_bg"
+                android:layout_marginBottom="16dp"
                 android:gravity="start" />
 
             <Button
@@ -2201,9 +2205,11 @@
                 android:layout_height="wrap_content"
                 android:text="@string/wled_blurb"
                 android:textColor="@color/text_primary"
-                android:textSize="14sp"
-                android:lineSpacingExtra="4sp"
-                android:paddingBottom="16dp"
+                android:textSize="13sp"
+                android:lineSpacingMultiplier="1.2"
+                android:padding="16dp"
+                android:background="@drawable/segment_button_bg"
+                android:layout_marginBottom="16dp"
                 android:gravity="start" />
 
             <Button
