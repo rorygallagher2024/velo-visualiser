@@ -724,6 +724,18 @@
                 android:textSize="14sp"
                 android:stateListAnimator="@null" />
 
+            <Button
+                android:id="@+id/btn_spectral_canyon"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/vis_spectral_canyon"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="14sp"
+                android:stateListAnimator="@null" />
+
         </LinearLayout>
 
         <!-- ===== Ambient Mode launcher (a viewing mode, not a scene — sits below

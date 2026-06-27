@@ -64,6 +64,7 @@ class ScenesController(
             btn(R.id.btn_plasma_storm, 23),
             btn(R.id.btn_odyssey, 25),
             btn(R.id.btn_liquid_light, 29),
+            btn(R.id.btn_spectral_canyon, 30),
         )
         glView.sceneOrder = visButtons.map { it.second }
 
