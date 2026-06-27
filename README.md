@@ -52,7 +52,7 @@ Velo listens to the **actual sound** in the room and moves with it instantly. Th
 - **Two audio sources**: Raw low-latency microphone capture or internal/system audio via screen-share (Warning: Low latency not supported via screen-sharing).
 - **Global colour themes**: Re-tint visuals to your desired colour scheme (Neon, Warm, Cool, Mono…).
 - **Vibrate-on-beat haptics**: Bass-onset detection triggers physical pulses.
-- **Ambient Mode**: A burn-in-safe standby screen — an oversized clock, live BPM, and an audio-presence meter over the dimmed visuals — turning a propped-up phone into a desk/shelf piece. Swipe to browse visuals without leaving.
+- **Ambient Mode**: A burn-in-safe standby screen featuring an  clock, live BPM, and an audio-presence meter over the dimmed visuals so you can use turn a propped-up phone into a desk/shelf piece. Swipe to browse visuals without leaving.
 - **Foldable & Tablet Support**: Open a foldable phone and the render loop will survive the screen state changes without recreating.
 - **Diagnostics Overlay Toggle**: Displays FPS, audio latency, Ableton link status, Hue drop rates and more.
 
