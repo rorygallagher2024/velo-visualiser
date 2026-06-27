@@ -108,7 +108,7 @@ class DisplayModeController(
             exit()
         } else {
             exitArmed = true
-            showHint(R.string.display_mode_hint_again)
+            showHint(R.string.ambient_mode_hint_again)
             handler.removeCallbacks(disarmExit)
             handler.postDelayed(disarmExit, EXIT_ARM_MS)
         }
@@ -173,7 +173,7 @@ class DisplayModeController(
 
     /** On entry, briefly show how to exit ("tap twice"), then fade it away. */
     private fun flashExitHint() {
-        exitHint.setText(R.string.display_mode_hint)
+        exitHint.setText(R.string.ambient_mode_hint)
         exitHint.animate().cancel()
         exitHint.alpha = 0f
         exitHint.animate().alpha(0.7f).setDuration(450L).withEndAction {
