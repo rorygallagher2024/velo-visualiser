@@ -710,6 +710,51 @@
 
         </LinearLayout>
 
+        <!-- ===== Ambient Mode launcher (a viewing mode, not a scene — sits below
+             the scene list so it never reads as part of a visual) ===== -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/text_dim"
+            android:alpha="0.25"
+            android:layout_marginBottom="16dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/cat_modes"
+            android:textColor="@color/text_dim"
+            android:textSize="13sp"
+            android:letterSpacing="0.1"
+            android:textAllCaps="true"
+            android:layout_marginBottom="12dp" />
+
+        <Button
+            android:id="@+id/btn_display_mode"
+            android:layout_width="match_parent"
+            android:layout_height="54dp"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/pill_button_bg"
+            android:text="@string/ambient_mode"
+            android:textColor="@color/btn_text"
+            android:textAllCaps="false"
+            android:textSize="15sp"
+            android:letterSpacing="0.04"
+            android:stateListAnimator="@null" />
+
+        <!-- Auto-advance through scenes on a timer (respects favourites). -->
+        <Button
+            android:id="@+id/btn_shuffle"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginBottom="4dp"
+            android:background="@drawable/pill_button_bg"
+            android:text="@string/shuffle_off"
+            android:textColor="@color/btn_text"
+            android:textAllCaps="false"
+            android:textSize="14sp"
+            android:stateListAnimator="@null" />
+
         </LinearLayout>
         <!-- /TAB 1: Visuals -->
 
@@ -1375,18 +1420,8 @@
             android:textSize="14sp"
             android:stateListAnimator="@null" />
 
-        <!-- Enter the ambient standby / Display Mode (clock + BPM over dimmed scene) -->
-        <Button
-            android:id="@+id/btn_display_mode"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:layout_marginBottom="8dp"
-            android:background="@drawable/pill_button_bg"
-            android:text="@string/display_mode"
-            android:textColor="@color/btn_text"
-            android:textAllCaps="false"
-            android:textSize="14sp"
-            android:stateListAnimator="@null" />
+        <!-- Display Mode launcher now lives at the top of the Visuals tab (it's a
+             viewing mode, not a display setting). -->
 
         <!-- Toggle the visualiser-name label that flashes over the canvas on swipe -->
         <Button
@@ -2220,7 +2255,7 @@
             android:letterSpacing="0.18"
             android:textAllCaps="true"
             android:alpha="0"
-            android:text="@string/display_mode_hint" />
+            android:text="@string/ambient_mode_hint" />
     </FrameLayout>
 
     <!-- Startup mask: plain black over GL init; fades out fast so the GL-rendered

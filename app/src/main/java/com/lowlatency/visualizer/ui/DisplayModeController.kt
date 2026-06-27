@@ -1,8 +1,11 @@
 package com.lowlatency.visualizer.ui
 
+import android.annotation.SuppressLint
 import android.os.Handler
 import android.os.Looper
 import android.text.format.DateFormat
+import android.view.GestureDetector
+import android.view.MotionEvent
 import android.view.View
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
@@ -12,6 +15,7 @@ import com.lowlatency.visualizer.LinkSync
 import com.lowlatency.visualizer.NativeBridge
 import com.lowlatency.visualizer.R
 import java.util.Calendar
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
@@ -28,6 +32,7 @@ import kotlin.math.sin
  */
 class DisplayModeController(
     private val activity: AppCompatActivity,
+    private val onSwipeScene: (Int) -> Unit,
 ) {
     private lateinit var overlay: View
     private lateinit var content: View
@@ -76,16 +81,43 @@ class DisplayModeController(
         exitHint = activity.findViewById(R.id.display_exit_hint)
         presenceFill.pivotX = 0f
         shiftRadiusPx = SHIFT_RADIUS_DP * activity.resources.displayMetrics.density
-        overlay.setOnClickListener {
-            if (exitArmed) {
-                exit()
-            } else {
-                exitArmed = true
-                showHint(R.string.display_mode_hint_again)
-                handler.removeCallbacks(disarmExit)
-                handler.postDelayed(disarmExit, EXIT_ARM_MS)
+        wireOverlayGestures()
+    }
+
+    /** Tap (twice) to exit; horizontal swipe browses scenes without leaving. */
+    @SuppressLint("ClickableViewAccessibility")
+    private fun wireOverlayGestures() {
+        val gestures = GestureDetector(activity, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onDown(e: MotionEvent) = true
+            override fun onSingleTapUp(e: MotionEvent): Boolean { onTapToExit(); return true }
+            override fun onFling(e1: MotionEvent?, e2: MotionEvent, vx: Float, vy: Float): Boolean {
+                if (abs(vx) > abs(vy) && abs(vx) > SWIPE_VELOCITY) {
+                    onSwipeScene(if (vx < 0) 1 else -1)   // left = next, right = prev (matches canvas)
+                    disarmExitNow()                        // a swipe is deliberate — cancel any pending exit
+                    return true
+                }
+                return false
             }
+        })
+        overlay.setOnTouchListener { _, ev -> gestures.onTouchEvent(ev) }
+    }
+
+    /** First tap arms the exit + shows the prompt; a second tap within the window exits. */
+    private fun onTapToExit() {
+        if (exitArmed) {
+            exit()
+        } else {
+            exitArmed = true
+            showHint(R.string.ambient_mode_hint_again)
+            handler.removeCallbacks(disarmExit)
+            handler.postDelayed(disarmExit, EXIT_ARM_MS)
         }
+    }
+
+    private fun disarmExitNow() {
+        exitArmed = false
+        handler.removeCallbacks(disarmExit)
+        hideHint()
     }
 
     fun enter() {
@@ -141,7 +173,7 @@ class DisplayModeController(
 
     /** On entry, briefly show how to exit ("tap twice"), then fade it away. */
     private fun flashExitHint() {
-        exitHint.setText(R.string.display_mode_hint)
+        exitHint.setText(R.string.ambient_mode_hint)
         exitHint.animate().cancel()
         exitHint.alpha = 0f
         exitHint.animate().alpha(0.7f).setDuration(450L).withEndAction {
@@ -217,6 +249,7 @@ class DisplayModeController(
         private const val ENTER_FADE_MS = 280L
         private const val EXIT_FADE_MS = 220L
         private const val EXIT_ARM_MS = 2500L     // window for the confirming second tap
+        private const val SWIPE_VELOCITY = 800f   // px/s fling threshold to change scene
         private const val PRESENCE_SMOOTH = 0.25f
         private const val SHIFT_SPEED = 0.0022       // radians/tick — a ~2.5-min orbit, imperceptibly slow but still migrates pixels for burn-in
         private const val SHIFT_RADIUS_DP = 12f

@@ -163,6 +163,7 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
 
     private var startNanos = 0L
     private var transitionStart = -1f          // <0 => no transition in progress
+    private var activeTransitionSec = TRANSITION_SEC   // duration of the in-flight fade (per request)
     private var swapped = false
 
     // Optional per-frame audio tap (e.g. the Hue light controller). Called on the
@@ -235,7 +236,7 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
      * Transition to an explicit scene index (used by both swipe and the menu's
      * visualizer selector). Ignored if already there or mid-transition.
      */
-    fun requestScene(index: Int) {
+    fun requestScene(index: Int, transitionSec: Float = TRANSITION_SEC) {
         val clamped = ((index % scenes.size) + scenes.size) % scenes.size
         if (transitionStart >= 0f) {
             // Mid-transition: remember the most recent request and apply it once the
@@ -245,6 +246,7 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
         }
         if (clamped == current) return
         target = clamped
+        activeTransitionSec = transitionSec
         transitionStart = nowSec()
         swapped = false
     }
@@ -620,11 +622,11 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
         if (transitionStart < 0f) return 1f
 
         val elapsed = t - transitionStart
-        val half = TRANSITION_SEC * 0.5f
+        val half = activeTransitionSec * 0.5f
 
         return when {
             elapsed < half -> 1f - elapsed / half          // fade out outgoing
-            elapsed < TRANSITION_SEC -> {
+            elapsed < activeTransitionSec -> {
                 if (!swapped) {
                     scenes[current]?.onDeactivate()         // explicit cleanup of the outgoing scene
                     current = target
