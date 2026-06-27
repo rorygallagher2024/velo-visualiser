@@ -151,7 +151,7 @@ If you want to compile yourself, open the project in Android Studio (Meerkat 202
   
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING)
+See [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## Acknowledgements
 
