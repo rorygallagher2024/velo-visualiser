@@ -192,8 +192,12 @@ like to chip in for coffee, it's hugely appreciated:
 
 ## About the Developer
 
-Velo was engineered by me, Rory Gallagher (he/him). I have a background in software engineering and interests in music technology, live performance, hardware and IoT.
+Velo was engineered by me, Rory Gallagher. I am a **Solutions Engineer** with over 14 years of experience in enterprise software architecture, currently leading innovation and experimentation teams. My day-to-day focus centers on leading teams to evaluate and build enterprise capabilities using emerging technologies.
+
+With interests in music technology, live performance, hardware and IoT, I built Velo to serve as both a practical tool for live sets and a personal deep-dive to explore the bare-metal performance limits of native Android audio pipelines and network hardware coordination.
 
 Feel free to connect:
 * **LinkedIn:** [linkedin.com/in/rory-gallagher-51822532](https://www.linkedin.com/in/rory-gallagher-51822532)
 * **YouTube:** [youtube.com/@rorygallagher-redslug](https://www.youtube.com/@rorygallagher-redslug)
+* **Medium:** [medium.com/@rorygallagher2010](https://medium.com/@rorygallagher2010)
+
