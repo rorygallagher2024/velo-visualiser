@@ -148,13 +148,18 @@ class VisualizerSurfaceView @JvmOverloads constructor(
      */
     var favourites: List<Int> = emptyList()
 
-    /** Switch to an explicit scene (wraps), updating the menu source-of-truth. */
-    fun selectScene(index: Int) {
+    /** Switch to an explicit scene (wraps), updating the menu source-of-truth.
+     *  [transitionSec] < 0 uses the renderer's default fade; pass a larger value
+     *  for a slower, ambient crossfade (e.g. Shuffle). */
+    fun selectScene(index: Int, transitionSec: Float = -1f) {
         val count = renderer.sceneCount
         val next = ((index % count) + count) % count
         if (sceneIndex != next) {
             sceneIndex = next
-            queueEvent { renderer.requestScene(next) }
+            queueEvent {
+                if (transitionSec > 0f) renderer.requestScene(next, transitionSec)
+                else renderer.requestScene(next)
+            }
             onSceneChanged?.invoke(next)
         }
     }
@@ -169,7 +174,7 @@ class VisualizerSurfaceView @JvmOverloads constructor(
         val order = if (favs.isNotEmpty()) favs else sceneOrder
         val pool = order.filter { it != sceneIndex }
         if (pool.isEmpty()) { swipeScene(1); return }   // <=1 option: just step on
-        selectScene(pool.random())
+        selectScene(pool.random(), SHUFFLE_TRANSITION_SEC)   // slower, ambient fade
     }
 
     /** Step to the next/previous scene for a swipe — within favourites if set. */
@@ -279,6 +284,7 @@ class VisualizerSurfaceView @JvmOverloads constructor(
 
     companion object {
         private const val SWIPE_VELOCITY = 800f   // px/s threshold
+        private const val SHUFFLE_TRANSITION_SEC = 0.9f   // slower, ambient fade for Shuffle (vs ~0.45s manual)
         private const val MENU_GRAB_ZONE = 0.5f   // upward drag below this fraction opens the menu
     }
 }
