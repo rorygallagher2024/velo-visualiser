@@ -1,6 +1,6 @@
 # Security Policy
 
-While this is primarily an offline, client-side visualizer app, keeping our users' devices safe is still important to us.
+While this is primarily a client-side visualizer app that only communicates on your local network (e.g., for smart lighting integrations), keeping our users' devices and home networks safe is still important to us.
 
 ## Reporting a Vulnerability
 
