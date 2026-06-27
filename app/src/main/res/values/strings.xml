@@ -46,6 +46,8 @@
     <string name="section_visuals">Visuals</string>
     <string name="display_label">Display</string>
     <string name="ambient_mode">Ambient Mode</string>
+    <string name="shuffle_on">Shuffle Scenes: On</string>
+    <string name="shuffle_off">Shuffle Scenes: Off</string>
     <string name="ambient_mode_hint">Tap twice to exit</string>
     <string name="ambient_mode_hint_again">Tap again to exit</string>
     <string name="display_bpm_unit">BPM</string>

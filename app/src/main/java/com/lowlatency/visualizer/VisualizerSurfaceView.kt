@@ -162,6 +162,16 @@ class VisualizerSurfaceView @JvmOverloads constructor(
     /** Public next/prev scene step (e.g. swipes from Display Mode). +1 = next. */
     fun cycleScene(dir: Int) = swipeScene(dir)
 
+    /** Jump to a random scene (Shuffle mode) — within favourites if set, never an
+     *  immediate repeat. The renderer's transition crossfades to it. */
+    fun shuffleScene() {
+        val favs = favourites
+        val order = if (favs.isNotEmpty()) favs else sceneOrder
+        val pool = order.filter { it != sceneIndex }
+        if (pool.isEmpty()) { swipeScene(1); return }   // <=1 option: just step on
+        selectScene(pool.random())
+    }
+
     /** Step to the next/previous scene for a swipe — within favourites if set. */
     private fun swipeScene(dir: Int) {
         val favs = favourites

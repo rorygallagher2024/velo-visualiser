@@ -36,6 +36,7 @@ import com.lowlatency.visualizer.ui.DisplayModeController
 import com.lowlatency.visualizer.ui.LightingController
 import com.lowlatency.visualizer.ui.MenuSheetController
 import com.lowlatency.visualizer.ui.PerfOverlayController
+import com.lowlatency.visualizer.ui.ShuffleController
 
 /**
  * UI shell. Hosts the OpenGL canvas plus a translucent overlay layer:
@@ -114,6 +115,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var perfOverlayController: PerfOverlayController
     private lateinit var menuSheetController: MenuSheetController
     private lateinit var displayModeController: DisplayModeController
+    private lateinit var shuffleController: ShuffleController
     private lateinit var heroVisName: TextView
     private lateinit var btnSceneLabel: Button
     private lateinit var sceneLabel: TextView
@@ -252,6 +254,9 @@ class MainActivity : AppCompatActivity() {
 
         displayModeController = DisplayModeController(this, onSwipeScene = { dir -> glView.cycleScene(dir) })
         displayModeController.bind()
+
+        shuffleController = ShuffleController(this, prefs, advanceScene = { glView.shuffleScene() })
+        shuffleController.bind()
         findViewById<Button>(R.id.btn_display_mode).setOnClickListener {
             menuSheetController.close()
             displayModeController.enter()
@@ -521,6 +526,8 @@ class MainActivity : AppCompatActivity() {
             // Flash the name over the canvas on a swipe (menu closed); when the
             // menu is open the hero header already names the active scene.
             if (!menuSheetController.isOpen) showSceneLabel()
+            // Reset the shuffle countdown so a manual change gets a full interval.
+            if (::shuffleController.isInitialized) shuffleController.onSceneChanged()
         }
 
         prefs.getStringSet(KEY_FAVOURITES, emptySet())?.forEach {
@@ -1183,6 +1190,7 @@ class MainActivity : AppCompatActivity() {
         if (::perfOverlayController.isInitialized) perfOverlayController.onResume()
         if (::lightingController.isInitialized) lightingController.onResume()
         if (::displayModeController.isInitialized) displayModeController.onResume()
+        if (::shuffleController.isInitialized) shuffleController.onResume()
     }
 
     override fun onPause() {
@@ -1193,6 +1201,7 @@ class MainActivity : AppCompatActivity() {
         if (::perfOverlayController.isInitialized) perfOverlayController.onPause()
         if (::lightingController.isInitialized) lightingController.onPause()
         if (::displayModeController.isInitialized) displayModeController.onPause()
+        if (::shuffleController.isInitialized) shuffleController.onPause()
         linkHandler.removeCallbacks(linkStatusPoller)
         if (LinkSync.enabled) {
             NativeBridge.nativeLinkSetEnabled(false)
@@ -1204,6 +1213,7 @@ class MainActivity : AppCompatActivity() {
         if (::perfOverlayController.isInitialized) perfOverlayController.onDestroy()
         if (::lightingController.isInitialized) lightingController.onDestroy()
         if (::displayModeController.isInitialized) displayModeController.onDestroy()
+        if (::shuffleController.isInitialized) shuffleController.onDestroy()
         if (::hapticController.isInitialized) hapticController.release()
         linkHandler.removeCallbacks(linkStatusPoller)
         NativeBridge.nativeLinkSetEnabled(false)
