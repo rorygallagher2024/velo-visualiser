@@ -121,6 +121,7 @@
     <string name="beat_sens_standard">Standard</string>
     <string name="beat_sens_high">High</string>
     <string name="link_label">Ableton Link</string>
+    <string name="link_caption">Locks the beat to music apps on your network (Ableton Live, Traktor…) instead of the mic — for dead-on, on-grid visuals.</string>
     <string name="link_sync_on">Ableton Link: Enabled</string>
     <string name="link_sync_off">Ableton Link: Disabled</string>
     <string name="link_help">Locks the beat to Ableton Link software on your Wi-Fi (Traktor, Ableton Live, and more) for perfectly-timed bloom and haptics. The microphone still drives the visuals — Link only sets the beat. Both devices must be on the same network.</string>

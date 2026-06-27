@@ -939,6 +939,18 @@
             android:textSize="13sp"
             android:letterSpacing="0.1"
             android:textAllCaps="true"
+            android:layout_marginBottom="6dp" />
+
+        <!-- Always-visible primer: the full link_help only shows once Link is on,
+             but you need to know what it is *before* deciding to enable it. -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/link_caption"
+            android:textColor="@color/text_dim"
+            android:textSize="11sp"
+            android:alpha="0.7"
+            android:lineSpacingMultiplier="1.2"
             android:layout_marginBottom="16dp" />
 
         <Button
