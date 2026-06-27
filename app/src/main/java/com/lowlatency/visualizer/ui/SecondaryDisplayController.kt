@@ -45,7 +45,7 @@ class SecondaryDisplayController(
     }
 
     private fun updateCastButtonVisibility() {
-        val presentationDisplays = displayManager.displays.filter { it.displayId != Display.DEFAULT_DISPLAY }
+        val presentationDisplays = displayManager.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION)
         if (presentationDisplays.isNotEmpty()) {
             castButton.visibility = View.VISIBLE
         } else {
@@ -57,7 +57,7 @@ class SecondaryDisplayController(
     }
 
     private fun startCasting() {
-        val presentationDisplays = displayManager.displays.filter { it.displayId != Display.DEFAULT_DISPLAY }
+        val presentationDisplays = displayManager.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION)
         val secondaryDisplay = presentationDisplays.firstOrNull()
         
         if (secondaryDisplay != null) {
@@ -66,13 +66,19 @@ class SecondaryDisplayController(
             val options = ActivityOptions.makeBasic()
             options.launchDisplayId = secondaryDisplay.displayId
             
-            activity.startActivity(intent, options.toBundle())
-            isCasting = true
-            castButton.text = "Stop Casting"
-            
-            // Pause local rendering to save battery, but keep the view visible so it can receive touch events (swipes)
-            glView.onPause() 
-            castOverlay.visibility = View.VISIBLE
+            try {
+                activity.startActivity(intent, options.toBundle())
+                isCasting = true
+                castButton.text = "Stop Casting"
+                
+                // Pause local rendering to save battery, but keep the view visible so it can receive touch events (swipes)
+                glView.onPause() 
+                castOverlay.visibility = View.VISIBLE
+            } catch (e: Exception) {
+                // E.g., SecurityException if the display doesn't support independent activities (like a mirroring display)
+                android.widget.Toast.makeText(activity, "Cannot cast to this display. It may be in mirroring mode.", android.widget.Toast.LENGTH_LONG).show()
+                android.util.Log.e("SecondaryDisplay", "Failed to start activity on secondary display", e)
+            }
         }
     }
 
