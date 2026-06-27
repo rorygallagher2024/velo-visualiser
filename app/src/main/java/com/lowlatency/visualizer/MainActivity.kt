@@ -1065,6 +1065,16 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    fun evaluateMicState() {
+        if (!systemAudioMode) {
+            if (lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) {
+                ensureMicAndStart()
+            } else if (!secondaryDisplayController.isCasting) {
+                NativeBridge.nativeStop()
+            }
+        }
+    }
+
     private fun showPrivacyPolicy() {
         val dialog = Dialog(this)
         val view = layoutInflater.inflate(R.layout.dialog_privacy, null)
@@ -1213,7 +1223,7 @@ class MainActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
         glView.onPause()
-        if (!systemAudioMode) NativeBridge.nativeStop()
+        if (!systemAudioMode && !secondaryDisplayController.isCasting) NativeBridge.nativeStop()
         backgroundedAtMs = SystemClock.elapsedRealtime()
         if (::perfOverlayController.isInitialized) perfOverlayController.onPause()
         if (::lightingController.isInitialized) lightingController.onPause()
