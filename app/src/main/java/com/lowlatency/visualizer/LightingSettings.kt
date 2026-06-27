@@ -39,14 +39,13 @@ object LightingSettings {
 
     // --- Reactivity dynamics (set by the preset; exposed as Advanced sliders).
     //     Initial values = the default REACTIVE preset; applyPreset overrides them. ---
-    /** Link resting glow — how lit the lights sit between beats when synced. */
+    /** Resting glow — how lit the lights sit between beats, in BOTH mic and Link
+     *  modes (0 = fully dark between beats, e.g. Strobe). */
     @Volatile var restingGlow = 0.22f
     /** Steady-energy gain — how much the base tracks the mic volume. */
     @Volatile var audioBrightness = 0.32f
     /** Beat-punch strength — how hard a beat pops above the base. */
     @Volatile var audioFlash = 0.85f
-    /** Quiet/between-beat floor (0 = lights can go fully dark, e.g. Strobe). */
-    @Volatile var baseFloor = 0.02f
 
     /** Active preset; moving any Advanced slider flips this to [Preset.CUSTOM]. */
     @Volatile var preset = DEFAULT_PRESET
@@ -54,23 +53,22 @@ object LightingSettings {
     /** Apply a preset's bundle of dynamics (leaves colour/timing untouched). */
     fun applyPreset(p: Preset) {
         when (p) {
-            // bright = steady-volume gain, flash = beat punch, glow = Link resting,
-            // floor = quiet/between-beat floor. The three spread widely so the
-            // difference is obvious: Smooth tracks volume with a gentle beat; Reactive
+            // glow = resting/between-beat level (both modes), bright = steady-volume
+            // gain (mic), flash = beat punch. They spread widely so the difference is
+            // obvious: Smooth tracks volume with a gentle beat and a lit rest; Reactive
             // sits dim and punches hard; Strobe is dark between beats, pure flash.
-            Preset.SMOOTH -> set(glow = 0.50f, bright = 0.75f, flash = 0.40f, floor = 0.06f)
-            Preset.REACTIVE -> set(glow = 0.22f, bright = 0.32f, flash = 0.85f, floor = 0.02f)
-            Preset.STROBE -> set(glow = 0.0f, bright = 0.0f, flash = 1.0f, floor = 0.0f)
+            Preset.SMOOTH -> set(glow = 0.50f, bright = 0.75f, flash = 0.40f)
+            Preset.REACTIVE -> set(glow = 0.22f, bright = 0.32f, flash = 0.85f)
+            Preset.STROBE -> set(glow = 0.0f, bright = 0.0f, flash = 1.0f)
             Preset.CUSTOM -> Unit   // keep current values; just a label
         }
         preset = p
     }
 
-    private fun set(glow: Float, bright: Float, flash: Float, floor: Float) {
+    private fun set(glow: Float, bright: Float, flash: Float) {
         restingGlow = glow
         audioBrightness = bright
         audioFlash = flash
-        baseFloor = floor
     }
 
     /** A slider moved — keep the values but mark the bundle as no-longer-a-preset. */
@@ -100,25 +98,30 @@ object LightingSettings {
 
     /** Floor for the weakest *active* beat (shared so every brand flashes alike). */
     const val MIN_BEAT_AMP = 0.06f
-    private const val LINK_GLOW_SCALE = 0.30f
+    private const val LINK_GLOW_SCALE = 0.30f   // restingGlow → Link resting brightness
+    private const val AUDIO_REST_SCALE = 0.12f  // restingGlow → mic-mode between-beat floor
+
+    /** Resting/between-beat floor in mic mode, driven by [restingGlow]. */
+    private val audioFloor: Float get() = restingGlow * AUDIO_REST_SCALE
 
     /** Beat-flash amplitude from the gated loudness (Link beat-strobe). */
     fun beatFlashAmp(loudness: Float): Float = MIN_BEAT_AMP + (1f - MIN_BEAT_AMP) * loudness
 
     /**
      * Audio mode (mic, Link off): a base that tracks the steady energy (scaled by
-     * [energyGain]) plus a beat punch. With energyGain at 0 (Strobe) the base
-     * collapses to [baseFloor], so the lights go dark between beats; with a high
-     * gain (Smooth) they ride the volume with only a gentle beat. [flash] is the
-     * caller's decayed beat envelope; bands are 0..1. Shared by every brand.
+     * [energyGain]) plus a beat punch, resting on [audioFloor] (from restingGlow).
+     * With glow + energyGain at 0 (Strobe) the base collapses to black between beats;
+     * with a high gain/glow (Smooth) the lights ride the volume on a lit rest.
+     * [flash] is the caller's decayed beat envelope; bands are 0..1. Shared by every brand.
      */
     fun audioBrightnessValue(low: Float, mid: Float, high: Float, flash: Float): Float {
         val energy = max(low, max(mid, high)).coerceIn(0f, 1f)
         val drive = (energy * energyGain + flash * beatPunch).coerceIn(0f, 1f)
-        return baseFloor + (1f - baseFloor) * sqrt(drive)
+        val floor = audioFloor
+        return floor + (1f - floor) * sqrt(drive)
     }
 
-    /** Link beat-strobe: a dim resting glow, the beat punches on top. */
+    /** Link beat-strobe: a resting glow (from restingGlow), the beat punches on top. */
     fun linkBrightnessValue(flash: Float): Float =
-        sqrt((baseFloor + restingGlow * LINK_GLOW_SCALE + flash * beatPunch).coerceIn(0f, 1f))
+        sqrt((restingGlow * LINK_GLOW_SCALE + flash * beatPunch).coerceIn(0f, 1f))
 }

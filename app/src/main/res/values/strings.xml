@@ -116,6 +116,7 @@
     <string name="react_reactive">Reactive</string>
     <string name="react_strobe">Strobe</string>
     <string name="beat_sens_label">Beat Sensitivity</string>
+    <string name="beat_sens_caption">How readily a beat triggers — affects the visuals, lights and haptics together.</string>
     <string name="beat_sens_low">Low</string>
     <string name="beat_sens_standard">Standard</string>
     <string name="beat_sens_high">High</string>

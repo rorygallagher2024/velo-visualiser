@@ -76,11 +76,16 @@ class HueLightController(context: Context) {
         if (area.channels.isEmpty()) { onResult(false, "Area has no light channels."); return }
 
         store.selectedAreaId = area.id
+        activeLightIds = area.lightIds
         setup.setStreamActive(creds, area.id, active = true) { ok ->
             if (!ok) { onResult(false, "Could not start the entertainment stream."); return@setStreamActive }
             startSender(creds, area, onResult)
         }
     }
+
+    // Light IDs of the active area, captured on enable so [disable] can power them
+    // off via REST (LIFX/Nanoleaf do the same on a user-initiated stop).
+    private var activeLightIds: List<String> = emptyList()
 
     /**
      * Tear down and re-establish the stream. A DTLS entertainment session dies
@@ -99,8 +104,14 @@ class HueLightController(context: Context) {
         }
     }
 
-    /** Stop the sender loop, close DTLS, and deactivate the stream. */
-    fun disable() {
+    /**
+     * Stop the sender loop, close DTLS, and deactivate the stream. When [turnOff]
+     * is true (a user-initiated stop — sync toggle, system-audio switch, forget),
+     * also power the bulbs off once the stream is released, matching LIFX/Nanoleaf.
+     * The internal [restart] passes false so a foreground rebuild never blinks the
+     * lights off.
+     */
+    fun disable(turnOff: Boolean = false) {
         if (!running && senderThread == null) return
         running = false
         senderThread?.let { runCatching { it.join(500) } }
@@ -111,8 +122,13 @@ class HueLightController(context: Context) {
 
         val creds = store.loadCredentials()
         val areaId = store.selectedAreaId
+        val ids = activeLightIds
         if (creds != null && areaId != null) {
-            setup.setStreamActive(creds, areaId, active = false) { }
+            // Power-off must follow stream release — REST control is ignored while the
+            // entertainment session owns the lights.
+            setup.setStreamActive(creds, areaId, active = false) {
+                if (turnOff && ids.isNotEmpty()) setup.controlLights(creds, ids, on = false)
+            }
         }
     }
 

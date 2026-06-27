@@ -851,7 +851,16 @@
             android:text="@string/beat_sens_label"
             android:textColor="@color/text_dim"
             android:textSize="12sp"
-            android:layout_marginBottom="8dp" />
+            android:layout_marginBottom="2dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/beat_sens_caption"
+            android:textColor="@color/text_dim"
+            android:textSize="11sp"
+            android:alpha="0.7"
+            android:layout_marginBottom="10dp" />
 
         <LinearLayout
             android:layout_width="match_parent"

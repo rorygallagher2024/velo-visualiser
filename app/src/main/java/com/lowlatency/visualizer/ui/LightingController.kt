@@ -170,7 +170,7 @@ class LightingController(
     /** Switching to system (internal) audio: light sync is mic-only, so stop it. */
     fun onSystemAudioEngaged() {
         if (::hueController.isInitialized && hueController.isEnabled) {
-            hueController.disable()
+            hueController.disable(turnOff = true)
             updateHueSyncButton(false)
             updateHueConn(HueConn.REACHABLE)
             hueStatus.setText(R.string.hue_status_ready)
@@ -595,7 +595,7 @@ class LightingController(
 
     private fun forgetHueBridge() {
         if (::hueController.isInitialized && hueController.isEnabled) {
-            hueController.disable()
+            hueController.disable(turnOff = true)
             updateHueSyncButton(false)
         }
         stopHuePingPoller()
@@ -701,7 +701,7 @@ class LightingController(
 
     private fun onHueSyncToggle() {
         if (hueController.isEnabled) {
-            hueController.disable()
+            hueController.disable(turnOff = true)
             updateHueSyncButton(false)
             updateHueConn(HueConn.REACHABLE)
             hueStatus.setText(R.string.hue_status_ready)
@@ -781,7 +781,6 @@ class LightingController(
             LightingSettings.restingGlow = prefs.getFloat(KEY_ADV_GLOW, LightingSettings.restingGlow)
             LightingSettings.audioBrightness = prefs.getFloat(KEY_ADV_AUDIO_BRIGHT, LightingSettings.audioBrightness)
             LightingSettings.audioFlash = prefs.getFloat(KEY_ADV_AUDIO_FLASH, LightingSettings.audioFlash)
-            LightingSettings.baseFloor = prefs.getFloat(KEY_ADV_BASE_FLOOR, LightingSettings.baseFloor)
             LightingSettings.markCustom()
         } else {
             LightingSettings.applyPreset(preset)
@@ -801,7 +800,6 @@ class LightingController(
             .putFloat(KEY_ADV_GLOW, LightingSettings.restingGlow)
             .putFloat(KEY_ADV_AUDIO_BRIGHT, LightingSettings.audioBrightness)
             .putFloat(KEY_ADV_AUDIO_FLASH, LightingSettings.audioFlash)
-            .putFloat(KEY_ADV_BASE_FLOOR, LightingSettings.baseFloor)
             .apply()
     }
 
@@ -1156,7 +1154,6 @@ class LightingController(
             .putFloat(KEY_ADV_GLOW, LightingSettings.restingGlow)
             .putFloat(KEY_ADV_AUDIO_BRIGHT, LightingSettings.audioBrightness)
             .putFloat(KEY_ADV_AUDIO_FLASH, LightingSettings.audioFlash)
-            .putFloat(KEY_ADV_BASE_FLOOR, LightingSettings.baseFloor)
             .putFloat(KEY_ADV_HUE_LOOKAHEAD, LightingSettings.hueLookaheadMs)
             .putString(KEY_LIGHTING_PRESET, LightingSettings.preset.name)
             .apply()
@@ -1191,7 +1188,6 @@ class LightingController(
         private const val KEY_ADV_GLOW = "adv_resting_glow"
         private const val KEY_ADV_AUDIO_BRIGHT = "adv_audio_brightness"
         private const val KEY_ADV_AUDIO_FLASH = "adv_audio_flash"
-        private const val KEY_ADV_BASE_FLOOR = "adv_base_floor"
         private const val KEY_ADV_HUE_LOOKAHEAD = "adv_hue_lookahead"
         private const val KEY_LIGHTING_PRESET = "lighting_preset"
         private const val HUE_RESYNC_AWAY_MS = 3000L
