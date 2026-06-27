@@ -742,6 +742,21 @@
             android:letterSpacing="0.04"
             android:stateListAnimator="@null" />
 
+        <!-- Sub-option of Ambient Mode: chooses what the standby screen looks like
+             the next time it's entered (Classic clock vs. Window-into-the-music). -->
+        <Button
+            android:id="@+id/btn_ambient_style"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginBottom="12dp"
+            android:background="@drawable/pill_button_bg"
+            android:text="@string/ambient_style_classic"
+            android:textColor="@color/btn_text"
+            android:textAllCaps="false"
+            android:textSize="14sp"
+            android:stateListAnimator="@null" />
+
         <!-- Auto-advance through scenes on a timer (respects favourites). -->
         <Button
             android:id="@+id/btn_shuffle"
@@ -2161,6 +2176,15 @@
         android:clickable="true"
         android:focusable="true"
         android:visibility="gone">
+
+        <!-- "Window into the music" style: a full-screen near-black mask with the
+             time punched out so the live scene shows through the letterforms. Shown
+             only when Ambient Style = Window; the classic stack below is hidden then. -->
+        <com.lowlatency.visualizer.ui.CutoutClockView
+            android:id="@+id/display_clock_window"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone" />
 
         <LinearLayout
             android:id="@+id/display_mode_content"

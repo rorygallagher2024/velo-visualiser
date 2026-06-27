@@ -252,7 +252,12 @@ class MainActivity : AppCompatActivity() {
         )
         menuSheetController.bind()
 
-        displayModeController = DisplayModeController(this, onSwipeScene = { dir -> glView.cycleScene(dir) })
+        displayModeController = DisplayModeController(
+            this,
+            prefs,
+            onSwipeScene = { dir -> glView.cycleScene(dir) },
+            onOpenMenu = { menuSheetController.openOverlay() },
+        )
         displayModeController.bind()
 
         shuffleController = ShuffleController(this, prefs, advanceScene = { glView.shuffleScene() })
@@ -443,8 +448,10 @@ class MainActivity : AppCompatActivity() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 when {
-                    displayModeController.isActive -> displayModeController.exit()
+                    // A sheet opened over Ambient Mode closes first (back to ambient);
+                    // a second back then exits ambient itself.
                     menuSheetController.isOpen -> menuSheetController.close()
+                    displayModeController.isActive -> displayModeController.exit()
                     else -> { isEnabled = false; onBackPressedDispatcher.onBackPressed() }
                 }
             }
