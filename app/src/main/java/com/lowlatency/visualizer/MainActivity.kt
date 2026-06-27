@@ -1069,7 +1069,7 @@ class MainActivity : AppCompatActivity() {
         if (!systemAudioMode) {
             if (lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) {
                 ensureMicAndStart()
-            } else if (!secondaryDisplayController.isCasting) {
+            } else {
                 NativeBridge.nativeStop()
             }
         }
@@ -1223,7 +1223,7 @@ class MainActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
         glView.onPause()
-        if (!systemAudioMode && !secondaryDisplayController.isCasting) NativeBridge.nativeStop()
+        if (!systemAudioMode) NativeBridge.nativeStop()
         backgroundedAtMs = SystemClock.elapsedRealtime()
         if (::perfOverlayController.isInitialized) perfOverlayController.onPause()
         if (::lightingController.isInitialized) lightingController.onPause()
