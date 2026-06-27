@@ -139,6 +139,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tabSettings: LinearLayout
     private lateinit var internalAudioWarning: TextView
     private lateinit var btnCastDisplay: Button
+    private lateinit var castOverlay: TextView
 
     // --- Smart lighting: all brand UI/state lives in LightingController ---
     private lateinit var lightingController: LightingController
@@ -265,7 +266,7 @@ class MainActivity : AppCompatActivity() {
         shuffleController = ShuffleController(this, prefs, advanceScene = { glView.shuffleScene() })
         shuffleController.bind()
         
-        secondaryDisplayController = com.lowlatency.visualizer.ui.SecondaryDisplayController(this, glView, btnCastDisplay)
+        secondaryDisplayController = com.lowlatency.visualizer.ui.SecondaryDisplayController(this, glView, btnCastDisplay, castOverlay)
         secondaryDisplayController.bind()
 
         findViewById<Button>(R.id.btn_display_mode).setOnClickListener {
@@ -385,6 +386,7 @@ class MainActivity : AppCompatActivity() {
         tabSettings = findViewById(R.id.tab_settings)
         internalAudioWarning = findViewById(R.id.internal_audio_warning)
         btnCastDisplay = findViewById(R.id.btn_cast_display)
+        castOverlay = findViewById(R.id.cast_overlay)
         // Lighting views (Hue/LIFX/Nanoleaf) are bound inside LightingController.
 
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE)

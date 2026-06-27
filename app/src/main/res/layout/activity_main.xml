@@ -18,6 +18,22 @@
         android:layout_height="match_parent"
         android:importantForAccessibility="no" />
 
+    <!-- Overlay when casting to an external display, hiding the frozen paused frame -->
+    <TextView
+        android:id="@+id/cast_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#E6000000"
+        android:gravity="center"
+        android:text="Casting to external display\nSwipe up to open menu"
+        android:textColor="#88FFFFFF"
+        android:textSize="16sp"
+        android:fontFamily="@font/inter"
+        android:lineSpacingMultiplier="1.5"
+        android:clickable="false"
+        android:focusable="false"
+        android:visibility="gone" />
+
     <!-- Performance diagnostics overlay (top-left, over GL view). Typography as
          spectacle: a giant ultra-light FPS readout over a compact mono data block. -->
     <LinearLayout
