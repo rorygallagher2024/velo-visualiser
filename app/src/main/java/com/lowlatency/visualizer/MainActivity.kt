@@ -116,6 +116,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var menuSheetController: MenuSheetController
     private lateinit var displayModeController: DisplayModeController
     private lateinit var shuffleController: ShuffleController
+    private lateinit var secondaryDisplayController: com.lowlatency.visualizer.ui.SecondaryDisplayController
     private lateinit var heroVisName: TextView
     private lateinit var btnSceneLabel: Button
     private lateinit var sceneLabel: TextView
@@ -137,6 +138,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tabLighting: LinearLayout
     private lateinit var tabSettings: LinearLayout
     private lateinit var internalAudioWarning: TextView
+    private lateinit var btnCastDisplay: Button
 
     // --- Smart lighting: all brand UI/state lives in LightingController ---
     private lateinit var lightingController: LightingController
@@ -262,6 +264,10 @@ class MainActivity : AppCompatActivity() {
 
         shuffleController = ShuffleController(this, prefs, advanceScene = { glView.shuffleScene() })
         shuffleController.bind()
+        
+        secondaryDisplayController = com.lowlatency.visualizer.ui.SecondaryDisplayController(this, glView, btnCastDisplay)
+        secondaryDisplayController.bind()
+
         findViewById<Button>(R.id.btn_display_mode).setOnClickListener {
             menuSheetController.close()
             displayModeController.enter()
@@ -378,6 +384,7 @@ class MainActivity : AppCompatActivity() {
         tabLighting = findViewById(R.id.tab_lighting)
         tabSettings = findViewById(R.id.tab_settings)
         internalAudioWarning = findViewById(R.id.internal_audio_warning)
+        btnCastDisplay = findViewById(R.id.btn_cast_display)
         // Lighting views (Hue/LIFX/Nanoleaf) are bound inside LightingController.
 
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
@@ -535,6 +542,7 @@ class MainActivity : AppCompatActivity() {
             if (!menuSheetController.isOpen) showSceneLabel()
             // Reset the shuffle countdown so a manual change gets a full interval.
             if (::shuffleController.isInitialized) shuffleController.onSceneChanged()
+            prefs.edit().putInt(SecondaryVisualizerActivity.KEY_ACTIVE_SCENE, it).apply()
         }
 
         prefs.getStringSet(KEY_FAVOURITES, emptySet())?.forEach {
@@ -1221,6 +1229,7 @@ class MainActivity : AppCompatActivity() {
         if (::lightingController.isInitialized) lightingController.onDestroy()
         if (::displayModeController.isInitialized) displayModeController.onDestroy()
         if (::shuffleController.isInitialized) shuffleController.onDestroy()
+        if (::secondaryDisplayController.isInitialized) secondaryDisplayController.onDestroy()
         if (::hapticController.isInitialized) hapticController.release()
         linkHandler.removeCallbacks(linkStatusPoller)
         NativeBridge.nativeLinkSetEnabled(false)

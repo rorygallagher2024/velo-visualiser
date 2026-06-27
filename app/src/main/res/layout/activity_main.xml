@@ -1443,6 +1443,20 @@
             android:textAllCaps="true"
             android:layout_marginBottom="16dp" />
 
+        <!-- Cast to external display (visible only when display is connected) -->
+        <Button
+            android:id="@+id/btn_cast_display"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/pill_button_bg"
+            android:text="Cast to Display"
+            android:textColor="@color/btn_text"
+            android:textAllCaps="false"
+            android:textSize="14sp"
+            android:visibility="gone"
+            android:stateListAnimator="@null" />
+
         <!-- OLED burn-in protection toggle -->
         <Button
             android:id="@+id/btn_burnin"
