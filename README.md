@@ -176,7 +176,7 @@ Velo Visualiser is **free and open source software**, licensed under the
 You're free to use, study, modify, and redistribute it. Any distributed
 derivative must also remain GPLv3.
 
-The **Velo name, logo, and icons are trademarks and are not covered by the GPL**
+The **Velo Visualiser name, logo, and icons are trademarks and are not covered by the GPL**
 — see [TRADEMARKS.md](TRADEMARKS.md). Forks must rebrand.
 
 No data collection, no ads, no tracking — local-only, and it'll stay that way.
