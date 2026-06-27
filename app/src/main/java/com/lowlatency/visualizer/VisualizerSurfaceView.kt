@@ -159,6 +159,9 @@ class VisualizerSurfaceView @JvmOverloads constructor(
         }
     }
 
+    /** Public next/prev scene step (e.g. swipes from Display Mode). +1 = next. */
+    fun cycleScene(dir: Int) = swipeScene(dir)
+
     /** Step to the next/previous scene for a swipe — within favourites if set. */
     private fun swipeScene(dir: Int) {
         val favs = favourites

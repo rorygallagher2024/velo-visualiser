@@ -250,7 +250,7 @@ class MainActivity : AppCompatActivity() {
         )
         menuSheetController.bind()
 
-        displayModeController = DisplayModeController(this)
+        displayModeController = DisplayModeController(this, onSwipeScene = { dir -> glView.cycleScene(dir) })
         displayModeController.bind()
         findViewById<Button>(R.id.btn_display_mode).setOnClickListener {
             menuSheetController.close()
