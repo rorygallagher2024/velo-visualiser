@@ -18,6 +18,22 @@
         android:layout_height="match_parent"
         android:importantForAccessibility="no" />
 
+    <!-- Overlay when casting to an external display, hiding the frozen paused frame -->
+    <TextView
+        android:id="@+id/cast_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#E6000000"
+        android:gravity="center"
+        android:text="Casting to external display\nSwipe up to open menu"
+        android:textColor="#88FFFFFF"
+        android:textSize="16sp"
+        android:fontFamily="@font/inter"
+        android:lineSpacingMultiplier="1.5"
+        android:clickable="false"
+        android:focusable="false"
+        android:visibility="gone" />
+
     <!-- Performance diagnostics overlay (top-left, over GL view). Typography as
          spectacle: a giant ultra-light FPS readout over a compact mono data block. -->
     <LinearLayout
@@ -1442,6 +1458,20 @@
             android:letterSpacing="0.1"
             android:textAllCaps="true"
             android:layout_marginBottom="16dp" />
+
+        <!-- Cast to external display (visible only when display is connected) -->
+        <Button
+            android:id="@+id/btn_cast_display"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/pill_button_bg"
+            android:text="Cast to Display"
+            android:textColor="@color/btn_text"
+            android:textAllCaps="false"
+            android:textSize="14sp"
+            android:visibility="gone"
+            android:stateListAnimator="@null" />
 
         <!-- OLED burn-in protection toggle -->
         <Button
