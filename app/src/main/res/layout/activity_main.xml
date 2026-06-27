@@ -851,7 +851,16 @@
             android:text="@string/beat_sens_label"
             android:textColor="@color/text_dim"
             android:textSize="12sp"
-            android:layout_marginBottom="8dp" />
+            android:layout_marginBottom="2dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/beat_sens_caption"
+            android:textColor="@color/text_dim"
+            android:textSize="11sp"
+            android:alpha="0.7"
+            android:layout_marginBottom="10dp" />
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -930,6 +939,18 @@
             android:textSize="13sp"
             android:letterSpacing="0.1"
             android:textAllCaps="true"
+            android:layout_marginBottom="6dp" />
+
+        <!-- Always-visible primer: the full link_help only shows once Link is on,
+             but you need to know what it is *before* deciding to enable it. -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/link_caption"
+            android:textColor="@color/text_dim"
+            android:textSize="11sp"
+            android:alpha="0.7"
+            android:lineSpacingMultiplier="1.2"
             android:layout_marginBottom="16dp" />
 
         <Button
@@ -1624,6 +1645,82 @@
                 android:letterSpacing="0.05"
                 android:visibility="gone"
                 android:stateListAnimator="@null" />
+        </LinearLayout>
+
+        <!-- ===== Shared reactivity presets — apply to whichever brand is live.
+             Hidden until a light is actually syncing (set in LightingController). ===== -->
+        <LinearLayout
+            android:id="@+id/reactivity_section"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginBottom="24dp"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/react_label"
+                android:textColor="@color/text_dim"
+                android:textSize="12sp"
+                android:textAllCaps="true"
+                android:letterSpacing="0.08"
+                android:layout_marginBottom="4dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/react_caption"
+                android:textColor="@color/text_dim"
+                android:textSize="11sp"
+                android:alpha="0.7"
+                android:layout_marginBottom="12dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btn_react_smooth"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="4dp"
+                    android:background="@drawable/segment_button_bg"
+                    android:text="@string/react_smooth"
+                    android:textColor="@color/btn_text"
+                    android:textSize="12sp"
+                    android:letterSpacing="0.05"
+                    android:stateListAnimator="@null" />
+
+                <Button
+                    android:id="@+id/btn_react_reactive"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="2dp"
+                    android:layout_marginEnd="2dp"
+                    android:background="@drawable/segment_button_bg"
+                    android:text="@string/react_reactive"
+                    android:textColor="@color/btn_text"
+                    android:textSize="12sp"
+                    android:letterSpacing="0.05"
+                    android:stateListAnimator="@null" />
+
+                <Button
+                    android:id="@+id/btn_react_strobe"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="4dp"
+                    android:background="@drawable/segment_button_bg"
+                    android:text="@string/react_strobe"
+                    android:textColor="@color/btn_text"
+                    android:textSize="12sp"
+                    android:letterSpacing="0.05"
+                    android:stateListAnimator="@null" />
+            </LinearLayout>
         </LinearLayout>
 
         <FrameLayout

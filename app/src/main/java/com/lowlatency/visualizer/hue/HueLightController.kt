@@ -5,13 +5,11 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import com.lowlatency.visualizer.BeatBus
-import com.lowlatency.visualizer.HueStrobeSettings
+import com.lowlatency.visualizer.LightingSettings
 import com.lowlatency.visualizer.LinkSync
 import com.lowlatency.visualizer.NativeBridge
 import kotlin.concurrent.thread
 import kotlin.math.abs
-import kotlin.math.max
-import kotlin.math.sqrt
 
 /**
  * Ties the Hue pipeline to the audio: takes a lightweight band snapshot from the
@@ -78,11 +76,16 @@ class HueLightController(context: Context) {
         if (area.channels.isEmpty()) { onResult(false, "Area has no light channels."); return }
 
         store.selectedAreaId = area.id
+        activeLightIds = area.lightIds
         setup.setStreamActive(creds, area.id, active = true) { ok ->
             if (!ok) { onResult(false, "Could not start the entertainment stream."); return@setStreamActive }
             startSender(creds, area, onResult)
         }
     }
+
+    // Light IDs of the active area, captured on enable so [disable] can power them
+    // off via REST (LIFX/Nanoleaf do the same on a user-initiated stop).
+    private var activeLightIds: List<String> = emptyList()
 
     /**
      * Tear down and re-establish the stream. A DTLS entertainment session dies
@@ -101,8 +104,14 @@ class HueLightController(context: Context) {
         }
     }
 
-    /** Stop the sender loop, close DTLS, and deactivate the stream. */
-    fun disable() {
+    /**
+     * Stop the sender loop, close DTLS, and deactivate the stream. When [turnOff]
+     * is true (a user-initiated stop — sync toggle, system-audio switch, forget),
+     * also power the bulbs off once the stream is released, matching LIFX/Nanoleaf.
+     * The internal [restart] passes false so a foreground rebuild never blinks the
+     * lights off.
+     */
+    fun disable(turnOff: Boolean = false) {
         if (!running && senderThread == null) return
         running = false
         senderThread?.let { runCatching { it.join(500) } }
@@ -113,8 +122,13 @@ class HueLightController(context: Context) {
 
         val creds = store.loadCredentials()
         val areaId = store.selectedAreaId
+        val ids = activeLightIds
         if (creds != null && areaId != null) {
-            setup.setStreamActive(creds, areaId, active = false) { }
+            // Power-off must follow stream release — REST control is ignored while the
+            // entertainment session owns the lights.
+            setup.setStreamActive(creds, areaId, active = false) {
+                if (turnOff && ids.isNotEmpty()) setup.controlLights(creds, ids, on = false)
+            }
         }
     }
 
@@ -172,7 +186,7 @@ class HueLightController(context: Context) {
                     // colour chosen by bass presence. The gate, intensity and
                     // colour all come from the shared BeatBus — the same gate the
                     // visuals use — so the lights and screen stay in lock-step.
-                    val cfg = HueStrobeSettings
+                    val cfg = LightingSettings
                     val lookaheadMs = cfg.hueLookaheadMs
                     val bc = linkBeatCount
                     var shouldFlash = false
@@ -203,7 +217,7 @@ class HueLightController(context: Context) {
 
                     // Honour the gate and the user's "disable light beat" toggle.
                     if (shouldFlash && cfg.linkBeatFlashEnabled && BeatBus.gateOpen) {
-                        flash = MIN_BEAT_AMP + (1f - MIN_BEAT_AMP) * BeatBus.loudness
+                        flash = cfg.beatFlashAmp(BeatBus.loudness)
                         lightBeatCount++
 
                         val ct = ((BeatBus.bassRatio - cfg.bassLo) / (cfg.bassHi - cfg.bassLo)).coerceIn(0f, 1f)
@@ -214,12 +228,13 @@ class HueLightController(context: Context) {
                         beatR = hsvOut[0]; beatG = hsvOut[1]; beatB = hsvOut[2]
                     }
                     flash *= FLASH_DECAY
-                    // Beat punches on top of the (tunable) ambient floor, so the
-                    // lights rest on a low glow instead of going fully dark when
-                    // there's no beat (quiet parts / no music).
-                    val r = sqrt((cfg.ambientR + beatR * flash).coerceIn(0f, 1f))
-                    val g = sqrt((cfg.ambientG + beatG * flash).coerceIn(0f, 1f))
-                    val b = sqrt((cfg.ambientB + beatB * flash).coerceIn(0f, 1f))
+                    // Beat punches on top of the shared resting glow/floor (lights
+                    // rest low instead of going dark in quiet parts). The brightness
+                    // curve is shared across all brands — presets shape it.
+                    val v = cfg.linkBrightnessValue(flash)
+                    val r = (beatR * v).coerceIn(0f, 1f)
+                    val g = (beatG * v).coerceIn(0f, 1f)
+                    val b = (beatB * v).coerceIn(0f, 1f)
                     for (i in channelIds.indices) {
                         rgb[i * 3] = r; rgb[i * 3 + 1] = g; rgb[i * 3 + 2] = b
                     }
@@ -227,11 +242,10 @@ class HueLightController(context: Context) {
                     // Audio mode: flash on the very same gated beat the visuals
                     // fire on (shared BeatBus), scaled by loudness; colour follows
                     // the spectrum bands.
-                    val cfg = HueStrobeSettings
                     val bc = BeatBus.beatCount
                     if (bc != lastBeat) { flash = BeatBus.loudness; lastBeat = bc; lightBeatCount++ }
                     flash *= FLASH_DECAY
-                    mapColors(channelIds.size, l, m, h, flash * cfg.audioFlashMul, rgb)
+                    mapColors(channelIds.size, l, m, h, flash, rgb)
                 }
 
                 c.send(channelIds, rgb)
@@ -262,11 +276,9 @@ class HueLightController(context: Context) {
         val total = low + mid + high + 1e-3f
         // Spectral balance 0..1: 0 = all bass, 1 = all treble.
         val centroid = ((mid * 0.5f + high) / total).coerceIn(0f, 1f)
-        val energy = (max(low, max(mid, high)) * HueStrobeSettings.audioBrightMul).coerceIn(0f, 1f)
-        // sqrt = gentle gamma so quiet passages still show colour; the beat adds
-        // brightness on top. A small floor keeps a faint resting glow (never fully
-        // dark) instead of the lights looking switched off in silence.
-        val value = MIN_BRIGHT + (1f - MIN_BRIGHT) * sqrt((energy + flash * 0.7f).coerceIn(0f, 1f))
+        // Shared brightness curve (dim base tracks energy, beat punches on top) so a
+        // preset looks identical across every brand.
+        val value = LightingSettings.audioBrightnessValue(low, mid, high, flash)
         // A hard hit only mildly desaturates, so beats pop without going white.
         val sat = (AUDIO_SAT - flash * 0.30f).coerceIn(0.6f, 1f)
         for (i in 0 until count) {
@@ -304,13 +316,10 @@ class HueLightController(context: Context) {
         private const val TAG = "HueLightController"
         private const val SEND_HZ = 50L          // Hue Entertainment caps ~50–60 Hz
         private const val SPIN_MARGIN_NS = 2_000_000L  // spin-wait the last 2ms for precise timing
-        private const val MIN_BRIGHT = 0.06f      // floor so lights never go fully dark while synced
         private const val FLASH_DECAY = 0.80f     // per-frame flash falloff (~50 Hz)
 
-        // Link beat-strobe — fixed shape constants. The gate/intensity/colour come
-        // from the shared BeatBus; the colour split, ambient glow and lookahead
-        // live in HueStrobeSettings.
-        private const val MIN_BEAT_AMP = 0.06f    // floor for the weakest *active* beat
+        // Brightness floor, beat-flash amplitude and the resting glow are now shared
+        // across all brands in LightingSettings (so presets behave identically).
 
         // Colour endpoints: little bass (breakdown) => light red, enough bass =>
         // blue/purple, blended through pink/magenta over the bass ratio.

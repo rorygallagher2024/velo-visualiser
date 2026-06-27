@@ -7,7 +7,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import com.lowlatency.visualizer.BeatBus
-import com.lowlatency.visualizer.HueStrobeSettings
+import com.lowlatency.visualizer.LightingSettings
 import com.lowlatency.visualizer.NativeBridge
 import java.net.DatagramPacket
 import java.net.DatagramSocket
@@ -39,15 +39,14 @@ class WledController(private val context: Context) {
         private const val TAG = "WledController"
         private const val WLED_SERVICE_TYPE = "_wled._tcp."
         private const val WLED_UDP_PORT = 21324
-        
-        private const val MIN_BRIGHT = 0.05f
-        
+
+        // Brightness floor / beat amplitude / resting glow are shared in LightingSettings.
+
         // Link constants
         private const val RED_HUE = 350f
         private const val PURPLE_HUE = 280f
         private const val SAT_BASS = 0.95f
         private const val SAT_TREBLE = 0.85f
-        private const val MIN_BEAT_AMP = 0.6f
 
         // Audio constants
         private const val AUDIO_HUE_BASS = 280f   // Purple
@@ -210,7 +209,7 @@ class WledController(private val context: Context) {
     }
 
     private fun calculateLinkColor(): RGB {
-        val cfg = HueStrobeSettings
+        val cfg = LightingSettings
         val bc = linkBeatCount
         var shouldFlash = false
 
@@ -246,17 +245,17 @@ class WledController(private val context: Context) {
             senderCurrentSat = SAT_TREBLE + (SAT_BASS - SAT_TREBLE) * cs
             
             if (cfg.linkBeatFlashEnabled) {
-                senderFlash = MIN_BEAT_AMP + (1f - MIN_BEAT_AMP) * BeatBus.loudness
+                senderFlash = cfg.beatFlashAmp(BeatBus.loudness)
             }
         }
         senderFlash *= FLASH_DECAY
-        val finalBri = kotlin.math.sqrt((MIN_BRIGHT + cfg.restingGlow * 0.3f + senderFlash).coerceIn(0f, 1f))
-        
+        val finalBri = cfg.linkBrightnessValue(senderFlash)
+
         return hsvToRgb(senderCurrentHue, senderCurrentSat, finalBri)
     }
 
     private fun calculateAudioColor(l: Float, m: Float, h: Float): RGB {
-        val cfg = HueStrobeSettings
+        val cfg = LightingSettings
         val bc = BeatBus.beatCount
         if (bc != senderLastBeat) { 
             senderFlash = BeatBus.loudness
@@ -271,8 +270,10 @@ class WledController(private val context: Context) {
         }
 
         senderFlash *= FLASH_DECAY
-        val finalBri = kotlin.math.sqrt((MIN_BRIGHT + cfg.restingGlow * 0.3f + senderFlash).coerceIn(0f, 1f))
-        
+        // Shared curve: a dim base now tracks the mic energy (previously beat-only),
+        // the beat punches on top — identical across all brands.
+        val finalBri = cfg.audioBrightnessValue(l, m, h, senderFlash)
+
         return hsvToRgb(senderCurrentHue, senderCurrentSat, finalBri)
     }
 

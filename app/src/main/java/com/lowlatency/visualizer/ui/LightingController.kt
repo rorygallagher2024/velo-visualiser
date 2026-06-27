@@ -18,7 +18,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.lowlatency.visualizer.BeatSettings
-import com.lowlatency.visualizer.HueStrobeSettings
+import com.lowlatency.visualizer.LightingSettings
 import com.lowlatency.visualizer.LinkSync
 import com.lowlatency.visualizer.R
 import com.lowlatency.visualizer.hue.HueCredentialStore
@@ -98,6 +98,13 @@ class LightingController(
     private lateinit var sceneGrid: LinearLayout
     private lateinit var brightnessSlider: SeekBar
 
+    // Shared cross-brand reactivity presets (the "Reactivity" section, shown when a
+    // light is syncing). One choice drives every integration via LightingSettings.
+    private lateinit var reactivitySection: LinearLayout
+    private lateinit var btnReactSmooth: Button
+    private lateinit var btnReactReactive: Button
+    private lateinit var btnReactStrobe: Button
+
     private val huePingPoller = object : Runnable {
         override fun run() {
             val creds = hueStore.loadCredentials() ?: return
@@ -163,7 +170,7 @@ class LightingController(
     /** Switching to system (internal) audio: light sync is mic-only, so stop it. */
     fun onSystemAudioEngaged() {
         if (::hueController.isInitialized && hueController.isEnabled) {
-            hueController.disable()
+            hueController.disable(turnOff = true)
             updateHueSyncButton(false)
             updateHueConn(HueConn.REACHABLE)
             hueStatus.setText(R.string.hue_status_ready)
@@ -264,14 +271,13 @@ class LightingController(
         imgLifxState = statusLifx.findViewById(R.id.img_state)
         tvLifxState.text = "Not Scanned"
 
-        // Advanced light-sync tuning (persisted). Restore saved slider positions
-        // into the strobe settings, then open the panel on tap.
-        HueStrobeSettings.linkBeatFlashEnabled = prefs.getBoolean(KEY_ADV_LINK_BEAT_FLASH, HueStrobeSettings.linkBeatFlashEnabled)
-        HueStrobeSettings.colourSplit = prefs.getFloat(KEY_ADV_COLOUR, HueStrobeSettings.colourSplit)
-        HueStrobeSettings.restingGlow = prefs.getFloat(KEY_ADV_GLOW, HueStrobeSettings.restingGlow)
-        HueStrobeSettings.audioBrightness = prefs.getFloat(KEY_ADV_AUDIO_BRIGHT, HueStrobeSettings.audioBrightness)
-        HueStrobeSettings.audioFlash = prefs.getFloat(KEY_ADV_AUDIO_FLASH, HueStrobeSettings.audioFlash)
-        HueStrobeSettings.hueLookaheadMs = prefs.getFloat(KEY_ADV_HUE_LOOKAHEAD, HueStrobeSettings.hueLookaheadMs)
+        // Light-sync tuning (persisted). Colour/timing are restored individually;
+        // the reactivity dynamics come from the saved preset (CUSTOM restores the
+        // hand-tuned slider values). See LightingSettings.
+        LightingSettings.linkBeatFlashEnabled = prefs.getBoolean(KEY_ADV_LINK_BEAT_FLASH, LightingSettings.linkBeatFlashEnabled)
+        LightingSettings.colourSplit = prefs.getFloat(KEY_ADV_COLOUR, LightingSettings.colourSplit)
+        LightingSettings.hueLookaheadMs = prefs.getFloat(KEY_ADV_HUE_LOOKAHEAD, LightingSettings.hueLookaheadMs)
+        restorePreset()
         btnAdvanced.setOnClickListener { showAdvancedDialog() }
         btnLifxAdvanced.setOnClickListener { showAdvancedDialog() }
         btnNanoleafAdvanced.setOnClickListener { showAdvancedDialog() }
@@ -280,6 +286,7 @@ class LightingController(
         btnHueSync.setOnClickListener { onHueSyncToggle() }
         btnHueForget.setOnClickListener { confirmForgetBridge() }
         buildLightControlUI()
+        wireReactivityPresets()
 
         btnBrandHue.setOnClickListener { switchBrand(LightingBrand.HUE) }
         btnBrandLifx.setOnClickListener { switchBrand(LightingBrand.LIFX) }
@@ -588,7 +595,7 @@ class LightingController(
 
     private fun forgetHueBridge() {
         if (::hueController.isInitialized && hueController.isEnabled) {
-            hueController.disable()
+            hueController.disable(turnOff = true)
             updateHueSyncButton(false)
         }
         stopHuePingPoller()
@@ -694,7 +701,7 @@ class LightingController(
 
     private fun onHueSyncToggle() {
         if (hueController.isEnabled) {
-            hueController.disable()
+            hueController.disable(turnOff = true)
             updateHueSyncButton(false)
             updateHueConn(HueConn.REACHABLE)
             hueStatus.setText(R.string.hue_status_ready)
@@ -736,6 +743,79 @@ class LightingController(
         btnNanoleafAdvanced.visibility = if (nanoRelevant) View.VISIBLE else View.GONE
 
         wledPanel.advancedButton?.visibility = if (wledPanel.isSyncing) View.VISIBLE else View.GONE
+
+        // The shared reactivity presets apply to whichever brand is live, so show
+        // them whenever *any* integration is syncing.
+        if (::reactivitySection.isInitialized) {
+            reactivitySection.visibility = if (anySyncing()) View.VISIBLE else View.GONE
+        }
+    }
+
+    /** True if any lighting integration is actively streaming to its hardware. */
+    private fun anySyncing(): Boolean =
+        (::hueController.isInitialized && hueController.isEnabled) ||
+            (::lifxController.isInitialized && lifxController.isStreaming) ||
+            (::nanoleafController.isInitialized &&
+                nanoleafController.currentState == NanoleafController.State.STREAMING) ||
+            wledPanel.isSyncing
+
+    // ----- Shared reactivity presets -----
+
+    private fun wireReactivityPresets() {
+        reactivitySection = activity.findViewById(R.id.reactivity_section)
+        btnReactSmooth = activity.findViewById(R.id.btn_react_smooth)
+        btnReactReactive = activity.findViewById(R.id.btn_react_reactive)
+        btnReactStrobe = activity.findViewById(R.id.btn_react_strobe)
+        btnReactSmooth.setOnClickListener { setPreset(LightingSettings.Preset.SMOOTH) }
+        btnReactReactive.setOnClickListener { setPreset(LightingSettings.Preset.REACTIVE) }
+        btnReactStrobe.setOnClickListener { setPreset(LightingSettings.Preset.STROBE) }
+        refreshPresetSelection()
+    }
+
+    /** Restore the saved preset (or CUSTOM's tuned values) into LightingSettings. */
+    private fun restorePreset() {
+        val saved = prefs.getString(KEY_LIGHTING_PRESET, LightingSettings.DEFAULT_PRESET.name)
+        val preset = runCatching { LightingSettings.Preset.valueOf(saved ?: "") }
+            .getOrDefault(LightingSettings.DEFAULT_PRESET)
+        if (preset == LightingSettings.Preset.CUSTOM) {
+            LightingSettings.restingGlow = prefs.getFloat(KEY_ADV_GLOW, LightingSettings.restingGlow)
+            LightingSettings.audioBrightness = prefs.getFloat(KEY_ADV_AUDIO_BRIGHT, LightingSettings.audioBrightness)
+            LightingSettings.audioFlash = prefs.getFloat(KEY_ADV_AUDIO_FLASH, LightingSettings.audioFlash)
+            LightingSettings.markCustom()
+        } else {
+            LightingSettings.applyPreset(preset)
+        }
+    }
+
+    private fun setPreset(p: LightingSettings.Preset) {
+        LightingSettings.applyPreset(p)
+        persistDynamics()
+        refreshPresetSelection()
+    }
+
+    /** Persist the active preset + the dynamics values it resolves to (for CUSTOM). */
+    private fun persistDynamics() {
+        prefs.edit()
+            .putString(KEY_LIGHTING_PRESET, LightingSettings.preset.name)
+            .putFloat(KEY_ADV_GLOW, LightingSettings.restingGlow)
+            .putFloat(KEY_ADV_AUDIO_BRIGHT, LightingSettings.audioBrightness)
+            .putFloat(KEY_ADV_AUDIO_FLASH, LightingSettings.audioFlash)
+            .apply()
+    }
+
+    /** Highlight the active preset button (none if the user has gone CUSTOM). */
+    private fun refreshPresetSelection() {
+        if (!::btnReactSmooth.isInitialized) return
+        btnReactSmooth.isSelected = LightingSettings.preset == LightingSettings.Preset.SMOOTH
+        btnReactReactive.isSelected = LightingSettings.preset == LightingSettings.Preset.REACTIVE
+        btnReactStrobe.isSelected = LightingSettings.preset == LightingSettings.Preset.STROBE
+    }
+
+    /** An Advanced dynamics slider moved → keep the value, drop to CUSTOM. */
+    private fun onDynamicsSliderChanged(key: String, value: Float) {
+        prefs.edit().putFloat(key, value).putString(KEY_LIGHTING_PRESET, LightingSettings.Preset.CUSTOM.name).apply()
+        LightingSettings.markCustom()
+        refreshPresetSelection()
     }
 
     // ----- Light control (scene presets + brightness) -----
@@ -979,36 +1059,38 @@ class LightingController(
 
         fun applyLinkBeatFlashLabel() {
             btnLinkBeatFlash.setText(
-                if (HueStrobeSettings.linkBeatFlashEnabled) R.string.adv_link_beat_on
+                if (LightingSettings.linkBeatFlashEnabled) R.string.adv_link_beat_on
                 else R.string.adv_link_beat_off
             )
         }
 
         fun applyPositions() {
             applyLinkBeatFlashLabel()
-            seekColour.progress = (HueStrobeSettings.colourSplit * 100f).toInt()
-            seekGlow.progress = (HueStrobeSettings.restingGlow * 100f).toInt()
-            seekAudioBright.progress = (HueStrobeSettings.audioBrightness * 100f).toInt()
-            seekAudioFlash.progress = (HueStrobeSettings.audioFlash * 100f).toInt()
-            seekLookahead.progress = HueStrobeSettings.hueLookaheadMs.toInt()
+            seekColour.progress = (LightingSettings.colourSplit * 100f).toInt()
+            seekGlow.progress = (LightingSettings.restingGlow * 100f).toInt()
+            seekAudioBright.progress = (LightingSettings.audioBrightness * 100f).toInt()
+            seekAudioFlash.progress = (LightingSettings.audioFlash * 100f).toInt()
+            seekLookahead.progress = LightingSettings.hueLookaheadMs.toInt()
             labelLookahead.text = if (seekLookahead.progress == 0) "Off" else "-${seekLookahead.progress} ms"
         }
         applyPositions()
 
         btnLinkBeatFlash.setOnClickListener {
-            val enabled = !HueStrobeSettings.linkBeatFlashEnabled
-            HueStrobeSettings.linkBeatFlashEnabled = enabled
+            val enabled = !LightingSettings.linkBeatFlashEnabled
+            LightingSettings.linkBeatFlashEnabled = enabled
             prefs.edit().putBoolean(KEY_ADV_LINK_BEAT_FLASH, enabled).apply()
             applyLinkBeatFlashLabel()
         }
-        seekColour.onProgress { v -> HueStrobeSettings.colourSplit = v; prefs.edit().putFloat(KEY_ADV_COLOUR, v).apply() }
-        seekGlow.onProgress { v -> HueStrobeSettings.restingGlow = v; prefs.edit().putFloat(KEY_ADV_GLOW, v).apply() }
-        seekAudioBright.onProgress { v -> HueStrobeSettings.audioBrightness = v; prefs.edit().putFloat(KEY_ADV_AUDIO_BRIGHT, v).apply() }
-        seekAudioFlash.onProgress { v -> HueStrobeSettings.audioFlash = v; prefs.edit().putFloat(KEY_ADV_AUDIO_FLASH, v).apply() }
+        // colourSplit is orthogonal to the reactivity dynamics — it doesn't flip the
+        // preset. The three dynamics sliders do (they make the bundle CUSTOM).
+        seekColour.onProgress { v -> LightingSettings.colourSplit = v; prefs.edit().putFloat(KEY_ADV_COLOUR, v).apply() }
+        seekGlow.onProgress { v -> LightingSettings.restingGlow = v; onDynamicsSliderChanged(KEY_ADV_GLOW, v) }
+        seekAudioBright.onProgress { v -> LightingSettings.audioBrightness = v; onDynamicsSliderChanged(KEY_ADV_AUDIO_BRIGHT, v) }
+        seekAudioFlash.onProgress { v -> LightingSettings.audioFlash = v; onDynamicsSliderChanged(KEY_ADV_AUDIO_FLASH, v) }
         seekLookahead.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
                 if (fromUser) {
-                    HueStrobeSettings.hueLookaheadMs = progress.toFloat()
+                    LightingSettings.hueLookaheadMs = progress.toFloat()
                     labelLookahead.text = if (progress == 0) "Off" else "-${progress} ms"
                     prefs.edit().putFloat(KEY_ADV_HUE_LOOKAHEAD, progress.toFloat()).apply()
                 }
@@ -1021,9 +1103,10 @@ class LightingController(
         dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
         view.findViewById<Button>(R.id.btn_adv_done).setOnClickListener { dialog.dismiss() }
         view.findViewById<Button>(R.id.btn_adv_reset).setOnClickListener {
-            HueStrobeSettings.resetToDefaults()
+            LightingSettings.resetToDefaults()
             persistAdvanced()
             applyPositions()
+            refreshPresetSelection()
         }
 
         // Live diagnostics poll. The "Beat → lights" dot flashes whenever a beat
@@ -1052,7 +1135,7 @@ class LightingController(
                 val triggerFrac = (BeatSettings.levelBase / full).coerceIn(0f, 1f)
                 markerLevel.translationX = triggerFrac * (meterLevel.width - markerLevel.width)
                 if (linkMode) {
-                    val splitMid = ((HueStrobeSettings.bassLo + HueStrobeSettings.bassHi) * 0.5f).coerceIn(0f, 1f)
+                    val splitMid = ((LightingSettings.bassLo + LightingSettings.bassHi) * 0.5f).coerceIn(0f, 1f)
                     markerBass.translationX = splitMid * (meterBass.width - markerBass.width)
                 }
                 uiHandler.postDelayed(this, 50L)
@@ -1066,12 +1149,13 @@ class LightingController(
     /** Persist every Advanced lighting value (used after a reset). */
     private fun persistAdvanced() {
         prefs.edit()
-            .putBoolean(KEY_ADV_LINK_BEAT_FLASH, HueStrobeSettings.linkBeatFlashEnabled)
-            .putFloat(KEY_ADV_COLOUR, HueStrobeSettings.colourSplit)
-            .putFloat(KEY_ADV_GLOW, HueStrobeSettings.restingGlow)
-            .putFloat(KEY_ADV_AUDIO_BRIGHT, HueStrobeSettings.audioBrightness)
-            .putFloat(KEY_ADV_AUDIO_FLASH, HueStrobeSettings.audioFlash)
-            .putFloat(KEY_ADV_HUE_LOOKAHEAD, HueStrobeSettings.hueLookaheadMs)
+            .putBoolean(KEY_ADV_LINK_BEAT_FLASH, LightingSettings.linkBeatFlashEnabled)
+            .putFloat(KEY_ADV_COLOUR, LightingSettings.colourSplit)
+            .putFloat(KEY_ADV_GLOW, LightingSettings.restingGlow)
+            .putFloat(KEY_ADV_AUDIO_BRIGHT, LightingSettings.audioBrightness)
+            .putFloat(KEY_ADV_AUDIO_FLASH, LightingSettings.audioFlash)
+            .putFloat(KEY_ADV_HUE_LOOKAHEAD, LightingSettings.hueLookaheadMs)
+            .putString(KEY_LIGHTING_PRESET, LightingSettings.preset.name)
             .apply()
     }
 
@@ -1105,6 +1189,7 @@ class LightingController(
         private const val KEY_ADV_AUDIO_BRIGHT = "adv_audio_brightness"
         private const val KEY_ADV_AUDIO_FLASH = "adv_audio_flash"
         private const val KEY_ADV_HUE_LOOKAHEAD = "adv_hue_lookahead"
+        private const val KEY_LIGHTING_PRESET = "lighting_preset"
         private const val HUE_RESYNC_AWAY_MS = 3000L
     }
 }
