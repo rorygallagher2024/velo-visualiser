@@ -142,6 +142,9 @@ class VisualizerSurfaceView @JvmOverloads constructor(
     val rendererFps: Float get() = renderer.fps
     val rendererFrameTimeMs: Float get() = renderer.frameTimeMs
 
+    /** Whether the active scene opts out of the settings-sheet canvas blur. */
+    val activeSceneSuppressesBlur: Boolean get() = renderer.activeSceneSuppressesBlur
+
     /**
      * Favourite scene indices (sorted). When non-empty, a swipe cycles ONLY
      * these; empty = swipe cycles all scenes. The menu can still pick any scene.

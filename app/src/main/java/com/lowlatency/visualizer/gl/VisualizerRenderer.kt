@@ -233,6 +233,11 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
     /** Number of selectable scenes (for index wrapping by the view). */
     val sceneCount: Int get() = scenes.size
 
+    /** True if the active (or transitioning-to) scene opts out of the menu blur. */
+    val activeSceneSuppressesBlur: Boolean
+        get() = scenes.getOrNull(current)?.suppressMenuBlur == true ||
+            scenes.getOrNull(target)?.suppressMenuBlur == true
+
     /**
      * Transition to an explicit scene index (used by both swipe and the menu's
      * visualizer selector). Ignored if already there or mid-transition.

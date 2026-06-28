@@ -171,7 +171,8 @@ class MenuSheetController(
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
         blurAnimator?.cancel()
         currentBlurRadius = r
-        glView.setRenderEffect(if (r > 0.5f) RenderEffect.createBlurEffect(r, r, Shader.TileMode.CLAMP) else null)
+        val wantBlur = r > 0.5f && !glView.activeSceneSuppressesBlur
+        glView.setRenderEffect(if (wantBlur) RenderEffect.createBlurEffect(r, r, Shader.TileMode.CLAMP) else null)
     }
 
     private fun animateBlur(targetRadius: Float, animDuration: Long, animInterpolator: TimeInterpolator) {
@@ -185,7 +186,8 @@ class MenuSheetController(
             addUpdateListener { anim ->
                 val r = anim.animatedValue as Float
                 currentBlurRadius = r
-                glView.setRenderEffect(if (r > 0.5f) RenderEffect.createBlurEffect(r, r, Shader.TileMode.CLAMP) else null)
+                val wantBlur = r > 0.5f && !glView.activeSceneSuppressesBlur
+                glView.setRenderEffect(if (wantBlur) RenderEffect.createBlurEffect(r, r, Shader.TileMode.CLAMP) else null)
             }
             start()
         }

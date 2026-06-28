@@ -12,34 +12,32 @@ import com.lowlatency.visualizer.BeatPulse
  * "Spectral Canyon" — a 3D wireframe landscape sculpted from the music's own
  * recent history.
  *
- * Stripped back to basics: a clean additive wireframe on pure black (no fog).
- * The lateral axis is frequency (the 128-bin spectrum), the **depth axis is
- * time** — each frame the latest spectrum becomes the front row of the mesh and
- * the whole field scrolls back toward the horizon, so the terrain you fly over
- * is literally the last couple of seconds of sound. Height is magnitude; the
- * **per-bin peak-hold** lights glowing caps on the ridges (a transient you heard
- * a moment ago leaves a bright crest that drifts into the distance). A separate
- * **raw-PCM waveform** rides in the foreground as a bright 3D line.
+ * A clean additive wireframe on pure black, viewed from a high angle so the
+ * whole canyon is on screen at once. The lateral axis is frequency (the 128-bin
+ * spectrum); the **depth axis is time** — each row is a past spectrum frame,
+ * newest at the bottom, scrolling up toward the horizon as it ages. Height is
+ * magnitude; the **per-bin peak-hold** lights glowing caps on the ridges, so a
+ * transient you heard a moment ago leaves a bright crest that drifts away.
  *
- * Geometry is a vertex-displaced grid sampling a ring-buffer history texture in
- * the vertex shader — cheap, crisp, and reliable (no ray-march artefacts).
+ * Geometry is a vertex-displaced grid that samples a ring-buffer history texture
+ * in the vertex shader — cheap, crisp and reliable (no ray-march artefacts).
  */
 class SpectralCanyonScene : GlScene {
+
+    // The bright front lip sits on the bottom edge; the menu blur flips the GL
+    // surface and would mirror it to the top. Dim with the scrim only instead.
+    override val suppressMenuBlur get() = true
 
     companion object {
         private const val BINS = 128          // spectrum bins (history texture width)
         private const val GRID_W = 100        // mesh columns (frequency resolution)
         private const val GRID_D = 80         // mesh rows (time depth)
         private const val ROWS = GRID_D       // history ring rows == mesh depth (1 row : 1 frame)
-        private const val PCM_LEN = 1024      // raw PCM samples (waveform texture width)
-        private const val WAVE_N = 256        // waveform line-strip vertices
         private const val SCROLL_RATE = 18f   // history rows committed per second (scroll speed)
         private const val MAX_COMMITS = 4     // cap rows added per frame (low-fps safety)
 
-        // ---- Terrain (wireframe) ----
         private const val TERRAIN_VS = """#version 300 es
             layout(location = 0) in vec2 aGrid;   // (x in [0,1] freq, zt in [0,1] time)
-            uniform float u_aspect;
             uniform float u_head;                 // newest ring row index
             uniform float u_rows;
             uniform float u_frac;                 // 0..1 smooth scroll between commits
@@ -67,7 +65,9 @@ class SpectralCanyonScene : GlScene {
                 float xc = x * 2.0 - 1.0;                 // -1..1 frequency
                 float persp = 1.0 / (1.0 + zt * 1.3);     // mild depth compression
                 float px = xc * 0.96 * mix(1.0, 0.72, zt);
-                float py = -0.9 + zt * 4.0 * persp + mag * 0.55 * (0.5 + 0.5 * persp);
+                // Height shrinks with distance so far/old ridges flatten into the
+                // horizon instead of spiking up to the top edge of the screen.
+                float py = -0.9 + zt * 4.0 * persp + mag * 0.55 * persp;
 
                 gl_Position = vec4(px, py, 0.0, 1.0);
                 v_zt = zt;
@@ -92,7 +92,9 @@ class SpectralCanyonScene : GlScene {
             }
 
             void main() {
-                float fade = pow(1.0 - v_zt, 1.5);          // recede cleanly to black
+                // Dissolve into a dark horizon well before the top edge, so old rows
+                // scrolling up fade to black instead of piling into a line at the top.
+                float fade = 1.0 - smoothstep(0.45, 0.82, v_zt);
                 vec3 col = palette(0.12 + v_fx * 0.45 + v_height * 0.2);
                 col *= 0.45 + v_height * 1.8;               // taller = brighter
 
@@ -105,43 +107,13 @@ class SpectralCanyonScene : GlScene {
                 fragColor = vec4(col * u_dim, 1.0);
             }
         """
-
-        // ---- Foreground raw-PCM waveform (bright 3D line) ----
-        private const val WAVE_VS = """#version 300 es
-            layout(location = 0) in float aT;     // 0..1 across width
-            uniform float u_aspect;
-            uniform sampler2D u_pcm;              // R = sample, -1..1
-            void main() {
-                float w = texture(u_pcm, vec2(aT, 0.5)).r;
-                w = w * 3.0; w = w / (1.0 + abs(w));        // soft gain (lifts quiet mic)
-
-                float xc = aT * 2.0 - 1.0;
-                float px = xc * 0.96;                       // full width at the near edge
-                float py = -0.80 + w * 0.14;                // the bright near waveform lip (screen bottom)
-                gl_Position = vec4(px, py, 0.0, 1.0);
-            }
-        """
-
-        private const val WAVE_FS = """#version 300 es
-            precision highp float;
-            uniform float u_dim;
-            uniform float u_env;
-            out vec4 fragColor;
-            void main() {
-                vec3 c = vec3(0.55, 0.8, 1.0) * (1.8 + u_env * 2.2);
-                fragColor = vec4(c * u_dim, 1.0);
-            }
-        """
     }
 
     private val rowBuf: FloatBuffer = ByteBuffer
         .allocateDirect(BINS * 2 * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
-    private val pcmBuf: FloatBuffer = ByteBuffer
-        .allocateDirect(PCM_LEN * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
 
     private var terrainProg = 0
     private var tAGrid = 0
-    private var tAspect = 0
     private var tHead = 0
     private var tRows = 0
     private var tFrac = 0
@@ -149,30 +121,19 @@ class SpectralCanyonScene : GlScene {
     private var tDim = 0
     private var tEnv = 0
 
-    private var waveProg = 0
-    private var wAT = 0
-    private var wAspect = 0
-    private var wPcm = 0
-    private var wDim = 0
-    private var wEnv = 0
-
     private var gridVbo = 0
     private var indexVbo = 0
     private var indexCount = 0
-    private var waveVbo = 0
 
     private var histTex = 0
-    private var pcmTex = 0
     private var writeRow = 0
     private var head = 0
     private var lastT = -1f
     private var scrollAccum = 0f
-    private var aspect = 1f
 
     override fun onCreated() {
         terrainProg = ShaderUtil.buildProgram(TERRAIN_VS, TERRAIN_FS)
         tAGrid = GLES20.glGetAttribLocation(terrainProg, "aGrid")
-        tAspect = GLES20.glGetUniformLocation(terrainProg, "u_aspect")
         tHead = GLES20.glGetUniformLocation(terrainProg, "u_head")
         tRows = GLES20.glGetUniformLocation(terrainProg, "u_rows")
         tFrac = GLES20.glGetUniformLocation(terrainProg, "u_frac")
@@ -180,17 +141,8 @@ class SpectralCanyonScene : GlScene {
         tDim = GLES20.glGetUniformLocation(terrainProg, "u_dim")
         tEnv = GLES20.glGetUniformLocation(terrainProg, "u_env")
 
-        waveProg = ShaderUtil.buildProgram(WAVE_VS, WAVE_FS)
-        wAT = GLES20.glGetAttribLocation(waveProg, "aT")
-        wAspect = GLES20.glGetUniformLocation(waveProg, "u_aspect")
-        wPcm = GLES20.glGetUniformLocation(waveProg, "u_pcm")
-        wDim = GLES20.glGetUniformLocation(waveProg, "u_dim")
-        wEnv = GLES20.glGetUniformLocation(waveProg, "u_env")
-
         buildGrid()
-        buildWave()
         histTex = makeRingTexture()
-        pcmTex = makePcmTexture()
     }
 
     private fun buildGrid() {
@@ -236,18 +188,6 @@ class SpectralCanyonScene : GlScene {
         GLES20.glBindBuffer(GLES20.GL_ELEMENT_ARRAY_BUFFER, 0)
     }
 
-    private fun buildWave() {
-        val t = FloatArray(WAVE_N) { it.toFloat() / (WAVE_N - 1) }
-        val buf = ByteBuffer.allocateDirect(t.size * 4)
-            .order(ByteOrder.nativeOrder()).asFloatBuffer().put(t).also { it.position(0) }
-        val ids = IntArray(1)
-        GLES20.glGenBuffers(1, ids, 0)
-        waveVbo = ids[0]
-        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, waveVbo)
-        GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, t.size * 4, buf, GLES20.GL_STATIC_DRAW)
-        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
-    }
-
     private fun makeRingTexture(): Int {
         val ids = IntArray(1)
         GLES20.glGenTextures(1, ids, 0)
@@ -266,26 +206,8 @@ class SpectralCanyonScene : GlScene {
         return ids[0]
     }
 
-    private fun makePcmTexture(): Int {
-        val ids = IntArray(1)
-        GLES20.glGenTextures(1, ids, 0)
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, ids[0])
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE)
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE)
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
-        val zero = ByteBuffer.allocateDirect(PCM_LEN * 4)
-            .order(ByteOrder.nativeOrder()).asFloatBuffer()
-        GLES30.glTexImage2D(
-            GLES20.GL_TEXTURE_2D, 0, GLES30.GL_R16F,
-            PCM_LEN, 1, 0, GLES30.GL_RED, GLES20.GL_FLOAT, zero
-        )
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0)
-        return ids[0]
-    }
-
     override fun onResize(width: Int, height: Int, aspect: Float) {
-        this.aspect = aspect
+        // No surface-dependent state: the projection fills NDC and is aspect-independent.
     }
 
     override fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
@@ -297,19 +219,16 @@ class SpectralCanyonScene : GlScene {
         lastT = timeSec
         scrollAccum += dt * SCROLL_RATE
 
-        uploadWaveform(pcm)
         commitHistoryRows()
         val frac = scrollAccum
 
         GLES20.glEnable(GLES20.GL_BLEND)
         GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE)   // additive on black
 
-        // ---- Terrain wireframe ----
         GLES20.glUseProgram(terrainProg)
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, histTex)
         GLES20.glUniform1i(tHist, 0)
-        GLES20.glUniform1f(tAspect, aspect)
         GLES20.glUniform1f(tHead, head.toFloat())
         GLES20.glUniform1f(tRows, ROWS.toFloat())
         GLES20.glUniform1f(tFrac, frac)
@@ -322,38 +241,8 @@ class SpectralCanyonScene : GlScene {
         GLES20.glDrawElements(GLES20.GL_LINES, indexCount, GLES20.GL_UNSIGNED_SHORT, 0)
         GLES20.glDisableVertexAttribArray(tAGrid)
 
-        // ---- Foreground PCM waveform ----
-        GLES20.glUseProgram(waveProg)
-        GLES20.glActiveTexture(GLES20.GL_TEXTURE1)
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, pcmTex)
-        GLES20.glUniform1i(wPcm, 1)
-        GLES20.glUniform1f(wAspect, aspect)
-        GLES20.glUniform1f(wDim, dim)
-        GLES20.glUniform1f(wEnv, env)
-        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, waveVbo)
-        GLES20.glEnableVertexAttribArray(wAT)
-        GLES20.glVertexAttribPointer(wAT, 1, GLES20.GL_FLOAT, false, 0, 0)
-        GLES20.glDrawArrays(GLES20.GL_LINE_STRIP, 0, WAVE_N)
-        GLES20.glDisableVertexAttribArray(wAT)
-
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
         GLES20.glBindBuffer(GLES20.GL_ELEMENT_ARRAY_BUFFER, 0)
-        GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
-    }
-
-    /** Upload the live raw waveform every frame so the foreground line stays smooth. */
-    private fun uploadWaveform(pcm: FloatArray) {
-        val n = if (pcm.size < PCM_LEN) pcm.size else PCM_LEN
-        pcmBuf.clear()
-        pcmBuf.put(pcm, 0, n)
-        while (pcmBuf.position() < PCM_LEN) pcmBuf.put(0f)
-        pcmBuf.position(0)
-        GLES20.glActiveTexture(GLES20.GL_TEXTURE1)
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, pcmTex)
-        GLES20.glTexSubImage2D(
-            GLES20.GL_TEXTURE_2D, 0, 0, 0, PCM_LEN, 1,
-            GLES30.GL_RED, GLES20.GL_FLOAT, pcmBuf
-        )
     }
 
     /** Commit new spectrum history rows into the ring at the fixed scroll rate. */
