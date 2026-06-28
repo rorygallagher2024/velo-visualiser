@@ -41,6 +41,8 @@ class SpectralCanyonScene(private val classic: Boolean = false) : GlScene {
             uniform float u_head;                 // newest ring row index
             uniform float u_rows;
             uniform float u_frac;                 // 0..1 smooth scroll between commits
+            uniform float u_time;                 // continuous seconds, for camera drift
+            uniform float u_classic;              // 1 = classic variant (no drift)
             uniform sampler2D u_hist;             // R = magnitude, G = peak
             out float v_zt;
             out float v_height;
@@ -59,15 +61,23 @@ class SpectralCanyonScene(private val classic: Boolean = false) : GlScene {
                 // toward the next committed row (decouples motion from framerate).
                 float zt = zt0 + u_frac / (u_rows - 1.0);
 
+                // Subtle, symmetric camera drift (curated variant only): a slow bob,
+                // sway and depth-breathing at offset frequencies, so it adds life
+                // without ever settling off-centre (no lopsided bias).
+                float drift = 1.0 - u_classic;
+                float bob  = sin(u_time * 0.15) * 0.025 * drift;
+                float sway = sin(u_time * 0.11) * 0.016 * drift;
+                float lean = sin(u_time * 0.08) * 0.12  * drift;
+
                 // High-angle (near top-down) view: the time axis spreads up the whole
                 // screen (newest at the bottom, oldest near the top) with only mild
                 // perspective, and the width fills the display with a gentle taper.
-                float xc = x * 2.0 - 1.0;                 // -1..1 frequency
-                float persp = 1.0 / (1.0 + zt * 1.3);     // mild depth compression
-                float px = xc * 0.96 * mix(1.0, 0.72, zt);
+                float xc = x * 2.0 - 1.0;                  // -1..1 frequency
+                float persp = 1.0 / (1.0 + zt * (1.3 + lean));   // depth-breathing
+                float px = xc * 0.96 * mix(1.0, 0.72, zt) + sway;
                 // Height shrinks with distance so far/old ridges flatten into the
                 // horizon instead of spiking up to the top edge of the screen.
-                float py = -0.9 + zt * 4.0 * persp + mag * 0.55 * persp;
+                float py = -0.9 + zt * 4.0 * persp + mag * 0.55 * persp + bob;
 
                 gl_Position = vec4(px, py, 0.0, 1.0);
                 v_zt = zt;
@@ -146,6 +156,7 @@ class SpectralCanyonScene(private val classic: Boolean = false) : GlScene {
     private var tHead = 0
     private var tRows = 0
     private var tFrac = 0
+    private var tTime = 0
     private var tHist = 0
     private var tDim = 0
     private var tEnv = 0
@@ -170,6 +181,7 @@ class SpectralCanyonScene(private val classic: Boolean = false) : GlScene {
         tHead = GLES20.glGetUniformLocation(terrainProg, "u_head")
         tRows = GLES20.glGetUniformLocation(terrainProg, "u_rows")
         tFrac = GLES20.glGetUniformLocation(terrainProg, "u_frac")
+        tTime = GLES20.glGetUniformLocation(terrainProg, "u_time")
         tHist = GLES20.glGetUniformLocation(terrainProg, "u_hist")
         tDim = GLES20.glGetUniformLocation(terrainProg, "u_dim")
         tEnv = GLES20.glGetUniformLocation(terrainProg, "u_env")
@@ -286,6 +298,7 @@ class SpectralCanyonScene(private val classic: Boolean = false) : GlScene {
         GLES20.glUniform1f(tHead, head.toFloat())
         GLES20.glUniform1f(tRows, ROWS.toFloat())
         GLES20.glUniform1f(tFrac, frac)
+        GLES20.glUniform1f(tTime, timeSec)
         GLES20.glUniform1f(tDim, dim)
         GLES20.glUniform1f(tEnv, env)
         GLES20.glUniform1f(tClassic, if (classic) 1f else 0f)
