@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Shared look for the full-width "pill" scene buttons in the settings sheet.
+         A scene button only needs an id + text; the last button in each category
+         overrides android:layout_marginBottom to 16dp for the inter-section gap. -->
+    <style name="VisualizerPill">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">48dp</item>
+        <item name="android:layout_marginBottom">8dp</item>
+        <item name="android:background">@drawable/pill_button_bg</item>
+        <item name="android:textColor">@color/btn_text</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:stateListAnimator">@null</item>
+    </style>
+
+</resources>
