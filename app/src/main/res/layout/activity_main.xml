@@ -343,8 +343,6 @@
 
             <Button android:id="@+id/btn_electric_iris" style="@style/VisualizerPill" android:text="@string/vis_electric_iris" />
 
-            <Button android:id="@+id/btn_aurora_drift" style="@style/VisualizerPill" android:text="@string/vis_aurora_drift" />
-
             <Button android:id="@+id/btn_tunnel" style="@style/VisualizerPill" android:text="@string/vis_tunnel" />
 
             <Button android:id="@+id/btn_laser" style="@style/VisualizerPill" android:text="@string/vis_laser" />
@@ -370,6 +368,8 @@
             <View style="@style/Divider" android:layout_marginTop="16dp" android:layout_marginBottom="16dp" />
 
             <TextView style="@style/SectionHeader" android:layout_width="match_parent" android:text="@string/cat_immersive" android:layout_marginBottom="12dp" />
+
+            <Button android:id="@+id/btn_aurora_drift" style="@style/VisualizerPill" android:text="@string/vis_aurora_drift" />
 
             <Button android:id="@+id/btn_fluid" style="@style/VisualizerPill" android:text="@string/vis_fluid" />
 
