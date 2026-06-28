@@ -61,11 +61,13 @@ class SpectralCanyonScene : GlScene {
                 // toward the next committed row (decouples motion from framerate).
                 float zt = zt0 + u_frac / (u_rows - 1.0);
 
-                float xc = x * 2.0 - 1.0;         // -1..1
-                float depth = mix(1.0, 7.0, zt);  // fake perspective recession
-                float persp = 1.0 / depth;
-                float px = (xc * 2.1 * persp) / u_aspect;
-                float py = -0.42 + mag * 1.7 * persp;
+                // High-angle (near top-down) view: the time axis spreads up the whole
+                // screen (newest at the bottom, oldest near the top) with only mild
+                // perspective, and the width fills the display with a gentle taper.
+                float xc = x * 2.0 - 1.0;                 // -1..1 frequency
+                float persp = 1.0 / (1.0 + zt * 1.3);     // mild depth compression
+                float px = xc * 0.96 * mix(1.0, 0.72, zt);
+                float py = -0.9 + zt * 4.0 * persp + mag * 0.55 * (0.5 + 0.5 * persp);
 
                 gl_Position = vec4(px, py, 0.0, 1.0);
                 v_zt = zt;
@@ -114,11 +116,8 @@ class SpectralCanyonScene : GlScene {
                 w = w * 3.0; w = w / (1.0 + abs(w));        // soft gain (lifts quiet mic)
 
                 float xc = aT * 2.0 - 1.0;
-                float zt = -0.02;                           // the bright leading lip of the canyon
-                float depth = mix(1.0, 7.0, zt);
-                float persp = 1.0 / depth;
-                float px = (xc * 2.1 * persp) / u_aspect;
-                float py = -0.42 + w * 0.20;                // rides the baseline the mountains rise from
+                float px = xc * 0.96;                       // full width at the near edge
+                float py = -0.80 + w * 0.14;                // the bright near waveform lip (screen bottom)
                 gl_Position = vec4(px, py, 0.0, 1.0);
             }
         """
