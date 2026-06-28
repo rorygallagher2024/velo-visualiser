@@ -92,9 +92,10 @@ class SpectralCanyonScene : GlScene {
             }
 
             void main() {
-                // Dissolve into a dark horizon well before the top edge, so old rows
-                // scrolling up fade to black instead of piling into a line at the top.
-                float fade = 1.0 - smoothstep(0.45, 0.82, v_zt);
+                // Fade in from black at the bottom so new rows emerge smoothly (no
+                // pop/flicker as they're committed), and dissolve into a dark horizon
+                // before the top edge so old rows melt away instead of piling there.
+                float fade = smoothstep(0.0, 0.10, v_zt) * (1.0 - smoothstep(0.45, 0.82, v_zt));
                 vec3 col = palette(0.12 + v_fx * 0.45 + v_height * 0.2);
                 col *= 0.45 + v_height * 1.8;               // taller = brighter
 
