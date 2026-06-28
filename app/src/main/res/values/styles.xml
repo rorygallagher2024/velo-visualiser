@@ -15,4 +15,34 @@
         <item name="android:stateListAnimator">@null</item>
     </style>
 
+    <!-- Settings-sheet section/category label (e.g. "INSTRUMENTS", "AUDIO").
+         Defaults to a left-aligned wrap_content label; the full-width category
+         headers override layout_width + layout_marginBottom. -->
+    <style name="SectionHeader">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">@color/text_dim</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:letterSpacing">0.1</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="android:layout_marginBottom">16dp</item>
+    </style>
+
+    <!-- Solid 1dp section rule. Margins are set per-use. -->
+    <style name="Divider">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">1dp</item>
+        <item name="android:background">@color/sheet_stroke</item>
+    </style>
+
+    <!-- Faint 1dp rule (dimmed text colour) used inside sections. -->
+    <style name="DividerSubtle">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">1dp</item>
+        <item name="android:background">@color/text_dim</item>
+        <item name="android:alpha">0.25</item>
+        <item name="android:layout_marginTop">8dp</item>
+        <item name="android:layout_marginBottom">14dp</item>
+    </style>
+
 </resources>

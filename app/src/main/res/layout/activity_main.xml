@@ -117,12 +117,7 @@
         </LinearLayout>
 
         <!-- Hairline divider -->
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginTop="12dp"
-            android:layout_marginBottom="12dp"
-            android:background="@color/sheet_stroke" />
+        <View style="@style/Divider" android:layout_marginTop="12dp" android:layout_marginBottom="12dp" />
 
         <!-- Technical data block (mono) -->
         <TextView
@@ -270,11 +265,7 @@
         </LinearLayout>
 
         <!-- ───── divider: Main Nav / Content ───── -->
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginBottom="24dp"
-            android:background="@color/sheet_stroke" />
+        <View style="@style/Divider" android:layout_marginBottom="24dp" />
 
         <!-- ===== TAB 1: Visualizers ===== -->
         <LinearLayout
@@ -317,15 +308,7 @@
             android:layout_marginBottom="20dp">
 
             <!-- ===== Category: Instruments (clean, lightweight) ===== -->
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/cat_instruments"
-                android:textColor="@color/text_dim"
-                android:textSize="13sp"
-                android:letterSpacing="0.1"
-                android:textAllCaps="true"
-                android:layout_marginBottom="12dp" />
+            <TextView style="@style/SectionHeader" android:layout_width="match_parent" android:text="@string/cat_instruments" android:layout_marginBottom="12dp" />
 
             <Button android:id="@+id/btn_oscilloscope" style="@style/VisualizerPill" android:text="@string/vis_oscilloscope" />
 
@@ -344,22 +327,9 @@
             <Button android:id="@+id/btn_mechanical_meter" style="@style/VisualizerPill" android:text="@string/vis_mechanical_meter" />
 
             <!-- ===== Category: Reactive (beat / energy driven) ===== -->
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:layout_marginTop="16dp"
-                android:layout_marginBottom="16dp"
-                android:background="@color/sheet_stroke" />
+            <View style="@style/Divider" android:layout_marginTop="16dp" android:layout_marginBottom="16dp" />
 
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/cat_reactive"
-                android:textColor="@color/text_dim"
-                android:textSize="13sp"
-                android:letterSpacing="0.1"
-                android:textAllCaps="true"
-                android:layout_marginBottom="12dp" />
+            <TextView style="@style/SectionHeader" android:layout_width="match_parent" android:text="@string/cat_reactive" android:layout_marginBottom="12dp" />
 
             <Button android:id="@+id/btn_cymatics" style="@style/VisualizerPill" android:text="@string/vis_cymatics" />
 
@@ -397,22 +367,9 @@
 
 
             <!-- ===== Category: Immersive (rich generative, heavier GPU) ===== -->
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:layout_marginTop="16dp"
-                android:layout_marginBottom="16dp"
-                android:background="@color/sheet_stroke" />
+            <View style="@style/Divider" android:layout_marginTop="16dp" android:layout_marginBottom="16dp" />
 
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/cat_immersive"
-                android:textColor="@color/text_dim"
-                android:textSize="13sp"
-                android:letterSpacing="0.1"
-                android:textAllCaps="true"
-                android:layout_marginBottom="12dp" />
+            <TextView style="@style/SectionHeader" android:layout_width="match_parent" android:text="@string/cat_immersive" android:layout_marginBottom="12dp" />
 
             <Button android:id="@+id/btn_fluid" style="@style/VisualizerPill" android:text="@string/vis_fluid" />
 
@@ -432,22 +389,9 @@
 
         <!-- ===== Ambient Mode launcher (a viewing mode, not a scene — sits below
              the scene list so it never reads as part of a visual) ===== -->
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:background="@color/text_dim"
-            android:alpha="0.25"
-            android:layout_marginBottom="16dp" />
+        <View style="@style/DividerSubtle" android:layout_marginBottom="16dp" />
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/cat_modes"
-            android:textColor="@color/text_dim"
-            android:textSize="13sp"
-            android:letterSpacing="0.1"
-            android:textAllCaps="true"
-            android:layout_marginBottom="12dp" />
+        <TextView style="@style/SectionHeader" android:layout_width="match_parent" android:text="@string/cat_modes" android:layout_marginBottom="12dp" />
 
         <Button
             android:id="@+id/btn_display_mode"
@@ -502,15 +446,7 @@
             android:visibility="gone">
 
         <!-- ===== Group: Audio ===== -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/section_audio"
-            android:textColor="@color/text_dim"
-            android:textSize="13sp"
-            android:letterSpacing="0.1"
-            android:textAllCaps="true"
-            android:layout_marginBottom="16dp" />
+        <TextView style="@style/SectionHeader" android:text="@string/section_audio" />
 
         <!-- Audio source segmented toggle -->
         <TextView
@@ -643,23 +579,10 @@
             android:stateListAnimator="@null" />
 
         <!-- ───── divider: Audio / Ableton Link ───── -->
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginTop="16dp"
-            android:layout_marginBottom="20dp"
-            android:background="@color/sheet_stroke" />
+        <View style="@style/Divider" android:layout_marginTop="16dp" android:layout_marginBottom="20dp" />
 
         <!-- ===== Group: Ableton Link ===== -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/link_label"
-            android:textColor="@color/text_dim"
-            android:textSize="13sp"
-            android:letterSpacing="0.1"
-            android:textAllCaps="true"
-            android:layout_marginBottom="6dp" />
+        <TextView style="@style/SectionHeader" android:text="@string/link_label" android:layout_marginBottom="6dp" />
 
         <!-- Always-visible primer: the full link_help only shows once Link is on,
              but you need to know what it is *before* deciding to enable it. -->
@@ -971,23 +894,10 @@
         </LinearLayout>
 
         <!-- ───── divider: Ableton Link / Visuals ───── -->
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginTop="8dp"
-            android:layout_marginBottom="16dp"
-            android:background="@color/sheet_stroke" />
+        <View style="@style/Divider" android:layout_marginTop="8dp" android:layout_marginBottom="16dp" />
 
         <!-- ===== Group: Visuals ===== -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/section_visuals"
-            android:textColor="@color/text_dim"
-            android:textSize="13sp"
-            android:letterSpacing="0.1"
-            android:textAllCaps="true"
-            android:layout_marginBottom="16dp" />
+        <TextView style="@style/SectionHeader" android:text="@string/section_visuals" />
 
         <!-- HDR bloom / glow strength -->
         <TextView
@@ -1145,23 +1055,10 @@
         </LinearLayout>
 
         <!-- ───── divider: Visuals / Display ───── -->
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginTop="16dp"
-            android:layout_marginBottom="20dp"
-            android:background="@color/sheet_stroke" />
+        <View style="@style/Divider" android:layout_marginTop="16dp" android:layout_marginBottom="20dp" />
 
         <!-- ===== Group: Display ===== -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/display_label"
-            android:textColor="@color/text_dim"
-            android:textSize="13sp"
-            android:letterSpacing="0.1"
-            android:textAllCaps="true"
-            android:layout_marginBottom="16dp" />
+        <TextView style="@style/SectionHeader" android:text="@string/display_label" />
 
         <!-- Cast to external display (visible only when display is connected) -->
         <Button
@@ -1251,23 +1148,10 @@
         </LinearLayout>
 
         <!-- ───── divider: Display / About ───── -->
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginTop="16dp"
-            android:layout_marginBottom="20dp"
-            android:background="@color/sheet_stroke" />
+        <View style="@style/Divider" android:layout_marginTop="16dp" android:layout_marginBottom="20dp" />
 
         <!-- ===== Group: About ===== -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/section_about"
-            android:textColor="@color/text_dim"
-            android:textSize="13sp"
-            android:letterSpacing="0.1"
-            android:textAllCaps="true"
-            android:layout_marginBottom="16dp" />
+        <TextView style="@style/SectionHeader" android:text="@string/section_about" />
 
         <Button
             android:id="@+id/btn_privacy_policy"
@@ -1534,13 +1418,7 @@
             android:orientation="vertical"
             android:visibility="gone">
 
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:background="@color/text_dim"
-                android:alpha="0.25"
-                android:layout_marginTop="8dp"
-                android:layout_marginBottom="14dp" />
+            <View style="@style/DividerSubtle" />
 
             <TextView
                 android:layout_width="wrap_content"
@@ -1569,13 +1447,7 @@
             android:orientation="vertical"
             android:visibility="gone">
 
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:background="@color/text_dim"
-                android:alpha="0.25"
-                android:layout_marginTop="8dp"
-                android:layout_marginBottom="14dp" />
+            <View style="@style/DividerSubtle" />
 
             <TextView
                 android:layout_width="wrap_content"
@@ -1624,13 +1496,7 @@
             android:orientation="vertical"
             android:visibility="gone">
 
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:background="@color/text_dim"
-                android:alpha="0.25"
-                android:layout_marginTop="8dp"
-                android:layout_marginBottom="14dp" />
+            <View style="@style/DividerSubtle" />
 
             <TextView
                 android:layout_width="wrap_content"
@@ -1736,13 +1602,7 @@
                 android:columnCount="2"
                 android:layout_marginBottom="16dp" />
 
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:background="@color/text_dim"
-                android:alpha="0.25"
-                android:layout_marginTop="8dp"
-                android:layout_marginBottom="14dp" />
+            <View style="@style/DividerSubtle" />
 
             <TextView
                 android:layout_width="wrap_content"
@@ -1833,13 +1693,7 @@
                 android:stateListAnimator="@null" />
 
 
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:background="@color/text_dim"
-                android:alpha="0.25"
-                android:layout_marginTop="8dp"
-                android:layout_marginBottom="14dp" />
+            <View style="@style/DividerSubtle" />
 
             <TextView
                 android:layout_width="wrap_content"
@@ -1944,13 +1798,7 @@
                 android:orientation="vertical"
                 android:layout_marginBottom="16dp" />
 
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:background="@color/text_dim"
-                android:alpha="0.25"
-                android:layout_marginTop="8dp"
-                android:layout_marginBottom="14dp" />
+            <View style="@style/DividerSubtle" />
 
             <TextView
                 android:layout_width="wrap_content"
