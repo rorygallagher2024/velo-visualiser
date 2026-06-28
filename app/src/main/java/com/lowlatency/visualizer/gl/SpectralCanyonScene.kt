@@ -22,7 +22,7 @@ import com.lowlatency.visualizer.BeatPulse
  * Geometry is a vertex-displaced grid that samples a ring-buffer history texture
  * in the vertex shader — cheap, crisp and reliable (no ray-march artefacts).
  */
-class SpectralCanyonScene : GlScene {
+class SpectralCanyonScene(private val classic: Boolean = false) : GlScene {
 
     // The bright front lip sits on the bottom edge; the menu blur flips the GL
     // surface and would mirror it to the top. Dim with the scrim only instead.
@@ -81,12 +81,18 @@ class SpectralCanyonScene : GlScene {
             precision highp float;
             uniform float u_dim;
             uniform float u_env;
-            uniform float u_fill;   // 1 = filled-surface pass, 0 = wireframe pass
+            uniform float u_fill;    // 1 = filled-surface pass, 0 = wireframe pass
+            uniform float u_classic; // 1 = original cosine palette, 0 = curated gradient
             in float v_zt;
             in float v_height;
             in float v_peak;
             in float v_fx;
             out vec4 fragColor;
+
+            // "Classic" palette: the original IQ cosine rainbow (freq + height).
+            vec3 palette(float t) {
+                return 0.5 + 0.5 * cos(6.28318 * (t + vec3(0.0, 0.33, 0.60)));
+            }
 
             // Curated valley->peak gradient: deep indigo -> blue -> cyan -> magenta
             // -> white-hot, so height reads as an intentional colour journey.
@@ -103,15 +109,22 @@ class SpectralCanyonScene : GlScene {
                 // pop/flicker as they're committed), and dissolve into a dark horizon
                 // before the top edge so old rows melt away instead of piling there.
                 float fade = smoothstep(0.0, 0.10, v_zt) * (1.0 - smoothstep(0.45, 0.82, v_zt));
-                vec3 col = terrainColor(v_height);
-                // Band tint: bass (left) warmer, treble (right) cooler — keeps the
-                // height gradient but makes the frequency axis legible.
-                col *= mix(vec3(1.10, 0.90, 1.00), vec3(0.85, 1.00, 1.18), v_fx);
+                // Two selectable palettes: the original cosine rainbow ("Classic")
+                // or the curated indigo -> cyan -> magenta -> white-hot gradient.
+                vec3 col, capCol;
+                if (u_classic > 0.5) {
+                    col = palette(0.12 + v_fx * 0.45 + v_height * 0.2);
+                    capCol = palette(0.55 + v_fx * 0.4);
+                } else {
+                    col = terrainColor(v_height)
+                        * mix(vec3(1.10, 0.90, 1.00), vec3(0.85, 1.00, 1.18), v_fx);
+                    capCol = vec3(1.10, 1.15, 1.35);
+                }
                 col *= 0.45 + v_height * 1.8;               // taller = brighter
 
-                // White-hot transient peak caps (flare on the beat via u_env).
+                // Peak caps flare on the beat via u_env (white-hot in the curated palette).
                 float cap = smoothstep(0.18, 0.6, v_peak);
-                col += vec3(1.10, 1.15, 1.35) * cap * (0.6 + u_env * 2.0);
+                col += capCol * cap * (0.6 + u_env * 2.0);
 
                 col *= fade;
                 col *= 1.5 + v_height * 2.2;                // HDR lift for bloom
@@ -137,6 +150,7 @@ class SpectralCanyonScene : GlScene {
     private var tDim = 0
     private var tEnv = 0
     private var tFill = 0
+    private var tClassic = 0
 
     private var gridVbo = 0
     private var indexVbo = 0
@@ -160,6 +174,7 @@ class SpectralCanyonScene : GlScene {
         tDim = GLES20.glGetUniformLocation(terrainProg, "u_dim")
         tEnv = GLES20.glGetUniformLocation(terrainProg, "u_env")
         tFill = GLES20.glGetUniformLocation(terrainProg, "u_fill")
+        tClassic = GLES20.glGetUniformLocation(terrainProg, "u_classic")
 
         buildGrid()
         histTex = makeRingTexture()
@@ -273,6 +288,7 @@ class SpectralCanyonScene : GlScene {
         GLES20.glUniform1f(tFrac, frac)
         GLES20.glUniform1f(tDim, dim)
         GLES20.glUniform1f(tEnv, env)
+        GLES20.glUniform1f(tClassic, if (classic) 1f else 0f)
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, gridVbo)
         GLES20.glEnableVertexAttribArray(tAGrid)
         GLES20.glVertexAttribPointer(tAGrid, 2, GLES20.GL_FLOAT, false, 0, 0)
