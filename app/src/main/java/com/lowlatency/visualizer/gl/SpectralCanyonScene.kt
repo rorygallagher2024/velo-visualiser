@@ -81,6 +81,7 @@ class SpectralCanyonScene : GlScene {
             precision highp float;
             uniform float u_dim;
             uniform float u_env;
+            uniform float u_fill;   // 1 = filled-surface pass, 0 = wireframe pass
             in float v_zt;
             in float v_height;
             in float v_peak;
@@ -105,7 +106,12 @@ class SpectralCanyonScene : GlScene {
 
                 col *= fade;
                 col *= 1.5 + v_height * 2.2;                // HDR lift for bloom
-                fragColor = vec4(col * u_dim, 1.0);
+
+                // Fill pass renders dimmer and only on the ridges (valleys stay
+                // black, preserving the pure-black background); the wireframe pass
+                // (u_fill = 0) stays at full strength on top.
+                float fillScale = mix(1.0, 0.2ß * smoothstep(0.0, 0.18, v_height), u_fill);
+                fragColor = vec4(col * u_dim * fillScale, 1.0);
             }
         """
     }
@@ -121,10 +127,13 @@ class SpectralCanyonScene : GlScene {
     private var tHist = 0
     private var tDim = 0
     private var tEnv = 0
+    private var tFill = 0
 
     private var gridVbo = 0
     private var indexVbo = 0
     private var indexCount = 0
+    private var fillIbo = 0
+    private var fillCount = 0
 
     private var histTex = 0
     private var writeRow = 0
@@ -141,6 +150,7 @@ class SpectralCanyonScene : GlScene {
         tHist = GLES20.glGetUniformLocation(terrainProg, "u_hist")
         tDim = GLES20.glGetUniformLocation(terrainProg, "u_dim")
         tEnv = GLES20.glGetUniformLocation(terrainProg, "u_env")
+        tFill = GLES20.glGetUniformLocation(terrainProg, "u_fill")
 
         buildGrid()
         histTex = makeRingTexture()
@@ -178,13 +188,32 @@ class SpectralCanyonScene : GlScene {
         val ibuf: ShortBuffer = ByteBuffer.allocateDirect(idx.size * 2)
             .order(ByteOrder.nativeOrder()).asShortBuffer().put(idx).also { it.position(0) }
 
-        val ids = IntArray(2)
-        GLES20.glGenBuffers(2, ids, 0)
-        gridVbo = ids[0]; indexVbo = ids[1]
+        // Filled-surface triangle indices (two triangles per grid cell).
+        val tri = ShortArray((GRID_W - 1) * (GRID_D - 1) * 6)
+        var ti = 0
+        for (r in 0 until GRID_D - 1) {
+            for (c in 0 until GRID_W - 1) {
+                val v00 = (r * GRID_W + c).toShort()
+                val v01 = (r * GRID_W + c + 1).toShort()
+                val v10 = ((r + 1) * GRID_W + c).toShort()
+                val v11 = ((r + 1) * GRID_W + c + 1).toShort()
+                tri[ti++] = v00; tri[ti++] = v01; tri[ti++] = v10
+                tri[ti++] = v01; tri[ti++] = v11; tri[ti++] = v10
+            }
+        }
+        fillCount = ti
+        val tbuf: ShortBuffer = ByteBuffer.allocateDirect(tri.size * 2)
+            .order(ByteOrder.nativeOrder()).asShortBuffer().put(tri).also { it.position(0) }
+
+        val ids = IntArray(3)
+        GLES20.glGenBuffers(3, ids, 0)
+        gridVbo = ids[0]; indexVbo = ids[1]; fillIbo = ids[2]
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, gridVbo)
         GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, verts.size * 4, vbuf, GLES20.GL_STATIC_DRAW)
         GLES20.glBindBuffer(GLES20.GL_ELEMENT_ARRAY_BUFFER, indexVbo)
         GLES20.glBufferData(GLES20.GL_ELEMENT_ARRAY_BUFFER, idx.size * 2, ibuf, GLES20.GL_STATIC_DRAW)
+        GLES20.glBindBuffer(GLES20.GL_ELEMENT_ARRAY_BUFFER, fillIbo)
+        GLES20.glBufferData(GLES20.GL_ELEMENT_ARRAY_BUFFER, tri.size * 2, tbuf, GLES20.GL_STATIC_DRAW)
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
         GLES20.glBindBuffer(GLES20.GL_ELEMENT_ARRAY_BUFFER, 0)
     }
@@ -238,10 +267,18 @@ class SpectralCanyonScene : GlScene {
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, gridVbo)
         GLES20.glEnableVertexAttribArray(tAGrid)
         GLES20.glVertexAttribPointer(tAGrid, 2, GLES20.GL_FLOAT, false, 0, 0)
+
+        // Fill pass: dim glowing surface under the wireframe (ridges only).
+        GLES20.glUniform1f(tFill, 1f)
+        GLES20.glBindBuffer(GLES20.GL_ELEMENT_ARRAY_BUFFER, fillIbo)
+        GLES20.glDrawElements(GLES20.GL_TRIANGLES, fillCount, GLES20.GL_UNSIGNED_SHORT, 0)
+
+        // Wireframe pass: crisp lines on top.
+        GLES20.glUniform1f(tFill, 0f)
         GLES20.glBindBuffer(GLES20.GL_ELEMENT_ARRAY_BUFFER, indexVbo)
         GLES20.glDrawElements(GLES20.GL_LINES, indexCount, GLES20.GL_UNSIGNED_SHORT, 0)
-        GLES20.glDisableVertexAttribArray(tAGrid)
 
+        GLES20.glDisableVertexAttribArray(tAGrid)
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
         GLES20.glBindBuffer(GLES20.GL_ELEMENT_ARRAY_BUFFER, 0)
     }
