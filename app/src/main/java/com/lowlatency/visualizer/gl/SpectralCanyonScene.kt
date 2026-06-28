@@ -88,8 +88,14 @@ class SpectralCanyonScene : GlScene {
             in float v_fx;
             out vec4 fragColor;
 
-            vec3 palette(float t) {
-                return 0.5 + 0.5 * cos(6.28318 * (t + vec3(0.0, 0.33, 0.60)));
+            // Curated valley->peak gradient: deep indigo -> blue -> cyan -> magenta
+            // -> white-hot, so height reads as an intentional colour journey.
+            vec3 terrainColor(float h) {
+                vec3 c = mix(vec3(0.10, 0.05, 0.32), vec3(0.05, 0.40, 0.85), smoothstep(0.0, 0.22, h));
+                c = mix(c, vec3(0.00, 0.85, 0.90), smoothstep(0.18, 0.48, h));
+                c = mix(c, vec3(0.90, 0.20, 0.85), smoothstep(0.48, 0.78, h));
+                c = mix(c, vec3(1.30, 1.05, 1.35), smoothstep(0.82, 1.0, h));
+                return c;
             }
 
             void main() {
@@ -97,12 +103,15 @@ class SpectralCanyonScene : GlScene {
                 // pop/flicker as they're committed), and dissolve into a dark horizon
                 // before the top edge so old rows melt away instead of piling there.
                 float fade = smoothstep(0.0, 0.10, v_zt) * (1.0 - smoothstep(0.45, 0.82, v_zt));
-                vec3 col = palette(0.12 + v_fx * 0.45 + v_height * 0.2);
+                vec3 col = terrainColor(v_height);
+                // Band tint: bass (left) warmer, treble (right) cooler — keeps the
+                // height gradient but makes the frequency axis legible.
+                col *= mix(vec3(1.10, 0.90, 1.00), vec3(0.85, 1.00, 1.18), v_fx);
                 col *= 0.45 + v_height * 1.8;               // taller = brighter
 
-                // Peak caps: a recent transient glows on the ridge crest.
+                // White-hot transient peak caps (flare on the beat via u_env).
                 float cap = smoothstep(0.18, 0.6, v_peak);
-                col += palette(0.55 + v_fx * 0.4) * cap * (0.6 + u_env * 2.0);
+                col += vec3(1.10, 1.15, 1.35) * cap * (0.6 + u_env * 2.0);
 
                 col *= fade;
                 col *= 1.5 + v_height * 2.2;                // HDR lift for bloom
