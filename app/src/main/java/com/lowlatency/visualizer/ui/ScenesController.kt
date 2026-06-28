@@ -57,6 +57,8 @@ class ScenesController(
             btn(R.id.btn_topo_ridge, 15),
             btn(R.id.btn_strange_attractor, 22),
             btn(R.id.btn_logo_particle, 26),
+            btn(R.id.btn_spectral_canyon, 30),
+            btn(R.id.btn_spectral_canyon_classic, 31),
             btn(R.id.btn_fluid, 2),
             btn(R.id.btn_crystal_swarm, 27),
             btn(R.id.btn_mandelbox, 19),

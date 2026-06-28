@@ -87,7 +87,7 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
         .order(java.nio.ByteOrder.nativeOrder())
     val sharedAudioFloatBuffer: java.nio.FloatBuffer = sharedAudioBuffer.asFloatBuffer()
 
-    private val scenes = arrayOfNulls<GlScene>(30)
+    private val scenes = arrayOfNulls<GlScene>(32)
     private val scenesToLoad = mutableListOf<Int>()
     private var loadFrameCounter = 0
 
@@ -123,6 +123,8 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
             27 -> CrystalSwarmScene()
             28 -> LedMatrix3DScene()
             29 -> LiquidLightScene()
+            30 -> SpectralCanyonScene(classic = false)
+            31 -> SpectralCanyonScene(classic = true)
             else -> RawScopeScene()
         }
     }
@@ -231,6 +233,11 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
 
     /** Number of selectable scenes (for index wrapping by the view). */
     val sceneCount: Int get() = scenes.size
+
+    /** True if the active (or transitioning-to) scene opts out of the menu blur. */
+    val activeSceneSuppressesBlur: Boolean
+        get() = scenes.getOrNull(current)?.suppressMenuBlur == true ||
+            scenes.getOrNull(target)?.suppressMenuBlur == true
 
     /**
      * Transition to an explicit scene index (used by both swipe and the menu's

@@ -39,6 +39,8 @@
     <string name="vis_logo_particle">Logo Particles</string>
     <string name="vis_crystal_swarm">Crystalline Swarm</string>
     <string name="vis_liquid_light">Liquid Light</string>
+    <string name="vis_spectral_canyon">Spectral Canyon</string>
+    <string name="vis_spectral_canyon_classic">Spectral Canyon Classic</string>
     <string name="cat_modes">Modes</string>
     <string name="cat_instruments">Instruments</string>
     <string name="cat_reactive">Reactive</string>

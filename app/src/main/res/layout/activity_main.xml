@@ -327,101 +327,21 @@
                 android:textAllCaps="true"
                 android:layout_marginBottom="12dp" />
 
-            <Button
-                android:id="@+id/btn_oscilloscope"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_oscilloscope"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="14sp"
-                android:stateListAnimator="@null" />
+            <Button android:id="@+id/btn_oscilloscope" style="@style/VisualizerPill" android:text="@string/vis_oscilloscope" />
 
-            <Button
-                android:id="@+id/btn_rawscope"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_rawscope"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="14sp"
-                android:stateListAnimator="@null" />
+            <Button android:id="@+id/btn_rawscope" style="@style/VisualizerPill" android:text="@string/vis_rawscope" />
 
-            <Button
-                android:id="@+id/btn_bars"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_bars"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="14sp"
-                android:stateListAnimator="@null" />
+            <Button android:id="@+id/btn_bars" style="@style/VisualizerPill" android:text="@string/vis_bars" />
 
-            <Button
-                android:id="@+id/btn_circular"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_circular"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="14sp"
-                android:stateListAnimator="@null" />
+            <Button android:id="@+id/btn_circular" style="@style/VisualizerPill" android:text="@string/vis_circular" />
 
-            <Button
-                android:id="@+id/btn_spectrogram"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_spectrogram"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="14sp"
-                android:stateListAnimator="@null" />
+            <Button android:id="@+id/btn_spectrogram" style="@style/VisualizerPill" android:text="@string/vis_spectrogram" />
 
-            <Button
-                android:id="@+id/btn_led_matrix"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_led_matrix"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="14sp"
-                android:stateListAnimator="@null" />
+            <Button android:id="@+id/btn_led_matrix" style="@style/VisualizerPill" android:text="@string/vis_led_matrix" />
 
-            <Button
-                android:id="@+id/btn_led_matrix_3d"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_led_matrix_3d"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="14sp"
-                android:stateListAnimator="@null" />
+            <Button android:id="@+id/btn_led_matrix_3d" style="@style/VisualizerPill" android:text="@string/vis_led_matrix_3d" />
 
-            <Button
-                android:id="@+id/btn_mechanical_meter"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_mechanical_meter"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="14sp"
-                android:stateListAnimator="@null" />
+            <Button android:id="@+id/btn_mechanical_meter" style="@style/VisualizerPill" android:text="@string/vis_mechanical_meter" />
 
             <!-- ===== Category: Reactive (beat / energy driven) ===== -->
             <View
@@ -441,185 +361,39 @@
                 android:textAllCaps="true"
                 android:layout_marginBottom="12dp" />
 
-            <Button
-                android:id="@+id/btn_cymatics"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_cymatics"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="14sp"
-                android:stateListAnimator="@null" />
+            <Button android:id="@+id/btn_cymatics" style="@style/VisualizerPill" android:text="@string/vis_cymatics" />
 
-            <Button
-                android:id="@+id/btn_beat_pulse"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_beat_pulse"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="14sp"
-                android:stateListAnimator="@null" />
+            <Button android:id="@+id/btn_beat_pulse" style="@style/VisualizerPill" android:text="@string/vis_beat_pulse" />
 
-            <Button
-                android:id="@+id/btn_fireworks"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_fireworks"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="14sp"
-                android:stateListAnimator="@null" />
+            <Button android:id="@+id/btn_fireworks" style="@style/VisualizerPill" android:text="@string/vis_fireworks" />
 
-            <Button
-                android:id="@+id/btn_starscape"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_starscape"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="14sp"
-                android:stateListAnimator="@null" />
+            <Button android:id="@+id/btn_starscape" style="@style/VisualizerPill" android:text="@string/vis_starscape" />
 
-            <Button
-                android:id="@+id/btn_bloom"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_bloom"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="14sp"
-                android:stateListAnimator="@null" />
+            <Button android:id="@+id/btn_bloom" style="@style/VisualizerPill" android:text="@string/vis_bloom" />
 
-            <Button
-                android:id="@+id/btn_electric_iris"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_electric_iris"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="14sp"
-                android:stateListAnimator="@null" />
+            <Button android:id="@+id/btn_electric_iris" style="@style/VisualizerPill" android:text="@string/vis_electric_iris" />
 
-            <Button
-                android:id="@+id/btn_aurora_drift"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_aurora_drift"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="14sp"
-                android:stateListAnimator="@null" />
+            <Button android:id="@+id/btn_aurora_drift" style="@style/VisualizerPill" android:text="@string/vis_aurora_drift" />
 
-            <Button
-                android:id="@+id/btn_tunnel"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_tunnel"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="14sp"
-                android:stateListAnimator="@null" />
+            <Button android:id="@+id/btn_tunnel" style="@style/VisualizerPill" android:text="@string/vis_tunnel" />
 
-            <Button
-                android:id="@+id/btn_laser"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_laser"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="14sp"
-                android:stateListAnimator="@null" />
+            <Button android:id="@+id/btn_laser" style="@style/VisualizerPill" android:text="@string/vis_laser" />
 
-            <Button
-                android:id="@+id/btn_phyllotaxis"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_phyllotaxis"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="14sp"
-                android:stateListAnimator="@null" />
+            <Button android:id="@+id/btn_phyllotaxis" style="@style/VisualizerPill" android:text="@string/vis_phyllotaxis" />
 
-            <Button
-                android:id="@+id/btn_mandala"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_mandala"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="14sp"
-                android:stateListAnimator="@null" />
+            <Button android:id="@+id/btn_mandala" style="@style/VisualizerPill" android:text="@string/vis_mandala" />
 
-            <Button
-                android:id="@+id/btn_audio_web"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_audio_web"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="14sp"
-                android:stateListAnimator="@null" />
+            <Button android:id="@+id/btn_audio_web" style="@style/VisualizerPill" android:text="@string/vis_audio_web" />
 
-            <Button
-                android:id="@+id/btn_topo_ridge"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_topo_ridge"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="14sp"
-                android:stateListAnimator="@null" />
+            <Button android:id="@+id/btn_topo_ridge" style="@style/VisualizerPill" android:text="@string/vis_topo_ridge" />
 
-            <Button
-                android:id="@+id/btn_strange_attractor"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_strange_attractor"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="14sp"
-                android:stateListAnimator="@null" />
+            <Button android:id="@+id/btn_strange_attractor" style="@style/VisualizerPill" android:text="@string/vis_strange_attractor" />
 
-            <Button
-                android:id="@+id/btn_logo_particle"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginBottom="16dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_logo_particle"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="14sp"
-                android:stateListAnimator="@null" />
+            <Button android:id="@+id/btn_logo_particle" style="@style/VisualizerPill" android:text="@string/vis_logo_particle" />
+
+            <Button android:id="@+id/btn_spectral_canyon" style="@style/VisualizerPill" android:text="@string/vis_spectral_canyon" />
+
+            <Button android:id="@+id/btn_spectral_canyon_classic" style="@style/VisualizerPill" android:layout_marginBottom="16dp" android:text="@string/vis_spectral_canyon_classic" />
 
 
             <!-- ===== Category: Immersive (rich generative, heavier GPU) ===== -->
@@ -640,89 +414,19 @@
                 android:textAllCaps="true"
                 android:layout_marginBottom="12dp" />
 
-            <Button
-                android:id="@+id/btn_fluid"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_fluid"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="14sp"
-                android:stateListAnimator="@null" />
+            <Button android:id="@+id/btn_fluid" style="@style/VisualizerPill" android:text="@string/vis_fluid" />
 
-            <Button
-                android:id="@+id/btn_crystal_swarm"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_crystal_swarm"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="14sp"
-                android:stateListAnimator="@null" />
+            <Button android:id="@+id/btn_crystal_swarm" style="@style/VisualizerPill" android:text="@string/vis_crystal_swarm" />
 
-            <Button
-                android:id="@+id/btn_mandelbox"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_mandelbox"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="14sp"
-                android:stateListAnimator="@null" />
+            <Button android:id="@+id/btn_mandelbox" style="@style/VisualizerPill" android:text="@string/vis_mandelbox" />
 
-            <Button
-                android:id="@+id/btn_reaction_diffusion"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_reaction_diffusion"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="14sp"
-                android:stateListAnimator="@null" />
+            <Button android:id="@+id/btn_reaction_diffusion" style="@style/VisualizerPill" android:text="@string/vis_reaction_diffusion" />
 
-            <Button
-                android:id="@+id/btn_plasma_storm"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_plasma_storm"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="14sp"
-                android:stateListAnimator="@null" />
+            <Button android:id="@+id/btn_plasma_storm" style="@style/VisualizerPill" android:text="@string/vis_plasma_storm" />
 
-            <Button
-                android:id="@+id/btn_odyssey"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_odyssey"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="14sp"
-                android:stateListAnimator="@null" />
+            <Button android:id="@+id/btn_odyssey" style="@style/VisualizerPill" android:text="@string/vis_odyssey" />
 
-            <Button
-                android:id="@+id/btn_liquid_light"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/pill_button_bg"
-                android:text="@string/vis_liquid_light"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="14sp"
-                android:stateListAnimator="@null" />
+            <Button android:id="@+id/btn_liquid_light" style="@style/VisualizerPill" android:text="@string/vis_liquid_light" />
 
         </LinearLayout>
 

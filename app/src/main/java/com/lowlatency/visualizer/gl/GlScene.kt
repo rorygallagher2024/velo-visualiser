@@ -51,4 +51,14 @@ interface GlScene {
      * reactive" versus "pure instrument".
      */
     val respondsToBeat: Boolean get() = true
+
+    /**
+     * Opt out of the settings-sheet canvas blur for this scene. Android's
+     * [android.graphics.RenderEffect] blur on the GL `SurfaceView` presents the
+     * surface vertically flipped while it's active, so a scene with bright content
+     * pinned to one screen edge (e.g. Spectral Canyon's front lip) shows a
+     * mirrored line at the opposite edge when the menu opens. Such scenes set this
+     * true; the menu then dims with the scrim only (no blur) for them. Default: false.
+     */
+    val suppressMenuBlur: Boolean get() = false
 }
