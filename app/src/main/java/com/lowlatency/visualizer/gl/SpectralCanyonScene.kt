@@ -110,7 +110,7 @@ class SpectralCanyonScene : GlScene {
                 // Fill pass renders dimmer and only on the ridges (valleys stay
                 // black, preserving the pure-black background); the wireframe pass
                 // (u_fill = 0) stays at full strength on top.
-                float fillScale = mix(1.0, 0.3 * smoothstep(0.0, 0.18, v_height), u_fill);
+                float fillScale = mix(1.0, 0.2 * smoothstep(0.0, 0.18, v_height), u_fill);
                 fragColor = vec4(col * u_dim * fillScale, 1.0);
             }
         """
