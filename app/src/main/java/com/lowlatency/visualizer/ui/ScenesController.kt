@@ -60,6 +60,7 @@ class ScenesController(
             btn(R.id.btn_spectral_canyon, 30),
             btn(R.id.btn_spectral_canyon_classic, 31),
             btn(R.id.btn_waveform_waterfall, 32),
+            btn(R.id.btn_phase_scope, 33),
             btn(R.id.btn_fluid, 2),
             btn(R.id.btn_crystal_swarm, 27),
             btn(R.id.btn_mandelbox, 19),

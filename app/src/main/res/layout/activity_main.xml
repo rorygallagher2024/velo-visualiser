@@ -363,7 +363,9 @@
 
             <Button android:id="@+id/btn_spectral_canyon_classic" style="@style/VisualizerPill" android:text="@string/vis_spectral_canyon_classic" />
 
-            <Button android:id="@+id/btn_waveform_waterfall" style="@style/VisualizerPill" android:layout_marginBottom="16dp" android:text="@string/vis_waveform_waterfall" />
+            <Button android:id="@+id/btn_waveform_waterfall" style="@style/VisualizerPill" android:text="@string/vis_waveform_waterfall" />
+
+            <Button android:id="@+id/btn_phase_scope" style="@style/VisualizerPill" android:layout_marginBottom="16dp" android:text="@string/vis_phase_scope" />
 
 
             <!-- ===== Category: Immersive (rich generative, heavier GPU) ===== -->
