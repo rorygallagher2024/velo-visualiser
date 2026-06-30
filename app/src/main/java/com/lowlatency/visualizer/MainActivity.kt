@@ -1,16 +1,9 @@
 package com.lowlatency.visualizer
 
-import android.Manifest
 import android.app.Dialog
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.content.pm.ActivityInfo
-import android.content.pm.PackageManager
 import android.content.res.Configuration
-import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
@@ -21,14 +14,11 @@ import android.view.WindowManager
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
-import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.text.HtmlCompat
+import com.lowlatency.visualizer.ui.AudioSourceController
 import com.lowlatency.visualizer.ui.DisplayModeController
 import com.lowlatency.visualizer.ui.LightingController
 import com.lowlatency.visualizer.ui.LinkSyncController
@@ -50,8 +40,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var glView: VisualizerSurfaceView
     private lateinit var splashOverlay: View
     private lateinit var introHint: View
-    private lateinit var segMic: Button
-    private lateinit var segInternal: Button
     private lateinit var btnBurnin: Button
     private lateinit var btnGlowOff: Button
     private lateinit var btnGlowSubtle: Button
@@ -77,6 +65,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var secondaryDisplayController: com.lowlatency.visualizer.ui.SecondaryDisplayController
     private lateinit var scenesController: ScenesController
     private lateinit var linkSyncController: LinkSyncController
+    private lateinit var audioSourceController: AudioSourceController
     private lateinit var hapticController: HapticController
     private lateinit var prefs: SharedPreferences
 
@@ -87,66 +76,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tabVisualizers: LinearLayout
     private lateinit var tabLighting: LinearLayout
     private lateinit var tabSettings: LinearLayout
-    private lateinit var internalAudioWarning: TextView
     private lateinit var btnCastDisplay: Button
     private lateinit var castOverlay: TextView
 
     // --- Smart lighting: all brand UI/state lives in LightingController ---
     private lateinit var lightingController: LightingController
 
-    private var systemAudioMode = false
-    private var deferredPermissionRequest = false
     private var backgroundedAtMs = 0L
-
-    private val captureStopReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            if (systemAudioMode) {
-                selectMicrophone()
-            }
-        }
-    }
-
-    private val requestPermissions = registerForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { grants ->
-        // 1. Handle Microphone (existing logic)
-        if (grants[Manifest.permission.RECORD_AUDIO] == true) {
-            startMicrophone()
-        } else {
-            Toast.makeText(this, "Microphone permission required.", Toast.LENGTH_LONG).show()
-        }
-
-        // 2. Log Network Status for debugging
-        if (Build.VERSION.SDK_INT >= 36) {
-            if (grants["android.permission.ACCESS_LOCAL_NETWORK"] == true) {
-                Log.d(TAG, "Android 17 Local Network permission GRANTED.")
-            } else {
-                Log.e(TAG, "Android 17 Local Network permission DENIED. Hue will timeout.")
-            }
-        }
-    }
-
-    private val projectionLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        val data = result.data
-        if (result.resultCode == RESULT_OK && data != null) {
-            // Mic and system capture feed the same ring buffer; stop the mic so
-            // we visualize system audio cleanly.
-            NativeBridge.nativeStop()
-            startForegroundService(
-                AudioCaptureService.newIntent(this, result.resultCode, data)
-            )
-            systemAudioMode = true
-            // Light sync is mic-only; stop it when moving to internal audio.
-            if (::lightingController.isInitialized) lightingController.onSystemAudioEngaged()
-        } else {
-            Toast.makeText(this, "System-audio capture denied.", Toast.LENGTH_SHORT).show()
-            systemAudioMode = false
-        }
-        updateSourceSelection()
-        updateStatus()
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -168,43 +104,25 @@ class MainActivity : AppCompatActivity() {
             displayModeController.enter()
         }
 
-        ContextCompat.registerReceiver(
-            this,
-            captureStopReceiver,
-            IntentFilter(AudioCaptureService.ACTION_STOPPED),
-            ContextCompat.RECEIVER_NOT_EXPORTED
-        )
-
         // Hold the runtime-permission dialog back until the intro has finished, but
         // only when it would actually appear — i.e. a first launch (mic not yet
         // granted) where the intro is going to play. If the mic is already granted
         // the request is invisible, so fire it now and let audio be live behind the
         // shatter. wireSplash() fires the deferred request from onIntroFinished.
-        val hasMic = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
-            PackageManager.PERMISSION_GRANTED
-        if (glView.willPlayIntro && !hasMic) {
-            deferredPermissionRequest = true
+        if (glView.willPlayIntro && !audioSourceController.hasMicPermission()) {
+            audioSourceController.deferPermissionRequest()
             // Safety net: if the intro never reports finished (e.g. surface never
             // created), still ask after a delay so the app isn't stuck without audio.
-            glView.postDelayed({ fireDeferredPermissionRequest() }, PERMISSION_FALLBACK_MS)
+            glView.postDelayed({ audioSourceController.fireDeferredPermissionRequest() }, PERMISSION_FALLBACK_MS)
         } else {
-            requestPermissions.launch(buildPermissionList())
+            audioSourceController.requestPermissionsNow()
         }
-    }
-
-    /** Launch the deferred permission request exactly once. */
-    private fun fireDeferredPermissionRequest() {
-        if (!deferredPermissionRequest) return
-        deferredPermissionRequest = false
-        requestPermissions.launch(buildPermissionList())
     }
 
     private fun bindViews() {
         glView = findViewById(R.id.gl_view)
         splashOverlay = findViewById(R.id.splash_overlay)
         introHint = findViewById(R.id.intro_hint)
-        segMic = findViewById(R.id.seg_mic)
-        segInternal = findViewById(R.id.seg_internal)
         btnBurnin = findViewById(R.id.btn_burnin)
         btnGlowOff = findViewById(R.id.btn_glow_off)
         btnGlowSubtle = findViewById(R.id.btn_glow_subtle)
@@ -229,7 +147,6 @@ class MainActivity : AppCompatActivity() {
         tabVisualizers = findViewById(R.id.tab_visualizers)
         tabLighting = findViewById(R.id.tab_lighting)
         tabSettings = findViewById(R.id.tab_settings)
-        internalAudioWarning = findViewById(R.id.internal_audio_warning)
         btnCastDisplay = findViewById(R.id.btn_cast_display)
         castOverlay = findViewById(R.id.cast_overlay)
         // Lighting views (Hue/LIFX/Nanoleaf) are bound inside LightingController.
@@ -238,6 +155,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun initControllers() {
+        audioSourceController = AudioSourceController(
+            activity = this,
+            prefs = prefs,
+            onSourceChanged = { onAudioSourceChanged() },
+        )
+        audioSourceController.bind()
+
         lightingController = LightingController(
             activity = this,
             prefs = prefs,
@@ -259,7 +183,7 @@ class MainActivity : AppCompatActivity() {
             activity = this,
             glView = glView,
             prefs = prefs,
-            isSystemAudioMode = { systemAudioMode },
+            isSystemAudioMode = { audioSourceController.systemAudioMode },
             hueStats = {
                 if (::lightingController.isInitialized) lightingController.huePerfStats()
                 else PerfOverlayController.HueStats(false, 0L, 0L, -1L)
@@ -329,7 +253,7 @@ class MainActivity : AppCompatActivity() {
         if (glView.introEnabled) {
             glView.onIntroFinished = {
                 showIntroHint()
-                fireDeferredPermissionRequest()
+                audioSourceController.fireDeferredPermissionRequest()
             }
         } else {
             splashOverlay.postDelayed({ showIntroHint() }, SPLASH_MASK_MS + SPLASH_FADE_MS)
@@ -408,9 +332,6 @@ class MainActivity : AppCompatActivity() {
     // ----- Menu controls -----
 
     private fun wireMenuControls() {
-        segMic.setOnClickListener { selectMicrophone() }
-        segInternal.setOnClickListener { selectInternalAudio() }
-
         // Burn-in protection toggle (persisted, default off).
         val burnIn = prefs.getBoolean(KEY_BURNIN, false)
         glView.burnInEnabled = burnIn
@@ -582,114 +503,48 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun syncMenuState() {
-        updateSourceSelection()
+        if (::audioSourceController.isInitialized) audioSourceController.refreshSelection()
         if (::scenesController.isInitialized) scenesController.updateSelection()
-        updateStatus()
     }
 
-    private fun updateSourceSelection() {
-        segMic.isSelected = !systemAudioMode
-        segInternal.isSelected = systemAudioMode
-        internalAudioWarning.visibility = if (systemAudioMode) View.VISIBLE else View.GONE
+    /**
+     * React to an audio-source change (mic ⇄ internal). The seg toggle itself is
+     * owned by [AudioSourceController]; here we refresh everything that merely
+     * *depends* on the source — lighting-tab availability, beat haptics, the shared
+     * beat sensitivity. Light sync + haptics are mic-only.
+     */
+    private fun onAudioSourceChanged() {
+        val systemAudio = audioSourceController.systemAudioMode
+        tabBtnLighting.isEnabled = !systemAudio
+        tabBtnLighting.alpha = if (systemAudio) 0.5f else 1.0f
 
-        tabBtnLighting.isEnabled = !systemAudioMode
-        tabBtnLighting.alpha = if (systemAudioMode) 0.5f else 1.0f
-
-        if (systemAudioMode) {
-            // Light sync is mic-only; stop every brand when on internal audio.
+        if (systemAudio) {
             if (::lightingController.isInitialized) lightingController.onSystemAudioEngaged()
             if (tabBtnLighting.isSelected) {
                 selectTab(TAB_VISUALS)
             }
         }
+        updateStatus()
     }
 
     private fun updateStatus() {
+        val systemAudio = audioSourceController.systemAudioMode
         // Beat detection is hotter on internal audio — tell the shared sensitivity.
-        BeatSettings.systemAudio = systemAudioMode
+        BeatSettings.systemAudio = systemAudio
 
         // Beat-haptics are mic-only (system-audio capture is buffered → off-beat).
         // Gate the controller and grey the toggle when on internal audio.
         if (::hapticController.isInitialized) {
-            hapticController.setSystemAudio(systemAudioMode)
-            val available = hapticController.isSupported && !systemAudioMode
+            hapticController.setSystemAudio(systemAudio)
+            val available = hapticController.isSupported && !systemAudio
             btnHaptics.isEnabled = available
             btnHaptics.alpha = if (available) 1f else 0.4f
         }
     }
 
-    // ----- Audio source switching -----
-
-    private fun selectMicrophone() {
-        if (systemAudioMode) {
-            stopService(Intent(this, AudioCaptureService::class.java))
-            systemAudioMode = false
-        }
-        ensureMicAndStart()
-        updateSourceSelection()
-        updateStatus()
-    }
-
-    private fun selectInternalAudio() {
-        if (systemAudioMode) return
-        // First time: explain why Android will ask for screen-capture permission
-        // (internal audio is routed through the screen-capture API).
-        if (prefs.getBoolean(KEY_SCREENSHARE_RATIONALE, false)) {
-            requestSystemAudioCapture()
-            return
-        }
-        AlertDialog.Builder(this)
-            .setTitle(R.string.screenshare_title)
-            .setMessage(R.string.screenshare_message)
-            .setPositiveButton(R.string.screenshare_continue) { _, _ ->
-                prefs.edit().putBoolean(KEY_SCREENSHARE_RATIONALE, true).apply()
-                requestSystemAudioCapture()
-            }
-            .setNegativeButton(android.R.string.cancel) { _, _ ->
-                updateSourceSelection()   // stay on the mic toggle
-            }
-            .show()
-    }
-    private fun buildPermissionList(): Array<String> {
-        val perms = mutableListOf(Manifest.permission.RECORD_AUDIO)
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            perms += Manifest.permission.POST_NOTIFICATIONS
-            perms += Manifest.permission.NEARBY_WIFI_DEVICES // Fallback for Android 13-16
-        }
-        if (Build.VERSION.SDK_INT >= 36) {
-            // Android 17+ strict requirement
-            perms += "android.permission.ACCESS_LOCAL_NETWORK"
-        }
-
-        return perms.toTypedArray()
-    }
-
-    private fun startMicrophone() {
-        if (!NativeBridge.nativeStartMicrophone()) {
-            Toast.makeText(this, "Failed to open audio stream.", Toast.LENGTH_LONG).show()
-        }
-        updateStatus()
-    }
-
-    private fun ensureMicAndStart() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
-            == PackageManager.PERMISSION_GRANTED
-        ) {
-            startMicrophone()
-        } else {
-            requestPermissions.launch(buildPermissionList())
-        }
-    }
-
+    /** Forwarded to [AudioSourceController]; called by SecondaryDisplayController. */
     fun evaluateMicState() {
-        if (!systemAudioMode) {
-            if (lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) {
-                ensureMicAndStart()
-            } else {
-                NativeBridge.nativeStop()
-            }
-        }
+        if (::audioSourceController.isInitialized) audioSourceController.evaluateMicState()
     }
 
     private fun showPrivacyPolicy() {
@@ -714,7 +569,7 @@ class MainActivity : AppCompatActivity() {
         view.findViewById<TextView>(R.id.about_version).text = getString(R.string.version_fmt, appVersionName())
         
         val rate = NativeBridge.nativeGetSampleRate()
-        val engine = if (systemAudioMode) {
+        val engine = if (audioSourceController.systemAudioMode) {
             "AudioPlaybackCapture • $rate Hz"
         } else {
             "Oboe Engine: AAudio Active • $rate Hz"
@@ -763,11 +618,6 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-    }
-
-    private fun requestSystemAudioCapture() {
-        val mpm = getSystemService(MediaProjectionManager::class.java)
-        projectionLauncher.launch(mpm.createScreenCaptureIntent())
     }
 
     /**
@@ -825,7 +675,7 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         glView.onResume()
         updatePeakLuminance(prefs.getBoolean(KEY_PEAK_LUMINANCE, true))
-        if (!systemAudioMode) ensureMicAndStart()
+        if (::audioSourceController.isInitialized) audioSourceController.onResume()
         if (::linkSyncController.isInitialized) linkSyncController.onResume()
         if (::perfOverlayController.isInitialized) perfOverlayController.onResume()
         if (::lightingController.isInitialized) lightingController.onResume()
@@ -836,7 +686,7 @@ class MainActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
         glView.onPause()
-        if (!systemAudioMode) NativeBridge.nativeStop()
+        if (::audioSourceController.isInitialized) audioSourceController.onPause()
         backgroundedAtMs = SystemClock.elapsedRealtime()
         if (::perfOverlayController.isInitialized) perfOverlayController.onPause()
         if (::lightingController.isInitialized) lightingController.onPause()
@@ -853,8 +703,8 @@ class MainActivity : AppCompatActivity() {
         if (::secondaryDisplayController.isInitialized) secondaryDisplayController.onDestroy()
         if (::hapticController.isInitialized) hapticController.release()
         if (::linkSyncController.isInitialized) linkSyncController.onDestroy()
+        if (::audioSourceController.isInitialized) audioSourceController.onDestroy()
         NativeBridge.nativeStop()
-        unregisterReceiver(captureStopReceiver)
         super.onDestroy()
     }
 
@@ -867,7 +717,6 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_BEAT_SENS = "beat_sensitivity"
         private const val KEY_THEME = "color_theme"
         private const val KEY_PEAK_LUMINANCE = "peak_luminance_enabled"
-        private const val KEY_SCREENSHARE_RATIONALE = "screenshare_rationale_shown"
         private const val TAB_VISUALS = 0
         private const val TAB_LIGHTING = 1
         private const val TAB_SETTINGS = 2
