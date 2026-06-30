@@ -2010,4 +2010,25 @@
             android:textSize="13sp" />
     </LinearLayout>
 
+    <!-- First-run "feel the speed" reveal: a single transient line in the brand's
+         "typography as spectacle" treatment (Inter extralight, wide-tracked caps,
+         matching scene_label), set in the upper third so it clears the centred
+         scope trace. -->
+    <TextView
+        android:id="@+id/moat_reveal"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|center_horizontal"
+        android:layout_marginTop="100dp"
+        android:paddingHorizontal="24dp"
+        android:fontFamily="@font/inter"
+        android:fontWeight="200"
+        android:textColor="@color/text_primary"
+        android:textSize="32sp"
+        android:letterSpacing="0.12"
+        android:textAllCaps="true"
+        android:gravity="center"
+        android:alpha="0"
+        android:visibility="gone" />
+
 </FrameLayout>

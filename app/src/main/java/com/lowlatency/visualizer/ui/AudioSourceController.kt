@@ -47,11 +47,13 @@ import com.lowlatency.visualizer.R
  *
  * @param onSourceChanged invoked after every source transition so the host can
  *   refresh source-dependent UI (it reads [systemAudioMode]).
+ * @param onMicStarted invoked after the mic stream successfully starts (every time).
  */
 class AudioSourceController(
     private val activity: AppCompatActivity,
     private val prefs: SharedPreferences,
     private val onSourceChanged: () -> Unit,
+    private val onMicStarted: () -> Unit = {},
 ) {
     var systemAudioMode = false
         private set
@@ -174,7 +176,9 @@ class AudioSourceController(
     }
 
     private fun startMicrophone() {
-        if (!NativeBridge.nativeStartMicrophone()) {
+        if (NativeBridge.nativeStartMicrophone()) {
+            onMicStarted()
+        } else {
             Toast.makeText(activity, "Failed to open audio stream.", Toast.LENGTH_LONG).show()
         }
         onSourceChanged()

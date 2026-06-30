@@ -20,6 +20,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.text.HtmlCompat
 import com.lowlatency.visualizer.ui.AudioSourceController
 import com.lowlatency.visualizer.ui.DisplayModeController
+import com.lowlatency.visualizer.ui.FeelTheSpeedController
 import com.lowlatency.visualizer.ui.LightingController
 import com.lowlatency.visualizer.ui.LinkSyncController
 import com.lowlatency.visualizer.ui.MenuSheetController
@@ -66,6 +67,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var scenesController: ScenesController
     private lateinit var linkSyncController: LinkSyncController
     private lateinit var audioSourceController: AudioSourceController
+    private lateinit var feelTheSpeedController: FeelTheSpeedController
     private lateinit var hapticController: HapticController
     private lateinit var prefs: SharedPreferences
 
@@ -83,6 +85,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var lightingController: LightingController
 
     private var backgroundedAtMs = 0L
+    private var micStarted = false   // has the mic stream gone live this session?
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -154,13 +157,34 @@ class MainActivity : AppCompatActivity() {
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
     }
 
-    private fun initControllers() {
+    /** Audio-source switching + the first-run "feel the speed" reveal (built first). */
+    private fun initAudioControllers() {
         audioSourceController = AudioSourceController(
             activity = this,
             prefs = prefs,
             onSourceChanged = { onAudioSourceChanged() },
+            onMicStarted = {
+                micStarted = true
+                if (::feelTheSpeedController.isInitialized) feelTheSpeedController.onMicStarted()
+            },
         )
         audioSourceController.bind()
+
+        feelTheSpeedController = FeelTheSpeedController(
+            activity = this,
+            prefs = prefs,
+            vibrate = {
+                if (::hapticController.isInitialized && hapticController.isSupported) {
+                    hapticController.previewPulse()
+                }
+            },
+            onComplete = { showIntroHint() },
+        )
+        feelTheSpeedController.bind()
+    }
+
+    private fun initControllers() {
+        initAudioControllers()
 
         lightingController = LightingController(
             activity = this,
@@ -252,12 +276,18 @@ class MainActivity : AppCompatActivity() {
 
         if (glView.introEnabled) {
             glView.onIntroFinished = {
-                showIntroHint()
                 audioSourceController.fireDeferredPermissionRequest()
+                afterIntro()
             }
         } else {
-            splashOverlay.postDelayed({ showIntroHint() }, SPLASH_MASK_MS + SPLASH_FADE_MS)
+            splashOverlay.postDelayed({ afterIntro() }, SPLASH_MASK_MS + SPLASH_FADE_MS)
         }
+    }
+
+    /** First launch plays the "feel the speed" moment (which chains to the hint); after that, just the hint. */
+    private fun afterIntro() {
+        if (feelTheSpeedController.shouldPlay()) feelTheSpeedController.start(micStarted)
+        else showIntroHint()
     }
 
     /** True when the OS "remove animations" setting is on (animator scale 0). */
@@ -492,7 +522,10 @@ class MainActivity : AppCompatActivity() {
      */
     private fun wireGlAudioSinks() {
         glView.bandsSink = { low, mid, high -> lightingController.onBands(low, mid, high) }
-        glView.pcmBeatSink = { pcm -> hapticController.onPcm(pcm) }
+        glView.pcmBeatSink = { pcm ->
+            hapticController.onPcm(pcm)
+            feelTheSpeedController.onPcm(pcm)
+        }
         glView.onLinkBeat = {
             lightingController.onLinkBeat()
             // Step the virtual bar + pulse the beat dot — only while the menu is
@@ -704,6 +737,7 @@ class MainActivity : AppCompatActivity() {
         if (::hapticController.isInitialized) hapticController.release()
         if (::linkSyncController.isInitialized) linkSyncController.onDestroy()
         if (::audioSourceController.isInitialized) audioSourceController.onDestroy()
+        if (::feelTheSpeedController.isInitialized) feelTheSpeedController.onDestroy()
         NativeBridge.nativeStop()
         super.onDestroy()
     }

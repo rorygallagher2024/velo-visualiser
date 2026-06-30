@@ -235,6 +235,12 @@
 
     <!-- First-boot overlay -->
     <string name="hint_swipe_sides">◀  Swipe left / right to change visuals  ▶</string>
+
+    <!-- First-run "feel the speed" moment: makes the sub-10ms latency visceral. -->
+    <string name="moat_prompt">Make a sound</string>
+    <string name="moat_reveal_ms">Reacted in %1$d ms</string>
+    <string name="moat_reveal_instant">Reacted instantly</string>
+    <string name="moat_nudge">Clap · snap · speak</string>
     <string name="hint_swipe_up">▲  Swipe up for settings</string>
 
     <!-- Accessibility Content Descriptions -->
