@@ -148,7 +148,9 @@ If you want to compile yourself, open the project in Android Studio (Meerkat 202
 * **NDK:** Version 28+
 * **CMake:** 3.22.1
 * **Architecture:** `arm64-v8a` only.
-  
+
+**Validation:** run `./gradlew check` before submitting changes — it runs detekt, Android lint, and the unit tests, including headless GLSL shader validation. (`assembleDebug` alone runs none of these.) Optionally `brew install glslang` for full shader compile-checking. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md)
