@@ -326,16 +326,18 @@
 
             <Button android:id="@+id/btn_mechanical_meter" style="@style/VisualizerPill" android:text="@string/vis_mechanical_meter" />
 
+            <Button android:id="@+id/btn_phase_scope" style="@style/VisualizerPill" android:text="@string/vis_phase_scope" />
+
             <!-- ===== Category: Reactive (beat / energy driven) ===== -->
             <View style="@style/Divider" android:layout_marginTop="16dp" android:layout_marginBottom="16dp" />
 
             <TextView style="@style/SectionHeader" android:layout_width="match_parent" android:text="@string/cat_reactive" android:layout_marginBottom="12dp" />
 
-            <Button android:id="@+id/btn_cymatics" style="@style/VisualizerPill" android:text="@string/vis_cymatics" />
+            <Button android:id="@+id/btn_logo_particle" style="@style/VisualizerPill" android:text="@string/vis_logo_particle" />
 
-            <Button android:id="@+id/btn_beat_pulse" style="@style/VisualizerPill" android:text="@string/vis_beat_pulse" />
+            <Button android:id="@+id/btn_spectral_canyon" style="@style/VisualizerPill" android:text="@string/vis_spectral_canyon" />
 
-            <Button android:id="@+id/btn_fireworks" style="@style/VisualizerPill" android:text="@string/vis_fireworks" />
+            <Button android:id="@+id/btn_spectral_canyon_classic" style="@style/VisualizerPill" android:text="@string/vis_spectral_canyon_classic" />
 
             <Button android:id="@+id/btn_starscape" style="@style/VisualizerPill" android:text="@string/vis_starscape" />
 
@@ -357,23 +359,19 @@
 
             <Button android:id="@+id/btn_strange_attractor" style="@style/VisualizerPill" android:text="@string/vis_strange_attractor" />
 
-            <Button android:id="@+id/btn_logo_particle" style="@style/VisualizerPill" android:text="@string/vis_logo_particle" />
-
-            <Button android:id="@+id/btn_spectral_canyon" style="@style/VisualizerPill" android:text="@string/vis_spectral_canyon" />
-
-            <Button android:id="@+id/btn_spectral_canyon_classic" style="@style/VisualizerPill" android:text="@string/vis_spectral_canyon_classic" />
-
             <Button android:id="@+id/btn_waveform_waterfall" style="@style/VisualizerPill" android:text="@string/vis_waveform_waterfall" />
 
-            <Button android:id="@+id/btn_phase_scope" style="@style/VisualizerPill" android:layout_marginBottom="16dp" android:text="@string/vis_phase_scope" />
+            <Button android:id="@+id/btn_cymatics" style="@style/VisualizerPill" android:text="@string/vis_cymatics" />
+
+            <Button android:id="@+id/btn_beat_pulse" style="@style/VisualizerPill" android:text="@string/vis_beat_pulse" />
+
+            <Button android:id="@+id/btn_fireworks" style="@style/VisualizerPill" android:text="@string/vis_fireworks" />
 
 
             <!-- ===== Category: Immersive (rich generative, heavier GPU) ===== -->
             <View style="@style/Divider" android:layout_marginTop="16dp" android:layout_marginBottom="16dp" />
 
             <TextView style="@style/SectionHeader" android:layout_width="match_parent" android:text="@string/cat_immersive" android:layout_marginBottom="12dp" />
-
-            <Button android:id="@+id/btn_aurora_drift" style="@style/VisualizerPill" android:text="@string/vis_aurora_drift" />
 
             <Button android:id="@+id/btn_fluid" style="@style/VisualizerPill" android:text="@string/vis_fluid" />
 
@@ -388,6 +386,8 @@
             <Button android:id="@+id/btn_odyssey" style="@style/VisualizerPill" android:text="@string/vis_odyssey" />
 
             <Button android:id="@+id/btn_liquid_light" style="@style/VisualizerPill" android:text="@string/vis_liquid_light" />
+
+            <Button android:id="@+id/btn_aurora_drift" style="@style/VisualizerPill" android:text="@string/vis_aurora_drift" />
 
         </LinearLayout>
 

@@ -34,6 +34,7 @@ class ScenesController(
         sceneLabel = activity.findViewById(R.id.scene_label)
 
         visButtons = listOf(
+            // Instruments
             btn(R.id.btn_oscilloscope, 0),
             btn(R.id.btn_rawscope, 8),
             btn(R.id.btn_bars, 5),
@@ -42,13 +43,14 @@ class ScenesController(
             btn(R.id.btn_led_matrix, 16),
             btn(R.id.btn_led_matrix_3d, 28),
             btn(R.id.btn_mechanical_meter, 17),
-            btn(R.id.btn_cymatics, 21),
-            btn(R.id.btn_beat_pulse, 18),
-            btn(R.id.btn_fireworks, 10),
+            btn(R.id.btn_phase_scope, 33),
+            // Reactive
+            btn(R.id.btn_logo_particle, 26),
+            btn(R.id.btn_spectral_canyon, 30),
+            btn(R.id.btn_spectral_canyon_classic, 31),
             btn(R.id.btn_starscape, 7),
             btn(R.id.btn_bloom, 6),
             btn(R.id.btn_electric_iris, 12),
-            btn(R.id.btn_aurora_drift, 24),
             btn(R.id.btn_tunnel, 1),
             btn(R.id.btn_laser, 3),
             btn(R.id.btn_phyllotaxis, 11),
@@ -56,11 +58,11 @@ class ScenesController(
             btn(R.id.btn_audio_web, 14),
             btn(R.id.btn_topo_ridge, 15),
             btn(R.id.btn_strange_attractor, 22),
-            btn(R.id.btn_logo_particle, 26),
-            btn(R.id.btn_spectral_canyon, 30),
-            btn(R.id.btn_spectral_canyon_classic, 31),
             btn(R.id.btn_waveform_waterfall, 32),
-            btn(R.id.btn_phase_scope, 33),
+            btn(R.id.btn_cymatics, 21),
+            btn(R.id.btn_beat_pulse, 18),
+            btn(R.id.btn_fireworks, 10),
+            // Immersive
             btn(R.id.btn_fluid, 2),
             btn(R.id.btn_crystal_swarm, 27),
             btn(R.id.btn_mandelbox, 19),
@@ -68,6 +70,7 @@ class ScenesController(
             btn(R.id.btn_plasma_storm, 23),
             btn(R.id.btn_odyssey, 25),
             btn(R.id.btn_liquid_light, 29),
+            btn(R.id.btn_aurora_drift, 24),
         )
         glView.sceneOrder = visButtons.map { it.second }
 
