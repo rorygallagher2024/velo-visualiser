@@ -2041,7 +2041,6 @@
         android:layout_gravity="bottom|center_horizontal"
         android:layout_marginBottom="22dp"
         android:src="@drawable/ic_swipe_up_cue"
-        android:tint="@color/text_primary"
         android:contentDescription="@string/hint_swipe_up"
         android:alpha="0"
         android:visibility="gone" />
