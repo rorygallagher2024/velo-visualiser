@@ -2031,4 +2031,19 @@
         android:alpha="0"
         android:visibility="gone" />
 
+    <!-- Menu-discovery cue: a faint breathing up-chevron that persists across
+         launches until the settings sheet is opened once, then self-destructs.
+         The one deliberate (and self-deleting) exception to "no on-screen chrome". -->
+    <ImageView
+        android:id="@+id/swipe_up_cue"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="22dp"
+        android:src="@drawable/ic_swipe_up_cue"
+        android:tint="@color/text_primary"
+        android:contentDescription="@string/hint_swipe_up"
+        android:alpha="0"
+        android:visibility="gone" />
+
 </FrameLayout>

@@ -23,6 +23,7 @@ import com.lowlatency.visualizer.ui.DisplayModeController
 import com.lowlatency.visualizer.ui.FeelTheSpeedController
 import com.lowlatency.visualizer.ui.LightingController
 import com.lowlatency.visualizer.ui.LinkSyncController
+import com.lowlatency.visualizer.ui.MenuDiscoveryController
 import com.lowlatency.visualizer.ui.MenuSheetController
 import com.lowlatency.visualizer.ui.PerfOverlayController
 import com.lowlatency.visualizer.ui.ScenesController
@@ -61,6 +62,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var groupPeakLuminance: View
     private lateinit var perfOverlayController: PerfOverlayController
     private lateinit var menuSheetController: MenuSheetController
+    private lateinit var menuDiscoveryController: MenuDiscoveryController
     private lateinit var displayModeController: DisplayModeController
     private lateinit var shuffleController: ShuffleController
     private lateinit var secondaryDisplayController: com.lowlatency.visualizer.ui.SecondaryDisplayController
@@ -85,7 +87,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var lightingController: LightingController
 
     private var backgroundedAtMs = 0L
-    private var micStarted = false   // has the mic stream gone live this session?
+    private var micStarted = false          // has the mic stream gone live this session?
+    private var introSequenceDone = false   // intro/hint finished — safe to show the menu cue
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -215,12 +218,7 @@ class MainActivity : AppCompatActivity() {
         )
         perfOverlayController.bind()
 
-        menuSheetController = MenuSheetController(
-            activity = this,
-            glView = glView,
-            onBeforeOpen = { syncMenuState() },
-        )
-        menuSheetController.bind()
+        initMenuControllers()
 
         displayModeController = DisplayModeController(
             this,
@@ -249,6 +247,23 @@ class MainActivity : AppCompatActivity() {
 
         secondaryDisplayController = com.lowlatency.visualizer.ui.SecondaryDisplayController(this, glView, btnCastDisplay, castOverlay)
         secondaryDisplayController.bind()
+    }
+
+    /** The settings sheet plus its first-run "swipe up" discovery cue. */
+    private fun initMenuControllers() {
+        menuSheetController = MenuSheetController(
+            activity = this,
+            glView = glView,
+            onBeforeOpen = {
+                syncMenuState()
+                if (::menuDiscoveryController.isInitialized) menuDiscoveryController.onMenuOpened()
+            },
+        )
+        menuSheetController.bind()
+
+        menuDiscoveryController =
+            MenuDiscoveryController(this, prefs, isMenuOpen = { menuSheetController.isOpen })
+        menuDiscoveryController.bind()
     }
 
     /** The app's versionName from the manifest/Gradle (e.g. "1.1"). */
@@ -306,12 +321,19 @@ class MainActivity : AppCompatActivity() {
             if (menuSheetController.isOpen) {
                 // If the user already opened the menu, just hide it immediately
                 introHint.visibility = View.GONE
+                onIntroHintDone()
             } else {
                 introHint.animate().alpha(0f).setDuration(1000)
-                    .withEndAction { introHint.visibility = View.GONE }
+                    .withEndAction { introHint.visibility = View.GONE; onIntroHintDone() }
                     .start()
             }
         }, INTRO_HINT_DURATION_MS)
+    }
+
+    /** Gesture hint has run its course — now it's safe to surface the persistent menu cue. */
+    private fun onIntroHintDone() {
+        introSequenceDone = true
+        if (::menuDiscoveryController.isInitialized) menuDiscoveryController.reveal()
     }
 
     // ----- Gestures: swipe-up opens the menu, swipe-down / tap-outside closes -----
@@ -714,6 +736,7 @@ class MainActivity : AppCompatActivity() {
         if (::lightingController.isInitialized) lightingController.onResume()
         if (::displayModeController.isInitialized) displayModeController.onResume()
         if (::shuffleController.isInitialized) shuffleController.onResume()
+        if (introSequenceDone && ::menuDiscoveryController.isInitialized) menuDiscoveryController.reveal()
     }
 
     override fun onPause() {
@@ -726,6 +749,7 @@ class MainActivity : AppCompatActivity() {
         if (::displayModeController.isInitialized) displayModeController.onPause()
         if (::shuffleController.isInitialized) shuffleController.onPause()
         if (::linkSyncController.isInitialized) linkSyncController.onPause()
+        if (::menuDiscoveryController.isInitialized) menuDiscoveryController.onPause()
     }
 
     override fun onDestroy() {
@@ -738,6 +762,7 @@ class MainActivity : AppCompatActivity() {
         if (::linkSyncController.isInitialized) linkSyncController.onDestroy()
         if (::audioSourceController.isInitialized) audioSourceController.onDestroy()
         if (::feelTheSpeedController.isInitialized) feelTheSpeedController.onDestroy()
+        if (::menuDiscoveryController.isInitialized) menuDiscoveryController.onDestroy()
         NativeBridge.nativeStop()
         super.onDestroy()
     }
