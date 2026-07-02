@@ -403,6 +403,8 @@
 
             <TextView style="@style/SectionHeader" android:layout_width="match_parent" android:text="@string/cat_immersive" android:layout_marginBottom="12dp" />
 
+            <Button android:id="@+id/btn_meridian" style="@style/VisualizerPill" android:text="@string/vis_meridian" />
+
             <Button android:id="@+id/btn_slipstream" style="@style/VisualizerPill" android:text="@string/vis_slipstream" />
 
             <Button android:id="@+id/btn_event_horizon" style="@style/VisualizerPill" android:text="@string/vis_event_horizon" />

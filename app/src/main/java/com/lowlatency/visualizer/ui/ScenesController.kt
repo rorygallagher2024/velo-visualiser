@@ -74,6 +74,7 @@ class ScenesController(
             btn(R.id.btn_beat_pulse, 18),
             btn(R.id.btn_fireworks, 10),
             // Immersive
+            btn(R.id.btn_meridian, 39),
             btn(R.id.btn_slipstream, 37),
             btn(R.id.btn_event_horizon, 35),
             btn(R.id.btn_fluid, 2),
