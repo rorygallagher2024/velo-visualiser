@@ -46,6 +46,7 @@ class ScenesController(
             btn(R.id.btn_mechanical_meter, 17),
             btn(R.id.btn_phase_scope, 33),
             // Reactive
+            btn(R.id.btn_slipstream, 37),
             btn(R.id.btn_nebula, 34),
             btn(R.id.btn_logo_particle, 26),
             btn(R.id.btn_spectral_canyon, 30),
