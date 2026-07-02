@@ -193,7 +193,11 @@
         android:scrollbars="none"
         android:accessibilityPaneTitle="@string/cd_settings_menu">
 
+        <!-- Content column: capped to a centered max-width on tablets/unfolded
+             foldables (MenuSheetController.applyWidthCap) so controls don't
+             stretch edge-to-edge on wide displays. -->
         <LinearLayout
+            android:id="@+id/options_sheet_content"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
