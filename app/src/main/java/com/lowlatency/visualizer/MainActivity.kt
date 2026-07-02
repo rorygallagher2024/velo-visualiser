@@ -724,6 +724,8 @@ class MainActivity : AppCompatActivity() {
         // Not recreated (configChanges in manifest): audio stream keeps running;
         // the GL surface gets a fresh onSurfaceChanged which resets glViewport.
         Log.i(TAG, "Config changed: ${newConfig.screenWidthDp}x${newConfig.screenHeightDp} dp")
+        // Ambient Mode re-fits its layout live (landscape sits data beside the clock).
+        if (::displayModeController.isInitialized) displayModeController.onOrientationChanged()
     }
 
     override fun onResume() {

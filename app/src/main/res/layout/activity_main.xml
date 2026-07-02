@@ -1900,70 +1900,74 @@
                 android:fontFamily="@font/inter"
                 android:fontWeight="200"
                 android:textColor="@color/text_primary"
-                android:textSize="96sp"
-                android:letterSpacing="0.01"
+                android:textSize="104sp"
+                android:letterSpacing="0"
                 android:fontFeatureSettings="tnum"
                 android:includeFontPadding="false"
                 android:text="00:00" />
 
-            <TextView
-                android:id="@+id/display_date"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:fontFamily="@font/space_mono"
-                android:textColor="@color/text_dim"
-                android:textSize="13sp"
-                android:letterSpacing="0.22"
-                android:textAllCaps="true"
-                android:text="" />
-
+            <!-- Date / BPM / presence — grouped so landscape can sit it beside the
+                 clock (the controller flips the parent's orientation). -->
             <LinearLayout
-                android:id="@+id/display_bpm_row"
+                android:id="@+id/display_data_group"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="32dp"
-                android:orientation="horizontal"
-                android:gravity="bottom"
-                android:visibility="gone">
+                android:orientation="vertical"
+                android:gravity="center_horizontal">
 
                 <TextView
-                    android:id="@+id/display_bpm"
+                    android:id="@+id/display_date"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:fontFamily="@font/space_mono"
-                    android:textColor="@color/text_primary"
-                    android:textSize="22sp"
-                    android:fontFeatureSettings="tnum"
-                    android:text="—" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="7dp"
-                    android:layout_marginBottom="2dp"
+                    android:layout_marginTop="14dp"
                     android:fontFamily="@font/space_mono"
                     android:textColor="@color/text_dim"
-                    android:textSize="11sp"
-                    android:letterSpacing="0.18"
-                    android:text="@string/display_bpm_unit" />
+                    android:textSize="12sp"
+                    android:letterSpacing="0.30"
+                    android:textAllCaps="true"
+                    android:text="" />
+
+                <LinearLayout
+                    android:id="@+id/display_bpm_row"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="30dp"
+                    android:orientation="horizontal"
+                    android:gravity="bottom"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:id="@+id/display_bpm"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="@font/space_mono"
+                        android:textColor="@color/text_primary"
+                        android:textSize="22sp"
+                        android:fontFeatureSettings="tnum"
+                        android:text="—" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="7dp"
+                        android:layout_marginBottom="2dp"
+                        android:fontFamily="@font/space_mono"
+                        android:textColor="@color/text_dim"
+                        android:textSize="11sp"
+                        android:letterSpacing="0.18"
+                        android:text="@string/display_bpm_unit" />
+                </LinearLayout>
+
+                <!-- Audio presence: a single hairline that *brightens* with the room
+                     (quieter than a filling bar; the controller drives alpha). -->
+                <View
+                    android:id="@+id/display_presence_fill"
+                    android:layout_width="180dp"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="26dp"
+                    android:background="@color/text_primary"
+                    android:alpha="0.1" />
             </LinearLayout>
-
-            <!-- Live audio-presence meter (fills left→right via scaleX). -->
-            <View
-                android:id="@+id/display_presence_track"
-                android:layout_width="180dp"
-                android:layout_height="2dp"
-                android:layout_marginTop="26dp"
-                android:background="@color/sheet_stroke" />
-
-            <View
-                android:id="@+id/display_presence_fill"
-                android:layout_width="180dp"
-                android:layout_height="2dp"
-                android:layout_marginTop="-2dp"
-                android:background="@color/text_primary"
-                android:scaleX="0" />
         </LinearLayout>
 
         <TextView

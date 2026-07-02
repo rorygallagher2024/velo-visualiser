@@ -2,19 +2,23 @@ package com.lowlatency.visualizer.ui
 
 import android.annotation.SuppressLint
 import android.content.SharedPreferences
+import android.content.res.Configuration
 import android.graphics.Color
 import android.os.Handler
 import android.os.Looper
 import android.text.format.DateFormat
 import android.view.GestureDetector
+import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.widget.Button
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.edit
 import androidx.core.content.res.ResourcesCompat
 import com.lowlatency.visualizer.BeatBus
+import com.lowlatency.visualizer.BeatPulse
 import com.lowlatency.visualizer.BeatSettings
 import com.lowlatency.visualizer.LinkSync
 import com.lowlatency.visualizer.NativeBridge
@@ -42,7 +46,8 @@ class DisplayModeController(
     private val onOpenMenu: () -> Unit,
 ) {
     private lateinit var overlay: View
-    private lateinit var content: View
+    private lateinit var content: LinearLayout
+    private lateinit var dataGroup: LinearLayout
     private lateinit var clock: TextView
     private lateinit var date: TextView
     private lateinit var bpm: TextView
@@ -87,6 +92,7 @@ class DisplayModeController(
     fun bind() {
         overlay = activity.findViewById(R.id.display_mode_overlay)
         content = activity.findViewById(R.id.display_mode_content)
+        dataGroup = activity.findViewById(R.id.display_data_group)
         clock = activity.findViewById(R.id.display_clock)
         date = activity.findViewById(R.id.display_date)
         bpm = activity.findViewById(R.id.display_bpm)
@@ -98,7 +104,6 @@ class DisplayModeController(
             ResourcesCompat.getFont(activity, R.font.inter_medium),
             ResourcesCompat.getFont(activity, R.font.space_mono),
         )
-        presenceFill.pivotX = 0f
         shiftRadiusPx = SHIFT_RADIUS_DP * activity.resources.displayMetrics.density
         wireOverlayGestures()
 
@@ -141,10 +146,28 @@ class DisplayModeController(
             content.alpha = 1f
             content.translationX = 0f
             content.translationY = 0f
+            applyClassicLayout()
             renderClock(force = true)
             renderBpm(force = true)
             renderPresence()
         }
+    }
+
+    /** Classic style uses the wide canvas in landscape: clock beside the data column. */
+    private fun applyClassicLayout() {
+        val land = activity.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+        content.orientation = if (land) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL
+        content.gravity = if (land) Gravity.CENTER_VERTICAL else Gravity.CENTER_HORIZONTAL
+        val lp = dataGroup.layoutParams as LinearLayout.LayoutParams
+        lp.marginStart =
+            if (land) (LAND_GAP_DP * activity.resources.displayMetrics.density).toInt() else 0
+        dataGroup.layoutParams = lp
+        dataGroup.gravity = if (land) Gravity.START else Gravity.CENTER_HORIZONTAL
+    }
+
+    /** Re-fit the active style after a rotation / fold change (no re-entry needed). */
+    fun onOrientationChanged() {
+        if (isActive) applyStyle()
     }
 
     /** Tap (twice) to exit; horizontal swipe browses scenes; swipe up opens settings. */
@@ -264,6 +287,7 @@ class DisplayModeController(
             // The visuals reacting *through* the type are the spectacle; no meter,
             // and no auto-dim (the mask is already near-black, the holes always move).
             renderWindowClock()
+            cutoutClock.setPulse(BeatPulse.envelope)   // the type breathes with the beat
             renderPixelShift()
         } else {
             renderClock(force = false)
@@ -318,7 +342,9 @@ class DisplayModeController(
         val full = BeatSettings.levelFull.coerceAtLeast(1e-4f)
         val frac = (BeatBus.level / full).coerceIn(0f, 1f)
         smoothedPresence += (frac - smoothedPresence) * PRESENCE_SMOOTH
-        presenceFill.scaleX = smoothedPresence.coerceIn(0f, 1f)
+        // A hairline that brightens with the room — presence as light, not a gauge.
+        presenceFill.alpha = PRESENCE_ALPHA_MIN +
+            (PRESENCE_ALPHA_MAX - PRESENCE_ALPHA_MIN) * smoothedPresence.coerceIn(0f, 1f)
     }
 
     private fun renderPixelShift() {
@@ -348,6 +374,9 @@ class DisplayModeController(
         private const val EXIT_ARM_MS = 2500L     // window for the confirming second tap
         private const val SWIPE_VELOCITY = 800f   // px/s fling threshold to change scene
         private const val PRESENCE_SMOOTH = 0.25f
+        private const val PRESENCE_ALPHA_MIN = 0.10f  // hairline at silence
+        private const val PRESENCE_ALPHA_MAX = 0.85f  // hairline fully lit
+        private const val LAND_GAP_DP = 48f           // clock ↔ data column gap in landscape
         private const val SHIFT_SPEED = 0.0022       // radians/tick — a ~2.5-min orbit, imperceptibly slow but still migrates pixels for burn-in
         // The digits themselves change every minute (their lit pixels move on their
         // own), so the only truly-static element is the colon. A small drift is
