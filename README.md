@@ -45,7 +45,7 @@ Velo Visualiser listens to the **actual sound** in the room and moves with it in
 
 ## The full feature list
 
-- **33 audio and beat reactive visualizers**: Waveforms, spectra, particle fluids, scrolling spectrograms, dot-matrix LED meters, and more.
+- **40 audio and beat reactive visualizers**: Waveforms, spectra, particle fluids, scrolling spectrograms, dot-matrix LED meters, and more.
 - **HDR Effects**: Including post-processing for real luminous glow on capable HDR displays and a selectable glow strength.
 - **Ableton Link sync**: Lock beat-driven effects to Traktor, Ableton Live, and other Link software over Wi-Fi; the mic still drives the visuals while Link sets the beat.
 - **Real-time Room Lighting Control with Philips Hue, LIFX & Nanoleaf Integration**: Direct local UDP streaming over the Hue Entertainment API, LIFX LAN Protocol, and Nanoleaf ExtControl. Also works in co-ordination with Ableton Link to drive a synchronised beat to the bulbs. Includes advanced controls for calibration and the ability to send Ableton Link beats early for perfect synchronisation.
@@ -148,7 +148,9 @@ If you want to compile yourself, open the project in Android Studio (Meerkat 202
 * **NDK:** Version 28+
 * **CMake:** 3.22.1
 * **Architecture:** `arm64-v8a` only.
-  
+
+**Validation:** run `./gradlew check` before submitting changes — it runs detekt, Android lint, and the unit tests, including headless GLSL shader validation. (`assembleDebug` alone runs none of these.) Optionally `brew install glslang` for full shader compile-checking. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md)

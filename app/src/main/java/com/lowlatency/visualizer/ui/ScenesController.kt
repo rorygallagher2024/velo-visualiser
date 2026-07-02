@@ -3,6 +3,7 @@ package com.lowlatency.visualizer.ui
 import android.content.SharedPreferences
 import android.view.View
 import android.widget.Button
+import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -28,27 +29,39 @@ class ScenesController(
     private lateinit var visButtons: List<Triple<Button, Int, String>>
     private val favourites = linkedSetOf<Int>()
 
+    // Pinned favourites group at the top of the Visuals tab (hidden when empty).
+    private lateinit var favGroup: View
+    private lateinit var favContainer: LinearLayout
+    private val favPills = mutableListOf<Pair<Button, Int>>()
+
     fun bind() {
         heroVisName = activity.findViewById(R.id.hero_vis_name)
         btnSceneLabel = activity.findViewById(R.id.btn_scene_label)
         sceneLabel = activity.findViewById(R.id.scene_label)
+        favGroup = activity.findViewById(R.id.favourites_group)
+        favContainer = activity.findViewById(R.id.favourites_container)
 
         visButtons = listOf(
+            // Instruments
             btn(R.id.btn_oscilloscope, 0),
             btn(R.id.btn_rawscope, 8),
             btn(R.id.btn_bars, 5),
+            btn(R.id.btn_obsidian, 36),
             btn(R.id.btn_circular, 4),
             btn(R.id.btn_spectrogram, 9),
             btn(R.id.btn_led_matrix, 16),
             btn(R.id.btn_led_matrix_3d, 28),
             btn(R.id.btn_mechanical_meter, 17),
-            btn(R.id.btn_cymatics, 21),
-            btn(R.id.btn_beat_pulse, 18),
-            btn(R.id.btn_fireworks, 10),
+            btn(R.id.btn_phase_scope, 33),
+            // Reactive
+            btn(R.id.btn_veil, 38),
+            btn(R.id.btn_nebula, 34),
+            btn(R.id.btn_logo_particle, 26),
+            btn(R.id.btn_spectral_canyon, 30),
+            btn(R.id.btn_spectral_canyon_classic, 31),
             btn(R.id.btn_starscape, 7),
             btn(R.id.btn_bloom, 6),
             btn(R.id.btn_electric_iris, 12),
-            btn(R.id.btn_aurora_drift, 24),
             btn(R.id.btn_tunnel, 1),
             btn(R.id.btn_laser, 3),
             btn(R.id.btn_phyllotaxis, 11),
@@ -56,10 +69,13 @@ class ScenesController(
             btn(R.id.btn_audio_web, 14),
             btn(R.id.btn_topo_ridge, 15),
             btn(R.id.btn_strange_attractor, 22),
-            btn(R.id.btn_logo_particle, 26),
-            btn(R.id.btn_spectral_canyon, 30),
-            btn(R.id.btn_spectral_canyon_classic, 31),
             btn(R.id.btn_waveform_waterfall, 32),
+            btn(R.id.btn_cymatics, 21),
+            btn(R.id.btn_beat_pulse, 18),
+            btn(R.id.btn_fireworks, 10),
+            // Immersive
+            btn(R.id.btn_slipstream, 37),
+            btn(R.id.btn_event_horizon, 35),
             btn(R.id.btn_fluid, 2),
             btn(R.id.btn_crystal_swarm, 27),
             btn(R.id.btn_mandelbox, 19),
@@ -67,6 +83,7 @@ class ScenesController(
             btn(R.id.btn_plasma_storm, 23),
             btn(R.id.btn_odyssey, 25),
             btn(R.id.btn_liquid_light, 29),
+            btn(R.id.btn_aurora_drift, 24),
         )
         glView.sceneOrder = visButtons.map { it.second }
 
@@ -81,6 +98,7 @@ class ScenesController(
             it.toIntOrNull()?.let { idx -> favourites.add(idx) }
         }
         updateFavouritesOrder()
+        rebuildFavouritesGroup()
 
         visButtons.forEach { (b, idx, _) ->
             b.setOnClickListener { glView.selectScene(idx); updateSelection() }
@@ -99,12 +117,14 @@ class ScenesController(
             b.text = if (favourites.contains(idx)) "★ $base" else base
             if (idx == current) heroVisName.text = base
         }
+        for ((b, idx) in favPills) b.isSelected = idx == current
     }
 
     private fun toggleFavourite(index: Int) {
         if (!favourites.add(index)) favourites.remove(index)
         prefs.edit { putStringSet(KEY_FAVOURITES, favourites.map { it.toString() }.toSet()) }
         updateFavouritesOrder()
+        rebuildFavouritesGroup()
         updateSelection()
         Toast.makeText(
             activity,
@@ -116,6 +136,24 @@ class ScenesController(
     private fun updateFavouritesOrder() {
         val order = glView.sceneOrder
         glView.favourites = favourites.toList().sortedBy { order.indexOf(it) }
+    }
+
+    /** Rebuild the pinned Favourites pills (swipe order); the group hides when empty. */
+    private fun rebuildFavouritesGroup() {
+        favPills.clear()
+        favContainer.removeAllViews()
+        val ordered = visButtons.filter { favourites.contains(it.second) }
+        favGroup.visibility = if (ordered.isEmpty()) View.GONE else View.VISIBLE
+        for ((_, idx, base) in ordered) {
+            val pill = activity.layoutInflater
+                .inflate(R.layout.item_favourite_pill, favContainer, false) as Button
+            pill.text = base                          // no ★ — the group already says it
+            pill.isSelected = idx == glView.sceneIndex
+            pill.setOnClickListener { glView.selectScene(idx); updateSelection() }
+            pill.setOnLongClickListener { toggleFavourite(idx); true }
+            favContainer.addView(pill)
+            favPills += pill to idx
+        }
     }
 
     private fun setSceneLabelEnabled(enabled: Boolean) {

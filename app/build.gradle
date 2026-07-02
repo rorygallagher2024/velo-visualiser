@@ -22,8 +22,8 @@ android {
         minSdk 29            // AudioPlaybackCapture (MediaProjection audio) requires API 29
         targetSdk 37         // Android 17 — latest target
         // Bump the minor version on each change; shown at the bottom of the menu.
-        versionCode 76
-        versionName "1.88"
+        versionCode 77
+        versionName "1.89"
 
         // --- NDK / native build ---
         ndk {
@@ -95,4 +95,8 @@ dependencies {
     implementation 'org.bouncycastle:bctls-jdk15to18:1.78.1'
     // Encrypted storage for the Hue username + clientkey (PSK).
     implementation 'androidx.security:security-crypto:1.1.0-alpha06'
+
+    // Headless JVM tests (e.g. ShaderValidationTest — validates every embedded
+    // GLSL shader without a device). Runs as part of `./gradlew check`.
+    testImplementation 'junit:junit:4.13.2'
 }

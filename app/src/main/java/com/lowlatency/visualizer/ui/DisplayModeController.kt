@@ -2,19 +2,23 @@ package com.lowlatency.visualizer.ui
 
 import android.annotation.SuppressLint
 import android.content.SharedPreferences
+import android.content.res.Configuration
 import android.graphics.Color
 import android.os.Handler
 import android.os.Looper
 import android.text.format.DateFormat
 import android.view.GestureDetector
+import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.widget.Button
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.edit
 import androidx.core.content.res.ResourcesCompat
 import com.lowlatency.visualizer.BeatBus
+import com.lowlatency.visualizer.BeatPulse
 import com.lowlatency.visualizer.BeatSettings
 import com.lowlatency.visualizer.LinkSync
 import com.lowlatency.visualizer.NativeBridge
@@ -40,9 +44,11 @@ class DisplayModeController(
     private val prefs: SharedPreferences,
     private val onSwipeScene: (Int) -> Unit,
     private val onOpenMenu: () -> Unit,
+    private val onCloseMenu: () -> Unit,
 ) {
     private lateinit var overlay: View
-    private lateinit var content: View
+    private lateinit var content: LinearLayout
+    private lateinit var dataGroup: LinearLayout
     private lateinit var clock: TextView
     private lateinit var date: TextView
     private lateinit var bpm: TextView
@@ -51,6 +57,8 @@ class DisplayModeController(
     private lateinit var exitHint: TextView
     private lateinit var cutoutClock: CutoutClockView
     private lateinit var styleBtn: Button
+    private lateinit var toggleBtn: Button
+    private var styleFading = false   // gates auto-dim while the crossfade runs
 
     var isActive = false
         private set
@@ -87,6 +95,7 @@ class DisplayModeController(
     fun bind() {
         overlay = activity.findViewById(R.id.display_mode_overlay)
         content = activity.findViewById(R.id.display_mode_content)
+        dataGroup = activity.findViewById(R.id.display_data_group)
         clock = activity.findViewById(R.id.display_clock)
         date = activity.findViewById(R.id.display_date)
         bpm = activity.findViewById(R.id.display_bpm)
@@ -98,23 +107,29 @@ class DisplayModeController(
             ResourcesCompat.getFont(activity, R.font.inter_medium),
             ResourcesCompat.getFont(activity, R.font.space_mono),
         )
-        presenceFill.pivotX = 0f
         shiftRadiusPx = SHIFT_RADIUS_DP * activity.resources.displayMetrics.density
         wireOverlayGestures()
 
-        // The style chooser only makes sense inside Ambient Mode (you reach the menu
-        // there by swiping up, and the change previews live), so it's greyed out
-        // until Ambient Mode is active. Defaults to the classic clock.
+        // Ambient Mode is a stateful toggle like everything else in the sheet:
+        // on = close the menu and enter; off = exit right from the menu (the
+        // tap-twice canvas exit stays as the primary way out).
+        toggleBtn = activity.findViewById(R.id.btn_display_mode)
+        toggleBtn.setOnClickListener {
+            if (isActive) exit() else { onCloseMenu(); enter() }
+        }
+        updateToggle()
+
+        // The style chooser is always available: it sets which style Ambient Mode
+        // uses — applied live when active, remembered for next time when not.
         styleBtn = activity.findViewById(R.id.btn_ambient_style)
         styleBtn.setOnClickListener { setWindowStyle(!windowStyle) }
         setWindowStyle(prefs.getBoolean(KEY_WINDOW_STYLE, false))
-        updateStyleAvailability()
     }
 
-    /** Grey the style toggle out unless Ambient Mode is active (then it previews live). */
-    private fun updateStyleAvailability() {
-        styleBtn.isEnabled = isActive
-        styleBtn.alpha = if (isActive) 1f else DISABLED_ALPHA
+    /** Keep the menu toggle honest about the current state. */
+    private fun updateToggle() {
+        toggleBtn.isSelected = isActive
+        toggleBtn.setText(if (isActive) R.string.ambient_mode_on else R.string.ambient_mode_off)
     }
 
     /** Switch the standby style. Persists; if Ambient Mode is open, applies live. */
@@ -141,10 +156,28 @@ class DisplayModeController(
             content.alpha = 1f
             content.translationX = 0f
             content.translationY = 0f
+            applyClassicLayout()
             renderClock(force = true)
             renderBpm(force = true)
             renderPresence()
         }
+    }
+
+    /** Classic style uses the wide canvas in landscape: clock beside the data column. */
+    private fun applyClassicLayout() {
+        val land = activity.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+        content.orientation = if (land) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL
+        content.gravity = if (land) Gravity.CENTER_VERTICAL else Gravity.CENTER_HORIZONTAL
+        val lp = dataGroup.layoutParams as LinearLayout.LayoutParams
+        lp.marginStart =
+            if (land) (LAND_GAP_DP * activity.resources.displayMetrics.density).toInt() else 0
+        dataGroup.layoutParams = lp
+        dataGroup.gravity = if (land) Gravity.START else Gravity.CENTER_HORIZONTAL
+    }
+
+    /** Re-fit the active style after a rotation / fold change (no re-entry needed). */
+    fun onOrientationChanged() {
+        if (isActive) applyStyle()
     }
 
     /** Tap (twice) to exit; horizontal swipe browses scenes; swipe up opens settings. */
@@ -153,6 +186,7 @@ class DisplayModeController(
         val gestures = GestureDetector(activity, object : GestureDetector.SimpleOnGestureListener() {
             override fun onDown(e: MotionEvent) = true
             override fun onSingleTapUp(e: MotionEvent): Boolean { onTapToExit(); return true }
+            override fun onLongPress(e: MotionEvent) { toggleStyleInPlace() }
             override fun onFling(e1: MotionEvent?, e2: MotionEvent, vx: Float, vy: Float): Boolean {
                 if (abs(vx) > abs(vy) && abs(vx) > SWIPE_VELOCITY) {
                     onSwipeScene(if (vx < 0) 1 else -1)   // left = next, right = prev (matches canvas)
@@ -188,10 +222,27 @@ class DisplayModeController(
         hideHint()
     }
 
+    /** Long-press: swap Classic ⇄ Window in place with a short crossfade — no menu trip. */
+    private fun toggleStyleInPlace() {
+        if (!isActive || styleFading) return
+        disarmExitNow()   // a long-press is deliberate, not an exit tap
+        styleFading = true
+        val old = if (windowStyle) cutoutClock else content
+        old.animate().alpha(0f).setDuration(STYLE_FADE_MS).withEndAction {
+            old.alpha = 1f
+            elapsedMs = 0L                    // re-arm the auto-dim like a fresh entry
+            setWindowStyle(!windowStyle)      // applyStyle swaps the style roots
+            val fresh: View = if (windowStyle) cutoutClock else content
+            fresh.alpha = 0f
+            fresh.animate().alpha(1f).setDuration(STYLE_FADE_MS)
+                .withEndAction { styleFading = false }.start()
+        }.start()
+    }
+
     fun enter() {
         if (isActive) return
         isActive = true
-        updateStyleAvailability()
+        updateToggle()
         exitArmed = false
         handler.removeCallbacks(disarmExit)
         smoothedPresence = 0f
@@ -211,7 +262,7 @@ class DisplayModeController(
     fun exit() {
         if (!isActive) return
         isActive = false
-        updateStyleAvailability()
+        updateToggle()
         exitArmed = false
         handler.removeCallbacks(ticker)
         handler.removeCallbacks(disarmExit)
@@ -264,6 +315,7 @@ class DisplayModeController(
             // The visuals reacting *through* the type are the spectacle; no meter,
             // and no auto-dim (the mask is already near-black, the holes always move).
             renderWindowClock()
+            cutoutClock.setPulse(BeatPulse.envelope)   // the type breathes with the beat
             renderPixelShift()
         } else {
             renderClock(force = false)
@@ -318,7 +370,9 @@ class DisplayModeController(
         val full = BeatSettings.levelFull.coerceAtLeast(1e-4f)
         val frac = (BeatBus.level / full).coerceIn(0f, 1f)
         smoothedPresence += (frac - smoothedPresence) * PRESENCE_SMOOTH
-        presenceFill.scaleX = smoothedPresence.coerceIn(0f, 1f)
+        // A hairline that brightens with the room — presence as light, not a gauge.
+        presenceFill.alpha = PRESENCE_ALPHA_MIN +
+            (PRESENCE_ALPHA_MAX - PRESENCE_ALPHA_MIN) * smoothedPresence.coerceIn(0f, 1f)
     }
 
     private fun renderPixelShift() {
@@ -334,6 +388,7 @@ class DisplayModeController(
     }
 
     private fun renderAutoDim() {
+        if (styleFading) return   // don't stomp the style crossfade animation
         val t = (elapsedMs.toFloat() / AUTO_DIM_MS).coerceIn(0f, 1f)
         content.alpha = 1f - (1f - AUTO_DIM_MIN_ALPHA) * t
     }
@@ -341,13 +396,16 @@ class DisplayModeController(
     companion object {
         private const val KEY_WINDOW_STYLE = "ambient_window_style"
         private const val BASIC_SCRIM = 0xD9000000.toInt()   // classic style's dim wash over the scene
-        private const val DISABLED_ALPHA = 0.4f              // greyed style toggle when Ambient Mode is off
+        private const val STYLE_FADE_MS = 160L               // long-press style crossfade (each half)
         private const val FRAME_MS = 50L            // 20 Hz: presence stays live, cost negligible
         private const val ENTER_FADE_MS = 280L
         private const val EXIT_FADE_MS = 220L
         private const val EXIT_ARM_MS = 2500L     // window for the confirming second tap
         private const val SWIPE_VELOCITY = 800f   // px/s fling threshold to change scene
         private const val PRESENCE_SMOOTH = 0.25f
+        private const val PRESENCE_ALPHA_MIN = 0.10f  // hairline at silence
+        private const val PRESENCE_ALPHA_MAX = 0.85f  // hairline fully lit
+        private const val LAND_GAP_DP = 48f           // clock ↔ data column gap in landscape
         private const val SHIFT_SPEED = 0.0022       // radians/tick — a ~2.5-min orbit, imperceptibly slow but still migrates pixels for burn-in
         // The digits themselves change every minute (their lit pixels move on their
         // own), so the only truly-static element is the colon. A small drift is

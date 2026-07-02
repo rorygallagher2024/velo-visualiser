@@ -300,6 +300,26 @@
             android:textSize="12sp"
             android:layout_marginBottom="16dp" />
 
+        <!-- Pinned favourites (long-press any scene to add/remove). Hidden when
+             empty; the pills are inflated by ScenesController in swipe order. -->
+        <LinearLayout
+            android:id="@+id/favourites_group"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView style="@style/SectionHeader" android:layout_width="match_parent" android:text="@string/cat_favourites" android:layout_marginBottom="12dp" />
+
+            <LinearLayout
+                android:id="@+id/favourites_container"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+
+            <View style="@style/Divider" android:layout_marginTop="8dp" android:layout_marginBottom="16dp" />
+        </LinearLayout>
+
         <!-- Visualizer selector (stacked so full labels fit), grouped by style -->
         <LinearLayout
             android:layout_width="match_parent"
@@ -316,6 +336,8 @@
 
             <Button android:id="@+id/btn_bars" style="@style/VisualizerPill" android:text="@string/vis_bars" />
 
+            <Button android:id="@+id/btn_obsidian" style="@style/VisualizerPill" android:text="@string/vis_obsidian" />
+
             <Button android:id="@+id/btn_circular" style="@style/VisualizerPill" android:text="@string/vis_circular" />
 
             <Button android:id="@+id/btn_spectrogram" style="@style/VisualizerPill" android:text="@string/vis_spectrogram" />
@@ -326,16 +348,22 @@
 
             <Button android:id="@+id/btn_mechanical_meter" style="@style/VisualizerPill" android:text="@string/vis_mechanical_meter" />
 
+            <Button android:id="@+id/btn_phase_scope" style="@style/VisualizerPill" android:text="@string/vis_phase_scope" />
+
             <!-- ===== Category: Reactive (beat / energy driven) ===== -->
             <View style="@style/Divider" android:layout_marginTop="16dp" android:layout_marginBottom="16dp" />
 
             <TextView style="@style/SectionHeader" android:layout_width="match_parent" android:text="@string/cat_reactive" android:layout_marginBottom="12dp" />
 
-            <Button android:id="@+id/btn_cymatics" style="@style/VisualizerPill" android:text="@string/vis_cymatics" />
+            <Button android:id="@+id/btn_veil" style="@style/VisualizerPill" android:text="@string/vis_veil" />
 
-            <Button android:id="@+id/btn_beat_pulse" style="@style/VisualizerPill" android:text="@string/vis_beat_pulse" />
+            <Button android:id="@+id/btn_nebula" style="@style/VisualizerPill" android:text="@string/vis_nebula" />
 
-            <Button android:id="@+id/btn_fireworks" style="@style/VisualizerPill" android:text="@string/vis_fireworks" />
+            <Button android:id="@+id/btn_logo_particle" style="@style/VisualizerPill" android:text="@string/vis_logo_particle" />
+
+            <Button android:id="@+id/btn_spectral_canyon" style="@style/VisualizerPill" android:text="@string/vis_spectral_canyon" />
+
+            <Button android:id="@+id/btn_spectral_canyon_classic" style="@style/VisualizerPill" android:text="@string/vis_spectral_canyon_classic" />
 
             <Button android:id="@+id/btn_starscape" style="@style/VisualizerPill" android:text="@string/vis_starscape" />
 
@@ -357,13 +385,13 @@
 
             <Button android:id="@+id/btn_strange_attractor" style="@style/VisualizerPill" android:text="@string/vis_strange_attractor" />
 
-            <Button android:id="@+id/btn_logo_particle" style="@style/VisualizerPill" android:text="@string/vis_logo_particle" />
+            <Button android:id="@+id/btn_waveform_waterfall" style="@style/VisualizerPill" android:text="@string/vis_waveform_waterfall" />
 
-            <Button android:id="@+id/btn_spectral_canyon" style="@style/VisualizerPill" android:text="@string/vis_spectral_canyon" />
+            <Button android:id="@+id/btn_cymatics" style="@style/VisualizerPill" android:text="@string/vis_cymatics" />
 
-            <Button android:id="@+id/btn_spectral_canyon_classic" style="@style/VisualizerPill" android:text="@string/vis_spectral_canyon_classic" />
+            <Button android:id="@+id/btn_beat_pulse" style="@style/VisualizerPill" android:text="@string/vis_beat_pulse" />
 
-            <Button android:id="@+id/btn_waveform_waterfall" style="@style/VisualizerPill" android:layout_marginBottom="16dp" android:text="@string/vis_waveform_waterfall" />
+            <Button android:id="@+id/btn_fireworks" style="@style/VisualizerPill" android:text="@string/vis_fireworks" />
 
 
             <!-- ===== Category: Immersive (rich generative, heavier GPU) ===== -->
@@ -371,7 +399,9 @@
 
             <TextView style="@style/SectionHeader" android:layout_width="match_parent" android:text="@string/cat_immersive" android:layout_marginBottom="12dp" />
 
-            <Button android:id="@+id/btn_aurora_drift" style="@style/VisualizerPill" android:text="@string/vis_aurora_drift" />
+            <Button android:id="@+id/btn_slipstream" style="@style/VisualizerPill" android:text="@string/vis_slipstream" />
+
+            <Button android:id="@+id/btn_event_horizon" style="@style/VisualizerPill" android:text="@string/vis_event_horizon" />
 
             <Button android:id="@+id/btn_fluid" style="@style/VisualizerPill" android:text="@string/vis_fluid" />
 
@@ -387,6 +417,8 @@
 
             <Button android:id="@+id/btn_liquid_light" style="@style/VisualizerPill" android:text="@string/vis_liquid_light" />
 
+            <Button android:id="@+id/btn_aurora_drift" style="@style/VisualizerPill" android:text="@string/vis_aurora_drift" />
+
         </LinearLayout>
 
         <!-- ===== Ambient Mode launcher (a viewing mode, not a scene — sits below
@@ -395,18 +427,7 @@
 
         <TextView style="@style/SectionHeader" android:layout_width="match_parent" android:text="@string/cat_modes" android:layout_marginBottom="12dp" />
 
-        <Button
-            android:id="@+id/btn_display_mode"
-            android:layout_width="match_parent"
-            android:layout_height="54dp"
-            android:layout_marginBottom="8dp"
-            android:background="@drawable/pill_button_bg"
-            android:text="@string/ambient_mode"
-            android:textColor="@color/btn_text"
-            android:textAllCaps="false"
-            android:textSize="15sp"
-            android:letterSpacing="0.04"
-            android:stateListAnimator="@null" />
+        <Button android:id="@+id/btn_display_mode" style="@style/VisualizerPill" android:text="@string/ambient_mode" />
 
         <!-- Sub-option of Ambient Mode: chooses what the standby screen looks like
              the next time it's entered (Classic clock vs. Window-into-the-music). -->
@@ -1888,70 +1909,74 @@
                 android:fontFamily="@font/inter"
                 android:fontWeight="200"
                 android:textColor="@color/text_primary"
-                android:textSize="96sp"
-                android:letterSpacing="0.01"
+                android:textSize="104sp"
+                android:letterSpacing="0"
                 android:fontFeatureSettings="tnum"
                 android:includeFontPadding="false"
                 android:text="00:00" />
 
-            <TextView
-                android:id="@+id/display_date"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:fontFamily="@font/space_mono"
-                android:textColor="@color/text_dim"
-                android:textSize="13sp"
-                android:letterSpacing="0.22"
-                android:textAllCaps="true"
-                android:text="" />
-
+            <!-- Date / BPM / presence — grouped so landscape can sit it beside the
+                 clock (the controller flips the parent's orientation). -->
             <LinearLayout
-                android:id="@+id/display_bpm_row"
+                android:id="@+id/display_data_group"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="32dp"
-                android:orientation="horizontal"
-                android:gravity="bottom"
-                android:visibility="gone">
+                android:orientation="vertical"
+                android:gravity="center_horizontal">
 
                 <TextView
-                    android:id="@+id/display_bpm"
+                    android:id="@+id/display_date"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:fontFamily="@font/space_mono"
-                    android:textColor="@color/text_primary"
-                    android:textSize="22sp"
-                    android:fontFeatureSettings="tnum"
-                    android:text="—" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="7dp"
-                    android:layout_marginBottom="2dp"
+                    android:layout_marginTop="14dp"
                     android:fontFamily="@font/space_mono"
                     android:textColor="@color/text_dim"
-                    android:textSize="11sp"
-                    android:letterSpacing="0.18"
-                    android:text="@string/display_bpm_unit" />
+                    android:textSize="12sp"
+                    android:letterSpacing="0.30"
+                    android:textAllCaps="true"
+                    android:text="" />
+
+                <LinearLayout
+                    android:id="@+id/display_bpm_row"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="30dp"
+                    android:orientation="horizontal"
+                    android:gravity="bottom"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:id="@+id/display_bpm"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="@font/space_mono"
+                        android:textColor="@color/text_primary"
+                        android:textSize="22sp"
+                        android:fontFeatureSettings="tnum"
+                        android:text="—" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="7dp"
+                        android:layout_marginBottom="2dp"
+                        android:fontFamily="@font/space_mono"
+                        android:textColor="@color/text_dim"
+                        android:textSize="11sp"
+                        android:letterSpacing="0.18"
+                        android:text="@string/display_bpm_unit" />
+                </LinearLayout>
+
+                <!-- Audio presence: a single hairline that *brightens* with the room
+                     (quieter than a filling bar; the controller drives alpha). -->
+                <View
+                    android:id="@+id/display_presence_fill"
+                    android:layout_width="180dp"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="26dp"
+                    android:background="@color/text_primary"
+                    android:alpha="0.1" />
             </LinearLayout>
-
-            <!-- Live audio-presence meter (fills left→right via scaleX). -->
-            <View
-                android:id="@+id/display_presence_track"
-                android:layout_width="180dp"
-                android:layout_height="2dp"
-                android:layout_marginTop="26dp"
-                android:background="@color/sheet_stroke" />
-
-            <View
-                android:id="@+id/display_presence_fill"
-                android:layout_width="180dp"
-                android:layout_height="2dp"
-                android:layout_marginTop="-2dp"
-                android:background="@color/text_primary"
-                android:scaleX="0" />
         </LinearLayout>
 
         <TextView
@@ -2007,5 +2032,40 @@
             android:textColor="@color/text_dim"
             android:textSize="13sp" />
     </LinearLayout>
+
+    <!-- First-run "feel the speed" reveal: a single transient line in the brand's
+         "typography as spectacle" treatment (Inter extralight, wide-tracked caps,
+         matching scene_label), set in the upper third so it clears the centred
+         scope trace. -->
+    <TextView
+        android:id="@+id/moat_reveal"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|center_horizontal"
+        android:layout_marginTop="100dp"
+        android:paddingHorizontal="24dp"
+        android:fontFamily="@font/inter"
+        android:fontWeight="200"
+        android:textColor="@color/text_primary"
+        android:textSize="32sp"
+        android:letterSpacing="0.12"
+        android:textAllCaps="true"
+        android:gravity="center"
+        android:alpha="0"
+        android:visibility="gone" />
+
+    <!-- Menu-discovery cue: a faint breathing up-chevron that persists across
+         launches until the settings sheet is opened once, then self-destructs.
+         The one deliberate (and self-deleting) exception to "no on-screen chrome". -->
+    <ImageView
+        android:id="@+id/swipe_up_cue"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="22dp"
+        android:src="@drawable/ic_swipe_up_cue"
+        android:contentDescription="@string/hint_swipe_up"
+        android:alpha="0"
+        android:visibility="gone" />
 
 </FrameLayout>

@@ -31,7 +31,8 @@ If you want to contribute code:
 * **Pick an Issue:** Find an open issue you want to work on. If it's a new feature, please open an issue to discuss it first before writing code.
 * **Follow the Style:** Keep your code consistent with the existing Kotlin/C++ codebase.
 * **Keep it Small:** Try to keep your pull requests small and focused on a single issue or feature.
-* **Test Your Code:** Test your changes on a real device. Make sure you don't introduce regressions.
+* **Run the checks:** Before opening a PR, run **`./gradlew check`**. It runs detekt (complexity/size limits), Android lint, and the JVM unit tests — including `ShaderValidationTest`, which validates every embedded GLSL shader. Note that `assembleDebug` runs *none* of these, so a green build alone isn't enough.
+* **Test Your Code:** Also test on a real device — shader rendering, audio latency, lighting and permission flows only fully surface there.
 
 ### Creating New Visuals
 If you are contributing a new visual scene:
@@ -39,6 +40,7 @@ If you are contributing a new visual scene:
 2. If it relies heavily on custom shaders, document the shader inputs/uniforms.
 3. Keep performance in mind—we aim for low latency. Avoid heavy allocations in the `draw` loop.
 4. Ensure it scales properly across different aspect ratios.
+5. **Shaders compile at runtime**, so a passing build doesn't prove a shader is valid. `./gradlew check` runs a headless `ShaderValidationTest` over every embedded shader; it flags the common footguns — notably GLSL ES **reserved words used as identifiers** (`sample`, `input`, `output`, `filter`, …), which compile fine on desktop tooling but crash on-device. Install the reference compiler for full syntax/type checking too: `brew install glslang` (or `apt install glslang-tools`). Always confirm the scene actually *renders* correctly on a device — a shader can compile cleanly and still look wrong.
 
 ## Pull Request Process
 

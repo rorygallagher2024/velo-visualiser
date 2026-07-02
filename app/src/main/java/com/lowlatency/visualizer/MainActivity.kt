@@ -1,21 +1,11 @@
 package com.lowlatency.visualizer
 
-import android.Manifest
 import android.app.Dialog
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.content.pm.ActivityInfo
-import android.content.pm.PackageManager
 import android.content.res.Configuration
-import android.media.projection.MediaProjectionManager
-import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.os.SystemClock
 import android.provider.Settings
 import android.util.Log
@@ -24,16 +14,16 @@ import android.view.WindowManager
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
-import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.text.HtmlCompat
+import com.lowlatency.visualizer.ui.AudioSourceController
 import com.lowlatency.visualizer.ui.DisplayModeController
+import com.lowlatency.visualizer.ui.FeelTheSpeedController
 import com.lowlatency.visualizer.ui.LightingController
+import com.lowlatency.visualizer.ui.LinkSyncController
+import com.lowlatency.visualizer.ui.MenuDiscoveryController
 import com.lowlatency.visualizer.ui.MenuSheetController
 import com.lowlatency.visualizer.ui.PerfOverlayController
 import com.lowlatency.visualizer.ui.ScenesController
@@ -52,8 +42,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var glView: VisualizerSurfaceView
     private lateinit var splashOverlay: View
     private lateinit var introHint: View
-    private lateinit var segMic: Button
-    private lateinit var segInternal: Button
     private lateinit var btnBurnin: Button
     private lateinit var btnGlowOff: Button
     private lateinit var btnGlowSubtle: Button
@@ -63,17 +51,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnSensLow: Button
     private lateinit var btnSensStandard: Button
     private lateinit var btnSensHigh: Button
-    private lateinit var btnLinkSync: Button
-    private lateinit var linkSettingsGroup: View
-    private lateinit var btnLinkNotify: Button
-    private lateinit var btnLinkAnticipate: Button
-    private lateinit var btnLinkDownbeat: Button
-    private lateinit var btnLinkExtras: Button
-    private lateinit var linkStatus: TextView
-    private lateinit var linkNotification: TextView
-    private lateinit var beatDot: View
-    private lateinit var dropDot: View
-    private lateinit var barCells: List<View>
     private lateinit var btnThemeDefault: Button
     private lateinit var btnThemeNeon: Button
     private lateinit var btnThemeWarm: Button
@@ -85,10 +62,14 @@ class MainActivity : AppCompatActivity() {
     private lateinit var groupPeakLuminance: View
     private lateinit var perfOverlayController: PerfOverlayController
     private lateinit var menuSheetController: MenuSheetController
+    private lateinit var menuDiscoveryController: MenuDiscoveryController
     private lateinit var displayModeController: DisplayModeController
     private lateinit var shuffleController: ShuffleController
     private lateinit var secondaryDisplayController: com.lowlatency.visualizer.ui.SecondaryDisplayController
     private lateinit var scenesController: ScenesController
+    private lateinit var linkSyncController: LinkSyncController
+    private lateinit var audioSourceController: AudioSourceController
+    private lateinit var feelTheSpeedController: FeelTheSpeedController
     private lateinit var hapticController: HapticController
     private lateinit var prefs: SharedPreferences
 
@@ -99,82 +80,15 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tabVisualizers: LinearLayout
     private lateinit var tabLighting: LinearLayout
     private lateinit var tabSettings: LinearLayout
-    private lateinit var internalAudioWarning: TextView
     private lateinit var btnCastDisplay: Button
     private lateinit var castOverlay: TextView
 
     // --- Smart lighting: all brand UI/state lives in LightingController ---
     private lateinit var lightingController: LightingController
 
-    private var systemAudioMode = false
-    private var deferredPermissionRequest = false
-
-
-    private var lastPeerCount = 0
-    private var linkNotifyRunnable: Runnable? = null
     private var backgroundedAtMs = 0L
-
-    private val captureStopReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            if (systemAudioMode) {
-                selectMicrophone()
-            }
-        }
-    }
-
-    // Ableton Link: a multicast lock is mandatory or Android's Wi-Fi chip filters
-    // out Link's UDP discovery packets. The status poller refreshes peer/BPM text
-    // while sync is on.
-    private var multicastLock: WifiManager.MulticastLock? = null
-    private val linkHandler = Handler(Looper.getMainLooper())
-    private val linkStatusPoller = object : Runnable {
-        override fun run() {
-            updateLinkStatus()
-            linkHandler.postDelayed(this, 1000L)
-        }
-    }
-
-    private val requestPermissions = registerForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { grants ->
-        // 1. Handle Microphone (existing logic)
-        if (grants[Manifest.permission.RECORD_AUDIO] == true) {
-            startMicrophone()
-        } else {
-            Toast.makeText(this, "Microphone permission required.", Toast.LENGTH_LONG).show()
-        }
-
-        // 2. Log Network Status for debugging
-        if (Build.VERSION.SDK_INT >= 36) {
-            if (grants["android.permission.ACCESS_LOCAL_NETWORK"] == true) {
-                Log.d(TAG, "Android 17 Local Network permission GRANTED.")
-            } else {
-                Log.e(TAG, "Android 17 Local Network permission DENIED. Hue will timeout.")
-            }
-        }
-    }
-
-    private val projectionLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        val data = result.data
-        if (result.resultCode == RESULT_OK && data != null) {
-            // Mic and system capture feed the same ring buffer; stop the mic so
-            // we visualize system audio cleanly.
-            NativeBridge.nativeStop()
-            startForegroundService(
-                AudioCaptureService.newIntent(this, result.resultCode, data)
-            )
-            systemAudioMode = true
-            // Light sync is mic-only; stop it when moving to internal audio.
-            if (::lightingController.isInitialized) lightingController.onSystemAudioEngaged()
-        } else {
-            Toast.makeText(this, "System-audio capture denied.", Toast.LENGTH_SHORT).show()
-            systemAudioMode = false
-        }
-        updateSourceSelection()
-        updateStatus()
-    }
+    private var micStarted = false          // has the mic stream gone live this session?
+    private var introSequenceDone = false   // intro/hint finished — safe to show the menu cue
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -191,48 +105,25 @@ class MainActivity : AppCompatActivity() {
         checkHdrSupport()
         initControllers()
 
-        findViewById<Button>(R.id.btn_display_mode).setOnClickListener {
-            menuSheetController.close()
-            displayModeController.enter()
-        }
-
-        ContextCompat.registerReceiver(
-            this,
-            captureStopReceiver,
-            IntentFilter(AudioCaptureService.ACTION_STOPPED),
-            ContextCompat.RECEIVER_NOT_EXPORTED
-        )
-
         // Hold the runtime-permission dialog back until the intro has finished, but
         // only when it would actually appear — i.e. a first launch (mic not yet
         // granted) where the intro is going to play. If the mic is already granted
         // the request is invisible, so fire it now and let audio be live behind the
         // shatter. wireSplash() fires the deferred request from onIntroFinished.
-        val hasMic = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
-            PackageManager.PERMISSION_GRANTED
-        if (glView.willPlayIntro && !hasMic) {
-            deferredPermissionRequest = true
+        if (glView.willPlayIntro && !audioSourceController.hasMicPermission()) {
+            audioSourceController.deferPermissionRequest()
             // Safety net: if the intro never reports finished (e.g. surface never
             // created), still ask after a delay so the app isn't stuck without audio.
-            glView.postDelayed({ fireDeferredPermissionRequest() }, PERMISSION_FALLBACK_MS)
+            glView.postDelayed({ audioSourceController.fireDeferredPermissionRequest() }, PERMISSION_FALLBACK_MS)
         } else {
-            requestPermissions.launch(buildPermissionList())
+            audioSourceController.requestPermissionsNow()
         }
-    }
-
-    /** Launch the deferred permission request exactly once. */
-    private fun fireDeferredPermissionRequest() {
-        if (!deferredPermissionRequest) return
-        deferredPermissionRequest = false
-        requestPermissions.launch(buildPermissionList())
     }
 
     private fun bindViews() {
         glView = findViewById(R.id.gl_view)
         splashOverlay = findViewById(R.id.splash_overlay)
         introHint = findViewById(R.id.intro_hint)
-        segMic = findViewById(R.id.seg_mic)
-        segInternal = findViewById(R.id.seg_internal)
         btnBurnin = findViewById(R.id.btn_burnin)
         btnGlowOff = findViewById(R.id.btn_glow_off)
         btnGlowSubtle = findViewById(R.id.btn_glow_subtle)
@@ -242,22 +133,6 @@ class MainActivity : AppCompatActivity() {
         btnSensLow = findViewById(R.id.btn_sens_low)
         btnSensStandard = findViewById(R.id.btn_sens_standard)
         btnSensHigh = findViewById(R.id.btn_sens_high)
-        btnLinkSync = findViewById(R.id.btn_link_sync)
-        linkSettingsGroup = findViewById(R.id.link_settings_group)
-        btnLinkNotify = findViewById(R.id.btn_link_notify)
-        btnLinkAnticipate = findViewById(R.id.btn_link_anticipate)
-        btnLinkDownbeat = findViewById(R.id.btn_link_downbeat)
-        btnLinkExtras = findViewById(R.id.btn_link_extras)
-        linkStatus = findViewById(R.id.link_status)
-        linkNotification = findViewById(R.id.link_notification)
-        beatDot = findViewById(R.id.beat_dot)
-        dropDot = findViewById(R.id.drop_dot)
-        barCells = listOf(
-            findViewById(R.id.bar_cell_1),
-            findViewById(R.id.bar_cell_2),
-            findViewById(R.id.bar_cell_3),
-            findViewById(R.id.bar_cell_4),
-        )
         btnThemeDefault = findViewById(R.id.btn_theme_default)
         btnThemeNeon = findViewById(R.id.btn_theme_neon)
         btnThemeWarm = findViewById(R.id.btn_theme_warm)
@@ -273,7 +148,6 @@ class MainActivity : AppCompatActivity() {
         tabVisualizers = findViewById(R.id.tab_visualizers)
         tabLighting = findViewById(R.id.tab_lighting)
         tabSettings = findViewById(R.id.tab_settings)
-        internalAudioWarning = findViewById(R.id.internal_audio_warning)
         btnCastDisplay = findViewById(R.id.btn_cast_display)
         castOverlay = findViewById(R.id.cast_overlay)
         // Lighting views (Hue/LIFX/Nanoleaf) are bound inside LightingController.
@@ -281,20 +155,57 @@ class MainActivity : AppCompatActivity() {
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
     }
 
+    /** Audio-source switching + the first-run "feel the speed" reveal (built first). */
+    private fun initAudioControllers() {
+        audioSourceController = AudioSourceController(
+            activity = this,
+            prefs = prefs,
+            onSourceChanged = { onAudioSourceChanged() },
+            onMicStarted = {
+                micStarted = true
+                if (::feelTheSpeedController.isInitialized) feelTheSpeedController.onMicStarted()
+            },
+        )
+        audioSourceController.bind()
+
+        feelTheSpeedController = FeelTheSpeedController(
+            activity = this,
+            prefs = prefs,
+            vibrate = {
+                if (::hapticController.isInitialized && hapticController.isSupported) {
+                    hapticController.previewPulse()
+                }
+            },
+            onComplete = { showIntroHint() },
+        )
+        feelTheSpeedController.bind()
+    }
+
     private fun initControllers() {
+        initAudioControllers()
+
         lightingController = LightingController(
             activity = this,
             prefs = prefs,
             backgroundedAtMs = { backgroundedAtMs },
         )
         lightingController.bind()
+
+        linkSyncController = LinkSyncController(
+            activity = this,
+            prefs = prefs,
+            onLinkEnabledChanged = {
+                if (::lightingController.isInitialized) lightingController.refreshAdvancedVisibility()
+            },
+        )
+        linkSyncController.bind()
         wireGlAudioSinks()
 
         perfOverlayController = PerfOverlayController(
             activity = this,
             glView = glView,
             prefs = prefs,
-            isSystemAudioMode = { systemAudioMode },
+            isSystemAudioMode = { audioSourceController.systemAudioMode },
             hueStats = {
                 if (::lightingController.isInitialized) lightingController.huePerfStats()
                 else PerfOverlayController.HueStats(false, 0L, 0L, -1L)
@@ -302,18 +213,14 @@ class MainActivity : AppCompatActivity() {
         )
         perfOverlayController.bind()
 
-        menuSheetController = MenuSheetController(
-            activity = this,
-            glView = glView,
-            onBeforeOpen = { syncMenuState() },
-        )
-        menuSheetController.bind()
+        initMenuControllers()
 
         displayModeController = DisplayModeController(
             this,
             prefs,
             onSwipeScene = { dir -> glView.cycleScene(dir) },
             onOpenMenu = { menuSheetController.openOverlay() },
+            onCloseMenu = { menuSheetController.close() },
         )
         displayModeController.bind()
 
@@ -336,6 +243,23 @@ class MainActivity : AppCompatActivity() {
 
         secondaryDisplayController = com.lowlatency.visualizer.ui.SecondaryDisplayController(this, glView, btnCastDisplay, castOverlay)
         secondaryDisplayController.bind()
+    }
+
+    /** The settings sheet plus its first-run "swipe up" discovery cue. */
+    private fun initMenuControllers() {
+        menuSheetController = MenuSheetController(
+            activity = this,
+            glView = glView,
+            onBeforeOpen = {
+                syncMenuState()
+                if (::menuDiscoveryController.isInitialized) menuDiscoveryController.onMenuOpened()
+            },
+        )
+        menuSheetController.bind()
+
+        menuDiscoveryController =
+            MenuDiscoveryController(this, prefs, isMenuOpen = { menuSheetController.isOpen })
+        menuDiscoveryController.bind()
     }
 
     /** The app's versionName from the manifest/Gradle (e.g. "1.1"). */
@@ -363,12 +287,18 @@ class MainActivity : AppCompatActivity() {
 
         if (glView.introEnabled) {
             glView.onIntroFinished = {
-                showIntroHint()
-                fireDeferredPermissionRequest()
+                audioSourceController.fireDeferredPermissionRequest()
+                afterIntro()
             }
         } else {
-            splashOverlay.postDelayed({ showIntroHint() }, SPLASH_MASK_MS + SPLASH_FADE_MS)
+            splashOverlay.postDelayed({ afterIntro() }, SPLASH_MASK_MS + SPLASH_FADE_MS)
         }
+    }
+
+    /** First launch plays the "feel the speed" moment (which chains to the hint); after that, just the hint. */
+    private fun afterIntro() {
+        if (feelTheSpeedController.shouldPlay()) feelTheSpeedController.start(micStarted)
+        else showIntroHint()
     }
 
     /** True when the OS "remove animations" setting is on (animator scale 0). */
@@ -387,12 +317,19 @@ class MainActivity : AppCompatActivity() {
             if (menuSheetController.isOpen) {
                 // If the user already opened the menu, just hide it immediately
                 introHint.visibility = View.GONE
+                onIntroHintDone()
             } else {
                 introHint.animate().alpha(0f).setDuration(1000)
-                    .withEndAction { introHint.visibility = View.GONE }
+                    .withEndAction { introHint.visibility = View.GONE; onIntroHintDone() }
                     .start()
             }
         }, INTRO_HINT_DURATION_MS)
+    }
+
+    /** Gesture hint has run its course — now it's safe to surface the persistent menu cue. */
+    private fun onIntroHintDone() {
+        introSequenceDone = true
+        if (::menuDiscoveryController.isInitialized) menuDiscoveryController.reveal()
     }
 
     // ----- Gestures: swipe-up opens the menu, swipe-down / tap-outside closes -----
@@ -443,9 +380,6 @@ class MainActivity : AppCompatActivity() {
     // ----- Menu controls -----
 
     private fun wireMenuControls() {
-        segMic.setOnClickListener { selectMicrophone() }
-        segInternal.setOnClickListener { selectInternalAudio() }
-
         // Burn-in protection toggle (persisted, default off).
         val burnIn = prefs.getBoolean(KEY_BURNIN, false)
         glView.burnInEnabled = burnIn
@@ -522,168 +456,6 @@ class MainActivity : AppCompatActivity() {
         btnSensLow.setOnClickListener { setBeatSensitivity(BeatSettings.Sensitivity.LOW) }
         btnSensStandard.setOnClickListener { setBeatSensitivity(BeatSettings.Sensitivity.STANDARD) }
         btnSensHigh.setOnClickListener { setBeatSensitivity(BeatSettings.Sensitivity.HIGH) }
-
-        // Ableton Link wireless tempo/beat sync (persisted, default off).
-        setLinkSync(prefs.getBoolean(KEY_LINK, false), persist = false)
-        btnLinkSync.setOnClickListener { setLinkSync(!LinkSync.enabled, persist = true) }
-
-        // Link session notifications toggle (persisted, default on).
-        updateLinkNotifyButton(prefs.getBoolean(KEY_LINK_NOTIFY, true))
-        btnLinkNotify.setOnClickListener {
-            val enabled = !prefs.getBoolean(KEY_LINK_NOTIFY, true)
-            prefs.edit().putBoolean(KEY_LINK_NOTIFY, enabled).apply()
-            updateLinkNotifyButton(enabled)
-        }
-
-        // Anticipatory beat-swell for the visuals (persisted, default on).
-        LinkSync.anticipateBeat = prefs.getBoolean(KEY_LINK_ANTICIPATE, true)
-        updateLinkAnticipateButton(LinkSync.anticipateBeat)
-        btnLinkAnticipate.setOnClickListener {
-            val enabled = !LinkSync.anticipateBeat
-            LinkSync.anticipateBeat = enabled
-            prefs.edit().putBoolean(KEY_LINK_ANTICIPATE, enabled).apply()
-            updateLinkAnticipateButton(enabled)
-        }
-
-        // Experimental bar + drop enrichment (persisted, default off so the
-        // out-of-the-box visuals only ride the reliable beat).
-        LinkSync.experimentalEnrich = prefs.getBoolean(KEY_LINK_EXTRAS, false)
-        updateLinkExtrasButton(LinkSync.experimentalEnrich)
-        btnLinkExtras.setOnClickListener {
-            val enabled = !LinkSync.experimentalEnrich
-            LinkSync.experimentalEnrich = enabled
-            prefs.edit().putBoolean(KEY_LINK_EXTRAS, enabled).apply()
-            updateLinkExtrasButton(enabled)
-        }
-
-        // Manual downbeat alignment (persisted, default 0). Cycles 0→1→2→3 beats.
-        LinkSync.barOffsetBeats = prefs.getInt(KEY_LINK_BAR_OFFSET, 0).coerceIn(0, 3)
-        updateLinkDownbeatButton()
-        btnLinkDownbeat.setOnClickListener {
-            LinkSync.barOffsetBeats = (LinkSync.barOffsetBeats + 1) % 4
-            prefs.edit().putInt(KEY_LINK_BAR_OFFSET, LinkSync.barOffsetBeats).apply()
-            updateLinkDownbeatButton()
-        }
-    }
-
-    /** Enable/disable Ableton Link: native session + multicast lock + status poll. */
-    private fun setLinkSync(enabled: Boolean, persist: Boolean) {
-        LinkSync.enabled = enabled
-        NativeBridge.nativeLinkSetEnabled(enabled)
-        if (enabled) acquireMulticastLock() else releaseMulticastLock()
-        if (persist) prefs.edit().putBoolean(KEY_LINK, enabled).apply()
-
-        btnLinkSync.isSelected = enabled
-        btnLinkSync.setText(if (enabled) R.string.link_sync_on else R.string.link_sync_off)
-        linkSettingsGroup.visibility = if (enabled) View.VISIBLE else View.GONE
-        if (::lightingController.isInitialized) lightingController.refreshAdvancedVisibility()
-
-        linkHandler.removeCallbacks(linkStatusPoller)
-        if (enabled) {
-            lastPeerCount = NativeBridge.nativeLinkPeers() // initialize without notifying
-            linkHandler.post(linkStatusPoller)            // poll peers/BPM ~1 Hz
-        } else {
-            lastPeerCount = 0
-            linkStatus.setText(R.string.link_status_off)
-            beatDot.animate().cancel()
-            beatDot.alpha = 0.18f
-            beatDot.scaleX = 1f
-            beatDot.scaleY = 1f
-            for (cell in barCells) { cell.animate().cancel(); cell.alpha = 0.18f }
-        }
-    }
-
-    /** Pulse the diagnostic beat light: snap bright + slightly larger, then ease back. */
-    private fun updateLinkNotifyButton(enabled: Boolean) {
-        btnLinkNotify.isSelected = enabled
-        btnLinkNotify.setText(if (enabled) R.string.link_notifications_on else R.string.link_notifications_off)
-    }
-
-    private fun updateLinkAnticipateButton(enabled: Boolean) {
-        btnLinkAnticipate.isSelected = enabled
-        btnLinkAnticipate.setText(if (enabled) R.string.link_anticipate_on else R.string.link_anticipate_off)
-    }
-
-    private fun updateLinkDownbeatButton() {
-        btnLinkDownbeat.isSelected = LinkSync.barOffsetBeats != 0
-        btnLinkDownbeat.text = getString(R.string.link_downbeat_nudge, LinkSync.barOffsetBeats)
-    }
-
-    private fun updateLinkExtrasButton(enabled: Boolean) {
-        btnLinkExtras.isSelected = enabled
-        btnLinkExtras.setText(if (enabled) R.string.link_extras_on else R.string.link_extras_off)
-    }
-
-    private fun flashBeatDot() = flashDot(beatDot)
-
-    /** Pulse a diagnostic indicator light: snap bright + slightly larger, then ease back. */
-    private fun flashDot(dot: View) {
-        dot.animate().cancel()
-        dot.alpha = 1f
-        dot.scaleX = 1.35f
-        dot.scaleY = 1.35f
-        dot.animate().alpha(0.18f).scaleX(1f).scaleY(1f).setDuration(170L).start()
-    }
-
-    /** Light the active cell of the virtual bar (Link's beat-in-bar, 0..3). */
-    private fun updateBarCells(active: Int) {
-        barCells.forEachIndexed { i, cell ->
-            cell.animate().cancel()
-            cell.alpha = if (i == active) 1f else 0.18f
-        }
-    }
-
-
-    private fun updateLinkStatus() {
-        if (!LinkSync.enabled) return
-        val peers = NativeBridge.nativeLinkPeers()
-        if (peers != lastPeerCount) {
-            if (peers > lastPeerCount) {
-                showLinkNotification(getString(R.string.link_notification_joined))
-            } else {
-                showLinkNotification(getString(R.string.link_notification_left))
-            }
-            lastPeerCount = peers
-        }
-        if (peers <= 0) {
-            linkStatus.setText(R.string.link_status_searching)
-        } else {
-            linkStatus.text = getString(R.string.link_status_connected, peers, NativeBridge.nativeLinkTempo())
-        }
-    }
-
-    private fun showLinkNotification(message: String) {
-        if (!prefs.getBoolean(KEY_LINK_NOTIFY, true)) return
-        
-        linkNotifyRunnable?.let { linkNotification.removeCallbacks(it) }
-        linkNotification.animate().cancel()
-
-        linkNotification.text = message
-        linkNotification.visibility = View.VISIBLE
-        linkNotification.alpha = 0f
-        linkNotification.animate().alpha(1f).setDuration(300).start()
-
-        val hide = Runnable {
-            linkNotification.animate().alpha(0f).setDuration(300).withEndAction {
-                linkNotification.visibility = View.GONE
-            }.start()
-        }
-        linkNotifyRunnable = hide
-        linkNotification.postDelayed(hide, 3500L)
-    }
-
-    private fun acquireMulticastLock() {
-        if (multicastLock?.isHeld == true) return
-        val wifi = applicationContext.getSystemService(WIFI_SERVICE) as? WifiManager ?: return
-        multicastLock = wifi.createMulticastLock("velo-ableton-link").apply {
-            setReferenceCounted(false)
-            acquire()
-        }
-    }
-
-    private fun releaseMulticastLock() {
-        multicastLock?.let { if (it.isHeld) it.release() }
-        multicastLock = null
     }
 
     private fun setBeatSensitivity(s: BeatSettings.Sensitivity) {
@@ -768,128 +540,62 @@ class MainActivity : AppCompatActivity() {
      */
     private fun wireGlAudioSinks() {
         glView.bandsSink = { low, mid, high -> lightingController.onBands(low, mid, high) }
-        glView.pcmBeatSink = { pcm -> hapticController.onPcm(pcm) }
+        glView.pcmBeatSink = { pcm ->
+            hapticController.onPcm(pcm)
+            feelTheSpeedController.onPcm(pcm)
+        }
         glView.onLinkBeat = {
             lightingController.onLinkBeat()
-            // Step the virtual bar to Link's current beat-in-bar (post-nudge) and
-            // pulse the beat dot. Only while the menu is open, to stay cheap.
-            if (menuSheetController.isOpen) {
-                val cell = (Math.round(BeatPulse.barPhase * 4f) % 4 + 4) % 4
-                beatDot.post { flashBeatDot(); updateBarCells(cell) }
-            }
+            // Step the virtual bar + pulse the beat dot — only while the menu is
+            // open (the diagnostic readout is hidden otherwise), to stay cheap.
+            if (menuSheetController.isOpen) linkSyncController.pulseBeat()
         }
-        glView.onDrop = { if (menuSheetController.isOpen) dropDot.post { flashDot(dropDot) } }
+        glView.onDrop = { if (menuSheetController.isOpen) linkSyncController.pulseDrop() }
     }
 
     private fun syncMenuState() {
-        updateSourceSelection()
+        if (::audioSourceController.isInitialized) audioSourceController.refreshSelection()
         if (::scenesController.isInitialized) scenesController.updateSelection()
-        updateStatus()
     }
 
-    private fun updateSourceSelection() {
-        segMic.isSelected = !systemAudioMode
-        segInternal.isSelected = systemAudioMode
-        internalAudioWarning.visibility = if (systemAudioMode) View.VISIBLE else View.GONE
+    /**
+     * React to an audio-source change (mic ⇄ internal). The seg toggle itself is
+     * owned by [AudioSourceController]; here we refresh everything that merely
+     * *depends* on the source — lighting-tab availability, beat haptics, the shared
+     * beat sensitivity. Light sync + haptics are mic-only.
+     */
+    private fun onAudioSourceChanged() {
+        val systemAudio = audioSourceController.systemAudioMode
+        tabBtnLighting.isEnabled = !systemAudio
+        tabBtnLighting.alpha = if (systemAudio) 0.5f else 1.0f
 
-        tabBtnLighting.isEnabled = !systemAudioMode
-        tabBtnLighting.alpha = if (systemAudioMode) 0.5f else 1.0f
-
-        if (systemAudioMode) {
-            // Light sync is mic-only; stop every brand when on internal audio.
+        if (systemAudio) {
             if (::lightingController.isInitialized) lightingController.onSystemAudioEngaged()
             if (tabBtnLighting.isSelected) {
                 selectTab(TAB_VISUALS)
             }
         }
+        updateStatus()
     }
 
     private fun updateStatus() {
+        val systemAudio = audioSourceController.systemAudioMode
         // Beat detection is hotter on internal audio — tell the shared sensitivity.
-        BeatSettings.systemAudio = systemAudioMode
+        BeatSettings.systemAudio = systemAudio
 
         // Beat-haptics are mic-only (system-audio capture is buffered → off-beat).
         // Gate the controller and grey the toggle when on internal audio.
         if (::hapticController.isInitialized) {
-            hapticController.setSystemAudio(systemAudioMode)
-            val available = hapticController.isSupported && !systemAudioMode
+            hapticController.setSystemAudio(systemAudio)
+            val available = hapticController.isSupported && !systemAudio
             btnHaptics.isEnabled = available
             btnHaptics.alpha = if (available) 1f else 0.4f
         }
     }
 
-    // ----- Audio source switching -----
-
-    private fun selectMicrophone() {
-        if (systemAudioMode) {
-            stopService(Intent(this, AudioCaptureService::class.java))
-            systemAudioMode = false
-        }
-        ensureMicAndStart()
-        updateSourceSelection()
-        updateStatus()
-    }
-
-    private fun selectInternalAudio() {
-        if (systemAudioMode) return
-        // First time: explain why Android will ask for screen-capture permission
-        // (internal audio is routed through the screen-capture API).
-        if (prefs.getBoolean(KEY_SCREENSHARE_RATIONALE, false)) {
-            requestSystemAudioCapture()
-            return
-        }
-        AlertDialog.Builder(this)
-            .setTitle(R.string.screenshare_title)
-            .setMessage(R.string.screenshare_message)
-            .setPositiveButton(R.string.screenshare_continue) { _, _ ->
-                prefs.edit().putBoolean(KEY_SCREENSHARE_RATIONALE, true).apply()
-                requestSystemAudioCapture()
-            }
-            .setNegativeButton(android.R.string.cancel) { _, _ ->
-                updateSourceSelection()   // stay on the mic toggle
-            }
-            .show()
-    }
-    private fun buildPermissionList(): Array<String> {
-        val perms = mutableListOf(Manifest.permission.RECORD_AUDIO)
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            perms += Manifest.permission.POST_NOTIFICATIONS
-            perms += Manifest.permission.NEARBY_WIFI_DEVICES // Fallback for Android 13-16
-        }
-        if (Build.VERSION.SDK_INT >= 36) {
-            // Android 17+ strict requirement
-            perms += "android.permission.ACCESS_LOCAL_NETWORK"
-        }
-
-        return perms.toTypedArray()
-    }
-
-    private fun startMicrophone() {
-        if (!NativeBridge.nativeStartMicrophone()) {
-            Toast.makeText(this, "Failed to open audio stream.", Toast.LENGTH_LONG).show()
-        }
-        updateStatus()
-    }
-
-    private fun ensureMicAndStart() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
-            == PackageManager.PERMISSION_GRANTED
-        ) {
-            startMicrophone()
-        } else {
-            requestPermissions.launch(buildPermissionList())
-        }
-    }
-
+    /** Forwarded to [AudioSourceController]; called by SecondaryDisplayController. */
     fun evaluateMicState() {
-        if (!systemAudioMode) {
-            if (lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) {
-                ensureMicAndStart()
-            } else {
-                NativeBridge.nativeStop()
-            }
-        }
+        if (::audioSourceController.isInitialized) audioSourceController.evaluateMicState()
     }
 
     private fun showPrivacyPolicy() {
@@ -914,7 +620,7 @@ class MainActivity : AppCompatActivity() {
         view.findViewById<TextView>(R.id.about_version).text = getString(R.string.version_fmt, appVersionName())
         
         val rate = NativeBridge.nativeGetSampleRate()
-        val engine = if (systemAudioMode) {
+        val engine = if (audioSourceController.systemAudioMode) {
             "AudioPlaybackCapture • $rate Hz"
         } else {
             "Oboe Engine: AAudio Active • $rate Hz"
@@ -963,11 +669,6 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-    }
-
-    private fun requestSystemAudioCapture() {
-        val mpm = getSystemService(MediaProjectionManager::class.java)
-        projectionLauncher.launch(mpm.createScreenCaptureIntent())
     }
 
     /**
@@ -1019,38 +720,34 @@ class MainActivity : AppCompatActivity() {
         // Not recreated (configChanges in manifest): audio stream keeps running;
         // the GL surface gets a fresh onSurfaceChanged which resets glViewport.
         Log.i(TAG, "Config changed: ${newConfig.screenWidthDp}x${newConfig.screenHeightDp} dp")
+        // Ambient Mode re-fits its layout live (landscape sits data beside the clock).
+        if (::displayModeController.isInitialized) displayModeController.onOrientationChanged()
     }
 
     override fun onResume() {
         super.onResume()
         glView.onResume()
         updatePeakLuminance(prefs.getBoolean(KEY_PEAK_LUMINANCE, true))
-        if (!systemAudioMode) ensureMicAndStart()
-        if (LinkSync.enabled) {
-            NativeBridge.nativeLinkSetEnabled(true)
-            acquireMulticastLock()
-            linkHandler.post(linkStatusPoller)
-        }
+        if (::audioSourceController.isInitialized) audioSourceController.onResume()
+        if (::linkSyncController.isInitialized) linkSyncController.onResume()
         if (::perfOverlayController.isInitialized) perfOverlayController.onResume()
         if (::lightingController.isInitialized) lightingController.onResume()
         if (::displayModeController.isInitialized) displayModeController.onResume()
         if (::shuffleController.isInitialized) shuffleController.onResume()
+        if (introSequenceDone && ::menuDiscoveryController.isInitialized) menuDiscoveryController.reveal()
     }
 
     override fun onPause() {
         super.onPause()
         glView.onPause()
-        if (!systemAudioMode) NativeBridge.nativeStop()
+        if (::audioSourceController.isInitialized) audioSourceController.onPause()
         backgroundedAtMs = SystemClock.elapsedRealtime()
         if (::perfOverlayController.isInitialized) perfOverlayController.onPause()
         if (::lightingController.isInitialized) lightingController.onPause()
         if (::displayModeController.isInitialized) displayModeController.onPause()
         if (::shuffleController.isInitialized) shuffleController.onPause()
-        linkHandler.removeCallbacks(linkStatusPoller)
-        if (LinkSync.enabled) {
-            NativeBridge.nativeLinkSetEnabled(false)
-            releaseMulticastLock()
-        }
+        if (::linkSyncController.isInitialized) linkSyncController.onPause()
+        if (::menuDiscoveryController.isInitialized) menuDiscoveryController.onPause()
     }
 
     override fun onDestroy() {
@@ -1060,11 +757,11 @@ class MainActivity : AppCompatActivity() {
         if (::shuffleController.isInitialized) shuffleController.onDestroy()
         if (::secondaryDisplayController.isInitialized) secondaryDisplayController.onDestroy()
         if (::hapticController.isInitialized) hapticController.release()
-        linkHandler.removeCallbacks(linkStatusPoller)
-        NativeBridge.nativeLinkSetEnabled(false)
-        releaseMulticastLock()
+        if (::linkSyncController.isInitialized) linkSyncController.onDestroy()
+        if (::audioSourceController.isInitialized) audioSourceController.onDestroy()
+        if (::feelTheSpeedController.isInitialized) feelTheSpeedController.onDestroy()
+        if (::menuDiscoveryController.isInitialized) menuDiscoveryController.onDestroy()
         NativeBridge.nativeStop()
-        unregisterReceiver(captureStopReceiver)
         super.onDestroy()
     }
 
@@ -1076,13 +773,7 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_HAPTICS = "haptics_enabled"
         private const val KEY_BEAT_SENS = "beat_sensitivity"
         private const val KEY_THEME = "color_theme"
-        private const val KEY_LINK = "ableton_link_enabled"
-        private const val KEY_LINK_NOTIFY = "ableton_link_notifications"
-        private const val KEY_LINK_ANTICIPATE = "ableton_link_anticipate"
-        private const val KEY_LINK_BAR_OFFSET = "ableton_link_bar_offset"
-        private const val KEY_LINK_EXTRAS = "ableton_link_experimental_extras"
         private const val KEY_PEAK_LUMINANCE = "peak_luminance_enabled"
-        private const val KEY_SCREENSHARE_RATIONALE = "screenshare_rationale_shown"
         private const val TAB_VISUALS = 0
         private const val TAB_LIGHTING = 1
         private const val TAB_SETTINGS = 2

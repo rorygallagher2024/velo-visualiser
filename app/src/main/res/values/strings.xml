@@ -42,8 +42,15 @@
     <string name="vis_spectral_canyon">Spectral Canyon</string>
     <string name="vis_spectral_canyon_classic">Spectral Canyon Classic</string>
     <string name="vis_waveform_waterfall">Waterfall Scope</string>
+    <string name="vis_phase_scope">Phase Scope</string>
+    <string name="vis_nebula">Nebula</string>
+    <string name="vis_event_horizon">Event Horizon</string>
+    <string name="vis_obsidian">Obsidian</string>
+    <string name="vis_slipstream">Slipstream</string>
+    <string name="vis_veil">Veil</string>
     <string name="cat_modes">Modes</string>
     <string name="cat_instruments">Instruments</string>
+    <string name="cat_favourites">Favourites</string>
     <string name="cat_reactive">Reactive</string>
     <string name="cat_immersive">Immersive</string>
     <string name="section_visuals">Visuals</string>
@@ -53,7 +60,9 @@
     <string name="ambient_style_window">Ambient Style: Window</string>
     <string name="shuffle_on">Shuffle Scenes: On</string>
     <string name="shuffle_off">Shuffle Scenes: Off</string>
-    <string name="ambient_mode_hint">Tap twice to exit</string>
+    <string name="ambient_mode_on">Ambient Mode: On</string>
+    <string name="ambient_mode_off">Ambient Mode: Off</string>
+    <string name="ambient_mode_hint">Tap twice to exit · Hold to switch style</string>
     <string name="ambient_mode_hint_again">Tap again to exit</string>
     <string name="display_bpm_unit">BPM</string>
     <string name="burnin_on">Burn-in Protection: On</string>
@@ -234,6 +243,10 @@
 
     <!-- First-boot overlay -->
     <string name="hint_swipe_sides">◀  Swipe left / right to change visuals  ▶</string>
+
+    <!-- First-run "make a sound" moment: cause the reaction, feel it land. -->
+    <string name="moat_prompt">Make a sound</string>
+    <string name="moat_nudge">Clap · snap · speak</string>
     <string name="hint_swipe_up">▲  Swipe up for settings</string>
 
     <!-- Accessibility Content Descriptions -->
