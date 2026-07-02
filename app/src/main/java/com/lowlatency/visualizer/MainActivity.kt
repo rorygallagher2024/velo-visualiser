@@ -105,11 +105,6 @@ class MainActivity : AppCompatActivity() {
         checkHdrSupport()
         initControllers()
 
-        findViewById<Button>(R.id.btn_display_mode).setOnClickListener {
-            menuSheetController.close()
-            displayModeController.enter()
-        }
-
         // Hold the runtime-permission dialog back until the intro has finished, but
         // only when it would actually appear — i.e. a first launch (mic not yet
         // granted) where the intro is going to play. If the mic is already granted
@@ -225,6 +220,7 @@ class MainActivity : AppCompatActivity() {
             prefs,
             onSwipeScene = { dir -> glView.cycleScene(dir) },
             onOpenMenu = { menuSheetController.openOverlay() },
+            onCloseMenu = { menuSheetController.close() },
         )
         displayModeController.bind()
 

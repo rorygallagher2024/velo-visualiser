@@ -44,6 +44,7 @@ class DisplayModeController(
     private val prefs: SharedPreferences,
     private val onSwipeScene: (Int) -> Unit,
     private val onOpenMenu: () -> Unit,
+    private val onCloseMenu: () -> Unit,
 ) {
     private lateinit var overlay: View
     private lateinit var content: LinearLayout
@@ -56,6 +57,8 @@ class DisplayModeController(
     private lateinit var exitHint: TextView
     private lateinit var cutoutClock: CutoutClockView
     private lateinit var styleBtn: Button
+    private lateinit var toggleBtn: Button
+    private var styleFading = false   // gates auto-dim while the crossfade runs
 
     var isActive = false
         private set
@@ -107,19 +110,26 @@ class DisplayModeController(
         shiftRadiusPx = SHIFT_RADIUS_DP * activity.resources.displayMetrics.density
         wireOverlayGestures()
 
-        // The style chooser only makes sense inside Ambient Mode (you reach the menu
-        // there by swiping up, and the change previews live), so it's greyed out
-        // until Ambient Mode is active. Defaults to the classic clock.
+        // Ambient Mode is a stateful toggle like everything else in the sheet:
+        // on = close the menu and enter; off = exit right from the menu (the
+        // tap-twice canvas exit stays as the primary way out).
+        toggleBtn = activity.findViewById(R.id.btn_display_mode)
+        toggleBtn.setOnClickListener {
+            if (isActive) exit() else { onCloseMenu(); enter() }
+        }
+        updateToggle()
+
+        // The style chooser is always available: it sets which style Ambient Mode
+        // uses — applied live when active, remembered for next time when not.
         styleBtn = activity.findViewById(R.id.btn_ambient_style)
         styleBtn.setOnClickListener { setWindowStyle(!windowStyle) }
         setWindowStyle(prefs.getBoolean(KEY_WINDOW_STYLE, false))
-        updateStyleAvailability()
     }
 
-    /** Grey the style toggle out unless Ambient Mode is active (then it previews live). */
-    private fun updateStyleAvailability() {
-        styleBtn.isEnabled = isActive
-        styleBtn.alpha = if (isActive) 1f else DISABLED_ALPHA
+    /** Keep the menu toggle honest about the current state. */
+    private fun updateToggle() {
+        toggleBtn.isSelected = isActive
+        toggleBtn.setText(if (isActive) R.string.ambient_mode_on else R.string.ambient_mode_off)
     }
 
     /** Switch the standby style. Persists; if Ambient Mode is open, applies live. */
@@ -176,6 +186,7 @@ class DisplayModeController(
         val gestures = GestureDetector(activity, object : GestureDetector.SimpleOnGestureListener() {
             override fun onDown(e: MotionEvent) = true
             override fun onSingleTapUp(e: MotionEvent): Boolean { onTapToExit(); return true }
+            override fun onLongPress(e: MotionEvent) { toggleStyleInPlace() }
             override fun onFling(e1: MotionEvent?, e2: MotionEvent, vx: Float, vy: Float): Boolean {
                 if (abs(vx) > abs(vy) && abs(vx) > SWIPE_VELOCITY) {
                     onSwipeScene(if (vx < 0) 1 else -1)   // left = next, right = prev (matches canvas)
@@ -211,10 +222,27 @@ class DisplayModeController(
         hideHint()
     }
 
+    /** Long-press: swap Classic ⇄ Window in place with a short crossfade — no menu trip. */
+    private fun toggleStyleInPlace() {
+        if (!isActive || styleFading) return
+        disarmExitNow()   // a long-press is deliberate, not an exit tap
+        styleFading = true
+        val old = if (windowStyle) cutoutClock else content
+        old.animate().alpha(0f).setDuration(STYLE_FADE_MS).withEndAction {
+            old.alpha = 1f
+            elapsedMs = 0L                    // re-arm the auto-dim like a fresh entry
+            setWindowStyle(!windowStyle)      // applyStyle swaps the style roots
+            val fresh: View = if (windowStyle) cutoutClock else content
+            fresh.alpha = 0f
+            fresh.animate().alpha(1f).setDuration(STYLE_FADE_MS)
+                .withEndAction { styleFading = false }.start()
+        }.start()
+    }
+
     fun enter() {
         if (isActive) return
         isActive = true
-        updateStyleAvailability()
+        updateToggle()
         exitArmed = false
         handler.removeCallbacks(disarmExit)
         smoothedPresence = 0f
@@ -234,7 +262,7 @@ class DisplayModeController(
     fun exit() {
         if (!isActive) return
         isActive = false
-        updateStyleAvailability()
+        updateToggle()
         exitArmed = false
         handler.removeCallbacks(ticker)
         handler.removeCallbacks(disarmExit)
@@ -360,6 +388,7 @@ class DisplayModeController(
     }
 
     private fun renderAutoDim() {
+        if (styleFading) return   // don't stomp the style crossfade animation
         val t = (elapsedMs.toFloat() / AUTO_DIM_MS).coerceIn(0f, 1f)
         content.alpha = 1f - (1f - AUTO_DIM_MIN_ALPHA) * t
     }
@@ -367,7 +396,7 @@ class DisplayModeController(
     companion object {
         private const val KEY_WINDOW_STYLE = "ambient_window_style"
         private const val BASIC_SCRIM = 0xD9000000.toInt()   // classic style's dim wash over the scene
-        private const val DISABLED_ALPHA = 0.4f              // greyed style toggle when Ambient Mode is off
+        private const val STYLE_FADE_MS = 160L               // long-press style crossfade (each half)
         private const val FRAME_MS = 50L            // 20 Hz: presence stays live, cost negligible
         private const val ENTER_FADE_MS = 280L
         private const val EXIT_FADE_MS = 220L
