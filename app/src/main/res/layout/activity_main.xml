@@ -316,6 +316,8 @@
 
             <Button android:id="@+id/btn_bars" style="@style/VisualizerPill" android:text="@string/vis_bars" />
 
+            <Button android:id="@+id/btn_obsidian" style="@style/VisualizerPill" android:text="@string/vis_obsidian" />
+
             <Button android:id="@+id/btn_circular" style="@style/VisualizerPill" android:text="@string/vis_circular" />
 
             <Button android:id="@+id/btn_spectrogram" style="@style/VisualizerPill" android:text="@string/vis_spectrogram" />
@@ -332,6 +334,8 @@
             <View style="@style/Divider" android:layout_marginTop="16dp" android:layout_marginBottom="16dp" />
 
             <TextView style="@style/SectionHeader" android:layout_width="match_parent" android:text="@string/cat_reactive" android:layout_marginBottom="12dp" />
+
+            <Button android:id="@+id/btn_nebula" style="@style/VisualizerPill" android:text="@string/vis_nebula" />
 
             <Button android:id="@+id/btn_logo_particle" style="@style/VisualizerPill" android:text="@string/vis_logo_particle" />
 
@@ -372,6 +376,8 @@
             <View style="@style/Divider" android:layout_marginTop="16dp" android:layout_marginBottom="16dp" />
 
             <TextView style="@style/SectionHeader" android:layout_width="match_parent" android:text="@string/cat_immersive" android:layout_marginBottom="12dp" />
+
+            <Button android:id="@+id/btn_event_horizon" style="@style/VisualizerPill" android:text="@string/vis_event_horizon" />
 
             <Button android:id="@+id/btn_fluid" style="@style/VisualizerPill" android:text="@string/vis_fluid" />
 

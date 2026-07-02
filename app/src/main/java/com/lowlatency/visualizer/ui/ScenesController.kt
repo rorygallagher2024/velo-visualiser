@@ -38,6 +38,7 @@ class ScenesController(
             btn(R.id.btn_oscilloscope, 0),
             btn(R.id.btn_rawscope, 8),
             btn(R.id.btn_bars, 5),
+            btn(R.id.btn_obsidian, 36),
             btn(R.id.btn_circular, 4),
             btn(R.id.btn_spectrogram, 9),
             btn(R.id.btn_led_matrix, 16),
@@ -45,6 +46,7 @@ class ScenesController(
             btn(R.id.btn_mechanical_meter, 17),
             btn(R.id.btn_phase_scope, 33),
             // Reactive
+            btn(R.id.btn_nebula, 34),
             btn(R.id.btn_logo_particle, 26),
             btn(R.id.btn_spectral_canyon, 30),
             btn(R.id.btn_spectral_canyon_classic, 31),
@@ -63,6 +65,7 @@ class ScenesController(
             btn(R.id.btn_beat_pulse, 18),
             btn(R.id.btn_fireworks, 10),
             // Immersive
+            btn(R.id.btn_event_horizon, 35),
             btn(R.id.btn_fluid, 2),
             btn(R.id.btn_crystal_swarm, 27),
             btn(R.id.btn_mandelbox, 19),

@@ -43,6 +43,9 @@
     <string name="vis_spectral_canyon_classic">Spectral Canyon Classic</string>
     <string name="vis_waveform_waterfall">Waterfall Scope</string>
     <string name="vis_phase_scope">Phase Scope</string>
+    <string name="vis_nebula">Nebula</string>
+    <string name="vis_event_horizon">Event Horizon</string>
+    <string name="vis_obsidian">Obsidian</string>
     <string name="cat_modes">Modes</string>
     <string name="cat_instruments">Instruments</string>
     <string name="cat_reactive">Reactive</string>

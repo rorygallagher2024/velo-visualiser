@@ -87,7 +87,7 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
         .order(java.nio.ByteOrder.nativeOrder())
     val sharedAudioFloatBuffer: java.nio.FloatBuffer = sharedAudioBuffer.asFloatBuffer()
 
-    private val scenes = arrayOfNulls<GlScene>(34)
+    private val scenes = arrayOfNulls<GlScene>(37)
     private val scenesToLoad = mutableListOf<Int>()
     private var loadFrameCounter = 0
 
@@ -127,6 +127,9 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
             31 -> SpectralCanyonScene(classic = true)
             32 -> WaveformWaterfallScene()
             33 -> PhaseScopeScene()
+            34 -> NebulaScene()
+            35 -> EventHorizonScene()
+            36 -> ObsidianScene()
             else -> RawScopeScene()
         }
     }
