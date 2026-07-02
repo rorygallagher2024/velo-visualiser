@@ -20,9 +20,9 @@ import kotlin.math.sin
  * integrated at a fixed 240 Hz substep for frame-rate-independent, CFL-stable
  * waves). Three ways in for the audio:
  *
- *  - **The raw PCM waveform drives the bottom edge as a live boundary
- *    condition** — the signal physically enters the silk and rolls through it
- *    as a wavefront.
+ *  - **The PCM waveform drives the bottom edge as a live boundary condition**
+ *    — gated, auto-gained and smoothed so the signal enters the silk as
+ *    coherent rolling wavefronts (and true silence lets it ring down).
  *  - **Spectrum transients strike a "piano line" across the sheet** — each bin
  *    owns an x position (bass left, treble right); a kick drops a stone in the
  *    pond, a hat scatters small rings, and the ripples interfere and reflect.
@@ -30,10 +30,11 @@ import kotlin.math.sin
  *    ripples visibly quicken on the groove; sustained tones set up standing
  *    waves; silence lets the sheet ring down to near-stillness.
  *
- * Rendered as a fine wireframe (the proven displaced-grid pattern) with a
- * light-is-motion model: brightness rides wave *velocity* and *curvature*, so
- * glowing crests roll through near-black fabric, with a satin sheen from a fixed
- * key light. Low grazing orbit camera. Deep-indigo -> cyan -> white-hot palette.
+ * Rendered as a dim filled surface under a fine wireframe (the proven
+ * displaced-grid pattern) with a light-is-motion model: brightness rides wave
+ * *velocity* and *curvature*, so glowing crests roll through near-black fabric,
+ * with a satin sheen from a fixed key light. Low grazing orbit camera.
+ * Deep-indigo -> cyan -> violet -> white-hot palette; crests flare on the beat.
  */
 class VeilScene : GlScene {
 
@@ -52,6 +53,12 @@ class VeilScene : GlScene {
         private const val AGC_TARGET = 2.2f
         private const val AGC_FLOOR = 0.03f
         private const val AGC_SMOOTH = 0.08f
+
+        // Edge-drive conditioning: without these the raw per-frame PCM reads as
+        // broadband fuzz at the hem instead of coherent wavefronts, and the AGC
+        // amplifies the noise floor so the sheet never actually rings down.
+        private const val EDGE_SMOOTH = 0.45f   // temporal EMA on the driven edge
+        private const val GATE_OPEN = 0.02f     // PCM peak that opens the drive gate
     }
 
     private var simProg = 0
@@ -60,6 +67,8 @@ class VeilScene : GlScene {
     private var gridVbo = 0
     private var gridIbo = 0
     private var indexCount = 0
+    private var fillIbo = 0
+    private var fillCount = 0
     private val simTex = IntArray(2)
     private val simFbo = IntArray(2)
     private var simRead = 0
@@ -71,7 +80,7 @@ class VeilScene : GlScene {
     private var sState = 0; private var sPcm = 0; private var sSpec = 0; private var sK = 0
     // Mesh uniforms.
     private var mState = 0; private var mCam = 0; private var mProj = 0
-    private var mHgt = 0; private var mDim = 0
+    private var mHgt = 0; private var mDim = 0; private var mEnv = 0; private var mFill = 0
 
     private val camBuf = FloatArray(9)
     private val prevFbo = IntArray(1)
@@ -86,6 +95,8 @@ class VeilScene : GlScene {
     private var lastT = -1f
     private var simAccum = 0f
     private var agc = 8f
+    private val edgeDrive = FloatArray(PCM_PTS)
+    private var gate = 0f
 
     override fun onCreated() {
         simProg = ShaderUtil.buildProgram(VeilShaders.QUAD_VS, VeilShaders.SIM_FS)
@@ -99,6 +110,8 @@ class VeilScene : GlScene {
         mProj = GLES20.glGetUniformLocation(meshProg, "u_proj")
         mHgt = GLES20.glGetUniformLocation(meshProg, "u_hgt")
         mDim = GLES20.glGetUniformLocation(meshProg, "u_dim")
+        mEnv = GLES20.glGetUniformLocation(meshProg, "u_env")
+        mFill = GLES20.glGetUniformLocation(meshProg, "u_fill")
 
         initBuffers()
         for (k in 0..1) {
@@ -110,9 +123,9 @@ class VeilScene : GlScene {
     }
 
     private fun initBuffers() {
-        val ids = IntArray(3)
-        GLES20.glGenBuffers(3, ids, 0)
-        quadVbo = ids[0]; gridVbo = ids[1]; gridIbo = ids[2]
+        val ids = IntArray(4)
+        GLES20.glGenBuffers(4, ids, 0)
+        quadVbo = ids[0]; gridVbo = ids[1]; gridIbo = ids[2]; fillIbo = ids[3]
 
         val quad = floatArrayOf(-1f, -1f, 1f, -1f, -1f, 1f, 1f, 1f)
         val qbuf = ByteBuffer.allocateDirect(quad.size * 4)
@@ -120,7 +133,7 @@ class VeilScene : GlScene {
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, quadVbo)
         GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, quad.size * 4, qbuf, GLES20.GL_STATIC_DRAW)
 
-        // Wireframe grid (uv in [0,1]^2) + line indices in both directions.
+        // Grid vertices (uv in [0,1]^2), shared by the wireframe and fill passes.
         val verts = FloatArray(GRID_W * GRID_D * 2)
         var vi = 0
         for (r in 0 until GRID_D) {
@@ -129,6 +142,18 @@ class VeilScene : GlScene {
                 verts[vi++] = r.toFloat() / (GRID_D - 1)
             }
         }
+        val vbuf = ByteBuffer.allocateDirect(verts.size * 4)
+            .order(ByteOrder.nativeOrder()).asFloatBuffer().put(verts).also { it.position(0) }
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, gridVbo)
+        GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, verts.size * 4, vbuf, GLES20.GL_STATIC_DRAW)
+        uploadIndices(gridIbo, buildWireIndices().also { indexCount = it.size })
+        uploadIndices(fillIbo, buildFillIndices().also { fillCount = it.size })
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
+        GLES20.glBindBuffer(GLES20.GL_ELEMENT_ARRAY_BUFFER, 0)
+    }
+
+    /** Wireframe line indices in both grid directions. */
+    private fun buildWireIndices(): ShortArray {
         val idx = ShortArray(GRID_D * (GRID_W - 1) * 2 + GRID_W * (GRID_D - 1) * 2)
         var ii = 0
         for (r in 0 until GRID_D) {
@@ -141,17 +166,31 @@ class VeilScene : GlScene {
                 idx[ii++] = (r * GRID_W + c).toShort(); idx[ii++] = ((r + 1) * GRID_W + c).toShort()
             }
         }
-        indexCount = ii
-        val vbuf = ByteBuffer.allocateDirect(verts.size * 4)
-            .order(ByteOrder.nativeOrder()).asFloatBuffer().put(verts).also { it.position(0) }
+        return idx
+    }
+
+    /** Filled-surface triangle indices (two triangles per grid cell). */
+    private fun buildFillIndices(): ShortArray {
+        val tri = ShortArray((GRID_W - 1) * (GRID_D - 1) * 6)
+        var ti = 0
+        for (r in 0 until GRID_D - 1) {
+            for (c in 0 until GRID_W - 1) {
+                val v00 = (r * GRID_W + c).toShort()
+                val v01 = (r * GRID_W + c + 1).toShort()
+                val v10 = ((r + 1) * GRID_W + c).toShort()
+                val v11 = ((r + 1) * GRID_W + c + 1).toShort()
+                tri[ti++] = v00; tri[ti++] = v01; tri[ti++] = v10
+                tri[ti++] = v01; tri[ti++] = v11; tri[ti++] = v10
+            }
+        }
+        return tri
+    }
+
+    private fun uploadIndices(ibo: Int, idx: ShortArray) {
         val ibuf: ShortBuffer = ByteBuffer.allocateDirect(idx.size * 2)
             .order(ByteOrder.nativeOrder()).asShortBuffer().put(idx).also { it.position(0) }
-        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, gridVbo)
-        GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, verts.size * 4, vbuf, GLES20.GL_STATIC_DRAW)
-        GLES20.glBindBuffer(GLES20.GL_ELEMENT_ARRAY_BUFFER, gridIbo)
+        GLES20.glBindBuffer(GLES20.GL_ELEMENT_ARRAY_BUFFER, ibo)
         GLES20.glBufferData(GLES20.GL_ELEMENT_ARRAY_BUFFER, idx.size * 2, ibuf, GLES20.GL_STATIC_DRAW)
-        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
-        GLES20.glBindBuffer(GLES20.GL_ELEMENT_ARRAY_BUFFER, 0)
     }
 
     private fun makeTexture(w: Int, h: Int, filter: Int): Int {
@@ -194,23 +233,47 @@ class VeilScene : GlScene {
         projY = fit
     }
 
-    /** Upload the driven edge (auto-gained PCM) and the piano-line mallets (bin rises). */
+    /** Upload the driven edge (conditioned PCM) and the piano-line mallets (bin rises). */
     private fun updateAudioTextures(pcm: FloatArray) {
+        uploadEdgeDrive(pcm)
+        uploadMallets()
+    }
+
+    /**
+     * Condition the PCM before it becomes the boundary condition: auto-gain,
+     * a noise gate (so silence lets the sheet ring down instead of the AGC
+     * boosting the floor into constant fuzz), a temporal EMA and a small
+     * spatial blur (so the edge rolls as coherent wavefronts, not per-texel
+     * jitter).
+     */
+    private fun uploadEdgeDrive(pcm: FloatArray) {
         var peak = 0f
         for (s in pcm) { val a = abs(s); if (a > peak) peak = a }
         agc += ((AGC_TARGET / maxOf(peak, AGC_FLOOR)).coerceIn(3f, 150f) - agc) * AGC_SMOOTH
+        // Fast attack, slow release so the first hit lands but silence fades out.
+        val open = if (peak > GATE_OPEN) 1f else 0f
+        gate += (open - gate) * (if (open > gate) 0.35f else 0.05f)
+
         val stride = (pcm.size / PCM_PTS).coerceAtLeast(1)
-        pcmBuf.clear()
         for (i in 0 until PCM_PTS) {
             val g = pcm[(i * stride).coerceAtMost(pcm.size - 1)] * agc
-            pcmBuf.put(g / (1f + abs(g))); pcmBuf.put(0f)
+            val soft = g / (1f + abs(g)) * gate
+            edgeDrive[i] += (soft - edgeDrive[i]) * EDGE_SMOOTH
+        }
+        pcmBuf.clear()
+        for (i in 0 until PCM_PTS) {
+            val l = edgeDrive[maxOf(i - 1, 0)]
+            val r = edgeDrive[minOf(i + 1, PCM_PTS - 1)]
+            pcmBuf.put((l + 2f * edgeDrive[i] + r) * 0.25f); pcmBuf.put(0f)
         }
         pcmBuf.position(0)
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, pcmTex)
         GLES20.glTexSubImage2D(GLES20.GL_TEXTURE_2D, 0, 0, 0, PCM_PTS, 1, GLES30.GL_RG, GLES20.GL_FLOAT, pcmBuf)
+    }
 
-        // Mallets: attack-only per-bin rise (mag - prevMag), plus the sustained level.
+    /** Mallets: attack-only per-bin rise (mag - prevMag), plus the sustained level. */
+    private fun uploadMallets() {
         val mags = SpectrumData.magnitudes
         specBuf.clear()
         for (i in 0 until BINS) {
@@ -219,6 +282,7 @@ class VeilScene : GlScene {
             prevMags[i] = mags[i]
         }
         specBuf.position(0)
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, specTex)
         GLES20.glTexSubImage2D(GLES20.GL_TEXTURE_2D, 0, 0, 0, BINS, 1, GLES30.GL_RG, GLES20.GL_FLOAT, specBuf)
     }
@@ -249,7 +313,7 @@ class VeilScene : GlScene {
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, prevFbo[0])
         GLES20.glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3])
 
-        drawMesh(timeSec, dim)
+        drawMesh(timeSec, dim, env)
     }
 
     private fun runSimStep(tension: Float) {
@@ -275,11 +339,11 @@ class VeilScene : GlScene {
         simRead = write
     }
 
-    private fun drawMesh(timeSec: Float, dim: Float) {
+    private fun drawMesh(timeSec: Float, dim: Float, env: Float) {
         // Low grazing orbit: an oscillating yaw so the silk catches the key light.
         buildCamera(
-            yaw = 0.25f * sin(timeSec * 0.05f),
-            pitch = 0.30f + 0.06f * sin(timeSec * 0.037f),
+            yaw = 0.38f * sin(timeSec * 0.06f),
+            pitch = 0.32f + 0.07f * sin(timeSec * 0.045f),
         )
         GLES20.glEnable(GLES20.GL_BLEND)
         GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE)   // additive on black
@@ -289,11 +353,20 @@ class VeilScene : GlScene {
         GLES20.glUniform1i(mState, 0)
         GLES20.glUniformMatrix3fv(mCam, 1, false, camBuf, 0)
         GLES20.glUniform2f(mProj, projX, projY)
-        GLES20.glUniform1f(mHgt, 0.5f)
+        GLES20.glUniform1f(mHgt, 0.5f * (1f + 0.25f * env))     // sheet breathes on the beat
         GLES20.glUniform1f(mDim, dim)
+        GLES20.glUniform1f(mEnv, env)
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, gridVbo)
         GLES20.glEnableVertexAttribArray(0)
         GLES20.glVertexAttribPointer(0, 2, GLES20.GL_FLOAT, false, 0, 0)
+
+        // Fill pass: a dim translucent body so the silk reads as fabric, not
+        // hairlines; the wireframe pass stays at full strength on top.
+        GLES20.glUniform1f(mFill, 1f)
+        GLES20.glBindBuffer(GLES20.GL_ELEMENT_ARRAY_BUFFER, fillIbo)
+        GLES20.glDrawElements(GLES20.GL_TRIANGLES, fillCount, GLES20.GL_UNSIGNED_SHORT, 0)
+
+        GLES20.glUniform1f(mFill, 0f)
         GLES20.glLineWidth(1f)
         GLES20.glBindBuffer(GLES20.GL_ELEMENT_ARRAY_BUFFER, gridIbo)
         GLES20.glDrawElements(GLES20.GL_LINES, indexCount, GLES20.GL_UNSIGNED_SHORT, 0)
@@ -418,6 +491,8 @@ private object VeilShaders {
     const val MESH_FS = """#version 300 es
         precision highp float;
         uniform float u_dim;
+        uniform float u_env;     // beat envelope: crests flare on the groove
+        uniform float u_fill;    // 1 = filled-surface pass, 0 = wireframe pass
         in float v_vel;
         in float v_crest;
         in float v_sheen;
@@ -425,17 +500,27 @@ private object VeilShaders {
         out vec4 fragColor;
 
         void main() {
-            // Light is motion: near-black silk, indigo sheen, cyan wavefronts,
-            // white-hot crests.
-            vec3 col = vec3(0.10, 0.08, 0.30) * (0.16 + v_sheen * 0.50)
-                + vec3(0.00, 0.75, 0.95) * v_vel
-                + vec3(1.15, 1.20, 1.35) * v_crest * 0.8;
+            // Light is motion: near-black silk with an indigo sheen; wavefronts
+            // journey cyan -> violet as they strengthen, crests burn white-hot
+            // and flare on the beat.
+            vec3 front = mix(
+                vec3(0.00, 0.75, 0.95), vec3(0.75, 0.25, 1.00),
+                clamp(v_vel * 0.5 - 0.15, 0.0, 1.0)
+            );
+            vec3 col = vec3(0.10, 0.08, 0.30) * (0.22 + v_sheen * 0.65)
+                + front * v_vel
+                + vec3(1.15, 1.20, 1.35) * v_crest * (0.8 + u_env * 0.9);
 
-            // Dissolve at the hem so the sheet floats in the dark.
+            // Dissolve at the hem so the sheet floats in the dark; the bottom
+            // fade also hides the raw driven-edge rows.
             float hem = smoothstep(0.0, 0.05, v_q.x) * (1.0 - smoothstep(0.95, 1.0, v_q.x))
-                * (1.0 - smoothstep(0.93, 1.0, v_q.y));
+                * (1.0 - smoothstep(0.93, 1.0, v_q.y)) * smoothstep(0.0, 0.07, v_q.y);
             col *= hem * (1.2 + v_vel * 1.2);              // HDR lift for bloom
-            fragColor = vec4(col * u_dim, 1.0);
+
+            // Fill pass renders as a dim satin body (still-black where the
+            // fabric is dark); the wireframe pass stays crisp on top.
+            float fillScale = mix(1.0, 0.24, u_fill);
+            fragColor = vec4(col * u_dim * fillScale, 1.0);
         }
     """
 }
