@@ -47,6 +47,7 @@
     <string name="vis_event_horizon">Event Horizon</string>
     <string name="vis_obsidian">Obsidian</string>
     <string name="vis_slipstream">Slipstream</string>
+    <string name="vis_veil">Veil</string>
     <string name="cat_modes">Modes</string>
     <string name="cat_instruments">Instruments</string>
     <string name="cat_reactive">Reactive</string>
