@@ -5,20 +5,20 @@ import android.view.View
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.edit
-import com.lowlatency.visualizer.NativeBridge
 import com.lowlatency.visualizer.R
 import kotlin.math.abs
-import kotlin.math.roundToInt
 
 /**
- * First-run "feel the speed" moment — makes the app's sub-10ms latency *legible*.
+ * First-run "make a sound" moment.
  *
  * A user can't see latency; the gallery of visualisers looks like every other
  * music app. So on the very first launch, once the GL intro has finished and the
- * mic is live, we prompt "Make a sound", and the instant the mic hears a transient
- * we fire a haptic pulse and reveal the real measured latency ("Reacted in 6 ms").
- * You *cause* the reaction, *feel* it, and see it named — the differentiator lands
- * in ~5 seconds with nothing but the phone.
+ * mic is live, we prompt "Make a sound" — the user claps or speaks, the canvas
+ * reacts instantly and a haptic pulse lands the same moment. You *cause* the
+ * reaction and *feel* it; no numbers, the immediacy speaks for itself. (An
+ * earlier version displayed a measured "reacted in N ms" figure, but the
+ * callback-period number understates true audio→photon latency, so it was cut
+ * rather than overclaim.)
  *
  * Sequencing is delicate on a fresh install: the mic-permission dialog only appears
  * *after* the intro, so we can't prompt until audio is actually flowing. The host
@@ -77,7 +77,7 @@ class FeelTheSpeedController(
         for (s in pcm) { val a = abs(s); if (a > peak) peak = a }
         if (peak >= TRIGGER_PEAK) {
             revealed = true
-            reveal.post { triggerReveal() }
+            reveal.post { acknowledge() }
         }
     }
 
@@ -91,18 +91,10 @@ class FeelTheSpeedController(
         schedule(NUDGE_AFTER_MS) { if (!revealed) nudge() }
     }
 
-    private fun triggerReveal() {
+    /** Sound heard: the canvas is already reacting — land the haptic and bow out. */
+    private fun acknowledge() {
         vibrate()
-        val ms = NativeBridge.nativeGetAudioCallbackMs().roundToInt()
-        val text = if (ms in 1..MAX_PLAUSIBLE_MS) {
-            activity.getString(R.string.moat_reveal_ms, ms)
-        } else {
-            activity.getString(R.string.moat_reveal_instant)
-        }
-        showLine(text)
-        reveal.scaleX = 1.18f; reveal.scaleY = 1.18f
-        reveal.animate().scaleX(1f).scaleY(1f).setDuration(260L).start()
-        schedule(REVEAL_HOLD_MS) { finish() }
+        schedule(ACK_HOLD_MS) { finish() }
     }
 
     private fun nudge() {
@@ -140,10 +132,9 @@ class FeelTheSpeedController(
     companion object {
         private const val KEY_SHOWN = "moat_reveal_shown"
         private const val TRIGGER_PEAK = 0.15f       // a clap / snap / loud word
-        private const val MAX_PLAUSIBLE_MS = 12       // beyond this, claim "instantly" not a number
         private const val WAIT_FOR_MIC_MS = 6000L     // bail to the gesture hint if mic never starts
         private const val NUDGE_AFTER_MS = 4500L      // prompt → nudge if no sound
         private const val NUDGE_HOLD_MS = 3200L
-        private const val REVEAL_HOLD_MS = 2400L
+        private const val ACK_HOLD_MS = 700L          // linger just long enough to feel the pulse
     }
 }
