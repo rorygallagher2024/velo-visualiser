@@ -3,6 +3,7 @@ package com.lowlatency.visualizer.ui
 import android.content.SharedPreferences
 import android.view.View
 import android.widget.Button
+import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -28,10 +29,17 @@ class ScenesController(
     private lateinit var visButtons: List<Triple<Button, Int, String>>
     private val favourites = linkedSetOf<Int>()
 
+    // Pinned favourites group at the top of the Visuals tab (hidden when empty).
+    private lateinit var favGroup: View
+    private lateinit var favContainer: LinearLayout
+    private val favPills = mutableListOf<Pair<Button, Int>>()
+
     fun bind() {
         heroVisName = activity.findViewById(R.id.hero_vis_name)
         btnSceneLabel = activity.findViewById(R.id.btn_scene_label)
         sceneLabel = activity.findViewById(R.id.scene_label)
+        favGroup = activity.findViewById(R.id.favourites_group)
+        favContainer = activity.findViewById(R.id.favourites_container)
 
         visButtons = listOf(
             // Instruments
@@ -90,6 +98,7 @@ class ScenesController(
             it.toIntOrNull()?.let { idx -> favourites.add(idx) }
         }
         updateFavouritesOrder()
+        rebuildFavouritesGroup()
 
         visButtons.forEach { (b, idx, _) ->
             b.setOnClickListener { glView.selectScene(idx); updateSelection() }
@@ -108,12 +117,14 @@ class ScenesController(
             b.text = if (favourites.contains(idx)) "★ $base" else base
             if (idx == current) heroVisName.text = base
         }
+        for ((b, idx) in favPills) b.isSelected = idx == current
     }
 
     private fun toggleFavourite(index: Int) {
         if (!favourites.add(index)) favourites.remove(index)
         prefs.edit { putStringSet(KEY_FAVOURITES, favourites.map { it.toString() }.toSet()) }
         updateFavouritesOrder()
+        rebuildFavouritesGroup()
         updateSelection()
         Toast.makeText(
             activity,
@@ -125,6 +136,24 @@ class ScenesController(
     private fun updateFavouritesOrder() {
         val order = glView.sceneOrder
         glView.favourites = favourites.toList().sortedBy { order.indexOf(it) }
+    }
+
+    /** Rebuild the pinned Favourites pills (swipe order); the group hides when empty. */
+    private fun rebuildFavouritesGroup() {
+        favPills.clear()
+        favContainer.removeAllViews()
+        val ordered = visButtons.filter { favourites.contains(it.second) }
+        favGroup.visibility = if (ordered.isEmpty()) View.GONE else View.VISIBLE
+        for ((_, idx, base) in ordered) {
+            val pill = activity.layoutInflater
+                .inflate(R.layout.item_favourite_pill, favContainer, false) as Button
+            pill.text = base                          // no ★ — the group already says it
+            pill.isSelected = idx == glView.sceneIndex
+            pill.setOnClickListener { glView.selectScene(idx); updateSelection() }
+            pill.setOnLongClickListener { toggleFavourite(idx); true }
+            favContainer.addView(pill)
+            favPills += pill to idx
+        }
     }
 
     private fun setSceneLabelEnabled(enabled: Boolean) {

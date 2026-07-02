@@ -50,6 +50,7 @@
     <string name="vis_veil">Veil</string>
     <string name="cat_modes">Modes</string>
     <string name="cat_instruments">Instruments</string>
+    <string name="cat_favourites">Favourites</string>
     <string name="cat_reactive">Reactive</string>
     <string name="cat_immersive">Immersive</string>
     <string name="section_visuals">Visuals</string>

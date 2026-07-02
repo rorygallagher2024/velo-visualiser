@@ -300,6 +300,26 @@
             android:textSize="12sp"
             android:layout_marginBottom="16dp" />
 
+        <!-- Pinned favourites (long-press any scene to add/remove). Hidden when
+             empty; the pills are inflated by ScenesController in swipe order. -->
+        <LinearLayout
+            android:id="@+id/favourites_group"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView style="@style/SectionHeader" android:layout_width="match_parent" android:text="@string/cat_favourites" android:layout_marginBottom="12dp" />
+
+            <LinearLayout
+                android:id="@+id/favourites_container"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+
+            <View style="@style/Divider" android:layout_marginTop="8dp" android:layout_marginBottom="16dp" />
+        </LinearLayout>
+
         <!-- Visualizer selector (stacked so full labels fit), grouped by style -->
         <LinearLayout
             android:layout_width="match_parent"
@@ -407,18 +427,7 @@
 
         <TextView style="@style/SectionHeader" android:layout_width="match_parent" android:text="@string/cat_modes" android:layout_marginBottom="12dp" />
 
-        <Button
-            android:id="@+id/btn_display_mode"
-            android:layout_width="match_parent"
-            android:layout_height="54dp"
-            android:layout_marginBottom="8dp"
-            android:background="@drawable/pill_button_bg"
-            android:text="@string/ambient_mode"
-            android:textColor="@color/btn_text"
-            android:textAllCaps="false"
-            android:textSize="15sp"
-            android:letterSpacing="0.04"
-            android:stateListAnimator="@null" />
+        <Button android:id="@+id/btn_display_mode" style="@style/VisualizerPill" android:text="@string/ambient_mode" />
 
         <!-- Sub-option of Ambient Mode: chooses what the standby screen looks like
              the next time it's entered (Classic clock vs. Window-into-the-music). -->
