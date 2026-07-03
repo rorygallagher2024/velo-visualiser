@@ -30,6 +30,8 @@ class ScenesController(
     private var sceneLabelRunnable: Runnable? = null
     private var sceneLabelEnabled = true
     private var heroAnimator: AnimatorSet? = null
+    /** The name we're animating *toward* — always up-to-date even mid-animation. */
+    private var activeSceneName = ""
 
     private lateinit var visButtons: List<Triple<Button, Int, String>>
     private val favourites = linkedSetOf<Int>()
@@ -140,7 +142,8 @@ class ScenesController(
      * text hasn't actually changed (e.g. re-selecting the current scene).
      */
     private fun animateHeroName(newName: String) {
-        if (heroVisName.text == newName) return
+        if (activeSceneName == newName) return
+        activeSceneName = newName
         heroAnimator?.cancel()
 
         val drift = heroVisName.resources.displayMetrics.density * HERO_DRIFT_DP
@@ -232,8 +235,8 @@ class ScenesController(
 
     private fun showSceneLabel() {
         if (!sceneLabelEnabled) return
-        val name = heroVisName.text
-        if (name.isNullOrBlank()) return
+        val name = activeSceneName
+        if (name.isBlank()) return
         sceneLabel.text = name
         val d = activity.resources.displayMetrics.density
         val lp = sceneLabel.layoutParams as android.view.ViewGroup.MarginLayoutParams
