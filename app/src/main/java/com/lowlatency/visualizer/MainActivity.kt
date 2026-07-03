@@ -210,6 +210,9 @@ class MainActivity : AppCompatActivity() {
                 if (::lightingController.isInitialized) lightingController.huePerfStats()
                 else PerfOverlayController.HueStats(false, 0L, 0L, -1L)
             },
+            sceneName = {
+                if (::scenesController.isInitialized) scenesController.currentSceneName() else ""
+            },
         )
         perfOverlayController.bind()
 

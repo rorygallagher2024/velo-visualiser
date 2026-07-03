@@ -116,8 +116,15 @@
             </LinearLayout>
         </LinearLayout>
 
+        <!-- Frame-time sparkline: ~3s of frame times over the budget hairline -->
+        <com.lowlatency.visualizer.ui.FrameSparklineView
+            android:id="@+id/perf_sparkline"
+            android:layout_width="match_parent"
+            android:layout_height="26dp"
+            android:layout_marginTop="6dp" />
+
         <!-- Hairline divider -->
-        <View style="@style/Divider" android:layout_marginTop="12dp" android:layout_marginBottom="12dp" />
+        <View style="@style/Divider" android:layout_marginTop="10dp" android:layout_marginBottom="12dp" />
 
         <!-- Technical data block (mono) -->
         <TextView

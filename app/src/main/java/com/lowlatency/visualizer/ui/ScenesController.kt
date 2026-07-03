@@ -111,6 +111,14 @@ class ScenesController(
         btnSceneLabel.setOnClickListener { setSceneLabelEnabled(!sceneLabelEnabled) }
     }
 
+    /** The active scene's display name (e.g. for the perf overlay's Scene row). */
+    fun currentSceneName(): String =
+        if (::visButtons.isInitialized) {
+            visButtons.firstOrNull { it.second == glView.sceneIndex }?.third ?: ""
+        } else {
+            ""
+        }
+
     fun updateSelection() {
         val current = glView.sceneIndex
         for ((b, idx, base) in visButtons) {
