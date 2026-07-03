@@ -1,7 +1,11 @@
 package com.lowlatency.visualizer.ui
 
+import android.animation.AnimatorSet
+import android.animation.ObjectAnimator
 import android.content.SharedPreferences
 import android.view.View
+import android.view.animation.AccelerateInterpolator
+import android.view.animation.DecelerateInterpolator
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -25,6 +29,7 @@ class ScenesController(
     private lateinit var sceneLabel: TextView
     private var sceneLabelRunnable: Runnable? = null
     private var sceneLabelEnabled = true
+    private var heroAnimator: AnimatorSet? = null
 
     private lateinit var visButtons: List<Triple<Button, Int, String>>
     private val favourites = linkedSetOf<Int>()
@@ -124,9 +129,57 @@ class ScenesController(
         for ((b, idx, base) in visButtons) {
             b.isSelected = idx == current
             b.text = if (favourites.contains(idx)) "★ $base" else base
-            if (idx == current) heroVisName.text = base
+            if (idx == current) animateHeroName(base)
         }
         for ((b, idx) in favPills) b.isSelected = idx == current
+    }
+
+    /**
+     * Cross-fade the hero scene name: a quick fade-out with a slight upward
+     * drift, then swap the text and fade back in. Skips the animation when the
+     * text hasn't actually changed (e.g. re-selecting the current scene).
+     */
+    private fun animateHeroName(newName: String) {
+        if (heroVisName.text == newName) return
+        heroAnimator?.cancel()
+
+        val drift = heroVisName.resources.displayMetrics.density * HERO_DRIFT_DP
+
+        val fadeOut = ObjectAnimator.ofFloat(heroVisName, View.ALPHA, heroVisName.alpha, 0f)
+        val slideOut = ObjectAnimator.ofFloat(heroVisName, View.TRANSLATION_Y, 0f, -drift)
+        val outSet = AnimatorSet().apply {
+            playTogether(fadeOut, slideOut)
+            duration = HERO_OUT_MS
+            interpolator = AccelerateInterpolator(1.4f)
+        }
+
+        val fadeIn = ObjectAnimator.ofFloat(heroVisName, View.ALPHA, 0f, 1f)
+        val slideIn = ObjectAnimator.ofFloat(heroVisName, View.TRANSLATION_Y, drift, 0f)
+        val inSet = AnimatorSet().apply {
+            playTogether(fadeIn, slideIn)
+            duration = HERO_IN_MS
+            interpolator = DecelerateInterpolator(1.6f)
+        }
+
+        heroAnimator = AnimatorSet().apply {
+            playSequentially(outSet, inSet)
+            addListener(object : android.animation.AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: android.animation.Animator) {
+                    // Ensure rest state even if cancelled mid-flight.
+                    heroVisName.alpha = 1f
+                    heroVisName.translationY = 0f
+                }
+                // Swap the label at the crossover point (outSet finished).
+                override fun onAnimationStart(animation: android.animation.Animator) {
+                    outSet.addListener(object : android.animation.AnimatorListenerAdapter() {
+                        override fun onAnimationEnd(a: android.animation.Animator) {
+                            heroVisName.text = newName
+                        }
+                    })
+                }
+            })
+            start()
+        }
     }
 
     private fun toggleFavourite(index: Int) {
@@ -211,5 +264,8 @@ class ScenesController(
     companion object {
         private const val KEY_FAVOURITES = "favourite_scenes"
         private const val KEY_SCENE_LABEL = "scene_label_enabled"
+        private const val HERO_DRIFT_DP = 6f   // how far the text drifts vertically
+        private const val HERO_OUT_MS = 120L    // fade-out duration
+        private const val HERO_IN_MS = 200L     // fade-in duration (slower for a soft landing)
     }
 }
