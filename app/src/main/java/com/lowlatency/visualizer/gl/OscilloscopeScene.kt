@@ -98,13 +98,14 @@ class OscilloscopeScene : GlScene {
             }
 
             // Minimum distance from fragment to the trace, scanning a small
-            // window of segments around the fragment's x (handles steep
-            // transients where neighbouring segments are nearly vertical).
+            // window of segments around the fragment's x.
             float traceDistance(vec2 fragPx, float xShift) {
                 float fx = (fragPx.x - xShift) / u_resolution.x * (N - 1.0);
                 int center = int(fx);
                 float best = 1e9;
-                for (int k = -3; k <= 3; k++) {
+                // 5 segments (-2..2) is sufficient for 1024 samples — segments
+                // ±3 away almost never contribute and cost 28 % of loop ALU.
+                for (int k = -2; k <= 2; k++) {
                     int i = center + k;
                     if (i < 0 || i >= ${POINTS} - 1) continue;
                     vec2 a = samplePx(i, xShift);
@@ -123,16 +124,26 @@ class OscilloscopeScene : GlScene {
                 // distinct from the flat 1px Raw Oscilloscope.
                 float bloom = 4.5 * (1.0 + u_low * 1.2);
 
+                // Green channel (centre, no CA shift) is always needed.
+                float d0 = traceDistance(fragPx, 0.0);
+
                 // Chromatic aberration grows toward the edges, scaled by bass.
+                // When the shift is sub-pixel the R/B channels are visually
+                // identical to the centre — skip the two extra trace scans.
                 float edge = abs((fragPx.x / u_resolution.x - 0.5) * 2.0);
                 float ca = u_low * 6.0 * edge;   // pixels of R/B separation
 
+                float dCa, dCb;
+                if (ca > 0.5) {
+                    dCa = traceDistance(fragPx,  ca);
+                    dCb = traceDistance(fragPx, -ca);
+                } else {
+                    dCa = d0;
+                    dCb = d0;
+                }
+
                 // HDR overdrive: heavy bass drives the core past 1.0 (FP16 fb).
                 float hdrGain = 1.0 + u_low * 4.0;
-
-                float dCa = traceDistance(fragPx,  ca);
-                float d0  = traceDistance(fragPx, 0.0);
-                float dCb = traceDistance(fragPx, -ca);
 
                 // Micro-core: sub-pixel ultra-bright WHITE filament (thin).
                 float coreSig = 0.6;
@@ -149,6 +160,7 @@ class OscilloscopeScene : GlScene {
                 vec3 col = vec3(core * hdrGain) + halo * 0.55;
 
                 // Signal-velocity dimming: short beam dwell on fast transients.
+                // Reuse the centre-channel x location to avoid a redundant lookup.
                 float fx = fragPx.x / u_resolution.x * (N - 1.0);
                 int c = int(fx);
                 c = c < 0 ? 0 : (c > ${POINTS} - 2 ? ${POINTS} - 2 : c);
