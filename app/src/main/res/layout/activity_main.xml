@@ -367,6 +367,7 @@
             <TextView style="@style/SectionHeader" android:layout_width="match_parent" android:text="@string/cat_reactive" android:layout_marginBottom="12dp" />
 
             <Button android:id="@+id/btn_veil" style="@style/VisualizerPill" android:text="@string/vis_veil" />
+            <Button android:id="@+id/btn_veil_topdown" style="@style/VisualizerPill" android:text="@string/vis_veil_topdown" />
 
             <Button android:id="@+id/btn_nebula" style="@style/VisualizerPill" android:text="@string/vis_nebula" />
 

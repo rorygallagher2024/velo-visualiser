@@ -30,8 +30,6 @@ import kotlin.math.sqrt
  */
 class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
 
-    private val appContext = context.applicationContext
-
     companion object {
         private const val TAG = "VisualizerRenderer"
         const val DEFAULT_SCENE = 8       // Raw Oscilloscope — shown on startup
@@ -90,7 +88,7 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
         .order(java.nio.ByteOrder.nativeOrder())
     val sharedAudioFloatBuffer: java.nio.FloatBuffer = sharedAudioBuffer.asFloatBuffer()
 
-    private val scenes = arrayOfNulls<GlScene>(40)
+    private val scenes = arrayOfNulls<GlScene>(41)
     private val scenesToLoad = mutableListOf<Int>()
     private var loadFrameCounter = 0
 
@@ -136,6 +134,7 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
             37 -> SlipstreamScene()
             38 -> VeilScene()
             39 -> MeridianScene()
+            40 -> VeilTopDownScene()
             else -> RawScopeScene()
         }
     }

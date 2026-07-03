@@ -62,6 +62,7 @@ class ScenesController(
             btn(R.id.btn_phase_scope, 33),
             // Reactive
             btn(R.id.btn_veil, 38),
+            btn(R.id.btn_veil_topdown, 40),
             btn(R.id.btn_nebula, 34),
             btn(R.id.btn_logo_particle, 26),
             btn(R.id.btn_spectral_canyon, 30),
