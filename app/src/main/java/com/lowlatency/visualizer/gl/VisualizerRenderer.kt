@@ -29,8 +29,6 @@ import kotlin.math.sqrt
  */
 class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
 
-    private val appContext = context.applicationContext
-
     companion object {
         private const val TAG = "VisualizerRenderer"
         const val DEFAULT_SCENE = 8       // Raw Oscilloscope — shown on startup
@@ -87,7 +85,7 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
         .order(java.nio.ByteOrder.nativeOrder())
     val sharedAudioFloatBuffer: java.nio.FloatBuffer = sharedAudioBuffer.asFloatBuffer()
 
-    private val scenes = arrayOfNulls<GlScene>(39)
+    private val scenes = arrayOfNulls<GlScene>(41)
     private val scenesToLoad = mutableListOf<Int>()
     private var loadFrameCounter = 0
 
@@ -132,6 +130,8 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
             36 -> ObsidianScene()
             37 -> SlipstreamScene()
             38 -> VeilScene()
+            39 -> MeridianScene()
+            40 -> VeilTopDownScene()
             else -> RawScopeScene()
         }
     }
@@ -502,7 +502,9 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
             )
         }
 
-        // Finalise load measurements
+        // Finalise load measurements. (GPU timer queries were tried here and
+        // removed: EXT_disjoint_timer_query never returns results on the target
+        // devices, so the overlay's GPU row showed nothing — see git history.)
         val cpuWorkUs = (android.os.SystemClock.currentThreadTimeMillis() - cpuThreadTimeStart) * 1000L
         NativeBridge.nativeUpdateHardwareLoad(cpuWorkUs, 0, false)
     }

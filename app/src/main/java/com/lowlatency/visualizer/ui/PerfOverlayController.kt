@@ -4,6 +4,7 @@ import android.content.SharedPreferences
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
 import android.view.View
 import android.view.animation.AnimationUtils
 import android.widget.Button
@@ -32,6 +33,7 @@ class PerfOverlayController(
     private val prefs: SharedPreferences,
     private val isSystemAudioMode: () -> Boolean,
     private val hueStats: () -> HueStats,
+    private val sceneName: () -> String = { "" },
 ) {
 
     /** Snapshot of the Hue stream the overlay reports. [active] mirrors the old
@@ -49,6 +51,8 @@ class PerfOverlayController(
     private lateinit var perfFpsValue: TextSwitcher
     private lateinit var perfFrameMs: TextView
     private lateinit var perfDetail: TextView
+    private lateinit var sparkline: FrameSparklineView
+    private var lastRefreshRate = 60f
 
     private var displayedFps = 0f
     private var shownFps = -1          // last integer drawn (snap/hysteresis state)
@@ -76,6 +80,9 @@ class PerfOverlayController(
         override fun run() {
             displayedFps += (glView.rendererFps - displayedFps) * 0.22f
             renderHeroFps()
+            // Feed the sparkline the live frame time against the vsync budget.
+            sparkline.budgetMs = 1000f / lastRefreshRate
+            sparkline.push(glView.rendererFrameTimeMs)
             perfHandler.postDelayed(this, 50L)
         }
     }
@@ -87,6 +94,7 @@ class PerfOverlayController(
         perfFpsValue = activity.findViewById(R.id.perf_fps_value)
         perfFrameMs = activity.findViewById(R.id.perf_frame_ms)
         perfDetail = activity.findViewById(R.id.perf_detail)
+        sparkline = activity.findViewById(R.id.perf_sparkline)
         setEnabled(prefs.getBoolean(KEY_PERF_OVERLAY, false))
         btnPerfOverlay.setOnClickListener { setEnabled(!enabled) }
     }
@@ -103,6 +111,7 @@ class PerfOverlayController(
             smoothedHuePps = 0f
             displayedFps = 0f          // count up from zero — a small flourish on open
             shownFps = -1
+            sparkline.reset()
             perfHandler.removeCallbacks(perfPoller)
             perfHandler.removeCallbacks(perfFpsTicker)
             perfHandler.post(perfPoller)
@@ -138,13 +147,14 @@ class PerfOverlayController(
         val rate = NativeBridge.nativeGetSampleRate()
         // Derive frame time from the (already EMA-smoothed) fps so the readout is
         // calm and consistent with the hero number, instead of the raw per-frame
-        // dt which flickers every frame. Updated on the slow 500 ms cadence.
-        val frameMs = if (displayedFps > 1f) 1000f / displayedFps else glView.rendererFrameTimeMs
+        // dt which flickers every frame. While the hero is still counting up from
+        // its open flourish, show the live value (1000/small-fps reads nonsense).
+        val frameMs = if (displayedFps > 10f) 1000f / displayedFps else glView.rendererFrameTimeMs
         perfFrameMs.text = "%.1f ms".format(frameMs)
 
         val sb = android.text.SpannableStringBuilder()
         val dim = activity.getColor(R.color.text_dim)
-        val amber = 0xFFFFBB33.toInt()
+        val amber = AMBER
 
         // Each row: a dim mono label padded to a fixed column, then the value.
         fun appendRow(label: String, value: String, valueColor: Int = 0) {
@@ -159,11 +169,20 @@ class PerfOverlayController(
             sb.append("\n")
         }
 
-        // Hardware load → CPU time within the GL frame.
+        // Which scene the numbers belong to — the context every screenshot needs.
+        val scene = sceneName()
+        if (scene.isNotBlank()) appendRow("Scene", scene.take(18))
+
+        // CPU time within the GL frame ("% frame" = share of the frame budget,
+        // so 100% means this alone would cap the frame rate).
         val load = NativeBridge.nativeGetHardwareLoad()
         val cpuMs = load[0] / 1000f
         val cpuPercent = if (frameMs > 0) (cpuMs / frameMs * 100f).coerceIn(0f, 100f) else 0f
-        appendRow("CPU", "%.1f ms · %.0f%%".format(cpuMs, cpuPercent))
+        appendRow("CPU", "%.1f ms · %.0f%% frame".format(cpuMs, cpuPercent))
+
+        // Thermal headroom — the usual answer to "why did the fps dip?".
+        val (thermalText, thermalColor) = thermalStatus()
+        appendRow("Thermal", thermalText, thermalColor)
 
         // Memory Usage
         val debugMem = android.os.Debug.MemoryInfo()
@@ -178,8 +197,10 @@ class PerfOverlayController(
         appendRow("  NATIVE", "%d MB".format(nativeMb))
         appendRow("  GRAPHICS", "%d MB".format(gfxMb))
 
-        // Audio capture.
-        appendRow("Audio", "%d Hz · %.1f ms".format(rate, audioMs))
+        // Audio capture. The ms figure is the buffer/callback chunk duration, not
+        // end-to-end latency — split onto its own plainly-named row.
+        appendRow("Audio", "%d Hz".format(rate))
+        appendRow("Buffer", "%.1f ms".format(audioMs))
 
         // System audio / jitter (internal-audio mode only).
         if (isSystemAudioMode()) {
@@ -219,6 +240,18 @@ class PerfOverlayController(
         perfDetail.text = sb
     }
 
+    /** Thermal status → (readout text, value colour). */
+    private fun thermalStatus(): Pair<String, Int> {
+        val power = activity.getSystemService(PowerManager::class.java)
+        val t = power?.currentThermalStatus ?: PowerManager.THERMAL_STATUS_NONE
+        return when {
+            t >= PowerManager.THERMAL_STATUS_SEVERE -> "throttling" to RED
+            t == PowerManager.THERMAL_STATUS_MODERATE -> "hot" to AMBER
+            t == PowerManager.THERMAL_STATUS_LIGHT -> "warm" to 0
+            else -> "normal" to 0
+        }
+    }
+
     /** Render the giant eased FPS number: brand white when healthy, amber/red when struggling. */
     private fun renderHeroFps() {
         val refreshRate = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -227,6 +260,7 @@ class PerfOverlayController(
             @Suppress("DEPRECATION")
             activity.windowManager.defaultDisplay.refreshRate
         }
+        lastRefreshRate = refreshRate
         val v = kotlin.math.min(displayedFps, refreshRate + 0.5f)
 
         // When we're essentially locked to a vsync rate (60/90/120/144), show that
@@ -266,6 +300,8 @@ class PerfOverlayController(
 
     companion object {
         private const val KEY_PERF_OVERLAY = "perf_overlay_enabled"
+        private const val RED = 0xFFFF4444.toInt()
+        private const val AMBER = 0xFFFFBB33.toInt()
         // FPS readout: snap to a vsync rate within this many fps (kills 60↔61
         // flicker); off a locked rate, require this much change before re-drawing.
         private val LOCKED_RATES = intArrayOf(60, 90, 120, 144)

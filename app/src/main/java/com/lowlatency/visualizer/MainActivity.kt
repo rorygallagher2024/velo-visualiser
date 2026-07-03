@@ -210,6 +210,9 @@ class MainActivity : AppCompatActivity() {
                 if (::lightingController.isInitialized) lightingController.huePerfStats()
                 else PerfOverlayController.HueStats(false, 0L, 0L, -1L)
             },
+            sceneName = {
+                if (::scenesController.isInitialized) scenesController.currentSceneName() else ""
+            },
         )
         perfOverlayController.bind()
 
@@ -644,11 +647,14 @@ class MainActivity : AppCompatActivity() {
 
     /**
      * Enforce a maximum size for floating dialogs (90% width, 90% max-height) to
-     * ensure they remain unclipped on small devices and in landscape mode.
+     * ensure they remain unclipped on small devices and in landscape mode. Width
+     * is additionally capped to a fixed column on wide displays (tablets /
+     * unfolded foldables), matching the settings sheet's content cap.
      */
     private fun configureDialogWindow(dialog: Dialog) {
         val metrics = resources.displayMetrics
-        val w = (metrics.widthPixels * 0.9).toInt()
+        val capPx = (DIALOG_MAX_WIDTH_DP * metrics.density).toInt()
+        val w = minOf((metrics.widthPixels * 0.9).toInt(), capPx)
         val h = (metrics.heightPixels * 0.9).toInt()
         
         dialog.window?.let { window ->
@@ -722,6 +728,8 @@ class MainActivity : AppCompatActivity() {
         Log.i(TAG, "Config changed: ${newConfig.screenWidthDp}x${newConfig.screenHeightDp} dp")
         // Ambient Mode re-fits its layout live (landscape sits data beside the clock).
         if (::displayModeController.isInitialized) displayModeController.onOrientationChanged()
+        // The settings sheet re-fits its content column (width cap on wide displays).
+        if (::menuSheetController.isInitialized) menuSheetController.onConfigurationChanged()
     }
 
     override fun onResume() {
@@ -777,6 +785,7 @@ class MainActivity : AppCompatActivity() {
         private const val TAB_VISUALS = 0
         private const val TAB_LIGHTING = 1
         private const val TAB_SETTINGS = 2
+        private const val DIALOG_MAX_WIDTH_DP = 560f  // dialog column cap on wide displays
         private const val SPLASH_MASK_MS = 120L    // black mask over GL init, then fade
         private const val SPLASH_FADE_MS = 350L
         private const val INTRO_HINT_DURATION_MS = 5000L

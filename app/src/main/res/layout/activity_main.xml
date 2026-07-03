@@ -116,8 +116,15 @@
             </LinearLayout>
         </LinearLayout>
 
+        <!-- Frame-time sparkline: ~3s of frame times over the budget hairline -->
+        <com.lowlatency.visualizer.ui.FrameSparklineView
+            android:id="@+id/perf_sparkline"
+            android:layout_width="match_parent"
+            android:layout_height="26dp"
+            android:layout_marginTop="6dp" />
+
         <!-- Hairline divider -->
-        <View style="@style/Divider" android:layout_marginTop="12dp" android:layout_marginBottom="12dp" />
+        <View style="@style/Divider" android:layout_marginTop="10dp" android:layout_marginBottom="12dp" />
 
         <!-- Technical data block (mono) -->
         <TextView
@@ -193,7 +200,11 @@
         android:scrollbars="none"
         android:accessibilityPaneTitle="@string/cd_settings_menu">
 
+        <!-- Content column: capped to a centered max-width on tablets/unfolded
+             foldables (MenuSheetController.applyWidthCap) so controls don't
+             stretch edge-to-edge on wide displays. -->
         <LinearLayout
+            android:id="@+id/options_sheet_content"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
@@ -356,6 +367,7 @@
             <TextView style="@style/SectionHeader" android:layout_width="match_parent" android:text="@string/cat_reactive" android:layout_marginBottom="12dp" />
 
             <Button android:id="@+id/btn_veil" style="@style/VisualizerPill" android:text="@string/vis_veil" />
+            <Button android:id="@+id/btn_veil_topdown" style="@style/VisualizerPill" android:text="@string/vis_veil_topdown" />
 
             <Button android:id="@+id/btn_nebula" style="@style/VisualizerPill" android:text="@string/vis_nebula" />
 
@@ -398,6 +410,8 @@
             <View style="@style/Divider" android:layout_marginTop="16dp" android:layout_marginBottom="16dp" />
 
             <TextView style="@style/SectionHeader" android:layout_width="match_parent" android:text="@string/cat_immersive" android:layout_marginBottom="12dp" />
+
+            <Button android:id="@+id/btn_meridian" style="@style/VisualizerPill" android:text="@string/vis_meridian" />
 
             <Button android:id="@+id/btn_slipstream" style="@style/VisualizerPill" android:text="@string/vis_slipstream" />
 

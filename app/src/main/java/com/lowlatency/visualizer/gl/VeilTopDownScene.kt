@@ -36,7 +36,7 @@ import kotlin.math.sin
  * with a satin sheen from a fixed key light. Low grazing orbit camera.
  * Deep-indigo -> cyan -> violet -> white-hot palette; crests flare on the beat.
  */
-class VeilScene : GlScene {
+class VeilTopDownScene : GlScene {
 
     companion object {
         private const val TAG = "VeilScene"
@@ -99,8 +99,8 @@ class VeilScene : GlScene {
     private var gate = 0f
 
     override fun onCreated() {
-        simProg = ShaderUtil.buildProgram(VeilShaders.QUAD_VS, VeilShaders.SIM_FS)
-        meshProg = ShaderUtil.buildProgram(VeilShaders.MESH_VS, VeilShaders.MESH_FS)
+        simProg = ShaderUtil.buildProgram(VeilTopDownShaders.QUAD_VS, VeilTopDownShaders.SIM_FS)
+        meshProg = ShaderUtil.buildProgram(VeilTopDownShaders.MESH_VS, VeilTopDownShaders.MESH_FS)
         sState = GLES20.glGetUniformLocation(simProg, "u_state")
         sPcm = GLES20.glGetUniformLocation(simProg, "u_pcm")
         sSpec = GLES20.glGetUniformLocation(simProg, "u_spec")
@@ -228,9 +228,14 @@ class VeilScene : GlScene {
 
     override fun onResize(width: Int, height: Int, aspect: Float) {
         val a = if (height > 0) width.toFloat() / height else 1f
-        val fit = 0.8f * minOf(a, 1f)
-        projX = fit / a
-        projY = fit
+        // We want a "centerCrop" projection: scale uniformly so the mesh covers the screen.
+        // Mesh half-extents in MESH_VS are X: 1.35, Y: 0.85
+        val scaleX = a / 1.35f
+        val scaleY = 1.0f / 0.85f
+        val s = maxOf(scaleX, scaleY)
+        
+        projX = s / a
+        projY = s
     }
 
     /** Upload the driven edge (conditioned PCM) and the piano-line mallets (bin rises). */
@@ -340,10 +345,10 @@ class VeilScene : GlScene {
     }
 
     private fun drawMesh(timeSec: Float, dim: Float, env: Float) {
-        // Low grazing orbit: an oscillating yaw so the silk catches the key light.
+        // Top-down view looking straight at the membrane.
         buildCamera(
-            yaw = 0.38f * sin(timeSec * 0.06f),
-            pitch = 0.32f + 0.07f * sin(timeSec * 0.045f),
+            yaw = 0f,
+            pitch = Math.PI.toFloat() / 2f,
         )
         GLES20.glEnable(GLES20.GL_BLEND)
         GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE)   // additive on black
@@ -393,7 +398,7 @@ class VeilScene : GlScene {
 }
 
 /** Veil's GLSL, kept out of the scene class (size guard + readability). */
-private object VeilShaders {
+private object VeilTopDownShaders {
 
     const val QUAD_VS = """#version 300 es
         layout(location = 0) in vec2 aPos;
@@ -419,7 +424,7 @@ private object VeilShaders {
         out vec4 o_state;
 
         void main() {
-            ivec2 ts = ivec2(${VeilScene.SIM_W}, ${VeilScene.SIM_H});
+            ivec2 ts = ivec2(${VeilTopDownScene.SIM_W}, ${VeilTopDownScene.SIM_H});
             ivec2 ij = clamp(ivec2(v_uv * vec2(ts)), ivec2(0), ts - 1);
             vec2 s = texelFetch(u_state, ij, 0).rg;
             float h = s.r;
@@ -467,7 +472,7 @@ private object VeilShaders {
         out vec2  v_q;
 
         void main() {
-            vec2 e = vec2(1.0 / ${VeilScene.SIM_W}.0, 1.0 / ${VeilScene.SIM_H}.0);
+            vec2 e = vec2(1.0 / ${VeilTopDownScene.SIM_W}.0, 1.0 / ${VeilTopDownScene.SIM_H}.0);
             vec2 s = texture(u_state, aGrid).rg;
             float h = s.r;
             float hl = texture(u_state, aGrid - vec2(e.x, 0.0)).r;
@@ -516,13 +521,9 @@ private object VeilShaders {
                 + front * v_vel
                 + vec3(0.85, 0.90, 1.05) * v_crest * (0.5 + u_env * 0.6);
 
-            // Dissolve at the hem so the sheet floats in the dark; the bottom
-            // fade also hides the raw driven-edge rows.
-            float hem = smoothstep(0.0, 0.05, v_q.x) * (1.0 - smoothstep(0.95, 1.0, v_q.x))
-                * (1.0 - smoothstep(0.93, 1.0, v_q.y)) * smoothstep(0.0, 0.07, v_q.y);
-            
+            // Removed the edge hem dissolve so the fabric covers the screen edge-to-edge.
             // Reduced the velocity-based HDR lift to prevent loud sections from washing out to white
-            col *= hem * (1.1 + v_vel * 0.6);
+            col *= (1.1 + v_vel * 0.6);
 
             // Fill pass renders as a dim satin body (still-black where the
             // fabric is dark); the wireframe pass stays crisp on top.

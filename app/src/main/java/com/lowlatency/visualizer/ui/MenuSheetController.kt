@@ -6,9 +6,12 @@ import android.graphics.RenderEffect
 import android.graphics.Shader
 import android.os.Build
 import android.view.GestureDetector
+import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
 import android.view.animation.DecelerateInterpolator
+import android.widget.FrameLayout
 import androidx.appcompat.app.AppCompatActivity
 import com.lowlatency.visualizer.R
 import com.lowlatency.visualizer.VisualizerSurfaceView
@@ -31,6 +34,7 @@ class MenuSheetController(
 ) {
     private lateinit var scrim: View
     private lateinit var optionsSheet: View
+    private lateinit var sheetContent: View
 
     private var blurAnimator: ValueAnimator? = null
     private var currentBlurRadius = 0f
@@ -44,7 +48,9 @@ class MenuSheetController(
     fun bind() {
         scrim = activity.findViewById(R.id.scrim)
         optionsSheet = activity.findViewById(R.id.options_sheet)
+        sheetContent = activity.findViewById(R.id.options_sheet_content)
         optionsSheet.visibility = View.GONE
+        applyWidthCap()
 
         // Interactive swipe-up: the sheet follows the finger, then settles open or
         // closed on release based on position + velocity.
@@ -68,6 +74,31 @@ class MenuSheetController(
             }
         })
         optionsSheet.setOnTouchListener { _, ev -> sheetGestures.onTouchEvent(ev); false }
+    }
+
+    /**
+     * Cap the sheet's content to a centered column on wide displays (tablets,
+     * unfolded foldables, landscape phones) so controls don't stretch
+     * edge-to-edge; below the trigger width the column fills as before. The
+     * sheet's translucent background still spans the full width — only the
+     * content centers.
+     */
+    private fun applyWidthCap() {
+        val widthDp = activity.resources.configuration.screenWidthDp
+        val lp = sheetContent.layoutParams as FrameLayout.LayoutParams
+        if (widthDp > WIDTH_CAP_TRIGGER_DP) {
+            lp.width = (WIDTH_CAP_DP * activity.resources.displayMetrics.density).toInt()
+            lp.gravity = Gravity.CENTER_HORIZONTAL
+        } else {
+            lp.width = ViewGroup.LayoutParams.MATCH_PARENT
+            lp.gravity = Gravity.NO_GRAVITY
+        }
+        sheetContent.layoutParams = lp
+    }
+
+    /** Re-fit the content column after a rotation / fold change. */
+    fun onConfigurationChanged() {
+        if (::sheetContent.isInitialized) applyWidthCap()
     }
 
     /**
@@ -197,5 +228,7 @@ class MenuSheetController(
         private const val SWIPE_DOWN_VELOCITY = 1200f
         private const val MENU_BLUR_MAX = 32f
         private const val SHEET_SETTLE_VELOCITY = 600f  // px/s flick that decisively opens/closes
+        private const val WIDTH_CAP_TRIGGER_DP = 600    // apply the cap above this screen width
+        private const val WIDTH_CAP_DP = 560f           // centered content column width
     }
 }

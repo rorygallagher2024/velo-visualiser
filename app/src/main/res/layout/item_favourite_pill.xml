@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+    One pinned-favourite scene pill (Visuals tab "Favourites" group). Inflated
+    per favourite by ScenesController; text/click wiring happen in code.
+-->
+<Button xmlns:android="http://schemas.android.com/apk/res/android"
+    style="@style/VisualizerPill" />
