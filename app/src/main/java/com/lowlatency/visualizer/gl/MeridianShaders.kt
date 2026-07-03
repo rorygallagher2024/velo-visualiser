@@ -57,44 +57,42 @@ internal object MeridianShaders {
         }
 
         void main() {
+            // INK & LIGHT: the sky is black paper — a flat graphic moon, sparse
+            // crisp stars, one thin aurora ribbon. No clouds, no gradients.
             vec2 sc = vec2((v_uv.x * 2.0 - 1.0) * u_aspect / 1.15, (v_uv.y * 2.0 - 1.0) / 1.15);
             sc = rollRot(sc, -u_roll);                  // sky banks with the flight
             vec3 rd = normalize(vec3(sc, 1.0));
             float up = max(rd.y, 0.0);
 
-            vec3 col = mix(vec3(0.030, 0.032, 0.082), vec3(0.0), smoothstep(0.0, 0.55, up));
+            vec3 col = vec3(0.0);
 
+            // Flat pale disc + a thin detached ring — printed, not photographed.
             float md = max(dot(rd, MOON), 0.0);
-            col += MOONCOL * smoothstep(0.99955, 0.99985, md) * 2.6;
-            col += MOONCOL * pow(md, 700.0) * 0.9;
-            col += MOONCOL * pow(md, 60.0) * (0.10 + u_env * 0.06);
+            col += vec3(0.92, 0.94, 1.02) * smoothstep(0.99950, 0.99966, md) * 1.7;
+            float ring = smoothstep(0.99855, 0.99885, md) * (1.0 - smoothstep(0.99905, 0.99935, md));
+            col += vec3(0.92, 0.94, 1.02) * ring * 0.24;
 
+            // Sparse ink stars, barely twinkling with the treble.
             if (rd.y > 0.02) {
-                vec2 cp = rd.xz / rd.y;
-                float c1 = fbm(cp * 0.55 + vec2(u_time * 0.010, u_time * 0.004));
-                float c2 = fbm(cp * 1.10 - vec2(u_time * 0.016, -u_time * 0.006) + 31.0);
-                float cov = smoothstep(0.52 - u_cloud, 0.78 - u_cloud, c1 * 0.65 + c2 * 0.35);
-                float horizonFade = smoothstep(0.02, 0.18, rd.y) * (1.0 - smoothstep(0.5, 0.9, rd.y));
-                vec3 cloudCol = mix(vec3(0.045, 0.05, 0.09), MOONCOL * 0.30, pow(md, 6.0) + 0.18);
-                col = mix(col, cloudCol, cov * horizonFade * 0.85);
-
-                vec2 q = rd.xz / (rd.y + 0.35) * 26.0;
+                vec2 q = rd.xz / (rd.y + 0.35) * 18.0;
                 vec2 cell = floor(q);
                 float h = hash(cell);
-                float star = smoothstep(0.995, 1.0, h)
-                    * smoothstep(0.45, 0.0, length(fract(q) - 0.5))
-                    * (0.55 + 0.45 * sin(u_time * 2.5 + h * 40.0))
-                    * (0.45 + u_treble * 0.9) * (1.0 - cov);
+                float star = smoothstep(0.9975, 1.0, h)
+                    * smoothstep(0.30, 0.0, length(fract(q) - 0.5))
+                    * (0.6 + 0.4 * sin(u_time * 2.0 + h * 40.0))
+                    * (0.40 + u_treble * 0.8);
                 col += vec3(0.85, 0.92, 1.1) * star;
             }
 
-            float ay = (rd.y - 0.16) * 5.5;
+            // One thin luminous ribbon on the horizon — the aurora as a signal line.
+            float ay = (rd.y - 0.145) * 26.0;
             float band = exp(-ay * ay);
-            float wob = sin(rd.x * 9.0 + u_time * 0.21) * 0.5 + sin(rd.x * 21.0 - u_time * 0.13) * 0.3;
-            col += (vec3(0.05, 0.55, 0.45) + vec3(0.25, 0.05, 0.45) * max(wob, 0.0))
-                * band * (0.30 + 0.70 * max(wob, 0.0)) * u_mid * 0.55 * u_auroraG;
+            float wob = sin(rd.x * 7.0 + u_time * 0.20) * 0.5 + sin(rd.x * 15.0 - u_time * 0.12) * 0.3;
+            col += mix(vec3(0.10, 0.55, 0.60), vec3(0.45, 0.20, 0.85), max(wob, 0.0))
+                * band * (0.30 + 0.70 * max(wob, 0.0)) * (0.25 + u_mid * 0.9) * u_auroraG;
 
-            col += vec3(0.40, 0.22, 0.65) * exp(-up * 6.0) * u_env * 0.28;
+            // Beats warm the horizon line, faintly.
+            col += vec3(0.30, 0.18, 0.55) * exp(-up * 7.0) * u_env * 0.20;
 
             fragColor = vec4(col * u_dim, 1.0);
         }
@@ -156,70 +154,37 @@ internal object MeridianShaders {
         }
     """
 
+    /** INK & LIGHT terrain: black-paper silhouettes with contour-etched
+     *  ridgelines (screen-space height derivative — essentially free), lit only
+     *  by the river below. No per-pixel height recompute, no moonlight model. */
     const val TERRAIN_FS = """#version 300 es
         precision highp float;
         uniform float u_riverB;
         uniform float u_env;
         uniform float u_dim;
-        uniform float u_valley;
-        uniform float u_ridgeAmp;
-        uniform float u_ridged;
         in vec2  v_world;
         in vec3  v_view;
         in float v_h;
         out vec4 fragColor;
 
-        const vec3 MOON = vec3(0.404, 0.288, 0.868);
-        const vec3 MOONCOL = vec3(0.86, 0.90, 1.05);
-        const vec3 FOGCOL = vec3(0.030, 0.032, 0.082);
-
-        float hash(vec2 q) { return fract(sin(dot(q, vec2(127.1, 311.7))) * 43758.5453); }
-        float vnoise(vec2 q) {
-            vec2 i = floor(q);
-            vec2 f = fract(q);
-            f = f * f * (3.0 - 2.0 * f);
-            return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x),
-                       mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);
-        }
-        float fbm(vec2 q) {
-            return vnoise(q) * 0.55 + vnoise(q * 2.13 + 5.2) * 0.28 + vnoise(q * 4.31 + 9.7) * 0.17;
-        }
-        float ridged(vec2 q) { return 1.0 - abs(2.0 * vnoise(q) - 1.0); }
         float meander(float z) { return (sin(z * 0.11) * 0.8 + sin(z * 0.043 + 1.7) * 1.3) * 0.55; }
-        float height(vec2 w) {
-            float d = w.y - meander(w.x);
-            float e = smoothstep(u_valley, u_valley + 2.5, abs(d));
-            vec2 wp = w + vec2(vnoise(w * 0.13) * 1.7, vnoise(w * 0.11 + 3.7) * 1.7);
-            float soft = fbm(wp * 0.34);
-            float sharp = ridged(wp * 0.33) * 0.68 + ridged(wp * 0.71 + 11.0) * 0.32;
-            float m = mix(soft, sharp * sharp, u_ridged);
-            return fbm(w * 0.42) * 0.13 + e * u_ridgeAmp * (0.25 + 0.85 * m);
-        }
 
         void main() {
-            float e = 0.09;
-            float hL = height(v_world + vec2(0.0, -e));
-            float hR = height(v_world + vec2(0.0, e));
-            float hD = height(v_world + vec2(-e, 0.0));
-            float hU = height(v_world + vec2(e, 0.0));
-            vec3 n = normalize(vec3(hL - hR, 2.0 * e, hD - hU));
+            // Ink body — barely above black, so silhouettes read against the sky.
+            vec3 col = vec3(0.010, 0.011, 0.020);
 
-            vec3 V = normalize(-v_view);
-            float lam = max(dot(n, MOON), 0.0);
-            float spec = pow(max(dot(reflect(-MOON, n), V), 0.0), 24.0);
+            // Contour etching: where height changes fast across the screen, a cool
+            // graphite line appears — ridgelines and crests draw themselves.
+            float crest = clamp(fwidth(v_h) * 26.0, 0.0, 1.0) * smoothstep(0.05, 0.5, v_h);
+            col += vec3(0.30, 0.42, 0.60) * crest * 0.55;
 
-            float flat01 = smoothstep(0.55, 0.9, n.y);
-            vec3 albedo = mix(vec3(0.085, 0.085, 0.125), vec3(0.15, 0.125, 0.21), flat01)
-                + vec3(0.03, 0.02, 0.05) * clamp(v_h, 0.0, 1.2);
-
-            vec3 col = albedo * (0.10 + 0.95 * lam * MOONCOL) + MOONCOL * spec * 0.22;
-
+            // The river is the world's light: its glow climbs the near banks.
             float dc = abs(v_world.y - meander(v_world.x));
-            col += vec3(0.10, 0.42, 0.52) * exp(-dc * 2.2) * u_riverB * 0.8;
-            col += vec3(0.30, 0.16, 0.50) * exp(-dc * 0.8) * u_env * 0.08;
+            col += vec3(0.08, 0.45, 0.60) * exp(-dc * 2.0) * u_riverB;
+            col += vec3(0.25, 0.12, 0.45) * exp(-dc * 0.7) * u_env * 0.10;
 
-            float f = exp(-v_view.z * 0.16);
-            col = mix(FOGCOL, col, f);
+            // Fog to pure black — the ink swallows the distance.
+            col *= exp(-v_view.z * 0.20);
             fragColor = vec4(col * u_dim, 1.0);
         }
     """
@@ -282,42 +247,23 @@ internal object MeridianShaders {
                        mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);
         }
 
-        vec3 skyRef(vec3 rd) {
-            float up = max(rd.y, 0.0);
-            vec3 col = mix(vec3(0.030, 0.032, 0.082), vec3(0.0), smoothstep(0.0, 0.55, up));
-            float md = max(dot(rd, MOON), 0.0);
-            col += MOONCOL * smoothstep(0.9992, 0.9998, md) * 2.2;
-            col += MOONCOL * pow(md, 90.0) * 0.35;
-            if (rd.y > 0.03) {
-                float c = vnoise(rd.xz / rd.y * 0.8 + u_time * 0.012);
-                col = mix(col, MOONCOL * 0.16, smoothstep(0.55, 0.8, c) * 0.5);
-            }
-            return col;
-        }
-
         void main() {
-            float chop = vnoise(v_water * 3.1 + vec2(u_time * 0.5, u_time * 0.3)) - 0.5;
-            vec3 n = normalize(vec3(
-                (sin(v_water.x * 6.0 + u_time * 2.4) * 0.05 + chop * 0.16) * u_chop,
-                1.0,
-                sin(v_water.y * 7.0 - u_time * 1.9) * 0.06 * u_chop
-            ));
-
-            vec3 V = normalize(v_view);
-            vec3 rd = reflect(V, n);
-            rd.y = abs(rd.y);
-            float fres = 0.06 + 0.94 * pow(1.0 - max(dot(-V, n), 0.0), 5.0);
-            vec3 col = vec3(0.010, 0.016, 0.040) + skyRef(rd) * fres * 0.95;
+            // INK & LIGHT: a black mirror. The live waveform is the only light —
+            // a luminous current with faint chop-glints in its own glow.
+            vec3 col = vec3(0.0);
 
             float off = texture(u_pcm, vec2(v_t01, 0.5)).r * 0.60;
             float d = v_water.y - off;
-            float bright = (0.35 + 0.65 * u_loud) * (1.0 + u_env * 0.45);
-            col += mix(vec3(0.0, 0.55, 0.75), vec3(1.05, 1.15, 1.20), exp(-d * d * 240.0))
-                * exp(-d * d * 70.0) * bright * 1.5;
-            col += vec3(0.05, 0.30, 0.40) * exp(-abs(v_water.y) * 1.4) * bright * 0.25;
+            float bright = (0.40 + 0.60 * u_loud) * (1.0 + u_env * 0.50);
+            col += mix(vec3(0.0, 0.55, 0.75), vec3(1.10, 1.20, 1.25), exp(-d * d * 240.0))
+                * exp(-d * d * 70.0) * bright * 1.7;
 
-            float f = exp(-v_view.z * 0.16);
-            col = mix(FOGCOL, col, f);
+            // Sparkle only where the current's light reaches, scaled by the chop.
+            float g = vnoise(v_water * 6.0 + vec2(u_time * 1.4, -u_time * 0.9));
+            col += vec3(0.0, 0.50, 0.70) * smoothstep(0.78, 0.95, g)
+                * exp(-d * d * 8.0) * bright * 0.25 * u_chop;
+
+            col *= exp(-v_view.z * 0.20);
             fragColor = vec4(col * u_dim, 1.0);
         }
     """
@@ -371,18 +317,17 @@ internal object MeridianShaders {
         const vec3 FOGCOL = vec3(0.030, 0.032, 0.082);
 
         void main() {
+            // INK & LIGHT: dark crystal silhouettes with a luminous rim — their
+            // band's energy burns along the edges, the body stays ink.
             vec3 n = normalize(v_n);
             vec3 V = normalize(-v_view);
-            float lam = max(dot(n, MOON), 0.0);
-            float spec = pow(max(dot(reflect(-MOON, n), V), 0.0), 32.0);
             float rim = pow(1.0 - abs(dot(n, V)), 2.0);
 
-            vec3 col = vec3(0.09, 0.11, 0.20) * (0.18 + 0.9 * lam * MOONCOL)
-                + MOONCOL * spec * 0.7
-                + vec3(0.25, 0.70, 0.95) * u_glow * (0.30 + rim * 0.9);
+            vec3 col = vec3(0.006, 0.008, 0.014);
+            col += vec3(0.25, 0.70, 0.95) * u_glow * rim * 1.4;
+            col += vec3(0.90, 0.95, 1.05) * pow(rim, 6.0) * (0.20 + u_glow * 0.25);
 
-            float f = exp(-v_view.z * 0.16);
-            col = mix(FOGCOL, col, f);
+            col *= exp(-v_view.z * 0.20);
             fragColor = vec4(col * u_dim, 1.0);
         }
     """
