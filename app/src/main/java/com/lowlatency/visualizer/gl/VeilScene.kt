@@ -115,11 +115,11 @@ class VeilScene : GlScene {
 
         initBuffers()
         for (k in 0..1) {
-            simTex[k] = makeTexture(SIM_W, SIM_H, GLES20.GL_LINEAR)
+            simTex[k] = makeTexture(SIM_W, SIM_H)
             simFbo[k] = makeFbo(simTex[k])
         }
-        pcmTex = makeTexture(PCM_PTS, 1, GLES20.GL_LINEAR)
-        specTex = makeTexture(BINS, 1, GLES20.GL_LINEAR)
+        pcmTex = makeTexture(PCM_PTS, 1)
+        specTex = makeTexture(BINS, 1)
     }
 
     private fun initBuffers() {
@@ -193,14 +193,14 @@ class VeilScene : GlScene {
         GLES20.glBufferData(GLES20.GL_ELEMENT_ARRAY_BUFFER, idx.size * 2, ibuf, GLES20.GL_STATIC_DRAW)
     }
 
-    private fun makeTexture(w: Int, h: Int, filter: Int): Int {
+    private fun makeTexture(w: Int, h: Int): Int {
         val ids = IntArray(1)
         GLES20.glGenTextures(1, ids, 0)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, ids[0])
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE)
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE)
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, filter)
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, filter)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
         GLES30.glTexImage2D(
             GLES20.GL_TEXTURE_2D, 0, GLES30.GL_RG16F,
             w, h, 0, GLES30.GL_RG, GLES20.GL_FLOAT, null
@@ -435,13 +435,16 @@ private object VeilShaders {
             v *= 0.9971;                        // ring-down (~1.4 s at 240 Hz)
 
             // Piano mallets: frequency = x, striking a line across the sheet.
+            // Using a Mexican hat wavelet (second derivative of Gaussian) ensures 
+            // the strike imparts zero net DC momentum, preventing the sheet from 
+            // floating away, while creating crisp ripples.
             vec2 sp = texture(u_spec, vec2(v_uv.x, 0.5)).rg;
             float dy = (v_uv.y - 0.62) * float(ts.y) / 3.0;
-            float line = exp(-dy * dy);
+            float line = exp(-dy * dy) * (1.0 - 2.0 * dy * dy);
             v += (sp.g * 0.10 + sp.r * 0.004) * line;
 
             h += v;
-            h *= 0.9996;                        // settle any DC drift
+            h *= 0.999;                         // settle any DC drift
 
             // The live waveform enters through the bottom edge (hard BC).
             float drive = texture(u_pcm, vec2(v_uv.x, 0.5)).r;
@@ -507,15 +510,19 @@ private object VeilShaders {
                 vec3(0.00, 0.75, 0.95), vec3(0.75, 0.25, 1.00),
                 clamp(v_vel * 0.5 - 0.15, 0.0, 1.0)
             );
+            
+            // Toned down the white crest addition so it doesn't overpower the colors
             vec3 col = vec3(0.10, 0.08, 0.30) * (0.22 + v_sheen * 0.65)
                 + front * v_vel
-                + vec3(1.15, 1.20, 1.35) * v_crest * (0.8 + u_env * 0.9);
+                + vec3(0.85, 0.90, 1.05) * v_crest * (0.5 + u_env * 0.6);
 
             // Dissolve at the hem so the sheet floats in the dark; the bottom
             // fade also hides the raw driven-edge rows.
             float hem = smoothstep(0.0, 0.05, v_q.x) * (1.0 - smoothstep(0.95, 1.0, v_q.x))
                 * (1.0 - smoothstep(0.93, 1.0, v_q.y)) * smoothstep(0.0, 0.07, v_q.y);
-            col *= hem * (1.2 + v_vel * 1.2);              // HDR lift for bloom
+            
+            // Reduced the velocity-based HDR lift to prevent loud sections from washing out to white
+            col *= hem * (1.1 + v_vel * 0.6);
 
             // Fill pass renders as a dim satin body (still-black where the
             // fabric is dark); the wireframe pass stays crisp on top.
