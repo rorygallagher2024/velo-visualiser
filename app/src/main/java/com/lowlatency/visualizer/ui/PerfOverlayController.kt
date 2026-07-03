@@ -173,20 +173,12 @@ class PerfOverlayController(
         val scene = sceneName()
         if (scene.isNotBlank()) appendRow("Scene", scene.take(18))
 
-        // Hardware load → CPU/GPU time within the GL frame ("% frame" = share of
-        // the frame budget, so 100% means this alone would cap the frame rate).
+        // CPU time within the GL frame ("% frame" = share of the frame budget,
+        // so 100% means this alone would cap the frame rate).
         val load = NativeBridge.nativeGetHardwareLoad()
         val cpuMs = load[0] / 1000f
         val cpuPercent = if (frameMs > 0) (cpuMs / frameMs * 100f).coerceIn(0f, 100f) else 0f
         appendRow("CPU", "%.1f ms · %.0f%% frame".format(cpuMs, cpuPercent))
-        val gpuMs = load[1]
-        if (gpuMs >= 0f) {
-            val gpuPercent = if (frameMs > 0) (gpuMs / frameMs * 100f).coerceIn(0f, 100f) else 0f
-            val warn = gpuPercent > 90f
-            appendRow("GPU", "%.1f ms · %.0f%% frame".format(gpuMs, gpuPercent), if (warn) amber else 0)
-        } else {
-            appendRow("GPU", "—")   // driver lacks EXT_disjoint_timer_query
-        }
 
         // Thermal headroom — the usual answer to "why did the fps dip?".
         val (thermalText, thermalColor) = thermalStatus()
@@ -205,9 +197,10 @@ class PerfOverlayController(
         appendRow("  NATIVE", "%d MB".format(nativeMb))
         appendRow("  GRAPHICS", "%d MB".format(gfxMb))
 
-        // Audio capture. The ms figure is the CALLBACK period (burst cadence),
-        // not end-to-end latency — label it honestly.
-        appendRow("Audio cb", "%d Hz · %.1f ms".format(rate, audioMs))
+        // Audio capture. The ms figure is the buffer/callback chunk duration, not
+        // end-to-end latency — split onto its own plainly-named row.
+        appendRow("Audio", "%d Hz".format(rate))
+        appendRow("Buffer", "%.1f ms".format(audioMs))
 
         // System audio / jitter (internal-audio mode only).
         if (isSystemAudioMode()) {
@@ -252,10 +245,10 @@ class PerfOverlayController(
         val power = activity.getSystemService(PowerManager::class.java)
         val t = power?.currentThermalStatus ?: PowerManager.THERMAL_STATUS_NONE
         return when {
-            t >= PowerManager.THERMAL_STATUS_SEVERE -> "severe · throttling" to RED
-            t == PowerManager.THERMAL_STATUS_MODERATE -> "moderate" to AMBER
-            t == PowerManager.THERMAL_STATUS_LIGHT -> "light" to 0
-            else -> "nominal" to 0
+            t >= PowerManager.THERMAL_STATUS_SEVERE -> "throttling" to RED
+            t == PowerManager.THERMAL_STATUS_MODERATE -> "hot" to AMBER
+            t == PowerManager.THERMAL_STATUS_LIGHT -> "warm" to 0
+            else -> "normal" to 0
         }
     }
 

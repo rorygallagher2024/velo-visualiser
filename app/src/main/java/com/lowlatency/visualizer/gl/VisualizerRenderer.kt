@@ -2,7 +2,6 @@ package com.lowlatency.visualizer.gl
 
 import android.content.Context
 import android.opengl.GLES20
-import android.opengl.GLES30
 import android.opengl.GLSurfaceView
 import android.util.Log
 import com.lowlatency.visualizer.BeatBus
@@ -34,8 +33,6 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
         private const val TAG = "VisualizerRenderer"
         const val DEFAULT_SCENE = 8       // Raw Oscilloscope — shown on startup
         private const val POINTS = 1024
-        private const val GPU_QUERY_RING = 3               // in-flight GPU timer queries
-        private const val GL_TIME_ELAPSED_EXT = 0x88BF     // EXT_disjoint_timer_query
         private const val TRANSITION_SEC = 0.45f   // total fade duration
         private const val PUNCH_FALL = 3.5f        // HDR beat-punch decay rate (~0.3 s)
 
@@ -229,17 +226,6 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
     // Hardware load measurement
     private var cpuThreadTimeStart = 0L
 
-    // GPU frame timing via GL_EXT_disjoint_timer_query: a small ring of queries
-    // wraps each frame; results are polled a few frames later (they're async).
-    // Feeds the perf overlay's GPU row through nativeUpdateHardwareLoad.
-    private val gpuQueries = IntArray(GPU_QUERY_RING)
-    private val gpuQueryPending = BooleanArray(GPU_QUERY_RING)
-    private val gpuQueryScratch = IntArray(1)
-    private var gpuQueryWrite = 0
-    private var gpuQueryActive = false
-    private var gpuTimerSupported = false
-    private var lastGpuNs = 0L
-
     // First-run intro (VELO particle cloud). Set before the surface is created;
     // read on the GL thread. When disabled (reduced-motion) the app boots
     // straight into the visualizer.
@@ -292,14 +278,6 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
 
         NativeBridge.nativeInitializeSharedBuffer(sharedAudioBuffer)
 
-        // GPU timer queries live in the GL context — (re)create them fresh.
-        gpuTimerSupported =
-            GLES20.glGetString(GLES20.GL_EXTENSIONS)?.contains("GL_EXT_disjoint_timer_query") == true
-        if (gpuTimerSupported) GLES30.glGenQueries(GPU_QUERY_RING, gpuQueries, 0)
-        gpuQueryPending.fill(false)
-        gpuQueryActive = false
-        lastGpuNs = 0L
-
         // Clear existing scenes to force them to re-initialize their GL resources
         // (programs, VBOs) in getOrInitScene now that the context is new.
         scenes.fill(null)
@@ -339,7 +317,6 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
 
     override fun onDrawFrame(gl: GL10?) {
         cpuThreadTimeStart = android.os.SystemClock.currentThreadTimeMillis()
-        beginGpuTimer()
 
         // Pull the freshest audio data from the native ring buffer.
         NativeBridge.fillSharedAudioBuffer()
@@ -525,38 +502,11 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
             )
         }
 
-        // Finalise load measurements
-        endGpuTimerAndPoll()
+        // Finalise load measurements. (GPU timer queries were tried here and
+        // removed: EXT_disjoint_timer_query never returns results on the target
+        // devices, so the overlay's GPU row showed nothing — see git history.)
         val cpuWorkUs = (android.os.SystemClock.currentThreadTimeMillis() - cpuThreadTimeStart) * 1000L
-        NativeBridge.nativeUpdateHardwareLoad(cpuWorkUs, lastGpuNs, gpuTimerSupported && lastGpuNs > 0L)
-    }
-
-    /** Start timing this frame's GPU work (no-op mid-flight or unsupported). */
-    private fun beginGpuTimer() {
-        if (!gpuTimerSupported || gpuQueryActive || gpuQueryPending[gpuQueryWrite]) return
-        GLES30.glBeginQuery(GL_TIME_ELAPSED_EXT, gpuQueries[gpuQueryWrite])
-        gpuQueryActive = true
-    }
-
-    /** Close this frame's query and harvest any ring slot whose result landed. */
-    private fun endGpuTimerAndPoll() {
-        if (!gpuTimerSupported) return
-        if (gpuQueryActive) {
-            GLES30.glEndQuery(GL_TIME_ELAPSED_EXT)
-            gpuQueryPending[gpuQueryWrite] = true
-            gpuQueryWrite = (gpuQueryWrite + 1) % GPU_QUERY_RING
-            gpuQueryActive = false
-        }
-        for (i in 0 until GPU_QUERY_RING) {
-            if (!gpuQueryPending[i]) continue
-            GLES30.glGetQueryObjectuiv(gpuQueries[i], GLES30.GL_QUERY_RESULT_AVAILABLE, gpuQueryScratch, 0)
-            if (gpuQueryScratch[0] != 0) {
-                // 32-bit ns wraps at ~4.3 s — frame times are milliseconds, safe.
-                GLES30.glGetQueryObjectuiv(gpuQueries[i], GLES30.GL_QUERY_RESULT, gpuQueryScratch, 0)
-                lastGpuNs = gpuQueryScratch[0].toLong() and 0xFFFFFFFFL
-                gpuQueryPending[i] = false
-            }
-        }
+        NativeBridge.nativeUpdateHardwareLoad(cpuWorkUs, 0, false)
     }
 
     /**
