@@ -228,6 +228,8 @@ internal object MeridianShaders {
         uniform float u_loud;
         uniform float u_env;
         uniform float u_chop;                  // energy-driven surface agitation
+        uniform vec4  u_gate0;                 // view-space gate: x, y, zv, glow
+        uniform vec4  u_gate1;
         uniform float u_dim;
         in vec3  v_view;
         in float v_t01;
@@ -247,18 +249,62 @@ internal object MeridianShaders {
                        mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);
         }
 
-        void main() {
-            // INK & LIGHT: a black mirror. The live waveform is the only light —
-            // a luminous current with faint chop-glints in its own glow.
+        // The ink sky, for mirrors: flat moon (smeared into a glitter path by the
+        // ripples), thin ring, faint stars, the aurora ribbon. Graphic, not cloudy.
+        vec3 inkSky(vec3 rd) {
             vec3 col = vec3(0.0);
+            float md = max(dot(rd, MOON), 0.0);
+            col += vec3(0.92, 0.94, 1.02) * smoothstep(0.99950, 0.99966, md) * 1.7;
+            float ring = smoothstep(0.99855, 0.99885, md) * (1.0 - smoothstep(0.99905, 0.99935, md));
+            col += vec3(0.92, 0.94, 1.02) * ring * 0.24;
+            col += vec3(0.92, 0.94, 1.02) * (pow(md, 300.0) * 0.55 + pow(md, 40.0) * 0.06);
+            if (rd.y > 0.02) {
+                vec2 q = rd.xz / (rd.y + 0.35) * 18.0;
+                float h = hash(floor(q));
+                col += vec3(0.85, 0.92, 1.1) * smoothstep(0.9975, 1.0, h)
+                    * smoothstep(0.30, 0.0, length(fract(q) - 0.5)) * 0.5;
+            }
+            float ay = (rd.y - 0.145) * 26.0;
+            col += vec3(0.30, 0.35, 0.75) * exp(-ay * ay) * 0.35;
+            return col;
+        }
 
+        // Mirror image of a gate: intersect the reflected ray with the gate's
+        // plane and evaluate the same ring, softened — it wobbles in the chop.
+        vec3 gateGlint(vec3 ro, vec3 rd, vec4 g) {
+            if (g.w <= 0.0 || rd.z <= 0.001) return vec3(0.0);
+            float t = (g.z - ro.z) / rd.z;
+            if (t <= 0.0) return vec3(0.0);
+            vec2 p = ro.xy + rd.xy * t;
+            float rr = length(p - g.xy) / 2.4;
+            float d1 = abs(rr - 0.72) * 10.0;
+            float band = exp(-d1 * d1);
+            return mix(vec3(0.25, 0.70, 0.95), vec3(0.86, 0.90, 1.05), band * 0.5) * band * g.w;
+        }
+
+        void main() {
+            // INK & LIGHT, mirrored: a real reflective surface — but everything it
+            // reflects is ink, so the aesthetic holds.
+            float chop = vnoise(v_water * 3.1 + vec2(u_time * 0.5, u_time * 0.3)) - 0.5;
+            vec3 n = normalize(vec3(
+                (sin(v_water.x * 6.0 + u_time * 2.4) * 0.05 + chop * 0.16) * u_chop,
+                1.0,
+                sin(v_water.y * 7.0 - u_time * 1.9) * 0.06 * u_chop
+            ));
+            vec3 V = normalize(v_view);
+            vec3 rd = reflect(V, n);
+            rd.y = abs(rd.y);
+            float fres = 0.08 + 0.92 * pow(1.0 - max(dot(-V, n), 0.0), 5.0);
+            vec3 col = vec3(0.004, 0.006, 0.012) + inkSky(rd) * fres;
+            col += gateGlint(v_view, rd, u_gate0) * fres;
+            col += gateGlint(v_view, rd, u_gate1) * fres;
+
+            // The current: still the heart — the waveform's own light on the mirror.
             float off = texture(u_pcm, vec2(v_t01, 0.5)).r * 0.60;
             float d = v_water.y - off;
             float bright = (0.40 + 0.60 * u_loud) * (1.0 + u_env * 0.50);
             col += mix(vec3(0.0, 0.55, 0.75), vec3(1.10, 1.20, 1.25), exp(-d * d * 240.0))
                 * exp(-d * d * 70.0) * bright * 1.7;
-
-            // Sparkle only where the current's light reaches, scaled by the chop.
             float g = vnoise(v_water * 6.0 + vec2(u_time * 1.4, -u_time * 0.9));
             col += vec3(0.0, 0.50, 0.70) * smoothstep(0.78, 0.95, g)
                 * exp(-d * d * 8.0) * bright * 0.25 * u_chop;

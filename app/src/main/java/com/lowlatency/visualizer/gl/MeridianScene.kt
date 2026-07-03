@@ -76,6 +76,7 @@ class MeridianScene : GlScene {
     private var wTravel = 0; private var wCamX = 0; private var wCamY = 0; private var wF = 0
     private var wTime = 0; private var wRoll = 0; private var wChop = 0
     private var wLoud = 0; private var wEnv = 0; private var wDim = 0; private var wPcm = 0
+    private var wGate0 = 0; private var wGate1 = 0
     // Shard uniforms.
     private var hPos = 0; private var hRot = 0; private var hScale = 0; private var hTravel = 0
     private var hCamX = 0; private var hCamY = 0; private var hF = 0; private var hRoll = 0
@@ -144,6 +145,7 @@ class MeridianScene : GlScene {
         wTime = loc(waterProg, "u_time"); wRoll = loc(waterProg, "u_roll"); wChop = loc(waterProg, "u_chop")
         wLoud = loc(waterProg, "u_loud")
         wEnv = loc(waterProg, "u_env"); wDim = loc(waterProg, "u_dim"); wPcm = loc(waterProg, "u_pcm")
+        wGate0 = loc(waterProg, "u_gate0"); wGate1 = loc(waterProg, "u_gate1")
         hPos = loc(shardProg, "u_pos"); hRot = loc(shardProg, "u_rot"); hScale = loc(shardProg, "u_scale")
         hTravel = loc(shardProg, "u_travel"); hCamX = loc(shardProg, "u_camX")
         hCamY = loc(shardProg, "u_camY"); hF = loc(shardProg, "u_f"); hRoll = loc(shardProg, "u_roll")
@@ -390,6 +392,8 @@ class MeridianScene : GlScene {
         GLES20.glUniform1f(wRoll, roll); GLES20.glUniform1f(wChop, chopU)
         GLES20.glUniform1f(wLoud, loudE); GLES20.glUniform1f(wEnv, env)
         GLES20.glUniform1f(wDim, dim)
+        setWaterGate(wGate0, 0, camY, env)
+        setWaterGate(wGate1, 1, camY, env)
         drawIndexedGrid(waterVbo, waterIbo, waterIndexCount)
     }
 
@@ -420,6 +424,20 @@ class MeridianScene : GlScene {
         GLES20.glDisableVertexAttribArray(0)
         GLES20.glDisableVertexAttribArray(1)
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
+    }
+
+    /** Feed one gate's view-space position + glow to the water so it mirrors
+     *  (same glow model as [drawGates], so image and reflection stay in step). */
+    private fun setWaterGate(location: Int, i: Int, camY: Float, env: Float) {
+        val zv = gateZ[i] - travel
+        if (zv > 34f || zv < 0.1f) {
+            GLES20.glUniform4f(location, 0f, 0f, 1f, 0f)
+            return
+        }
+        val approach = (1.6f - zv * 0.045f).coerceIn(0.3f, 1.6f)
+        val fog = kotlin.math.exp(-zv * 0.10f)
+        val glow = (0.45f + energy * 1.1f + env * 0.6f) * approach * fog
+        GLES20.glUniform4f(location, meanderK(travel + zv) - camX, 1.15f - camY, zv, glow)
     }
 
     /** The Gates: colossal luminous rings you fly through — additive, so the
