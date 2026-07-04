@@ -12,6 +12,8 @@ import com.lowlatency.visualizer.GlowSettings
 import com.lowlatency.visualizer.LinkSync
 import com.lowlatency.visualizer.NativeBridge
 import com.lowlatency.visualizer.ThemeSettings
+import android.os.Build
+import android.os.PerformanceHintManager
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
 import kotlin.math.abs
@@ -27,7 +29,7 @@ import kotlin.math.sqrt
  * native engine (zero-alloc fills), then renders the active scene. A swipe
  * triggers a short, smooth fade-out → swap → fade-in transition between scenes.
  */
-class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
+class VisualizerRenderer(private val context: Context) : GLSurfaceView.Renderer {
 
     companion object {
         private const val TAG = "VisualizerRenderer"
@@ -226,6 +228,9 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
     // Hardware load measurement
     private var cpuThreadTimeStart = 0L
 
+    // ADPF (Android Dynamic Performance Framework) session
+    private var hintSession: PerformanceHintManager.Session? = null
+
     // First-run intro (VELO particle cloud). Set before the surface is created;
     // read on the GL thread. When disabled (reduced-motion) the app boots
     // straight into the visualizer.
@@ -278,6 +283,23 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
 
         NativeBridge.nativeInitializeSharedBuffer(sharedAudioBuffer)
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            hintSession?.close()
+            val hintManager = context.getSystemService(PerformanceHintManager::class.java)
+            if (hintManager != null) {
+                // Get the preferred display refresh rate. If not available, fallback to 120Hz.
+                val display = context.display
+                val refreshRate = display.refreshRate ?: 120f
+                val targetDurationNanos = (1_000_000_000L / refreshRate).toLong()
+                
+                // Create a hint session for the GL render thread (myTid)
+                hintSession = hintManager.createHintSession(
+                    intArrayOf(android.os.Process.myTid()),
+                    targetDurationNanos
+                )
+            }
+        }
+
         // Clear existing scenes to force them to re-initialize their GL resources
         // (programs, VBOs) in getOrInitScene now that the context is new.
         scenes.fill(null)
@@ -316,6 +338,7 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
     }
 
     override fun onDrawFrame(gl: GL10?) {
+        val frameStartNanos = System.nanoTime()
         cpuThreadTimeStart = android.os.SystemClock.currentThreadTimeMillis()
 
         // Pull the freshest audio data from the native ring buffer.
@@ -507,6 +530,11 @@ class VisualizerRenderer(context: Context) : GLSurfaceView.Renderer {
         // devices, so the overlay's GPU row showed nothing — see git history.)
         val cpuWorkUs = (android.os.SystemClock.currentThreadTimeMillis() - cpuThreadTimeStart) * 1000L
         NativeBridge.nativeUpdateHardwareLoad(cpuWorkUs, 0, false)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val actualNanos = System.nanoTime() - frameStartNanos
+            hintSession?.reportActualWorkDuration(actualNanos)
+        }
     }
 
     /**
