@@ -283,7 +283,7 @@ class SceneWheelView @JvmOverloads constructor(
     }
 
     companion object {
-        private const val ANGLE_STEP = 0.18f     // radians between rows (wheel curvature / spacing)
+        private const val ANGLE_STEP = 0.17f     // radians between rows (wheel curvature / spacing)
         private const val EDGE_ANGLE = 1.45f    // ~83°, just past the visible rim
         private const val BASE_FRAC = 0.105f    // hero text size as a fraction of height
         private const val FIT_FRAC = 0.88f      // max name width as a fraction of view width
