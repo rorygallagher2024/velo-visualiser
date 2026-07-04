@@ -8,7 +8,6 @@
     <string name="source_label">Audio Source</string>
     <string name="source_mic">Microphone</string>
     <string name="source_internal">System Audio</string>
-    <string name="hint_long_press_fav">Long-press to favorite ★</string>
     <string name="vis_oscilloscope">Hardware Oscilloscope</string>
     <string name="vis_tunnel">Deep Tunnel</string>
     <string name="vis_fluid">Fluid Dynamics</string>
@@ -58,6 +57,11 @@
     <string name="section_visuals">Visuals</string>
     <string name="display_label">Display</string>
     <string name="ambient_mode">Ambient Mode</string>
+    <!-- Scene wheel favourite toggle (below the wheel). -->
+    <string name="fav_add">☆ Favourite</string>
+    <string name="fav_remove">★ Favourited</string>
+    <string name="fav_added_toast">Added to swipe favourites</string>
+    <string name="fav_removed_toast">Removed from favourites</string>
     <string name="ambient_style_classic">Ambient Style: Classic</string>
     <string name="ambient_style_window">Ambient Style: Window</string>
     <string name="shuffle_on">Shuffle Scenes: On</string>

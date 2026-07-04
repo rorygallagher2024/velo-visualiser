@@ -1,0 +1,196 @@
+package com.lowlatency.visualizer.ui
+
+import android.content.Context
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.Typeface
+import android.util.AttributeSet
+import android.view.GestureDetector
+import android.view.MotionEvent
+import android.view.View
+import android.widget.OverScroller
+import androidx.core.content.ContextCompat
+import androidx.core.content.res.ResourcesCompat
+import com.lowlatency.visualizer.R
+import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.max
+import kotlin.math.roundToInt
+import kotlin.math.sin
+
+/**
+ * Vertical "scroll wheel" scene picker — the Visuals-tab selector.
+ *
+ * Names ride a virtual cylinder: the centred name is the hero, rows above and
+ * below curve away, foreshorten and fade like a physical wheel (iOS-picker
+ * style). Because every scene is its own row there is no horizontal text
+ * collision, and many more scenes are legible at once — which is why it scales
+ * better to 40+ scenes than the tape strip. Same [onSelect]/[onCentre] contract.
+ */
+class SceneWheelView @JvmOverloads constructor(
+    context: Context,
+    attrs: AttributeSet? = null,
+) : View(context, attrs) {
+
+    data class Item(val index: Int, val name: String)
+
+    private var items: List<Item> = emptyList()
+    var onSelect: ((Int) -> Unit)? = null
+    var onCentre: ((Int) -> Unit)? = null
+
+    /** Scene indices to mark with a ★ on their row. */
+    var favourites: Set<Int> = emptySet()
+        set(value) { field = value; invalidate() }
+
+    private var scrollPx = 0f
+    private var rowH = 120f
+    private var radius = 300f
+    private var activePos = -1
+
+    private val scroller = OverScroller(context)
+    private var flinging = false
+    private var dragging = false
+
+    private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textAlign = Paint.Align.CENTER
+        typeface = ResourcesCompat.getFont(context, R.font.inter) ?: Typeface.DEFAULT
+        letterSpacing = 0.06f
+    }
+    private val tickPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = ContextCompat.getColor(context, R.color.text_dim)
+        strokeWidth = 1f * resources.displayMetrics.density
+        alpha = 120
+    }
+    private val primary = ContextCompat.getColor(context, R.color.text_primary)
+
+    private val gestures = GestureDetector(
+        context,
+        object : GestureDetector.SimpleOnGestureListener() {
+            override fun onDown(e: MotionEvent): Boolean {
+                scroller.forceFinished(true); flinging = false; dragging = false; return true
+            }
+
+            override fun onScroll(e1: MotionEvent?, e2: MotionEvent, dx: Float, dy: Float): Boolean {
+                dragging = true
+                scrollPx = (scrollPx + dy).coerceIn(0f, maxScroll())
+                reportCentre(); invalidate(); return true
+            }
+
+            override fun onFling(e1: MotionEvent?, e2: MotionEvent, vx: Float, vy: Float): Boolean {
+                dragging = false; flinging = true
+                scroller.fling(0, scrollPx.toInt(), 0, (-vy).toInt(), 0, 0, 0, maxScroll().toInt())
+                invalidate(); return true
+            }
+
+            override fun onSingleTapUp(e: MotionEvent): Boolean {
+                dragging = false
+                val tapPos = ((scrollPx + (e.y - height / 2f)) / rowH).roundToInt().coerceIn(0, lastIndex())
+                animateTo(tapPos); return true
+            }
+        },
+    )
+
+    fun setScenes(list: List<Item>, activeIndex: Int) {
+        items = list
+        val pos = list.indexOfFirst { it.index == activeIndex }.coerceAtLeast(0)
+        activePos = pos
+        scrollPx = pos * rowH
+        invalidate()
+    }
+
+    private fun lastIndex() = max(items.size - 1, 0)
+    private fun maxScroll() = lastIndex() * rowH
+
+    override fun onSizeChanged(w: Int, h: Int, ow: Int, oh: Int) {
+        radius = h * 0.5f
+        // Row height set so a finger-drag near the centre tracks roughly 1:1 on screen.
+        rowH = radius * ANGLE_STEP
+        scrollPx = max(activePos, 0) * rowH
+    }
+
+    override fun computeScroll() {
+        if (scroller.computeScrollOffset()) {
+            scrollPx = scroller.currY.toFloat(); reportCentre(); invalidate()
+        } else if (flinging) {
+            flinging = false; snap()
+        }
+    }
+
+    @Suppress("ClickableViewAccessibility")
+    override fun onTouchEvent(e: MotionEvent): Boolean {
+        // Own vertical drags so the enclosing scroll sheet doesn't steal them.
+        if (e.actionMasked == MotionEvent.ACTION_DOWN) parent?.requestDisallowInterceptTouchEvent(true)
+        gestures.onTouchEvent(e)
+        if (e.actionMasked == MotionEvent.ACTION_UP || e.actionMasked == MotionEvent.ACTION_CANCEL) {
+            if (dragging && !flinging) { dragging = false; snap() }
+        }
+        return true
+    }
+
+    private fun snap() = animateTo((scrollPx / rowH).roundToInt().coerceIn(0, lastIndex()))
+
+    private fun animateTo(pos: Int) {
+        val target = (pos * rowH).toInt()
+        scroller.startScroll(0, scrollPx.toInt(), 0, target - scrollPx.toInt(), 300)
+        flinging = false
+        activePos = pos
+        items.getOrNull(pos)?.let { onSelect?.invoke(it.index) }
+        invalidate()
+    }
+
+    private fun reportCentre() {
+        val p = (scrollPx / rowH).roundToInt().coerceIn(0, lastIndex())
+        if (p != activePos) { activePos = p; items.getOrNull(p)?.let { onCentre?.invoke(it.index) } }
+    }
+
+    /** Animate to [sceneIndex] WITHOUT firing [onSelect] — for external scene
+     *  changes (canvas swipe, shuffle) so the wheel follows without re-selecting. */
+    fun centerOn(sceneIndex: Int) {
+        val pos = items.indexOfFirst { it.index == sceneIndex }
+        if (pos < 0 || pos == activePos) return
+        scroller.forceFinished(true)
+        flinging = false
+        activePos = pos
+        scroller.startScroll(0, scrollPx.toInt(), 0, (pos * rowH - scrollPx).toInt(), 300)
+        invalidate()
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        if (items.isEmpty() || height == 0) return
+        val cx = width / 2f
+        val cy = height / 2f
+        val base = height * BASE_FRAC
+        // Selection band hairlines framing the centre (hero) row.
+        val half = rowH * 0.5f
+        val inset = width * 0.16f
+        canvas.drawLine(inset, cy - half, width - inset, cy - half, tickPaint)
+        canvas.drawLine(inset, cy + half, width - inset, cy + half, tickPaint)
+        for (i in items.indices) {
+            val angle = ((i * rowH - scrollPx) / rowH) * ANGLE_STEP
+            if (abs(angle) >= EDGE_ANGLE) continue
+            val fore = cos(angle)
+            if (fore <= 0.02f) continue
+            val y = cy + sin(angle) * radius
+            val fav = favourites.contains(items[i].index)
+            val name = (if (fav) "★  " else "") + items[i].name.uppercase()
+            val size = base * (0.6f + 0.4f * fore)
+            textPaint.textSize = size
+            // Auto-fit: shrink only names too wide for the row (e.g. "Volumetric
+            // Laser Array") so nothing overflows, regardless of scene naming.
+            val tw = textPaint.measureText(name)
+            val maxW = width * FIT_FRAC
+            if (tw > maxW) textPaint.textSize = size * (maxW / tw)
+            textPaint.color = primary
+            textPaint.alpha = (255f * fore * fore * fore).toInt().coerceIn(6, 255)
+            val fm = textPaint.fontMetrics
+            canvas.drawText(name, cx, y - (fm.ascent + fm.descent) / 2f, textPaint)
+        }
+    }
+
+    companion object {
+        private const val ANGLE_STEP = 0.5f     // radians between rows (wheel curvature)
+        private const val EDGE_ANGLE = 1.45f    // ~83°, just past the visible rim
+        private const val BASE_FRAC = 0.105f    // hero text size as a fraction of height
+        private const val FIT_FRAC = 0.88f      // max name width as a fraction of view width
+    }
+}

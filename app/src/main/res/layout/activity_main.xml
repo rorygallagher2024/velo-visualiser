@@ -285,34 +285,8 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
-        <!-- Hero visualiser name — dramatic ultra-light scale (OP-1 inspired).
-             Always shown atop the Visuals tab; the text is set in code to the
-             active scene. -->
-        <TextView
-            android:id="@+id/hero_vis_name"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:fontFamily="@font/inter"
-            android:fontWeight="200"
-            android:textColor="@color/text_primary"
-            android:textSize="36sp"
-            android:letterSpacing="0.1"
-            android:textAllCaps="true"
-            android:lineSpacingMultiplier="0.95"
-            android:layout_marginBottom="8dp" />
-
-        <!-- The active "VISUALS" tab already names this section, so the section
-             label is dropped; the long-press hint stays for discoverability. -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/hint_long_press_fav"
-            android:textColor="@color/text_dim"
-            android:textSize="12sp"
-            android:layout_marginBottom="16dp" />
-
-        <!-- Pinned favourites (long-press any scene to add/remove). Hidden when
-             empty; the pills are inflated by ScenesController in swipe order. -->
+        <!-- Pinned favourites (star a scene with the ★ button below the wheel).
+             Hidden when empty; pills are inflated by ScenesController in swipe order. -->
         <LinearLayout
             android:id="@+id/favourites_group"
             android:layout_width="match_parent"
@@ -331,109 +305,28 @@
             <View style="@style/Divider" android:layout_marginTop="8dp" android:layout_marginBottom="16dp" />
         </LinearLayout>
 
-        <!-- Visualizer selector (stacked so full labels fit), grouped by style -->
-        <LinearLayout
+        <!-- The scene wheel — the single scene selector (replaces the old pill
+             grid). Populated + driven by ScenesController from SceneCatalog;
+             the centred name is the active scene, shown live over the canvas. -->
+        <com.lowlatency.visualizer.ui.SceneWheelView
+            android:id="@+id/scene_wheel"
             android:layout_width="match_parent"
+            android:layout_height="320dp"
+            android:layout_marginBottom="2dp" />
+
+        <TextView
+            android:id="@+id/scene_counter"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:layout_marginBottom="20dp">
+            android:layout_gravity="center_horizontal"
+            android:fontFamily="@font/space_mono"
+            android:textColor="@color/text_dim"
+            android:textSize="12sp"
+            android:letterSpacing="0.3"
+            android:layout_marginBottom="16dp" />
 
-            <!-- ===== Category: Instruments (clean, lightweight) ===== -->
-            <TextView style="@style/SectionHeader" android:layout_width="match_parent" android:text="@string/cat_instruments" android:layout_marginBottom="12dp" />
-
-            <Button android:id="@+id/btn_oscilloscope" style="@style/VisualizerPill" android:text="@string/vis_oscilloscope" />
-
-            <Button android:id="@+id/btn_rawscope" style="@style/VisualizerPill" android:text="@string/vis_rawscope" />
-
-            <Button android:id="@+id/btn_bars" style="@style/VisualizerPill" android:text="@string/vis_bars" />
-
-            <Button android:id="@+id/btn_obsidian" style="@style/VisualizerPill" android:text="@string/vis_obsidian" />
-
-            <Button android:id="@+id/btn_circular" style="@style/VisualizerPill" android:text="@string/vis_circular" />
-
-            <Button android:id="@+id/btn_spectrogram" style="@style/VisualizerPill" android:text="@string/vis_spectrogram" />
-
-            <Button android:id="@+id/btn_led_matrix" style="@style/VisualizerPill" android:text="@string/vis_led_matrix" />
-
-            <Button android:id="@+id/btn_led_matrix_3d" style="@style/VisualizerPill" android:text="@string/vis_led_matrix_3d" />
-
-            <Button android:id="@+id/btn_mechanical_meter" style="@style/VisualizerPill" android:text="@string/vis_mechanical_meter" />
-
-            <Button android:id="@+id/btn_phase_scope" style="@style/VisualizerPill" android:text="@string/vis_phase_scope" />
-
-            <!-- ===== Category: Reactive (beat / energy driven) ===== -->
-            <View style="@style/Divider" android:layout_marginTop="16dp" android:layout_marginBottom="16dp" />
-
-            <TextView style="@style/SectionHeader" android:layout_width="match_parent" android:text="@string/cat_reactive" android:layout_marginBottom="12dp" />
-
-            <Button android:id="@+id/btn_veil" style="@style/VisualizerPill" android:text="@string/vis_veil" />
-            <Button android:id="@+id/btn_veil_topdown" style="@style/VisualizerPill" android:text="@string/vis_veil_topdown" />
-
-            <Button android:id="@+id/btn_nebula" style="@style/VisualizerPill" android:text="@string/vis_nebula" />
-
-            <Button android:id="@+id/btn_logo_particle" style="@style/VisualizerPill" android:text="@string/vis_logo_particle" />
-
-            <Button android:id="@+id/btn_spectral_canyon" style="@style/VisualizerPill" android:text="@string/vis_spectral_canyon" />
-
-            <Button android:id="@+id/btn_spectral_canyon_classic" style="@style/VisualizerPill" android:text="@string/vis_spectral_canyon_classic" />
-
-            <Button android:id="@+id/btn_starscape" style="@style/VisualizerPill" android:text="@string/vis_starscape" />
-
-            <Button android:id="@+id/btn_bloom" style="@style/VisualizerPill" android:text="@string/vis_bloom" />
-
-            <Button android:id="@+id/btn_electric_iris" style="@style/VisualizerPill" android:text="@string/vis_electric_iris" />
-
-            <Button android:id="@+id/btn_tunnel" style="@style/VisualizerPill" android:text="@string/vis_tunnel" />
-
-            <Button android:id="@+id/btn_laser" style="@style/VisualizerPill" android:text="@string/vis_laser" />
-
-            <Button android:id="@+id/btn_phyllotaxis" style="@style/VisualizerPill" android:text="@string/vis_phyllotaxis" />
-
-            <Button android:id="@+id/btn_mandala" style="@style/VisualizerPill" android:text="@string/vis_mandala" />
-
-            <Button android:id="@+id/btn_audio_web" style="@style/VisualizerPill" android:text="@string/vis_audio_web" />
-
-            <Button android:id="@+id/btn_topo_ridge" style="@style/VisualizerPill" android:text="@string/vis_topo_ridge" />
-
-            <Button android:id="@+id/btn_strange_attractor" style="@style/VisualizerPill" android:text="@string/vis_strange_attractor" />
-
-            <Button android:id="@+id/btn_waveform_waterfall" style="@style/VisualizerPill" android:text="@string/vis_waveform_waterfall" />
-
-            <Button android:id="@+id/btn_cymatics" style="@style/VisualizerPill" android:text="@string/vis_cymatics" />
-
-            <Button android:id="@+id/btn_beat_pulse" style="@style/VisualizerPill" android:text="@string/vis_beat_pulse" />
-
-            <Button android:id="@+id/btn_fireworks" style="@style/VisualizerPill" android:text="@string/vis_fireworks" />
-
-
-            <!-- ===== Category: Immersive (rich generative, heavier GPU) ===== -->
-            <View style="@style/Divider" android:layout_marginTop="16dp" android:layout_marginBottom="16dp" />
-
-            <TextView style="@style/SectionHeader" android:layout_width="match_parent" android:text="@string/cat_immersive" android:layout_marginBottom="12dp" />
-
-            <Button android:id="@+id/btn_meridian" style="@style/VisualizerPill" android:text="@string/vis_meridian" />
-
-            <Button android:id="@+id/btn_slipstream" style="@style/VisualizerPill" android:text="@string/vis_slipstream" />
-
-            <Button android:id="@+id/btn_event_horizon" style="@style/VisualizerPill" android:text="@string/vis_event_horizon" />
-
-            <Button android:id="@+id/btn_fluid" style="@style/VisualizerPill" android:text="@string/vis_fluid" />
-
-            <Button android:id="@+id/btn_crystal_swarm" style="@style/VisualizerPill" android:text="@string/vis_crystal_swarm" />
-
-            <Button android:id="@+id/btn_mandelbox" style="@style/VisualizerPill" android:text="@string/vis_mandelbox" />
-
-            <Button android:id="@+id/btn_reaction_diffusion" style="@style/VisualizerPill" android:text="@string/vis_reaction_diffusion" />
-
-            <Button android:id="@+id/btn_plasma_storm" style="@style/VisualizerPill" android:text="@string/vis_plasma_storm" />
-
-            <Button android:id="@+id/btn_odyssey" style="@style/VisualizerPill" android:text="@string/vis_odyssey" />
-
-            <Button android:id="@+id/btn_liquid_light" style="@style/VisualizerPill" android:text="@string/vis_liquid_light" />
-
-            <Button android:id="@+id/btn_aurora_drift" style="@style/VisualizerPill" android:text="@string/vis_aurora_drift" />
-
-        </LinearLayout>
+        <!-- Star / unstar the centred scene (replaces long-press-to-favourite). -->
+        <Button android:id="@+id/btn_favourite" style="@style/VisualizerPill" android:text="@string/fav_add" />
 
         <!-- ===== Ambient Mode launcher (a viewing mode, not a scene — sits below
              the scene list so it never reads as part of a visual) ===== -->
@@ -442,21 +335,6 @@
         <TextView style="@style/SectionHeader" android:layout_width="match_parent" android:text="@string/cat_modes" android:layout_marginBottom="12dp" />
 
         <Button android:id="@+id/btn_display_mode" style="@style/VisualizerPill" android:text="@string/ambient_mode" />
-
-        <!-- Sub-option of Ambient Mode: chooses what the standby screen looks like
-             the next time it's entered (Classic clock vs. Window-into-the-music). -->
-        <Button
-            android:id="@+id/btn_ambient_style"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:layout_marginStart="16dp"
-            android:layout_marginBottom="12dp"
-            android:background="@drawable/pill_button_bg"
-            android:text="@string/ambient_style_classic"
-            android:textColor="@color/btn_text"
-            android:textAllCaps="false"
-            android:textSize="14sp"
-            android:stateListAnimator="@null" />
 
         <!-- Auto-advance through scenes on a timer (respects favourites). -->
         <Button
@@ -1125,7 +1003,19 @@
             android:stateListAnimator="@null" />
 
         <!-- Display Mode launcher now lives at the top of the Visuals tab (it's a
-             viewing mode, not a display setting). -->
+             viewing mode, not a display setting). Its set-once sub-option — what
+             the standby screen looks like (Classic vs Window) — lives here. -->
+        <Button
+            android:id="@+id/btn_ambient_style"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/pill_button_bg"
+            android:text="@string/ambient_style_classic"
+            android:textColor="@color/btn_text"
+            android:textAllCaps="false"
+            android:textSize="14sp"
+            android:stateListAnimator="@null" />
 
         <!-- Toggle the visualiser-name label that flashes over the canvas on swipe -->
         <Button
