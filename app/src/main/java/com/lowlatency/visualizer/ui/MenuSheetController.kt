@@ -235,10 +235,10 @@ class MenuSheetController(
     }
 
     /**
-     * Scrub-preview: while the scene wheel is being dragged, melt the sheet out of
-     * the way — fade the tab bar / handle / divider, thin the glass panel and drop
-     * the canvas blur — so the live visual reads clearly behind the wheel. All of
-     * it is restored when the wheel settles.
+     * Scrub-preview: while the scene wheel is being dragged, melt the sheet's chrome
+     * out of the way — fade the tab bar / handle / divider — so the list can stretch
+     * to the edges clearly. The dim scrim is also faded so the visual pops, but the
+     * glass sheet background itself remains. All restored when the wheel settles.
      */
     fun setScrubPreview(active: Boolean) {
         if (!isOpen || scrubPreview == active) return
@@ -248,14 +248,6 @@ class MenuSheetController(
         listOf(tabBar, handle, navDivider, scrim).forEach {
             it.animate().alpha(a).setDuration(PREVIEW_FADE_MS).start()
         }
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
-        val bg = optionsSheet.background.mutate()
-        ValueAnimator.ofInt(bg.alpha, if (active) PREVIEW_SHEET_ALPHA else SHEET_ALPHA).apply {
-            duration = PREVIEW_FADE_MS
-            addUpdateListener { bg.alpha = it.animatedValue as Int }
-            start()
-        }
-        animateBlur(if (active) 0f else MENU_BLUR_MAX, PREVIEW_FADE_MS, DecelerateInterpolator(1.4f))
     }
 
     /** Clear any lingering scrub-preview fade (called when the sheet (re)opens). */

@@ -193,6 +193,8 @@
         android:layout_marginTop="72dp"
         android:layout_marginBottom="-40dp"
         android:paddingBottom="40dp"
+        android:clipChildren="false"
+        android:clipToPadding="false"
         android:background="@drawable/sheet_background"
         android:clickable="true"
         android:focusable="true"
@@ -203,15 +205,71 @@
         <!-- Content column: capped to a centered max-width on tablets/unfolded
              foldables (MenuSheetController.applyWidthCap) so controls don't
              stretch edge-to-edge on wide displays. -->
-        <LinearLayout
+        <FrameLayout
             android:id="@+id/options_sheet_content"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
             android:paddingStart="24dp"
             android:paddingEnd="24dp"
             android:paddingTop="16dp"
-            android:paddingBottom="80dp">
+            android:paddingBottom="80dp"
+            android:clipChildren="false"
+            android:clipToPadding="false">
+
+            <!-- TAB 1: Visualizers (Spans full height behind chrome) -->
+            <FrameLayout
+                android:id="@+id/tab_visualizers"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:clipChildren="false"
+                android:clipToPadding="false">
+                
+                <com.lowlatency.visualizer.ui.SceneWheelView
+                    android:id="@+id/scene_wheel"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:layout_marginTop="-88dp"
+                    android:layout_marginBottom="-80dp" />
+
+                <!-- The counter and hint stay safely at the bottom of the visible pad -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="bottom"
+                    android:orientation="vertical"
+                    android:paddingBottom="4dp">
+
+                    <TextView
+                        android:id="@+id/scene_counter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center_horizontal"
+                        android:fontFamily="@font/space_mono"
+                        android:textColor="@color/text_dim"
+                        android:textSize="12sp"
+                        android:letterSpacing="0.3"
+                        android:layout_marginBottom="4dp" />
+
+                    <TextView
+                        android:id="@+id/scene_hint"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center_horizontal"
+                        android:fontFamily="@font/space_mono"
+                        android:textColor="@color/text_dim"
+                        android:textSize="11sp"
+                        android:letterSpacing="0.12"
+                        android:alpha="0"
+                        android:text="@string/scene_hint"
+                        android:layout_marginBottom="8dp" />
+                </LinearLayout>
+            </FrameLayout>
+
+            <!-- CHROME LAYER -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
 
         <!-- Drag handle -->
         <View
@@ -279,52 +337,6 @@
 
         <!-- ───── divider: Main Nav / Content ───── -->
         <View android:id="@+id/sheet_nav_divider" style="@style/Divider" android:layout_marginBottom="24dp" />
-
-        <!-- ===== TAB 1: Visualizers ===== -->
-        <LinearLayout
-            android:id="@+id/tab_visualizers"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:orientation="vertical">
-
-        <!-- The scene wheel fills the tab and centres itself. Tap a visual to
-             select it and dismiss the menu; hold to favourite it (★). The handle
-             + tab bar above stay grabbable for pulling the sheet down. -->
-        <com.lowlatency.visualizer.ui.SceneWheelView
-            android:id="@+id/scene_wheel"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1" />
-
-        <TextView
-            android:id="@+id/scene_counter"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center_horizontal"
-            android:fontFamily="@font/space_mono"
-            android:textColor="@color/text_dim"
-            android:textSize="12sp"
-            android:letterSpacing="0.3"
-            android:layout_marginBottom="4dp" />
-
-        <!-- Transient hint: shown on each menu open, fades after a couple of
-             seconds (or the moment you start scrubbing). -->
-        <TextView
-            android:id="@+id/scene_hint"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center_horizontal"
-            android:fontFamily="@font/space_mono"
-            android:textColor="@color/text_dim"
-            android:textSize="11sp"
-            android:letterSpacing="0.12"
-            android:alpha="0"
-            android:text="@string/scene_hint"
-            android:layout_marginBottom="8dp" />
-
-        </LinearLayout>
-        <!-- /TAB 1: Visuals -->
 
         <!-- ===== TAB 3: Settings ===== -->
         <LinearLayout
@@ -1766,7 +1778,8 @@
         </LinearLayout>
         <!-- /TAB 2 -->
 
-        </LinearLayout>
+            </LinearLayout>
+        </FrameLayout>
     </ScrollView>
 
     <!-- Display / standby mode: oversized clock + live BPM + presence meter over

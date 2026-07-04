@@ -1,5 +1,6 @@
 package com.lowlatency.visualizer.ui
 
+import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
@@ -47,6 +48,9 @@ class SceneWheelView @JvmOverloads constructor(
     /** Fired true when a drag/fling scrub begins, false when the wheel settles. */
     var onScrubbingChange: ((Boolean) -> Unit)? = null
     private var scrubbing = false
+
+    private var scrubFrac = 0f
+    private var scrubAnimator: ValueAnimator? = null
 
     /** Tap a row → select that scene, then dismiss the menu ([onSelect] + [onPick]). */
     var onPick: (() -> Unit)? = null
@@ -165,6 +169,15 @@ class SceneWheelView @JvmOverloads constructor(
         if (scrubbing == on) return
         scrubbing = on
         onScrubbingChange?.invoke(on)
+        scrubAnimator?.cancel()
+        scrubAnimator = ValueAnimator.ofFloat(scrubFrac, if (on) 1f else 0f).apply {
+            duration = 200
+            addUpdateListener { 
+                scrubFrac = it.animatedValue as Float
+                invalidate() 
+            }
+            start()
+        }
     }
 
     @Suppress("ClickableViewAccessibility")
@@ -241,7 +254,16 @@ class SceneWheelView @JvmOverloads constructor(
             val y = cy + sin(angle) * radius
             val fav = !items[i].isHeader && favourites.contains(items[i].index)
             val name = (if (fav) "★  " else "") + items[i].name.uppercase()
-            val alpha = (255f * fore * fore * fore).toInt().coerceIn(6, 255)
+            
+            // Restrict visible angle when not scrubbing to prevent extending under buttons
+            val restrictedEdge = 0.82f
+            val currentEdge = restrictedEdge + scrubFrac * (EDGE_ANGLE - restrictedEdge)
+            val distanceFrac = abs(angle) / currentEdge
+            if (distanceFrac >= 1f) continue
+            
+            val alphaBase = (255f * fore * fore * fore).toInt()
+            val fadeOut = (1f - distanceFrac).coerceIn(0f, 1f)
+            val alpha = (alphaBase * fadeOut * fadeOut).toInt().coerceIn(6, 255)
             
             if (items[i].isHeader) {
                 textPaint.textSize = fittedBase * (0.4f + 0.3f * fore)

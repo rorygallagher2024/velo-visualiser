@@ -77,9 +77,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tabBtnVisuals: Button
     private lateinit var tabBtnLighting: Button
     private lateinit var tabBtnSettings: Button
-    private lateinit var tabVisualizers: LinearLayout
-    private lateinit var tabLighting: LinearLayout
-    private lateinit var tabSettings: LinearLayout
+    private lateinit var tabVisualizers: View
+    private lateinit var tabLighting: View
+    private lateinit var tabSettings: View
     private lateinit var btnCastDisplay: Button
     private lateinit var castOverlay: TextView
 
@@ -376,10 +376,6 @@ class MainActivity : AppCompatActivity() {
         )) {
             val active = tab == id
             view.visibility = if (active) View.VISIBLE else View.GONE
-            (view.layoutParams as LinearLayout.LayoutParams).apply {
-                weight = if (active) 1f else 0f
-                height = if (active) 0 else LinearLayout.LayoutParams.WRAP_CONTENT
-            }
         }
     }
 
