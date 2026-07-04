@@ -258,6 +258,7 @@ class MainActivity : AppCompatActivity() {
             onBeforeOpen = {
                 syncMenuState()
                 if (::menuDiscoveryController.isInitialized) menuDiscoveryController.onMenuOpened()
+                if (::scenesController.isInitialized) scenesController.onMenuOpened()
             },
         )
         menuSheetController.bind()

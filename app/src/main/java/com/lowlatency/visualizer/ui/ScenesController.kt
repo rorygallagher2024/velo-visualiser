@@ -36,11 +36,13 @@ class ScenesController(
 
     private lateinit var wheel: SceneWheelView
     private lateinit var counter: TextView
+    private lateinit var hint: TextView
     private lateinit var btnSceneLabel: Button
     private lateinit var sceneLabel: TextView
 
     private val favourites = linkedSetOf<Int>()
 
+    private var hintRunnable: Runnable? = null
     private var sceneLabelRunnable: Runnable? = null
     private var sceneLabelEnabled = true
     private var activeSceneName = ""
@@ -48,6 +50,7 @@ class ScenesController(
     fun bind() {
         wheel = activity.findViewById(R.id.scene_wheel)
         counter = activity.findViewById(R.id.scene_counter)
+        hint = activity.findViewById(R.id.scene_hint)
         btnSceneLabel = activity.findViewById(R.id.btn_scene_label)
         sceneLabel = activity.findViewById(R.id.scene_label)
 
@@ -99,7 +102,23 @@ class ScenesController(
      *  scrubbing so the live visual previews clearly behind the wheel. */
     private fun setScrubPreview(active: Boolean) {
         counter.animate().alpha(if (active) 0f else 1f).setDuration(PREVIEW_FADE_MS).start()
+        if (active) dismissHint()
         onScrubPreview(active)
+    }
+
+    /** Show the tap/hold hint on menu open, then fade it after a couple of seconds. */
+    fun onMenuOpened() {
+        hintRunnable?.let { hint.removeCallbacks(it) }
+        hint.animate().cancel()
+        hint.alpha = 1f
+        val r = Runnable { hint.animate().alpha(0f).setDuration(HINT_FADE_MS).start() }
+        hintRunnable = r
+        hint.postDelayed(r, HINT_HOLD_MS)
+    }
+
+    private fun dismissHint() {
+        hintRunnable?.let { hint.removeCallbacks(it) }
+        hint.animate().alpha(0f).setDuration(PREVIEW_FADE_MS).start()
     }
 
     private fun nameOf(index: Int): String =
@@ -169,5 +188,7 @@ class ScenesController(
         private const val KEY_FAVOURITES = "favourite_scenes"
         private const val KEY_SCENE_LABEL = "scene_label_enabled"
         private const val PREVIEW_FADE_MS = 200L
+        private const val HINT_HOLD_MS = 2000L
+        private const val HINT_FADE_MS = 500L
     }
 }

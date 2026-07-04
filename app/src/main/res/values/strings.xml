@@ -49,16 +49,17 @@
     <string name="vis_slipstream">Slipstream</string>
     <string name="vis_veil">Veil</string>
     <string name="vis_veil_topdown">Veil (Top-Down)</string>
-    <string name="cat_modes">Modes</string>
     <string name="cat_instruments">Instruments</string>
     <string name="cat_reactive">Reactive</string>
     <string name="cat_immersive">Immersive</string>
     <string name="section_visuals">Visuals</string>
     <string name="display_label">Display</string>
+    <string name="customisation_label">Customisation</string>
     <string name="ambient_mode">Ambient Mode</string>
     <!-- Scene wheel favourites (hold a visual to toggle). -->
     <string name="fav_added_toast">Added to swipe favourites</string>
     <string name="fav_removed_toast">Removed from favourites</string>
+    <string name="scene_hint">Tap to select · Hold to favourite</string>
     <string name="ambient_style_classic">Ambient Style: Classic</string>
     <string name="ambient_style_window">Ambient Style: Window</string>
     <string name="shuffle_on">Shuffle Scenes: On</string>

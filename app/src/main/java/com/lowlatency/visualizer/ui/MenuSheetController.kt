@@ -242,7 +242,8 @@ class MenuSheetController(
         if (!isOpen || scrubPreview == active) return
         scrubPreview = active
         val a = if (active) 0f else 1f
-        listOf(tabBar, handle, navDivider).forEach {
+        // Fade the chrome AND the dim scrim, so the canvas is fully revealed.
+        listOf(tabBar, handle, navDivider, scrim).forEach {
             it.animate().alpha(a).setDuration(PREVIEW_FADE_MS).start()
         }
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
@@ -272,7 +273,7 @@ class MenuSheetController(
         private const val WIDTH_CAP_TRIGGER_DP = 600    // apply the cap above this screen width
         private const val WIDTH_CAP_DP = 560f           // centered content column width
         private const val SHEET_ALPHA = 210             // ~82% translucent glass (open)
-        private const val PREVIEW_SHEET_ALPHA = 36      // panel while scrub-previewing
+        private const val PREVIEW_SHEET_ALPHA = 0       // fully clear the glass while scrubbing
         private const val PREVIEW_FADE_MS = 200L
     }
 }

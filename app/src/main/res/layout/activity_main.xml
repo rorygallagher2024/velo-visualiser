@@ -306,6 +306,21 @@
             android:textColor="@color/text_dim"
             android:textSize="12sp"
             android:letterSpacing="0.3"
+            android:layout_marginBottom="4dp" />
+
+        <!-- Transient hint: shown on each menu open, fades after a couple of
+             seconds (or the moment you start scrubbing). -->
+        <TextView
+            android:id="@+id/scene_hint"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:fontFamily="@font/space_mono"
+            android:textColor="@color/text_dim"
+            android:textSize="11sp"
+            android:letterSpacing="0.12"
+            android:alpha="0"
+            android:text="@string/scene_hint"
             android:layout_marginBottom="8dp" />
 
         </LinearLayout>
@@ -961,13 +976,9 @@
             android:textSize="14sp"
             android:stateListAnimator="@null" />
 
-        <!-- Modes: standby (Ambient) + auto-advance (Shuffle). Moved here from the
-             Visuals tab so the scene wheel can fill it. -->
-        <TextView style="@style/SectionHeader" android:layout_width="match_parent" android:text="@string/cat_modes" android:layout_marginBottom="12dp" />
-
+        <!-- Ambient Mode: a standby viewing mode, with its Classic/Window sub-option. -->
         <Button android:id="@+id/btn_display_mode" style="@style/VisualizerPill" android:text="@string/ambient_mode" />
 
-        <!-- Sub-option of Ambient Mode: what the standby screen looks like next time. -->
         <Button
             android:id="@+id/btn_ambient_style"
             android:layout_width="match_parent"
@@ -975,47 +986,6 @@
             android:layout_marginBottom="8dp"
             android:background="@drawable/pill_button_bg"
             android:text="@string/ambient_style_classic"
-            android:textColor="@color/btn_text"
-            android:textAllCaps="false"
-            android:textSize="14sp"
-            android:stateListAnimator="@null" />
-
-        <!-- Auto-advance through scenes on a timer (respects favourites). -->
-        <Button
-            android:id="@+id/btn_shuffle"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:layout_marginBottom="8dp"
-            android:background="@drawable/pill_button_bg"
-            android:text="@string/shuffle_off"
-            android:textColor="@color/btn_text"
-            android:textAllCaps="false"
-            android:textSize="14sp"
-            android:stateListAnimator="@null" />
-
-        <View style="@style/DividerSubtle" android:layout_marginBottom="16dp" />
-
-        <!-- Toggle the visualiser-name label that flashes over the canvas on swipe -->
-        <Button
-            android:id="@+id/btn_scene_label"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:layout_marginBottom="8dp"
-            android:background="@drawable/pill_button_bg"
-            android:text="@string/scene_label_on"
-            android:textColor="@color/btn_text"
-            android:textAllCaps="false"
-            android:textSize="14sp"
-            android:stateListAnimator="@null" />
-
-        <!-- Performance diagnostics overlay toggle -->
-        <Button
-            android:id="@+id/btn_perf_overlay"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:layout_marginBottom="8dp"
-            android:background="@drawable/pill_button_bg"
-            android:text="@string/perf_overlay_off"
             android:textColor="@color/btn_text"
             android:textAllCaps="false"
             android:textSize="14sp"
@@ -1051,6 +1021,51 @@
                 android:layout_marginBottom="12dp" />
 
         </LinearLayout>
+
+        <!-- ───── divider: Display / Customisation ───── -->
+        <View style="@style/DividerSubtle" android:layout_marginBottom="16dp" />
+
+        <!-- ===== Group: Customisation — behavioural toggles (playback + on-canvas UI) ===== -->
+        <TextView style="@style/SectionHeader" android:text="@string/customisation_label" />
+
+        <!-- Toggle the visualiser-name label that flashes over the canvas on swipe -->
+        <Button
+            android:id="@+id/btn_scene_label"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/pill_button_bg"
+            android:text="@string/scene_label_on"
+            android:textColor="@color/btn_text"
+            android:textAllCaps="false"
+            android:textSize="14sp"
+            android:stateListAnimator="@null" />
+
+        <!-- Auto-advance through scenes on a timer (respects favourites). -->
+        <Button
+            android:id="@+id/btn_shuffle"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/pill_button_bg"
+            android:text="@string/shuffle_off"
+            android:textColor="@color/btn_text"
+            android:textAllCaps="false"
+            android:textSize="14sp"
+            android:stateListAnimator="@null" />
+
+        <!-- Performance diagnostics overlay toggle -->
+        <Button
+            android:id="@+id/btn_perf_overlay"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/pill_button_bg"
+            android:text="@string/perf_overlay_off"
+            android:textColor="@color/btn_text"
+            android:textAllCaps="false"
+            android:textSize="14sp"
+            android:stateListAnimator="@null" />
 
         <!-- ───── divider: Display / About ───── -->
         <View style="@style/Divider" android:layout_marginTop="16dp" android:layout_marginBottom="20dp" />

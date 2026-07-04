@@ -57,6 +57,8 @@ class SceneWheelView @JvmOverloads constructor(
     private var rowH = 120f
     private var radius = 300f
     private var activePos = -1
+    private var fittedBase = 0f     // one consistent hero text size (fits the longest name)
+    private var shadowRadius = 0f
 
     private val scroller = OverScroller(context)
     private var flinging = false
@@ -121,6 +123,7 @@ class SceneWheelView @JvmOverloads constructor(
         val pos = list.indexOfFirst { it.index == activeIndex }.coerceAtLeast(0)
         activePos = pos
         scrollPx = pos * rowH
+        computeFittedBase()
         invalidate()
     }
 
@@ -131,7 +134,21 @@ class SceneWheelView @JvmOverloads constructor(
         radius = h * 0.5f
         // Row height set so a finger-drag near the centre tracks roughly 1:1 on screen.
         rowH = radius * ANGLE_STEP
+        shadowRadius = SHADOW_DP * resources.displayMetrics.density
         scrollPx = max(activePos, 0) * rowH
+        computeFittedBase()
+    }
+
+    /** One consistent hero text size that fits even the longest name (measured as
+     *  if starred), so a row's size never varies with the name's length. */
+    private fun computeFittedBase() {
+        val ideal = height * BASE_FRAC
+        if (items.isEmpty() || width == 0) { fittedBase = ideal; return }
+        textPaint.textSize = ideal
+        var widest = 1f
+        for (it in items) widest = max(widest, textPaint.measureText("★  " + it.name.uppercase()))
+        val maxW = width * FIT_FRAC
+        fittedBase = if (widest > maxW) ideal * (maxW / widest) else ideal
     }
 
     override fun computeScroll() {
@@ -193,7 +210,6 @@ class SceneWheelView @JvmOverloads constructor(
         if (items.isEmpty() || height == 0) return
         val cx = width / 2f
         val cy = height / 2f
-        val base = height * BASE_FRAC
         // Selection band hairlines framing the centre (hero) row.
         val half = rowH * 0.5f
         val inset = width * 0.16f
@@ -207,24 +223,23 @@ class SceneWheelView @JvmOverloads constructor(
             val y = cy + sin(angle) * radius
             val fav = favourites.contains(items[i].index)
             val name = (if (fav) "★  " else "") + items[i].name.uppercase()
-            val size = base * (0.6f + 0.4f * fore)
-            textPaint.textSize = size
-            // Auto-fit: shrink only names too wide for the row (e.g. "Volumetric
-            // Laser Array") so nothing overflows, regardless of scene naming.
-            val tw = textPaint.measureText(name)
-            val maxW = width * FIT_FRAC
-            if (tw > maxW) textPaint.textSize = size * (maxW / tw)
+            val alpha = (255f * fore * fore * fore).toInt().coerceIn(6, 255)
+            textPaint.textSize = fittedBase * (0.6f + 0.4f * fore)   // one consistent size
             textPaint.color = primary
-            textPaint.alpha = (255f * fore * fore * fore).toInt().coerceIn(6, 255)
+            textPaint.alpha = alpha
+            // Alpha-matched dark halo keeps names legible when the sheet fades out
+            // during a scrub and they float directly over the live visual.
+            textPaint.setShadowLayer(shadowRadius, 0f, 0f, (alpha * 3 / 4) shl 24)
             val fm = textPaint.fontMetrics
             canvas.drawText(name, cx, y - (fm.ascent + fm.descent) / 2f, textPaint)
         }
     }
 
     companion object {
-        private const val ANGLE_STEP = 0.5f     // radians between rows (wheel curvature)
+        private const val ANGLE_STEP = 0.4f     // radians between rows (wheel curvature / spacing)
         private const val EDGE_ANGLE = 1.45f    // ~83°, just past the visible rim
         private const val BASE_FRAC = 0.105f    // hero text size as a fraction of height
         private const val FIT_FRAC = 0.88f      // max name width as a fraction of view width
+        private const val SHADOW_DP = 5f        // legibility halo behind names
     }
 }
