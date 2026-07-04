@@ -28,6 +28,9 @@ class PostProcessor {
     private val bloomFbo = IntArray(2)
     private val bloomTex = IntArray(2)
 
+    private var allocatedW = 0
+    private var allocatedH = 0
+
     private var width = 1
     private var height = 1
     private var bloomW = 1
@@ -36,6 +39,10 @@ class PostProcessor {
     private var brightProg = 0
     private var blurProg = 0
     private var compositeProg = 0
+
+    private var uUvScaleBright = 0
+    private var uUvScaleBlur = 0
+    private var uUvScaleComp = 0
 
     private var uBrightTex = 0
     private var uThreshold = 0
@@ -56,6 +63,10 @@ class PostProcessor {
         blurProg = ShaderUtil.buildProgram(QUAD_VS, BLUR_FS)
         compositeProg = ShaderUtil.buildProgram(QUAD_VS, COMPOSITE_FS)
 
+        uUvScaleBright = GLES20.glGetUniformLocation(brightProg, "u_uvScale")
+        uUvScaleBlur = GLES20.glGetUniformLocation(blurProg, "u_uvScale")
+        uUvScaleComp = GLES20.glGetUniformLocation(compositeProg, "u_uvScale")
+
         uBrightTex = GLES20.glGetUniformLocation(brightProg, "u_tex")
         uThreshold = GLES20.glGetUniformLocation(brightProg, "u_threshold")
         uBlurTex = GLES20.glGetUniformLocation(blurProg, "u_tex")
@@ -70,16 +81,33 @@ class PostProcessor {
     }
 
     fun resize(width: Int, height: Int) {
-        this.width = width.coerceAtLeast(1)
-        this.height = height.coerceAtLeast(1)
+        val newW = width.coerceAtLeast(1)
+        val newH = height.coerceAtLeast(1)
+        
+        if (newW <= allocatedW && newH <= allocatedH && ready) {
+            this.width = newW
+            this.height = newH
+            bloomW = (newW / 4).coerceAtLeast(1)
+            bloomH = (newH / 4).coerceAtLeast(1)
+            return
+        }
+
+        this.width = newW
+        this.height = newH
         bloomW = (this.width / 4).coerceAtLeast(1)
         bloomH = (this.height / 4).coerceAtLeast(1)
+        
+        allocatedW = this.width
+        allocatedH = this.height
+        val allocatedBloomW = bloomW
+        val allocatedBloomH = bloomH
+
         release()
 
-        sceneTex = createColorTexture(this.width, this.height)
+        sceneTex = createColorTexture(allocatedW, allocatedH)
         sceneFbo = createFbo(sceneTex)
         for (i in 0..1) {
-            bloomTex[i] = createColorTexture(bloomW, bloomH)
+            bloomTex[i] = createColorTexture(allocatedBloomW, allocatedBloomH)
             bloomFbo[i] = createFbo(bloomTex[i])
         }
         ready = sceneFbo != 0 && bloomFbo[0] != 0 && bloomFbo[1] != 0
@@ -118,12 +146,18 @@ class PostProcessor {
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, bloomFbo[0])
         GLES20.glViewport(0, 0, bloomW, bloomH)
         GLES20.glUseProgram(brightProg)
+        
+        val scaleX = width.toFloat() / allocatedW
+        val scaleY = height.toFloat() / allocatedH
+        GLES20.glUniform2f(uUvScaleBright, scaleX, scaleY)
+        
         bindTex(0, sceneTex, uBrightTex)
         GLES20.glUniform1f(uThreshold, BLOOM_THRESHOLD)
         drawTriangle()
 
         // 2) Separable Gaussian bloom, ping-ponging the two quarter-res buffers.
         GLES20.glUseProgram(blurProg)
+        GLES20.glUniform2f(uUvScaleBlur, scaleX, scaleY)
         val texelX = 1f / bloomW
         val texelY = 1f / bloomH
         var srcTex = bloomTex[0]
@@ -151,6 +185,7 @@ class PostProcessor {
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
         GLES20.glViewport(0, 0, width, height)
         GLES20.glUseProgram(compositeProg)
+        GLES20.glUniform2f(uUvScaleComp, scaleX, scaleY)
         bindTex(0, sceneTex, uCompScene)
         bindTex(1, finalBloomTex, uCompBloom)
         GLES20.glUniform1f(uCompBloomI, bloomIntensity)
@@ -227,10 +262,11 @@ class PostProcessor {
 
         // Full-screen triangle from gl_VertexID — no attributes/VBO.
         private const val QUAD_VS = """#version 300 es
+            uniform vec2 u_uvScale;
             out vec2 v_uv;
             void main() {
                 vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2));
-                v_uv = p;                         // 0..2 -> covers 0..1 over the screen
+                v_uv = p * u_uvScale;             // covers the valid sub-region of the texture
                 gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
             }
         """

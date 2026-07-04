@@ -35,6 +35,10 @@ class MenuSheetController(
     private lateinit var scrim: View
     private lateinit var optionsSheet: View
     private lateinit var sheetContent: View
+    private lateinit var tabBar: View
+    private lateinit var handle: View
+    private lateinit var navDivider: View
+    private var scrubPreview = false
 
     private var blurAnimator: ValueAnimator? = null
     private var currentBlurRadius = 0f
@@ -49,6 +53,9 @@ class MenuSheetController(
         scrim = activity.findViewById(R.id.scrim)
         optionsSheet = activity.findViewById(R.id.options_sheet)
         sheetContent = activity.findViewById(R.id.options_sheet_content)
+        tabBar = activity.findViewById(R.id.sheet_tab_bar)
+        handle = activity.findViewById(R.id.sheet_handle)
+        navDivider = activity.findViewById(R.id.sheet_nav_divider)
         optionsSheet.visibility = View.GONE
         applyWidthCap()
 
@@ -133,6 +140,8 @@ class MenuSheetController(
         if (sheetDragActive) return
         sheetDragActive = true
         isOpen = true
+        glView.isMenuOpen = true
+        resetScrubPreview()
         onBeforeOpen()
         optionsSheet.animate().cancel()
         scrim.animate().cancel()
@@ -173,11 +182,12 @@ class MenuSheetController(
      *  the gesture's velocity. */
     private fun settle(open: Boolean, speedPxPerS: Float) {
         isOpen = open
+        glView.isMenuOpen = open
         if (open) {
             optionsSheet.visibility = View.VISIBLE
             scrim.visibility = View.VISIBLE
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                optionsSheet.background.mutate().alpha = 210
+                optionsSheet.background.mutate().alpha = SHEET_ALPHA
             }
         }
         val target = if (open) 0f else sheetTravelPx()
@@ -224,11 +234,40 @@ class MenuSheetController(
         }
     }
 
+    /**
+     * Scrub-preview: while the scene wheel is being dragged, melt the sheet's chrome
+     * out of the way — fade the tab bar / handle / divider — so the list can stretch
+     * to the edges clearly. The dim scrim is also faded so the visual pops, but the
+     * glass sheet background itself remains. All restored when the wheel settles.
+     */
+    fun setScrubPreview(active: Boolean) {
+        if (!isOpen || scrubPreview == active) return
+        scrubPreview = active
+        val a = if (active) 0f else 1f
+        // Fade the chrome AND the dim scrim, so the canvas is fully revealed.
+        listOf(tabBar, handle, navDivider, scrim).forEach {
+            it.animate().alpha(a).setDuration(PREVIEW_FADE_MS).start()
+        }
+    }
+
+    /** Clear any lingering scrub-preview fade (called when the sheet (re)opens). */
+    private fun resetScrubPreview() {
+        scrubPreview = false
+        if (::tabBar.isInitialized) {
+            tabBar.alpha = 1f
+            handle.alpha = 1f
+            navDivider.alpha = 1f
+        }
+    }
+
     companion object {
         private const val SWIPE_DOWN_VELOCITY = 1200f
         private const val MENU_BLUR_MAX = 32f
         private const val SHEET_SETTLE_VELOCITY = 600f  // px/s flick that decisively opens/closes
         private const val WIDTH_CAP_TRIGGER_DP = 600    // apply the cap above this screen width
         private const val WIDTH_CAP_DP = 560f           // centered content column width
+        private const val SHEET_ALPHA = 210             // ~82% translucent glass (open)
+        private const val PREVIEW_SHEET_ALPHA = 0       // fully clear the glass while scrubbing
+        private const val PREVIEW_FADE_MS = 200L
     }
 }

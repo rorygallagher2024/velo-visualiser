@@ -37,10 +37,11 @@ void main() { gl_Position = vec4(aPos, 0.0, 1.0); }
 """
 
         private const val FULLSCREEN_VS = """#version 300 es
+            uniform vec2 u_uvScale;
             out vec2 v_uv;
             void main() {
                 vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2));
-                v_uv = p;
+                v_uv = p * u_uvScale;
                 gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
             }
         """
@@ -232,6 +233,7 @@ void main() {
     private var uSpark = 0
     private var uHue = 0
     private var uBlitTex = 0
+    private var uUvScale = 0
 
     private var iw = 1; private var ih = 1
     private var w = 1f
@@ -240,6 +242,7 @@ void main() {
     private var halfW = 1; private var halfH = 1
     private var halfFbo = 0; private var halfTex = 0
     private var halfReady = false
+    private var allocatedHalfW = 0; private var allocatedHalfH = 0
 
     // Smoothed audio-reactive state (kept off the raw per-frame band values so
     // the geometry breathes gracefully).
@@ -267,13 +270,25 @@ void main() {
         }
         if (blitProg != 0) {
             uBlitTex = GLES20.glGetUniformLocation(blitProg, "u_tex")
+            uUvScale = GLES20.glGetUniformLocation(blitProg, "u_uvScale")
         }
     }
 
     override fun onResize(width: Int, height: Int, aspect: Float) {
         iw = width.coerceAtLeast(1); ih = height.coerceAtLeast(1)
         w = iw.toFloat(); h = ih.toFloat()
-        halfW = (iw / 2).coerceAtLeast(1); halfH = (ih / 2).coerceAtLeast(1)
+        
+        val newHalfW = (iw / 2).coerceAtLeast(1)
+        val newHalfH = (ih / 2).coerceAtLeast(1)
+        
+        if (newHalfW <= allocatedHalfW && newHalfH <= allocatedHalfH && halfReady) {
+            halfW = newHalfW; halfH = newHalfH
+            return
+        }
+        
+        halfW = newHalfW; halfH = newHalfH
+        allocatedHalfW = halfW; allocatedHalfH = halfH
+        
         if (blitProg != 0) allocateHalf()
     }
 
@@ -306,6 +321,7 @@ void main() {
             GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, target[0])
             GLES20.glViewport(0, 0, iw, ih)
             GLES20.glUseProgram(blitProg)
+            GLES20.glUniform2f(uUvScale, halfW.toFloat() / allocatedHalfW, halfH.toFloat() / allocatedHalfH)
             GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
             GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, halfTex)
             GLES20.glUniform1i(uBlitTex, 0)
@@ -338,7 +354,7 @@ void main() {
         GLES20.glGenTextures(1, tex, 0)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, tex[0])
         GLES30.glTexImage2D(
-            GLES20.GL_TEXTURE_2D, 0, GLES30.GL_RGBA16F, halfW, halfH, 0,
+            GLES20.GL_TEXTURE_2D, 0, GLES30.GL_RGBA16F, allocatedHalfW, allocatedHalfH, 0,
             GLES20.GL_RGBA, GLES30.GL_HALF_FLOAT, null
         )
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)

@@ -1,21 +1,27 @@
 package com.lowlatency.visualizer.ui
 
-import android.animation.AnimatorSet
-import android.animation.ObjectAnimator
 import android.content.SharedPreferences
 import android.view.View
-import android.view.animation.AccelerateInterpolator
-import android.view.animation.DecelerateInterpolator
 import android.widget.Button
-import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.edit
 import com.lowlatency.visualizer.R
 import com.lowlatency.visualizer.SecondaryVisualizerActivity
 import com.lowlatency.visualizer.VisualizerSurfaceView
-import androidx.core.content.edit
 
+/**
+ * Owns the Visuals tab: the scene [wheel] (which fills the tab) and the transient
+ * on-canvas scene label. Scene identity (order, names, category) comes from
+ * [SceneCatalog].
+ *
+ * The wheel is the whole interaction: **scrub** to browse, **tap** a visual to
+ * select it and dismiss the menu, **hold** a visual to toggle it as a favourite.
+ * Favourites aren't a pinned strip — they're the *swipe set* the canvas
+ * left/right swipe cycles through, marked with a ★ on their wheel row (swipe
+ * falls back to all scenes when none are starred).
+ */
 class ScenesController(
     private val activity: AppCompatActivity,
     private val glView: VisualizerSurfaceView,
@@ -23,178 +29,125 @@ class ScenesController(
     private val isMenuOpen: () -> Boolean,
     private val perfOverlayBottom: () -> Int,
     private val onManualSceneChange: () -> Unit,
+    private val onScrubPreview: (Boolean) -> Unit = {},
+    private val onCloseMenu: () -> Unit = {},
 ) {
-    private lateinit var heroVisName: TextView
+    private val entries = SceneCatalog.ENTRIES
+
+    private lateinit var wheel: SceneWheelView
+    private lateinit var counter: TextView
+    private lateinit var hint: TextView
     private lateinit var btnSceneLabel: Button
     private lateinit var sceneLabel: TextView
-    private var sceneLabelRunnable: Runnable? = null
-    private var sceneLabelEnabled = true
-    private var heroAnimator: AnimatorSet? = null
-    /** The name we're animating *toward* — always up-to-date even mid-animation. */
-    private var activeSceneName = ""
 
-    private lateinit var visButtons: List<Triple<Button, Int, String>>
     private val favourites = linkedSetOf<Int>()
 
-    // Pinned favourites group at the top of the Visuals tab (hidden when empty).
-    private lateinit var favGroup: View
-    private lateinit var favContainer: LinearLayout
-    private val favPills = mutableListOf<Pair<Button, Int>>()
+    private var hintRunnable: Runnable? = null
+    private var sceneLabelRunnable: Runnable? = null
+    private var sceneLabelEnabled = true
+    private var activeSceneName = ""
 
     fun bind() {
-        heroVisName = activity.findViewById(R.id.hero_vis_name)
+        wheel = activity.findViewById(R.id.scene_wheel)
+        counter = activity.findViewById(R.id.scene_counter)
+        hint = activity.findViewById(R.id.scene_hint)
         btnSceneLabel = activity.findViewById(R.id.btn_scene_label)
         sceneLabel = activity.findViewById(R.id.scene_label)
-        favGroup = activity.findViewById(R.id.favourites_group)
-        favContainer = activity.findViewById(R.id.favourites_container)
 
-        visButtons = listOf(
-            // Instruments
-            btn(R.id.btn_oscilloscope, 0),
-            btn(R.id.btn_rawscope, 8),
-            btn(R.id.btn_bars, 5),
-            btn(R.id.btn_obsidian, 36),
-            btn(R.id.btn_circular, 4),
-            btn(R.id.btn_spectrogram, 9),
-            btn(R.id.btn_led_matrix, 16),
-            btn(R.id.btn_led_matrix_3d, 28),
-            btn(R.id.btn_mechanical_meter, 17),
-            btn(R.id.btn_phase_scope, 33),
-            // Reactive
-            btn(R.id.btn_veil, 38),
-            btn(R.id.btn_veil_topdown, 40),
-            btn(R.id.btn_nebula, 34),
-            btn(R.id.btn_logo_particle, 26),
-            btn(R.id.btn_spectral_canyon, 30),
-            btn(R.id.btn_spectral_canyon_classic, 31),
-            btn(R.id.btn_starscape, 7),
-            btn(R.id.btn_bloom, 6),
-            btn(R.id.btn_electric_iris, 12),
-            btn(R.id.btn_tunnel, 1),
-            btn(R.id.btn_laser, 3),
-            btn(R.id.btn_phyllotaxis, 11),
-            btn(R.id.btn_mandala, 13),
-            btn(R.id.btn_audio_web, 14),
-            btn(R.id.btn_topo_ridge, 15),
-            btn(R.id.btn_strange_attractor, 22),
-            btn(R.id.btn_waveform_waterfall, 32),
-            btn(R.id.btn_cymatics, 21),
-            btn(R.id.btn_beat_pulse, 18),
-            btn(R.id.btn_fireworks, 10),
-            // Immersive
-            btn(R.id.btn_meridian, 39),
-            btn(R.id.btn_slipstream, 37),
-            btn(R.id.btn_event_horizon, 35),
-            btn(R.id.btn_fluid, 2),
-            btn(R.id.btn_crystal_swarm, 27),
-            btn(R.id.btn_mandelbox, 19),
-            btn(R.id.btn_reaction_diffusion, 20),
-            btn(R.id.btn_plasma_storm, 23),
-            btn(R.id.btn_odyssey, 25),
-            btn(R.id.btn_liquid_light, 29),
-            btn(R.id.btn_aurora_drift, 24),
-        )
-        glView.sceneOrder = visButtons.map { it.second }
-
-        glView.onSceneChanged = { sceneIndex ->
-            updateSelection()
-            if (!isMenuOpen()) showSceneLabel()
-            onManualSceneChange()
-            prefs.edit { putInt(SecondaryVisualizerActivity.KEY_ACTIVE_SCENE, sceneIndex) }
-        }
+        glView.sceneOrder = entries.map { it.index }
 
         prefs.getStringSet(KEY_FAVOURITES, emptySet())?.forEach {
             it.toIntOrNull()?.let { idx -> favourites.add(idx) }
         }
         updateFavouritesOrder()
-        rebuildFavouritesGroup()
+        activeSceneName = nameOf(glView.sceneIndex)
 
-        visButtons.forEach { (b, idx, _) ->
-            b.setOnClickListener { glView.selectScene(idx); updateSelection() }
-            b.setOnLongClickListener { toggleFavourite(idx); true }
+        wheel.favourites = favourites.toSet()
+        
+        val wheelItems = mutableListOf<SceneWheelView.Item>()
+        var currentCategory: SceneCategory? = null
+        for (e in entries) {
+            if (e.category != currentCategory) {
+                currentCategory = e.category
+                wheelItems.add(SceneWheelView.Item(-1, "— ${e.category.label} —", isHeader = true))
+            }
+            wheelItems.add(SceneWheelView.Item(e.index, nameOf(e.index), isHeader = false))
         }
-        updateSelection()
+        
+        wheel.setScenes(wheelItems, glView.sceneIndex)
+        wheel.onSelect = { glView.selectScene(it) }
+        wheel.onCentre = { updateCounter(it) }
+        wheel.onScrubbingChange = { setScrubPreview(it) }
+        wheel.onPick = { onCloseMenu() }
+        wheel.onFavourite = { toggleFavourite(it) }
+
+        glView.onSceneChanged = { sceneIndex -> onSceneChanged(sceneIndex) }
+
+        updateCounter(glView.sceneIndex)
 
         setSceneLabelEnabled(prefs.getBoolean(KEY_SCENE_LABEL, true))
         btnSceneLabel.setOnClickListener { setSceneLabelEnabled(!sceneLabelEnabled) }
     }
 
-    /** The active scene's display name (e.g. for the perf overlay's Scene row). */
-    fun currentSceneName(): String =
-        if (::visButtons.isInitialized) {
-            visButtons.firstOrNull { it.second == glView.sceneIndex }?.third ?: ""
-        } else {
-            ""
-        }
-
-    fun updateSelection() {
-        val current = glView.sceneIndex
-        for ((b, idx, base) in visButtons) {
-            b.isSelected = idx == current
-            b.text = if (favourites.contains(idx)) "★ $base" else base
-            if (idx == current) animateHeroName(base)
-        }
-        for ((b, idx) in favPills) b.isSelected = idx == current
+    private fun onSceneChanged(sceneIndex: Int) {
+        activeSceneName = nameOf(sceneIndex)
+        wheel.centerOn(sceneIndex)          // follow external changes (swipe, shuffle)
+        updateCounter(sceneIndex)
+        if (!isMenuOpen()) showSceneLabel()
+        onManualSceneChange()
+        prefs.edit { putInt(SecondaryVisualizerActivity.KEY_ACTIVE_SCENE, sceneIndex) }
     }
 
-    /**
-     * Cross-fade the hero scene name: a quick fade-out with a slight upward
-     * drift, then swap the text and fade back in. Skips the animation when the
-     * text hasn't actually changed (e.g. re-selecting the current scene).
-     */
-    private fun animateHeroName(newName: String) {
-        if (activeSceneName == newName) return
-        activeSceneName = newName
-        heroAnimator?.cancel()
+    /** The active scene's display name (e.g. for the perf overlay's Scene row). */
+    fun currentSceneName(): String = nameOf(glView.sceneIndex)
 
-        val drift = heroVisName.resources.displayMetrics.density * HERO_DRIFT_DP
+    /** Ordered (sceneIndex, displayName) pairs. */
+    fun sceneList(): List<Pair<Int, String>> = entries.map { it.index to nameOf(it.index) }
 
-        val fadeOut = ObjectAnimator.ofFloat(heroVisName, View.ALPHA, heroVisName.alpha, 0f)
-        val slideOut = ObjectAnimator.ofFloat(heroVisName, View.TRANSLATION_Y, 0f, -drift)
-        val outSet = AnimatorSet().apply {
-            playTogether(fadeOut, slideOut)
-            duration = HERO_OUT_MS
-            interpolator = AccelerateInterpolator(1.4f)
-        }
+    fun updateSelection() {
+        wheel.centerOn(glView.sceneIndex)
+        updateCounter(glView.sceneIndex)
+    }
 
-        val fadeIn = ObjectAnimator.ofFloat(heroVisName, View.ALPHA, 0f, 1f)
-        val slideIn = ObjectAnimator.ofFloat(heroVisName, View.TRANSLATION_Y, drift, 0f)
-        val inSet = AnimatorSet().apply {
-            playTogether(fadeIn, slideIn)
-            duration = HERO_IN_MS
-            interpolator = DecelerateInterpolator(1.6f)
-        }
+    /** Fade the counter (and the sheet chrome via [onScrubPreview]) away while
+     *  scrubbing so the live visual previews clearly behind the wheel. */
+    private fun setScrubPreview(active: Boolean) {
+        counter.animate().alpha(if (active) 0f else 1f).setDuration(PREVIEW_FADE_MS).start()
+        if (active) dismissHint()
+        onScrubPreview(active)
+    }
 
-        heroAnimator = AnimatorSet().apply {
-            playSequentially(outSet, inSet)
-            addListener(object : android.animation.AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: android.animation.Animator) {
-                    // Ensure rest state even if cancelled mid-flight.
-                    heroVisName.alpha = 1f
-                    heroVisName.translationY = 0f
-                }
-                // Swap the label at the crossover point (outSet finished).
-                override fun onAnimationStart(animation: android.animation.Animator) {
-                    outSet.addListener(object : android.animation.AnimatorListenerAdapter() {
-                        override fun onAnimationEnd(a: android.animation.Animator) {
-                            heroVisName.text = newName
-                        }
-                    })
-                }
-            })
-            start()
-        }
+    /** Show the tap/hold hint on menu open, then fade it after a couple of seconds. */
+    fun onMenuOpened() {
+        hintRunnable?.let { hint.removeCallbacks(it) }
+        hint.animate().cancel()
+        hint.alpha = 1f
+        val r = Runnable { hint.animate().alpha(0f).setDuration(HINT_FADE_MS).start() }
+        hintRunnable = r
+        hint.postDelayed(r, HINT_HOLD_MS)
+    }
+
+    private fun dismissHint() {
+        hintRunnable?.let { hint.removeCallbacks(it) }
+        hint.animate().alpha(0f).setDuration(PREVIEW_FADE_MS).start()
+    }
+
+    private fun nameOf(index: Int): String =
+        entries.firstOrNull { it.index == index }?.let { activity.getString(it.nameRes) } ?: ""
+
+    private fun updateCounter(index: Int) {
+        val e = entries.firstOrNull { it.index == index } ?: return
+        counter.text = "%s · %02d / %02d".format(e.category.label.uppercase(), entries.indexOf(e) + 1, entries.size)
     }
 
     private fun toggleFavourite(index: Int) {
         if (!favourites.add(index)) favourites.remove(index)
         prefs.edit { putStringSet(KEY_FAVOURITES, favourites.map { it.toString() }.toSet()) }
         updateFavouritesOrder()
-        rebuildFavouritesGroup()
-        updateSelection()
+        wheel.favourites = favourites.toSet()
         Toast.makeText(
             activity,
-            if (favourites.contains(index)) "Added to swipe favourites" else "Removed from favourites",
+            if (favourites.contains(index)) R.string.fav_added_toast else R.string.fav_removed_toast,
             Toast.LENGTH_SHORT,
         ).show()
     }
@@ -202,24 +155,6 @@ class ScenesController(
     private fun updateFavouritesOrder() {
         val order = glView.sceneOrder
         glView.favourites = favourites.toList().sortedBy { order.indexOf(it) }
-    }
-
-    /** Rebuild the pinned Favourites pills (swipe order); the group hides when empty. */
-    private fun rebuildFavouritesGroup() {
-        favPills.clear()
-        favContainer.removeAllViews()
-        val ordered = visButtons.filter { favourites.contains(it.second) }
-        favGroup.visibility = if (ordered.isEmpty()) View.GONE else View.VISIBLE
-        for ((_, idx, base) in ordered) {
-            val pill = activity.layoutInflater
-                .inflate(R.layout.item_favourite_pill, favContainer, false) as Button
-            pill.text = base                          // no ★ — the group already says it
-            pill.isSelected = idx == glView.sceneIndex
-            pill.setOnClickListener { glView.selectScene(idx); updateSelection() }
-            pill.setOnLongClickListener { toggleFavourite(idx); true }
-            favContainer.addView(pill)
-            favPills += pill to idx
-        }
     }
 
     private fun setSceneLabelEnabled(enabled: Boolean) {
@@ -260,16 +195,11 @@ class ScenesController(
         sceneLabel.postDelayed(hide, 1100L)
     }
 
-    private fun btn(id: Int, sceneIndex: Int): Triple<Button, Int, String> {
-        val b = activity.findViewById<Button>(id)
-        return Triple(b, sceneIndex, b.text.toString())
-    }
-
     companion object {
         private const val KEY_FAVOURITES = "favourite_scenes"
         private const val KEY_SCENE_LABEL = "scene_label_enabled"
-        private const val HERO_DRIFT_DP = 6f   // how far the text drifts vertically
-        private const val HERO_OUT_MS = 120L    // fade-out duration
-        private const val HERO_IN_MS = 200L     // fade-in duration (slower for a soft landing)
+        private const val PREVIEW_FADE_MS = 200L
+        private const val HINT_HOLD_MS = 2000L
+        private const val HINT_FADE_MS = 500L
     }
 }
