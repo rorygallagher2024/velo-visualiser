@@ -37,10 +37,12 @@ class ScenesController(
     private lateinit var wheel: SceneWheelView
     private lateinit var counter: TextView
     private lateinit var hint: TextView
+    private lateinit var favFilter: TextView
     private lateinit var btnSceneLabel: Button
     private lateinit var sceneLabel: TextView
 
     private val favourites = linkedSetOf<Int>()
+    private var showingFavourites = false
 
     private var hintRunnable: Runnable? = null
     private var sceneLabelRunnable: Runnable? = null
@@ -51,6 +53,7 @@ class ScenesController(
         wheel = activity.findViewById(R.id.scene_wheel)
         counter = activity.findViewById(R.id.scene_counter)
         hint = activity.findViewById(R.id.scene_hint)
+        favFilter = activity.findViewById(R.id.btn_fav_filter)
         btnSceneLabel = activity.findViewById(R.id.btn_scene_label)
         sceneLabel = activity.findViewById(R.id.scene_label)
 
@@ -63,23 +66,15 @@ class ScenesController(
         activeSceneName = nameOf(glView.sceneIndex)
 
         wheel.favourites = favourites.toSet()
-        
-        val wheelItems = mutableListOf<SceneWheelView.Item>()
-        var currentCategory: SceneCategory? = null
-        for (e in entries) {
-            if (e.category != currentCategory) {
-                currentCategory = e.category
-                wheelItems.add(SceneWheelView.Item(-1, "— ${e.category.label} —", isHeader = true))
-            }
-            wheelItems.add(SceneWheelView.Item(e.index, nameOf(e.index), isHeader = false))
-        }
-        
-        wheel.setScenes(wheelItems, glView.sceneIndex)
+        rebuildWheel()
         wheel.onSelect = { glView.selectScene(it) }
         wheel.onCentre = { updateCounter(it) }
         wheel.onScrubbingChange = { setScrubPreview(it) }
         wheel.onPick = { onCloseMenu() }
         wheel.onFavourite = { toggleFavourite(it) }
+
+        favFilter.setOnClickListener { toggleFavFilter() }
+        updateFavFilterIcon()
 
         glView.onSceneChanged = { sceneIndex -> onSceneChanged(sceneIndex) }
 
@@ -87,6 +82,50 @@ class ScenesController(
 
         setSceneLabelEnabled(prefs.getBoolean(KEY_SCENE_LABEL, true))
         btnSceneLabel.setOnClickListener { setSceneLabelEnabled(!sceneLabelEnabled) }
+    }
+
+    /** Build the wheel item list — either the full categorized catalog or just favourites. */
+    private fun buildWheelItems(): List<SceneWheelView.Item> {
+        if (showingFavourites) {
+            // Flat list of favourited scenes in catalog order (no headers).
+            return entries
+                .filter { favourites.contains(it.index) }
+                .map { SceneWheelView.Item(it.index, nameOf(it.index), isHeader = false) }
+        }
+        val items = mutableListOf<SceneWheelView.Item>()
+        var currentCategory: SceneCategory? = null
+        for (e in entries) {
+            if (e.category != currentCategory) {
+                currentCategory = e.category
+                items.add(SceneWheelView.Item(-1, "— ${e.category.label} —", isHeader = true))
+            }
+            items.add(SceneWheelView.Item(e.index, nameOf(e.index), isHeader = false))
+        }
+        return items
+    }
+
+    private fun rebuildWheel() {
+        wheel.setScenes(buildWheelItems(), glView.sceneIndex)
+    }
+
+    private fun toggleFavFilter() {
+        if (!showingFavourites && favourites.isEmpty()) {
+            Toast.makeText(activity, "Hold a visual to add it to favourites", Toast.LENGTH_SHORT).show()
+            return
+        }
+        showingFavourites = !showingFavourites
+        updateFavFilterIcon()
+        rebuildWheel()
+        updateCounter(glView.sceneIndex)
+    }
+
+    private fun updateFavFilterIcon() {
+        favFilter.text = if (showingFavourites) "★" else "☆"
+        @Suppress("DEPRECATION")
+        favFilter.setTextColor(
+            if (showingFavourites) activity.resources.getColor(R.color.accent)
+            else activity.resources.getColor(R.color.text_dim)
+        )
     }
 
     private fun onSceneChanged(sceneIndex: Int) {
@@ -112,7 +151,9 @@ class ScenesController(
     /** Fade the counter (and the sheet chrome via [onScrubPreview]) away while
      *  scrubbing so the live visual previews clearly behind the wheel. */
     private fun setScrubPreview(active: Boolean) {
-        counter.animate().alpha(if (active) 0f else 1f).setDuration(PREVIEW_FADE_MS).start()
+        val a = if (active) 0f else 1f
+        counter.animate().alpha(a).setDuration(PREVIEW_FADE_MS).start()
+        favFilter.animate().alpha(a).setDuration(PREVIEW_FADE_MS).start()
         if (active) dismissHint()
         onScrubPreview(active)
     }
@@ -137,7 +178,13 @@ class ScenesController(
 
     private fun updateCounter(index: Int) {
         val e = entries.firstOrNull { it.index == index } ?: return
-        counter.text = "%s · %02d / %02d".format(e.category.label.uppercase(), entries.indexOf(e) + 1, entries.size)
+        if (showingFavourites) {
+            val favEntries = entries.filter { favourites.contains(it.index) }
+            val pos = favEntries.indexOf(e) + 1
+            counter.text = "FAVOURITES · %02d / %02d".format(pos.coerceAtLeast(1), favEntries.size)
+        } else {
+            counter.text = "%s · %02d / %02d".format(e.category.label.uppercase(), entries.indexOf(e) + 1, entries.size)
+        }
     }
 
     private fun toggleFavourite(index: Int) {
@@ -150,6 +197,15 @@ class ScenesController(
             if (favourites.contains(index)) R.string.fav_added_toast else R.string.fav_removed_toast,
             Toast.LENGTH_SHORT,
         ).show()
+        // If we're viewing favourites and just removed the last one, flip back.
+        if (showingFavourites) {
+            if (favourites.isEmpty()) {
+                showingFavourites = false
+                updateFavFilterIcon()
+            }
+            rebuildWheel()
+            updateCounter(glView.sceneIndex)
+        }
     }
 
     private fun updateFavouritesOrder() {
