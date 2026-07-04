@@ -3,7 +3,6 @@ package com.lowlatency.visualizer.ui
 import android.content.SharedPreferences
 import android.view.View
 import android.widget.Button
-import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -13,11 +12,15 @@ import com.lowlatency.visualizer.SecondaryVisualizerActivity
 import com.lowlatency.visualizer.VisualizerSurfaceView
 
 /**
- * Owns the Visuals tab: the scene [wheel], the pinned favourites strip, the ★
- * favourite toggle and the transient on-canvas scene label. Scene identity
- * (order, names, category) comes from [SceneCatalog] — the single source of
- * truth shared with the canvas swipe order and favourites — so this controller
- * no longer reads a grid of layout buttons.
+ * Owns the Visuals tab: the scene [wheel] (which fills the tab) and the transient
+ * on-canvas scene label. Scene identity (order, names, category) comes from
+ * [SceneCatalog].
+ *
+ * The wheel is the whole interaction: **scrub** to browse, **tap** a visual to
+ * select it and dismiss the menu, **hold** a visual to toggle it as a favourite.
+ * Favourites aren't a pinned strip — they're the *swipe set* the canvas
+ * left/right swipe cycles through, marked with a ★ on their wheel row (swipe
+ * falls back to all scenes when none are starred).
  */
 class ScenesController(
     private val activity: AppCompatActivity,
@@ -26,34 +29,27 @@ class ScenesController(
     private val isMenuOpen: () -> Boolean,
     private val perfOverlayBottom: () -> Int,
     private val onManualSceneChange: () -> Unit,
+    private val onScrubPreview: (Boolean) -> Unit = {},
+    private val onCloseMenu: () -> Unit = {},
 ) {
     private val entries = SceneCatalog.ENTRIES
 
     private lateinit var wheel: SceneWheelView
     private lateinit var counter: TextView
-    private lateinit var favBtn: Button
     private lateinit var btnSceneLabel: Button
     private lateinit var sceneLabel: TextView
-    private lateinit var favGroup: View
-    private lateinit var favContainer: LinearLayout
 
     private val favourites = linkedSetOf<Int>()
-    private val favPills = mutableListOf<Pair<Button, Int>>()
 
     private var sceneLabelRunnable: Runnable? = null
     private var sceneLabelEnabled = true
     private var activeSceneName = ""
-    /** Scene currently centred in the wheel (leads glView.sceneIndex mid-scrub). */
-    private var centredIndex = 0
 
     fun bind() {
         wheel = activity.findViewById(R.id.scene_wheel)
         counter = activity.findViewById(R.id.scene_counter)
-        favBtn = activity.findViewById(R.id.btn_favourite)
         btnSceneLabel = activity.findViewById(R.id.btn_scene_label)
         sceneLabel = activity.findViewById(R.id.scene_label)
-        favGroup = activity.findViewById(R.id.favourites_group)
-        favContainer = activity.findViewById(R.id.favourites_container)
 
         glView.sceneOrder = entries.map { it.index }
 
@@ -61,21 +57,19 @@ class ScenesController(
             it.toIntOrNull()?.let { idx -> favourites.add(idx) }
         }
         updateFavouritesOrder()
-
-        centredIndex = glView.sceneIndex
         activeSceneName = nameOf(glView.sceneIndex)
 
         wheel.favourites = favourites.toSet()
         wheel.setScenes(entries.map { SceneWheelView.Item(it.index, nameOf(it.index)) }, glView.sceneIndex)
         wheel.onSelect = { glView.selectScene(it) }
-        wheel.onCentre = { onCentred(it) }
+        wheel.onCentre = { updateCounter(it) }
+        wheel.onScrubbingChange = { setScrubPreview(it) }
+        wheel.onPick = { onCloseMenu() }
+        wheel.onFavourite = { toggleFavourite(it) }
 
         glView.onSceneChanged = { sceneIndex -> onSceneChanged(sceneIndex) }
-        favBtn.setOnClickListener { toggleFavourite(centredIndex) }
 
-        rebuildFavouritesGroup()
         updateCounter(glView.sceneIndex)
-        refreshFavButton()
 
         setSceneLabelEnabled(prefs.getBoolean(KEY_SCENE_LABEL, true))
         btnSceneLabel.setOnClickListener { setSceneLabelEnabled(!sceneLabelEnabled) }
@@ -83,21 +77,11 @@ class ScenesController(
 
     private fun onSceneChanged(sceneIndex: Int) {
         activeSceneName = nameOf(sceneIndex)
-        centredIndex = sceneIndex
         wheel.centerOn(sceneIndex)          // follow external changes (swipe, shuffle)
         updateCounter(sceneIndex)
-        refreshFavButton()
-        updateFavPillSelection()
         if (!isMenuOpen()) showSceneLabel()
         onManualSceneChange()
         prefs.edit { putInt(SecondaryVisualizerActivity.KEY_ACTIVE_SCENE, sceneIndex) }
-    }
-
-    /** Fired live as the wheel scrolls past scenes (before it settles/selects). */
-    private fun onCentred(sceneIndex: Int) {
-        centredIndex = sceneIndex
-        updateCounter(sceneIndex)
-        refreshFavButton()
     }
 
     /** The active scene's display name (e.g. for the perf overlay's Scene row). */
@@ -107,11 +91,15 @@ class ScenesController(
     fun sceneList(): List<Pair<Int, String>> = entries.map { it.index to nameOf(it.index) }
 
     fun updateSelection() {
-        centredIndex = glView.sceneIndex
         wheel.centerOn(glView.sceneIndex)
         updateCounter(glView.sceneIndex)
-        refreshFavButton()
-        updateFavPillSelection()
+    }
+
+    /** Fade the counter (and the sheet chrome via [onScrubPreview]) away while
+     *  scrubbing so the live visual previews clearly behind the wheel. */
+    private fun setScrubPreview(active: Boolean) {
+        counter.animate().alpha(if (active) 0f else 1f).setDuration(PREVIEW_FADE_MS).start()
+        onScrubPreview(active)
     }
 
     private fun nameOf(index: Int): String =
@@ -122,23 +110,11 @@ class ScenesController(
         counter.text = "%s · %02d / %02d".format(e.category.label.uppercase(), entries.indexOf(e) + 1, entries.size)
     }
 
-    private fun refreshFavButton() {
-        val fav = favourites.contains(centredIndex)
-        favBtn.isSelected = fav
-        favBtn.setText(if (fav) R.string.fav_remove else R.string.fav_add)
-    }
-
-    private fun updateFavPillSelection() {
-        for ((b, idx) in favPills) b.isSelected = idx == glView.sceneIndex
-    }
-
     private fun toggleFavourite(index: Int) {
         if (!favourites.add(index)) favourites.remove(index)
         prefs.edit { putStringSet(KEY_FAVOURITES, favourites.map { it.toString() }.toSet()) }
         updateFavouritesOrder()
         wheel.favourites = favourites.toSet()
-        rebuildFavouritesGroup()
-        refreshFavButton()
         Toast.makeText(
             activity,
             if (favourites.contains(index)) R.string.fav_added_toast else R.string.fav_removed_toast,
@@ -149,24 +125,6 @@ class ScenesController(
     private fun updateFavouritesOrder() {
         val order = glView.sceneOrder
         glView.favourites = favourites.toList().sortedBy { order.indexOf(it) }
-    }
-
-    /** Rebuild the pinned Favourites pills (swipe order); the group hides when empty. */
-    private fun rebuildFavouritesGroup() {
-        favPills.clear()
-        favContainer.removeAllViews()
-        val ordered = entries.filter { favourites.contains(it.index) }
-        favGroup.visibility = if (ordered.isEmpty()) View.GONE else View.VISIBLE
-        for (e in ordered) {
-            val pill = activity.layoutInflater
-                .inflate(R.layout.item_favourite_pill, favContainer, false) as Button
-            pill.text = nameOf(e.index)
-            pill.isSelected = e.index == glView.sceneIndex
-            pill.setOnClickListener { glView.selectScene(e.index); updateSelection() }
-            pill.setOnLongClickListener { toggleFavourite(e.index); true }
-            favContainer.addView(pill)
-            favPills += pill to e.index
-        }
     }
 
     private fun setSceneLabelEnabled(enabled: Boolean) {
@@ -210,5 +168,6 @@ class ScenesController(
     companion object {
         private const val KEY_FAVOURITES = "favourite_scenes"
         private const val KEY_SCENE_LABEL = "scene_label_enabled"
+        private const val PREVIEW_FADE_MS = 200L
     }
 }

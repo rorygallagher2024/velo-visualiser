@@ -6,6 +6,7 @@ import android.graphics.Paint
 import android.graphics.Typeface
 import android.util.AttributeSet
 import android.view.GestureDetector
+import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
 import android.widget.OverScroller
@@ -13,6 +14,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.res.ResourcesCompat
 import com.lowlatency.visualizer.R
 import kotlin.math.abs
+import kotlin.math.asin
 import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -41,6 +43,15 @@ class SceneWheelView @JvmOverloads constructor(
     /** Scene indices to mark with a ★ on their row. */
     var favourites: Set<Int> = emptySet()
         set(value) { field = value; invalidate() }
+
+    /** Fired true when a drag/fling scrub begins, false when the wheel settles. */
+    var onScrubbingChange: ((Boolean) -> Unit)? = null
+    private var scrubbing = false
+
+    /** Tap a row → select that scene, then dismiss the menu ([onSelect] + [onPick]). */
+    var onPick: (() -> Unit)? = null
+    /** Long-press a row → toggle it as a favourite. */
+    var onFavourite: ((Int) -> Unit)? = null
 
     private var scrollPx = 0f
     private var rowH = 120f
@@ -72,23 +83,38 @@ class SceneWheelView @JvmOverloads constructor(
 
             override fun onScroll(e1: MotionEvent?, e2: MotionEvent, dx: Float, dy: Float): Boolean {
                 dragging = true
+                setScrubbing(true)
                 scrollPx = (scrollPx + dy).coerceIn(0f, maxScroll())
                 reportCentre(); invalidate(); return true
             }
 
             override fun onFling(e1: MotionEvent?, e2: MotionEvent, vx: Float, vy: Float): Boolean {
                 dragging = false; flinging = true
+                setScrubbing(true)
                 scroller.fling(0, scrollPx.toInt(), 0, (-vy).toInt(), 0, 0, 0, maxScroll().toInt())
                 invalidate(); return true
             }
 
             override fun onSingleTapUp(e: MotionEvent): Boolean {
-                dragging = false
-                val tapPos = ((scrollPx + (e.y - height / 2f)) / rowH).roundToInt().coerceIn(0, lastIndex())
-                animateTo(tapPos); return true
+                items.getOrNull(rowAt(e.y))?.let { onSelect?.invoke(it.index) }
+                onPick?.invoke()        // tap a visual → select it and dismiss the menu
+                return true
+            }
+
+            override fun onLongPress(e: MotionEvent) {
+                items.getOrNull(rowAt(e.y))?.let {
+                    performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                    onFavourite?.invoke(it.index)
+                }
             }
         },
     )
+
+    /** The scene-row nearest a touch y, inverting the cylinder projection. */
+    private fun rowAt(y: Float): Int {
+        val s = ((y - height / 2f) / radius).coerceIn(-1f, 1f)
+        return (scrollPx / rowH + asin(s) / ANGLE_STEP).roundToInt().coerceIn(0, lastIndex())
+    }
 
     fun setScenes(list: List<Item>, activeIndex: Int) {
         items = list
@@ -113,7 +139,15 @@ class SceneWheelView @JvmOverloads constructor(
             scrollPx = scroller.currY.toFloat(); reportCentre(); invalidate()
         } else if (flinging) {
             flinging = false; snap()
+        } else if (scrubbing) {
+            setScrubbing(false)     // fully at rest after a scrub → restore chrome
         }
+    }
+
+    private fun setScrubbing(on: Boolean) {
+        if (scrubbing == on) return
+        scrubbing = on
+        onScrubbingChange?.invoke(on)
     }
 
     @Suppress("ClickableViewAccessibility")

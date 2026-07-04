@@ -215,6 +215,7 @@
 
         <!-- Drag handle -->
         <View
+            android:id="@+id/sheet_handle"
             android:layout_width="44dp"
             android:layout_height="4dp"
             android:layout_gravity="center_horizontal"
@@ -223,6 +224,7 @@
 
         <!-- Tab bar: Visuals | Lighting | Settings -->
         <LinearLayout
+            android:id="@+id/sheet_tab_bar"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
@@ -276,43 +278,24 @@
         </LinearLayout>
 
         <!-- ───── divider: Main Nav / Content ───── -->
-        <View style="@style/Divider" android:layout_marginBottom="24dp" />
+        <View android:id="@+id/sheet_nav_divider" style="@style/Divider" android:layout_marginBottom="24dp" />
 
         <!-- ===== TAB 1: Visualizers ===== -->
         <LinearLayout
             android:id="@+id/tab_visualizers"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="0dp"
+            android:layout_weight="1"
             android:orientation="vertical">
 
-        <!-- Pinned favourites (star a scene with the ★ button below the wheel).
-             Hidden when empty; pills are inflated by ScenesController in swipe order. -->
-        <LinearLayout
-            android:id="@+id/favourites_group"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:visibility="gone">
-
-            <TextView style="@style/SectionHeader" android:layout_width="match_parent" android:text="@string/cat_favourites" android:layout_marginBottom="12dp" />
-
-            <LinearLayout
-                android:id="@+id/favourites_container"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical" />
-
-            <View style="@style/Divider" android:layout_marginTop="8dp" android:layout_marginBottom="16dp" />
-        </LinearLayout>
-
-        <!-- The scene wheel — the single scene selector (replaces the old pill
-             grid). Populated + driven by ScenesController from SceneCatalog;
-             the centred name is the active scene, shown live over the canvas. -->
+        <!-- The scene wheel fills the tab and centres itself. Tap a visual to
+             select it and dismiss the menu; hold to favourite it (★). The handle
+             + tab bar above stay grabbable for pulling the sheet down. -->
         <com.lowlatency.visualizer.ui.SceneWheelView
             android:id="@+id/scene_wheel"
             android:layout_width="match_parent"
-            android:layout_height="320dp"
-            android:layout_marginBottom="2dp" />
+            android:layout_height="0dp"
+            android:layout_weight="1" />
 
         <TextView
             android:id="@+id/scene_counter"
@@ -323,31 +306,7 @@
             android:textColor="@color/text_dim"
             android:textSize="12sp"
             android:letterSpacing="0.3"
-            android:layout_marginBottom="16dp" />
-
-        <!-- Star / unstar the centred scene (replaces long-press-to-favourite). -->
-        <Button android:id="@+id/btn_favourite" style="@style/VisualizerPill" android:text="@string/fav_add" />
-
-        <!-- ===== Ambient Mode launcher (a viewing mode, not a scene — sits below
-             the scene list so it never reads as part of a visual) ===== -->
-        <View style="@style/DividerSubtle" android:layout_marginBottom="16dp" />
-
-        <TextView style="@style/SectionHeader" android:layout_width="match_parent" android:text="@string/cat_modes" android:layout_marginBottom="12dp" />
-
-        <Button android:id="@+id/btn_display_mode" style="@style/VisualizerPill" android:text="@string/ambient_mode" />
-
-        <!-- Auto-advance through scenes on a timer (respects favourites). -->
-        <Button
-            android:id="@+id/btn_shuffle"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:layout_marginBottom="4dp"
-            android:background="@drawable/pill_button_bg"
-            android:text="@string/shuffle_off"
-            android:textColor="@color/btn_text"
-            android:textAllCaps="false"
-            android:textSize="14sp"
-            android:stateListAnimator="@null" />
+            android:layout_marginBottom="8dp" />
 
         </LinearLayout>
         <!-- /TAB 1: Visuals -->
@@ -1002,9 +961,13 @@
             android:textSize="14sp"
             android:stateListAnimator="@null" />
 
-        <!-- Display Mode launcher now lives at the top of the Visuals tab (it's a
-             viewing mode, not a display setting). Its set-once sub-option — what
-             the standby screen looks like (Classic vs Window) — lives here. -->
+        <!-- Modes: standby (Ambient) + auto-advance (Shuffle). Moved here from the
+             Visuals tab so the scene wheel can fill it. -->
+        <TextView style="@style/SectionHeader" android:layout_width="match_parent" android:text="@string/cat_modes" android:layout_marginBottom="12dp" />
+
+        <Button android:id="@+id/btn_display_mode" style="@style/VisualizerPill" android:text="@string/ambient_mode" />
+
+        <!-- Sub-option of Ambient Mode: what the standby screen looks like next time. -->
         <Button
             android:id="@+id/btn_ambient_style"
             android:layout_width="match_parent"
@@ -1016,6 +979,21 @@
             android:textAllCaps="false"
             android:textSize="14sp"
             android:stateListAnimator="@null" />
+
+        <!-- Auto-advance through scenes on a timer (respects favourites). -->
+        <Button
+            android:id="@+id/btn_shuffle"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/pill_button_bg"
+            android:text="@string/shuffle_off"
+            android:textColor="@color/btn_text"
+            android:textAllCaps="false"
+            android:textSize="14sp"
+            android:stateListAnimator="@null" />
+
+        <View style="@style/DividerSubtle" android:layout_marginBottom="16dp" />
 
         <!-- Toggle the visualiser-name label that flashes over the canvas on swipe -->
         <Button

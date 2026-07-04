@@ -241,6 +241,8 @@ class MainActivity : AppCompatActivity() {
                 else 0
             },
             onManualSceneChange = { shuffleController.onSceneChanged() },
+            onScrubPreview = { active -> menuSheetController.setScrubPreview(active) },
+            onCloseMenu = { menuSheetController.close() },
         )
         scenesController.bind()
 
