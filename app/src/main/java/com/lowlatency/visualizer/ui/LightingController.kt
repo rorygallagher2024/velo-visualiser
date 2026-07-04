@@ -636,7 +636,7 @@ class LightingController(
             updateHueSections()
             return
         }
-        val h = activity.resources.displayMetrics.density * 40
+        val h = activity.resources.displayMetrics.density * 48
         for (area in areas) {
             val label = if (area.channels.isNotEmpty())
                 activity.getString(R.string.hue_area_lights, area.name, area.channels.size)
@@ -842,7 +842,7 @@ class LightingController(
         brightnessSlider = activity.findViewById(R.id.hue_brightness)
 
         val dp = activity.resources.displayMetrics.density
-        val h = (dp * 40).toInt()
+        val h = (dp * 48).toInt()
         val gap = (dp * 6).toInt()
 
         for (i in lightScenes.indices step 2) {
