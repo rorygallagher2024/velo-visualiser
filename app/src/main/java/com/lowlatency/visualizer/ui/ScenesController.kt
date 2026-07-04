@@ -63,7 +63,18 @@ class ScenesController(
         activeSceneName = nameOf(glView.sceneIndex)
 
         wheel.favourites = favourites.toSet()
-        wheel.setScenes(entries.map { SceneWheelView.Item(it.index, nameOf(it.index)) }, glView.sceneIndex)
+        
+        val wheelItems = mutableListOf<SceneWheelView.Item>()
+        var currentCategory: SceneCategory? = null
+        for (e in entries) {
+            if (e.category != currentCategory) {
+                currentCategory = e.category
+                wheelItems.add(SceneWheelView.Item(-1, "— ${e.category.label} —", isHeader = true))
+            }
+            wheelItems.add(SceneWheelView.Item(e.index, nameOf(e.index), isHeader = false))
+        }
+        
+        wheel.setScenes(wheelItems, glView.sceneIndex)
         wheel.onSelect = { glView.selectScene(it) }
         wheel.onCentre = { updateCounter(it) }
         wheel.onScrubbingChange = { setScrubPreview(it) }

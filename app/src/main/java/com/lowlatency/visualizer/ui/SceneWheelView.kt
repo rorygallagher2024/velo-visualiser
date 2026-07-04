@@ -34,7 +34,7 @@ class SceneWheelView @JvmOverloads constructor(
     attrs: AttributeSet? = null,
 ) : View(context, attrs) {
 
-    data class Item(val index: Int, val name: String)
+    data class Item(val index: Int, val name: String, val isHeader: Boolean = false)
 
     private var items: List<Item> = emptyList()
     var onSelect: ((Int) -> Unit)? = null
@@ -98,13 +98,13 @@ class SceneWheelView @JvmOverloads constructor(
             }
 
             override fun onSingleTapUp(e: MotionEvent): Boolean {
-                items.getOrNull(rowAt(e.y))?.let { onSelect?.invoke(it.index) }
+                items.getOrNull(rowAt(e.y))?.takeIf { !it.isHeader }?.let { onSelect?.invoke(it.index) }
                 onPick?.invoke()        // tap a visual → select it and dismiss the menu
                 return true
             }
 
             override fun onLongPress(e: MotionEvent) {
-                items.getOrNull(rowAt(e.y))?.let {
+                items.getOrNull(rowAt(e.y))?.takeIf { !it.isHeader }?.let {
                     performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
                     onFavourite?.invoke(it.index)
                 }
@@ -185,13 +185,31 @@ class SceneWheelView @JvmOverloads constructor(
         scroller.startScroll(0, scrollPx.toInt(), 0, target - scrollPx.toInt(), 300)
         flinging = false
         activePos = pos
-        items.getOrNull(pos)?.let { onSelect?.invoke(it.index) }
+        items.getOrNull(pos)?.takeIf { !it.isHeader }?.let { onSelect?.invoke(it.index) }
         invalidate()
     }
 
     private fun reportCentre() {
         val p = (scrollPx / rowH).roundToInt().coerceIn(0, lastIndex())
-        if (p != activePos) { activePos = p; items.getOrNull(p)?.let { onCentre?.invoke(it.index) } }
+        if (p != activePos) {
+            val oldPos = activePos
+            activePos = p
+            
+            val minPos = kotlin.math.min(oldPos, p)
+            val maxPos = kotlin.math.max(oldPos, p)
+            var crossedHeader = false
+            for (i in minPos + 1..maxPos) {
+                if (items.getOrNull(i)?.isHeader == true) {
+                    crossedHeader = true
+                    break
+                }
+            }
+            if (crossedHeader && oldPos != -1) {
+                performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+            }
+            
+            items.getOrNull(p)?.takeIf { !it.isHeader }?.let { onCentre?.invoke(it.index) }
+        }
     }
 
     /** Animate to [sceneIndex] WITHOUT firing [onSelect] — for external scene
@@ -221,11 +239,18 @@ class SceneWheelView @JvmOverloads constructor(
             val fore = cos(angle)
             if (fore <= 0.02f) continue
             val y = cy + sin(angle) * radius
-            val fav = favourites.contains(items[i].index)
+            val fav = !items[i].isHeader && favourites.contains(items[i].index)
             val name = (if (fav) "★  " else "") + items[i].name.uppercase()
             val alpha = (255f * fore * fore * fore).toInt().coerceIn(6, 255)
-            textPaint.textSize = fittedBase * (0.6f + 0.4f * fore)   // one consistent size
-            textPaint.color = primary
+            
+            if (items[i].isHeader) {
+                textPaint.textSize = fittedBase * (0.4f + 0.3f * fore)
+                textPaint.color = ContextCompat.getColor(context, R.color.text_dim)
+            } else {
+                textPaint.textSize = fittedBase * (0.6f + 0.4f * fore)   // one consistent size
+                textPaint.color = primary
+            }
+            
             textPaint.alpha = alpha
             // Alpha-matched dark halo keeps names legible when the sheet fades out
             // during a scrub and they float directly over the live visual.
