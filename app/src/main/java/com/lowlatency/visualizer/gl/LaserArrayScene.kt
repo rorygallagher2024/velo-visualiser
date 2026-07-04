@@ -30,8 +30,7 @@ class LaserArrayScene : GlScene {
             uniform float u_aspectRatio;
             uniform float u_time;
             uniform float u_low;
-            uniform float u_mid;
-            uniform float u_high;
+            uniform float u_spinOffset;
             uniform float u_dim;
             out vec4 fragColor;
 
@@ -50,8 +49,8 @@ class LaserArrayScene : GlScene {
                 vec3 ro = vec3(0.0, 0.0, -2.0);
                 vec3 rd = normalize(vec3(uv, 1.4));
 
-                // Mids/Highs nudge the pan/scan rotation (gentle, to avoid jitter).
-                float spin = u_time * 0.15 + u_mid * 0.8 + u_high * 0.6;
+                // The spin is accumulated on the CPU side so it never snaps backwards.
+                float spin = u_time * 0.15 + u_spinOffset;
                 mat2 R = rot(spin);
 
                 float width = mix(0.05, 0.5, u_low);     // lows widen beams
@@ -77,10 +76,9 @@ class LaserArrayScene : GlScene {
                 
                 vec3 col = pal * beam * sumRadial * opacity * 0.10;
 
-                // Central vanishing-point flare (highs brighten the core) — kept
-                // restrained so the centre doesn't blow to white.
+                // Central vanishing-point flare (kept restrained).
                 float r0 = length(uv);
-                col += vec3(0.6, 0.8, 1.0) * exp(-r0 * 7.0) * (0.25 + u_high * 1.2);
+                col += vec3(0.6, 0.8, 1.0) * exp(-r0 * 7.0) * (0.25 + u_low * 0.5);
 
                 // Unbounded HDR output (no tone-mapping) * transition fade.
                 fragColor = vec4(col * u_dim, 1.0);
@@ -98,8 +96,7 @@ class LaserArrayScene : GlScene {
     private var uAspect = 0
     private var uTime = 0
     private var uLow = 0
-    private var uMid = 0
-    private var uHigh = 0
+    private var uSpinOffset = 0
     private var uDim = 0
 
     private var width = 1f
@@ -113,8 +110,7 @@ class LaserArrayScene : GlScene {
         uAspect = GLES20.glGetUniformLocation(program, "u_aspectRatio")
         uTime = GLES20.glGetUniformLocation(program, "u_time")
         uLow = GLES20.glGetUniformLocation(program, "u_low")
-        uMid = GLES20.glGetUniformLocation(program, "u_mid")
-        uHigh = GLES20.glGetUniformLocation(program, "u_high")
+        uSpinOffset = GLES20.glGetUniformLocation(program, "u_spinOffset")
         uDim = GLES20.glGetUniformLocation(program, "u_dim")
     }
 
@@ -124,15 +120,27 @@ class LaserArrayScene : GlScene {
         this.aspect = aspect
     }
 
+    private var smoothedLow = 0f
+    private var spinOffset = 0f
+    private var lastTimeSec = -1f
+
     override fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
+        val dt = if (lastTimeSec < 0f) 0.016f else (timeSec - lastTimeSec).coerceIn(0.001f, 0.1f)
+        lastTimeSec = timeSec
+        
+        // Exponentially smooth the low band so the beams don't flicker/twitch
+        smoothedLow += (bands[0] - smoothedLow) * (dt * 15f).coerceAtMost(1f)
+        
+        // Accumulate rotation so it never jerks backwards when energy drops
+        spinOffset += (bands[1] * 0.8f + bands[2] * 0.6f) * dt
+
         GLES20.glDisable(GLES20.GL_BLEND)          // opaque full-screen pass
         GLES20.glUseProgram(program)
         GLES20.glUniform2f(uResolution, width, height)
         GLES20.glUniform1f(uAspect, aspect)
         GLES20.glUniform1f(uTime, timeSec)
-        GLES20.glUniform1f(uLow, bands[0])
-        GLES20.glUniform1f(uMid, bands[1])
-        GLES20.glUniform1f(uHigh, bands[2])
+        GLES20.glUniform1f(uLow, smoothedLow)
+        GLES20.glUniform1f(uSpinOffset, spinOffset)
         GLES20.glUniform1f(uDim, dim)
 
         GLES20.glEnableVertexAttribArray(aPos)
