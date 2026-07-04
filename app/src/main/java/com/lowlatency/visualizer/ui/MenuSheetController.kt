@@ -140,6 +140,7 @@ class MenuSheetController(
         if (sheetDragActive) return
         sheetDragActive = true
         isOpen = true
+        glView.isMenuOpen = true
         resetScrubPreview()
         onBeforeOpen()
         optionsSheet.animate().cancel()
@@ -181,6 +182,7 @@ class MenuSheetController(
      *  the gesture's velocity. */
     private fun settle(open: Boolean, speedPxPerS: Float) {
         isOpen = open
+        glView.isMenuOpen = open
         if (open) {
             optionsSheet.visibility = View.VISIBLE
             scrim.visibility = View.VISIBLE

@@ -27,6 +27,23 @@ class VisualizerSurfaceView @JvmOverloads constructor(
     attrs: AttributeSet? = null
 ) : GLSurfaceView(context, attrs) {
 
+    /**
+     * Toggles Dynamic Resolution Scaling. When true, halves the EGL surface resolution
+     * to save GPU fill-rate, relying on the OS hardware composer to stretch it back.
+     */
+    var isMenuOpen = false
+        set(value) {
+            if (field != value) {
+                field = value
+                if (value) {
+                    holder.setFixedSize(width / 2, height / 2)
+                } else {
+                    // Revert to the full layout size
+                    holder.setFixedSize(width, height)
+                }
+            }
+        }
+
     /** Invoked on a single tap (no GL coupling — pure UI intent). */
     var onTap: (() -> Unit)? = null
 
