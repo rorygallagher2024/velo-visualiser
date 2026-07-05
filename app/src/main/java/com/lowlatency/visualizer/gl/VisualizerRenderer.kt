@@ -87,7 +87,7 @@ class VisualizerRenderer(private val context: Context) : GLSurfaceView.Renderer 
         .order(java.nio.ByteOrder.nativeOrder())
     val sharedAudioFloatBuffer: java.nio.FloatBuffer = sharedAudioBuffer.asFloatBuffer()
 
-    private val scenes = arrayOfNulls<GlScene>(43)
+    private val scenes = arrayOfNulls<GlScene>(44)
     private val scenesToLoad = mutableListOf<Int>()
     private var loadFrameCounter = 0
 
@@ -135,6 +135,7 @@ class VisualizerRenderer(private val context: Context) : GLSurfaceView.Renderer 
             39 -> MeridianScene()
             40 -> VeilTopDownScene()
             42 -> ChromaticDotsScene()
+            43 -> SubstrateScene()
             else -> RawScopeScene()
         }
     }
