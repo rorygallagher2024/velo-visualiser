@@ -38,11 +38,18 @@ class VisualizerSurfaceView @JvmOverloads constructor(
                 if (value) {
                     holder.setFixedSize(width / 2, height / 2)
                 } else {
-                    // Revert to the full layout size
-                    holder.setFixedSize(width, height)
+                    // Revert to the full layout size so it auto-resizes on fold/rotate
+                    holder.setSizeFromLayout()
                 }
             }
         }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        if (isMenuOpen) {
+            holder.setFixedSize(w / 2, h / 2)
+        }
+    }
 
     /** Invoked on a single tap (no GL coupling — pure UI intent). */
     var onTap: (() -> Unit)? = null
