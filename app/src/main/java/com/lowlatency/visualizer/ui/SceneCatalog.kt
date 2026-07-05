@@ -45,7 +45,6 @@ object SceneCatalog {
         SceneEntry(1, R.string.vis_tunnel, SceneCategory.REACTIVE),
         SceneEntry(3, R.string.vis_laser, SceneCategory.REACTIVE),
         SceneEntry(11, R.string.vis_phyllotaxis, SceneCategory.REACTIVE),
-        SceneEntry(13, R.string.vis_mandala, SceneCategory.REACTIVE),
         SceneEntry(14, R.string.vis_audio_web, SceneCategory.REACTIVE),
         SceneEntry(15, R.string.vis_topo_ridge, SceneCategory.REACTIVE),
         SceneEntry(22, R.string.vis_strange_attractor, SceneCategory.REACTIVE),
@@ -53,7 +52,9 @@ object SceneCatalog {
         SceneEntry(21, R.string.vis_cymatics, SceneCategory.REACTIVE),
         SceneEntry(18, R.string.vis_beat_pulse, SceneCategory.REACTIVE),
         SceneEntry(10, R.string.vis_fireworks, SceneCategory.REACTIVE),
+        SceneEntry(42, R.string.vis_chromatic_dots, SceneCategory.REACTIVE),
         // ----- Immersive (rich generative, heavier GPU) -----
+        SceneEntry(13, R.string.vis_mandala, SceneCategory.IMMERSIVE),
         SceneEntry(39, R.string.vis_meridian, SceneCategory.IMMERSIVE),
         SceneEntry(37, R.string.vis_slipstream, SceneCategory.IMMERSIVE),
         SceneEntry(35, R.string.vis_event_horizon, SceneCategory.IMMERSIVE),
