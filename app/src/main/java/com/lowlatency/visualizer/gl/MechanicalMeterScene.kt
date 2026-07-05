@@ -1,6 +1,7 @@
 package com.lowlatency.visualizer.gl
 
 import android.opengl.GLES20
+import com.lowlatency.visualizer.BeatPulse
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
@@ -10,8 +11,8 @@ import kotlin.math.sqrt
 
 class MechanicalMeterScene : GlScene {
 
-    // Instrument readout — honest representation of the signal, no beat punch.
-    override val respondsToBeat get() = false
+    // Still acts as a mechanical meter, but the internal light responds to the beat.
+    override val respondsToBeat get() = true
 
     companion object {
         private const val VERTEX_SHADER = """#version 300 es
@@ -24,23 +25,23 @@ class MechanicalMeterScene : GlScene {
             uniform vec2  u_resolution;
             uniform float u_dim;
             uniform float u_needle;
-            uniform float u_peak;
-            uniform float u_bar;
+            uniform float u_env;
+            uniform float u_time;
             out vec4 fragColor;
 
-            const vec3  BG     = vec3(0.106, 0.102, 0.090);
-            const vec3  INK    = vec3(0.945, 0.933, 0.902);
-            const vec3  ACCENT = vec3(0.941, 0.325, 0.110);
-            const vec3  DDIM   = vec3(0.18, 0.17, 0.15);
+            // Palette
+            const vec3  FACE_COLOR  = vec3(0.85, 0.85, 0.82); // Warm Aluminum base
+            const vec3  INK         = vec3(0.08, 0.08, 0.08); // Deep black print
+            const vec3  ACCENT      = vec3(0.9, 0.15, 0.1);   // Bright red needle/hot zone
+            const vec3  BULB_COLOR  = vec3(1.0, 0.65, 0.25);  // Warm incandescent
 
             const vec2  HUB   = vec2(0.0, -0.72);
             const float R_ARC = 1.22;
-            const float R_LED = 0.94;
             const float SWEEP = 0.90;
             const float HOT   = 0.75;
-            const vec2  WIN_C = vec2(0.0, -0.165);   // bezel window centre
-            const vec2  WIN_B = vec2(1.10, 0.76);    // window half-extent
-            const float BEZEL = 0.045;               // bezel band width
+            const vec2  WIN_C = vec2(0.0, -0.165);   
+            const vec2  WIN_B = vec2(1.10, 0.76);    
+            const float BEZEL = 0.045;               
 
             float sdSeg(vec2 p, vec2 a, vec2 b) {
                 vec2 pa = p - a, ba = b - a;
@@ -53,7 +54,17 @@ class MechanicalMeterScene : GlScene {
                 return length(max(q, vec2(0.0))) + min(max(q.x, q.y), 0.0) - r;
             }
 
+            // Hash for noise
             float hash(vec2 q) { return fract(sin(dot(q, vec2(127.1, 311.7))) * 43758.5453); }
+
+            // Brushed metal noise function
+            float brushedMetal(vec2 uv) {
+                // Stretch the noise horizontally
+                vec2 nuv = vec2(uv.x * 2.0, uv.y * 500.0);
+                float n = hash(floor(nuv));
+                n = mix(n, hash(floor(nuv + vec2(1.0, 0.0))), fract(nuv.x));
+                return n * 0.15 + 0.85;
+            }
 
             vec3 evalTick(vec2 uv, float px, int idx, vec3 col) {
                 float t = float(idx) / 20.0;
@@ -61,121 +72,132 @@ class MechanicalMeterScene : GlScene {
                 bool major = (idx % 5 == 0);
                 float il = major ? 0.10 : 0.045;
                 float ol = major ? 0.035 : 0.012;
-                float tw = major ? 0.0035 : 0.0018;
+                float tw = major ? 0.004 : 0.002;
                 vec2 dir = vec2(sin(ta), cos(ta));
                 float sd = sdSeg(uv, HUB + dir * (R_ARC - il), HUB + dir * (R_ARC + ol));
                 vec3 tc = t >= HOT ? ACCENT : INK;
-                float talpha = major ? 0.85 : 0.3;
-                return mix(col, tc * talpha, smoothstep(tw + px, tw - px, sd));
-            }
-
-            vec3 evalLed(vec2 uv, float px, int idx, float bar, vec3 col) {
-                float t = (float(idx) + 0.5) / 16.0;
-                float la = (t * 2.0 - 1.0) * SWEEP;
-                vec2 lp = HUB + vec2(sin(la), cos(la)) * R_LED;
-                float ld = length(uv - lp);
-                float lit = smoothstep(t - 0.02, t + 0.02, bar);
-                bool hot = (t >= HOT);
-                vec3 onCol = hot ? ACCENT * 1.8 : INK * 0.7;
-                // Unlit LEDs sit as dark recessed dots; only lit hot ones bloom.
-                col = mix(col, mix(BG * 0.72, onCol, lit), smoothstep(0.022 + px, 0.022 - px, ld));
-                col += ACCENT * smoothstep(0.06, 0.025, ld) * lit * (hot ? 0.10 : 0.0);
-                return col;
+                return mix(col, tc, smoothstep(tw + px, tw - px, sd));
             }
 
             void main() {
                 vec2 uv = (gl_FragCoord.xy * 2.0 - u_resolution) / min(u_resolution.y, u_resolution.x);
-                // Fit the bezel to the screen: the window spans x = ±1.20, so on
-                // narrow displays (foldable cover screens) shrink until it fits
-                // with a margin; wide screens keep the full 0.88 scale.
                 float fit = min(0.88, max(1.0, u_resolution.x / u_resolution.y) / 1.26);
                 uv /= fit;
                 float px = 2.0 / (min(u_resolution.y, u_resolution.x) * fit);
 
                 float dWin = sdRoundBox(uv - WIN_C, WIN_B, 0.10);
 
-                // ---- meter face: lit, grained, vignetted (a material, not a fill) ----
-                vec3 col = BG;
-                col *= 1.0 + 0.16 * (1.0 - smoothstep(0.0, 1.5, length(uv - vec2(0.0, 0.10))));
-                col *= 1.0 + (hash(floor(uv * 420.0)) - 0.5) * 0.05;      // paper grain
-                col *= 1.0 - 0.22 * smoothstep(-0.35, -BEZEL, dWin);      // edge vignette
+                // ---- FACEPLATE: Brushed Aluminum ----
+                vec3 col = FACE_COLOR;
+                // Add horizontal brushed metal texture
+                col *= brushedMetal(uv);
+                // Add subtle circular milling near the hub
+                float distHub = length(uv - HUB);
+                col *= 1.0 - 0.04 * sin(distHub * 400.0);
 
+                // ---- LIGHTING: Internal Incandescent Bulb ----
+                // The bulb is tucked at the bottom, glowing upwards.
+                // It flickers slightly when bass hits (simulating voltage drop)
+                float flicker = 1.0 - u_env * 0.12 + sin(u_time * 60.0) * 0.015;
+                float lightIntensity = smoothstep(2.4, 0.0, distHub) * flicker;
+                vec3 ambientLight = vec3(0.15, 0.15, 0.2); // subtle cool ambient shadow
+                vec3 spotLight = BULB_COLOR * lightIntensity * 1.6;
+                vec3 illumination = ambientLight + spotLight;
+
+                // ---- PRINTED GRAPHICS ----
+                vec3 graphics = col;
                 vec2 dv = uv - HUB;
-                float dist = length(dv);
                 float ang = atan(dv.x, dv.y);
                 float inArc = smoothstep(SWEEP + 0.03, SWEEP - 0.01, abs(ang));
 
                 // Outer arc
-                col = mix(col, INK * 0.25, smoothstep(px * 1.5, 0.0, abs(dist - R_ARC)) * inArc);
-
-                // Inner reference arc
-                col = mix(col, DDIM * 0.3, smoothstep(px * 1.5, 0.0, abs(dist - R_LED)) * inArc);
-
+                graphics = mix(graphics, INK, smoothstep(px * 1.5, 0.0, abs(distHub - R_ARC)) * inArc);
+                
                 // Hot zone overlay on outer arc
                 float hotAng = (HOT * 2.0 - 1.0) * SWEEP;
                 float inHot = step(hotAng, ang) * step(ang, SWEEP + 0.01);
-                col = mix(col, ACCENT * 0.45, smoothstep(px * 2.0, 0.0, abs(dist - R_ARC) - 0.006) * inHot);
+                graphics = mix(graphics, ACCENT, smoothstep(px * 2.0, 0.0, abs(distHub - R_ARC) - 0.006) * inHot);
 
-                // Tick marks — nearest 2 only (was 21)
+                // Tick marks
                 float tickNorm = (ang / SWEEP + 1.0) * 0.5;
                 int ti = clamp(int(floor(tickNorm * 20.0)), 0, 20);
-                col = evalTick(uv, px, ti, col);
-                if (ti < 20) col = evalTick(uv, px, ti + 1, col);
+                graphics = evalTick(uv, px, ti, graphics);
+                if (ti < 20) graphics = evalTick(uv, px, ti + 1, graphics);
 
-                // LED dots — nearest 2 only (was 16)
-                int li = clamp(int(floor(tickNorm * 16.0 - 0.5)), 0, 15);
-                col = evalLed(uv, px, li, u_bar, col);
-                if (li < 15) col = evalLed(uv, px, li + 1, u_bar, col);
+                // Apply lighting to the printed face
+                col = graphics * illumination;
 
-                // Needle geometry
+                // Edge vignette (deep shadow cast from the bezel onto the sunken dial)
+                col *= 1.0 - 0.7 * smoothstep(-0.35, -BEZEL, dWin);
+
+                // ---- NEEDLE (3D with Soft Shadow) ----
                 float na = (u_needle * 2.0 - 1.0) * SWEEP;
                 vec2 ndir = vec2(sin(na), cos(na));
                 vec2 tip = HUB + ndir * (R_ARC + 0.07);
                 vec2 tail = HUB - ndir * 0.14;
 
-                // Drop shadow first — the needle floats above the printed face.
-                float nds = sdSeg(uv - vec2(0.016, -0.022), tail, tip);
-                col = mix(col, col * 0.55, smoothstep(0.02, 0.0, nds) * 0.55);
+                // Soft shadow cast by the light coming from the bottom
+                // The light pushes the shadow upwards and slightly outwards
+                vec2 shadowOffset = vec2(ndir.x * 0.03, 0.06);
+                float nds = sdSeg(uv - shadowOffset, tail, tip);
+                // Shadow fades out and blurs towards the tip since it's higher off the face
+                float shadowBlur = 0.02 + 0.05 * clamp((length(uv - HUB) - 0.3), 0.0, 1.0);
+                col = mix(col, col * 0.15, smoothstep(shadowBlur, 0.0, nds) * 0.85);
 
+                // Draw the actual needle
                 float nd = sdSeg(uv, tail, tip);
                 float along = dot(uv - tail, tip - tail) / dot(tip - tail, tip - tail);
-                float taper = mix(0.010, 0.0018, clamp(along, 0.0, 1.0));
-                col += ACCENT * smoothstep(0.06, 0.0, nd) * 0.12;
-                col = mix(col, ACCENT * 1.6, smoothstep(taper + px, taper - px, nd));
+                float taper = mix(0.008, 0.0015, clamp(along, 0.0, 1.0));
+                
+                // Needle base color
+                vec3 needleCol = ACCENT * 0.85;
+                // Needle specular highlight (simulate 3D metallic/painted cylinder)
+                float needleSpec = smoothstep(taper, 0.0, nd) * smoothstep(0.0, taper*0.5, nd - taper*0.2);
+                needleCol += vec3(0.6) * needleSpec;
 
-                // Counterweight
+                col = mix(col, needleCol * illumination, smoothstep(taper + px, taper - px, nd));
+
+                // Counterweight & Hub Pivot
                 float cwd = length(uv - (HUB - ndir * 0.10));
-                col = mix(col, INK * 0.2, smoothstep(0.020 + px, 0.020 - px, cwd));
+                col = mix(col, INK * illumination, smoothstep(0.020 + px, 0.020 - px, cwd));
 
-                // Machined pivot bearing: concentric rings catching a fixed light.
+                // Machined pivot bearing with metallic specular reflection
                 float hd = length(uv - HUB);
                 float hAng = atan(uv.x - HUB.x, uv.y - HUB.y);
-                float lc = 0.55 + 0.45 * cos(hAng - 0.7);
-                col = mix(col, DDIM * 1.3 * lc, smoothstep(0.075 + px, 0.075 - px, hd));
-                col = mix(col, INK * (0.30 + 0.30 * lc), smoothstep(px, -px, abs(hd - 0.062) - 0.0022));
-                col = mix(col, INK * (0.20 + 0.25 * lc), smoothstep(px, -px, abs(hd - 0.043) - 0.0018));
-                col = mix(col, ACCENT * 2.0, smoothstep(0.016 + px, 0.016 - px, hd));
-                col = mix(col, ACCENT * 2.6, smoothstep(0.007 + px, 0.007 - px, hd));
+                float lc = 0.5 + 0.5 * cos(hAng * 2.0 + u_time * 0.2); // metallic sheen
+                vec3 metalColor = vec3(0.9) * lc * illumination;
+                col = mix(col, metalColor, smoothstep(0.075 + px, 0.075 - px, hd));
+                col = mix(col, INK * 0.2 * illumination, smoothstep(px, -px, abs(hd - 0.062) - 0.0022));
+                col = mix(col, INK * 0.2 * illumination, smoothstep(px, -px, abs(hd - 0.043) - 0.0018));
+                col = mix(col, INK * illumination, smoothstep(0.016 + px, 0.016 - px, hd));
 
-                // Peak dot
-                float peakAng = (u_peak * 2.0 - 1.0) * SWEEP;
-                vec2 pp = HUB + vec2(sin(peakAng), cos(peakAng)) * (R_ARC + 0.035);
-                float pd = length(uv - pp);
-                col = mix(col, ACCENT * 2.2, smoothstep(0.014 + px, 0.014 - px, pd));
-
-                // ---- assemble the physical unit on the black canvas ----
-                vec3 bezel = mix(vec3(0.020), vec3(0.165, 0.158, 0.142), smoothstep(0.0, -BEZEL, dWin));
-                bezel *= 0.72 + 0.30 * smoothstep(-0.9, 0.7, uv.y);       // lit from above
+                // ---- BEZEL & CASING ----
+                // Dark brushed metal bezel
+                vec3 bezelCol = vec3(0.12, 0.12, 0.14);
+                bezelCol *= brushedMetal(uv.yx); // brushed vertically
+                // Inner rim specular highlight (catches the room light)
+                float rimLight = smoothstep(0.0, -BEZEL, dWin) * smoothstep(-BEZEL - 0.015, -BEZEL, dWin);
+                bezelCol += vec3(0.4) * rimLight * (0.6 + 0.4 * uv.y);
+                
                 vec3 outCol = vec3(0.0);
-                outCol = mix(outCol, bezel, smoothstep(px, -px, dWin));
-                // Hairline where the face meets the bezel.
-                outCol = mix(outCol, INK * 0.22, smoothstep(px * 1.5, 0.0, abs(dWin + BEZEL)));
+                outCol = mix(outCol, bezelCol, smoothstep(px, -px, dWin));
+                // Hairline gap
+                outCol = mix(outCol, vec3(0.01), smoothstep(px * 1.5, 0.0, abs(dWin + BEZEL)));
                 outCol = mix(outCol, col, smoothstep(px, -px, dWin + BEZEL));
 
-                // Glass: a soft diagonal glare band + a thinner echo, over the pane.
-                float gd = dot(uv - vec2(-0.25, 0.30), normalize(vec2(0.55, 0.84)));
-                float glare = smoothstep(0.34, 0.0, abs(gd)) * 0.5 + smoothstep(0.10, 0.0, abs(gd - 0.42));
-                outCol += INK * glare * 0.045 * smoothstep(px, -px, dWin);
+                // ---- CURVED GLASS & GLARE ----
+                // Add a dynamic curved glass reflection over the window
+                float glassCurve = dot(uv - vec2(0.0, 0.2), normalize(vec2(0.4, 1.0)));
+                float glassGlare = smoothstep(0.35, 0.0, abs(glassCurve)) * 0.15;
+                glassGlare += smoothstep(0.1, 0.0, abs(glassCurve - 0.25)) * 0.3;
+                
+                // Add an ambient environment reflection to the glass
+                float envRefl = max(0.0, 1.0 - length(uv * vec2(0.6, 1.0) - vec2(0.0, -0.1)));
+                
+                vec3 glassCol = vec3(0.8, 0.9, 1.0) * (glassGlare + envRefl * 0.15);
+                
+                // Blend glass additively over the face
+                outCol += glassCol * smoothstep(px, -px, dWin);
 
                 fragColor = vec4(outCol * u_dim, 1.0);
             }
@@ -187,8 +209,8 @@ class MechanicalMeterScene : GlScene {
     private var uResolution = 0
     private var uDim = 0
     private var uNeedle = 0
-    private var uPeak = 0
-    private var uBar = 0
+    private var uEnv = 0
+    private var uTime = 0
 
     private val quad: FloatBuffer = ByteBuffer
         .allocateDirect(8 * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
@@ -199,9 +221,8 @@ class MechanicalMeterScene : GlScene {
 
     private var needleLevel = 0f
     private var velocity = 0f
-    private var barLevel = 0f
-    private var peakLevel = 0f
     private var lastTime = -1f
+    private var smoothedEnv = 0f
 
     override fun onCreated() {
         program = ShaderUtil.buildProgram(VERTEX_SHADER, FRAGMENT_SHADER)
@@ -209,8 +230,8 @@ class MechanicalMeterScene : GlScene {
         uResolution = GLES20.glGetUniformLocation(program, "u_resolution")
         uDim = GLES20.glGetUniformLocation(program, "u_dim")
         uNeedle = GLES20.glGetUniformLocation(program, "u_needle")
-        uPeak = GLES20.glGetUniformLocation(program, "u_peak")
-        uBar = GLES20.glGetUniformLocation(program, "u_bar")
+        uEnv = GLES20.glGetUniformLocation(program, "u_env")
+        uTime = GLES20.glGetUniformLocation(program, "u_time")
     }
 
     override fun onResize(width: Int, height: Int, aspect: Float) {
@@ -230,33 +251,28 @@ class MechanicalMeterScene : GlScene {
         val targetLevel = (rms * gain).let { if (it < 0.01f) 0f else sqrt(it) }.coerceIn(0f, 1.2f)
         val normalizedTarget = targetLevel / 1.2f
 
-        // Spring-damped needle
-        val stiffness = 350f
-        val damping = 18f
+        // Spring-damped needle (more realistic physics)
+        val stiffness = 400f
+        val damping = 22f
         val force = (targetLevel - needleLevel) * stiffness
         velocity += (force - velocity * damping) * dt
         needleLevel += velocity * dt
         needleLevel = needleLevel.coerceIn(0f, 1.2f)
         val normalizedNeedle = needleLevel / 1.2f
 
-        // Fast LED bar (instant attack, smooth decay)
-        barLevel = if (normalizedTarget > barLevel) normalizedTarget
-                   else barLevel * (1f - 4f * dt).coerceIn(0f, 1f)
+        // Envelope for light flickering (simulates power sag when bass hits)
+        val env = BeatPulse.envelope
+        smoothedEnv += (env - smoothedEnv) * 12f * dt
 
-        // Peak hold
-        if (normalizedNeedle > peakLevel) peakLevel = normalizedNeedle
-        else peakLevel = max(0f, peakLevel - dt * 0.4f)
-
-        // Mechanical micro-detail: a real needle trembles faintly under signal —
-        // two incommensurate flutters, scaled by level, on top of the spring.
+        // Mechanical micro-detail: slight flutter
         val tremble = (sin(timeSec * 123f) + 0.6f * sin(timeSec * 287f)) * 0.0025f * normalizedTarget
 
         GLES20.glUseProgram(program)
         GLES20.glUniform2f(uResolution, width, height)
         GLES20.glUniform1f(uDim, dim)
         GLES20.glUniform1f(uNeedle, (normalizedNeedle + tremble).coerceIn(0f, 1f))
-        GLES20.glUniform1f(uPeak, peakLevel)
-        GLES20.glUniform1f(uBar, barLevel)
+        GLES20.glUniform1f(uEnv, smoothedEnv)
+        GLES20.glUniform1f(uTime, timeSec)
 
         GLES20.glEnableVertexAttribArray(aPos)
         GLES20.glVertexAttribPointer(aPos, 2, GLES20.GL_FLOAT, false, 0, quad)
