@@ -38,6 +38,7 @@ class MenuSheetController(
     private lateinit var tabBar: View
     private lateinit var handle: View
     private lateinit var navDivider: View
+    private lateinit var closeBtn: View
     private var scrubPreview = false
 
     private var blurAnimator: ValueAnimator? = null
@@ -59,6 +60,8 @@ class MenuSheetController(
         tabBar = activity.findViewById(R.id.section_tabs)
         handle = activity.findViewById(R.id.sheet_handle)
         navDivider = activity.findViewById(R.id.sheet_nav_divider)
+        closeBtn = activity.findViewById(R.id.btn_close_menu)
+        closeBtn.setOnClickListener { close() }
         optionsSheet.visibility = View.GONE
         applyWidthCap()
 
@@ -252,7 +255,7 @@ class MenuSheetController(
         scrubPreview = active
         val a = if (active) 0f else 1f
         // Fade the chrome AND the dim scrim, so the canvas is fully revealed.
-        listOf(tabBar, handle, navDivider, scrim).forEach {
+        listOf(tabBar, handle, navDivider, closeBtn, scrim).forEach {
             it.animate().alpha(a).setDuration(PREVIEW_FADE_MS).start()
         }
     }
@@ -264,6 +267,7 @@ class MenuSheetController(
             tabBar.alpha = 1f
             handle.alpha = 1f
             navDivider.alpha = 1f
+            closeBtn.alpha = 1f
         }
     }
 

@@ -61,6 +61,7 @@
     <string name="fav_added_toast">Added to swipe favourites</string>
     <string name="fav_removed_toast">Removed from favourites</string>
     <string name="scene_hint">Tap to select · Hold to favourite</string>
+    <string name="close_menu">Close</string>
     <string name="ambient_style_classic">Ambient Style: Classic</string>
     <string name="ambient_style_window">Ambient Style: Window</string>
     <string name="shuffle_on">Shuffle Scenes: On</string>

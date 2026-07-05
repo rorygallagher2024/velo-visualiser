@@ -292,14 +292,33 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
 
-        <!-- Drag handle -->
-        <View
-            android:id="@+id/sheet_handle"
-            android:layout_width="44dp"
-            android:layout_height="4dp"
-            android:layout_gravity="center_horizontal"
-            android:layout_marginBottom="16dp"
-            android:background="@color/text_dim" />
+        <!-- Header: drag handle (centred) + an explicit, labelled close button
+             (accessible tap-to-dismiss for TalkBack / motor users). -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp">
+
+            <View
+                android:id="@+id/sheet_handle"
+                android:layout_width="44dp"
+                android:layout_height="4dp"
+                android:layout_gravity="center"
+                android:background="@color/text_dim" />
+
+            <Button
+                android:id="@+id/btn_close_menu"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:layout_gravity="end|center_vertical"
+                android:text="✕"
+                android:textSize="18sp"
+                android:textColor="@color/text_dim"
+                android:textAllCaps="false"
+                android:contentDescription="@string/close_menu"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:stateListAnimator="@null" />
+        </FrameLayout>
 
         <!-- Section selector: Visuals · Lighting · Settings shown together, with a
              pill that slides under the active tab. Tap a tab, or flick the content. -->
