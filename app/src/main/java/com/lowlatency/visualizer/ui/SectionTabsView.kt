@@ -49,7 +49,6 @@ class SectionTabsView @JvmOverloads constructor(
     }
     private val primary = ContextCompat.getColor(context, R.color.text_primary)
     private val pillRect = RectF()
-    private val cornerRadius = 8f * resources.displayMetrics.density   // match the app's buttons
 
     private val gestures = GestureDetector(
         context,
@@ -110,7 +109,8 @@ class SectionTabsView @JvmOverloads constructor(
         val cxPill = (pillPos + 0.5f) * slot
         val ph = height * 0.82f
         pillRect.set(cxPill - slot / 2f + pad, cy - ph / 2f, cxPill + slot / 2f - pad, cy + ph / 2f)
-        canvas.drawRoundRect(pillRect, cornerRadius, cornerRadius, pillPaint)
+        val r = ph / 2f
+        canvas.drawRoundRect(pillRect, r, r, pillPaint)
 
         // Labels.
         textPaint.textSize = height * 0.30f
