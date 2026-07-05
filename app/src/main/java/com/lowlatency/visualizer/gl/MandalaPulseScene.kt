@@ -13,7 +13,7 @@ import kotlin.math.max
 /**
  * Visual 15 — "Mandala Pulse" (volumetric energy bloom).
  *
- * Not a flat kaleidoscope any more: it's a MilkDrop-style *feedback* mandala.
+ * A *feedback* mandala.
  * Each frame the previous frame is faded and zoomed radially outward (so light
  * trails out from the centre as glowing rays) and fresh kaleidoscopic energy —
  * soft glowing rings + a hot core + beat shockwaves — is injected on top, in a
