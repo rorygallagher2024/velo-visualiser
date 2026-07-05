@@ -40,6 +40,7 @@ class MenuSheetController(
     private lateinit var handle: View
     private lateinit var navDivider: View
     private lateinit var closeBtn: View
+    private lateinit var veloLogo: View
     private var scrubPreview = false
 
     private var blurAnimator: ValueAnimator? = null
@@ -63,6 +64,7 @@ class MenuSheetController(
         handle = activity.findViewById(R.id.sheet_handle)
         navDivider = activity.findViewById(R.id.sheet_nav_divider)
         closeBtn = activity.findViewById(R.id.btn_close_menu)
+        veloLogo = activity.findViewById(R.id.velo_logo)
         closeBtn.setOnClickListener { close() }
         optionsSheet.visibility = View.GONE
         applyWidthCap()
@@ -283,7 +285,7 @@ class MenuSheetController(
         val a = if (active) 0f else 1f
         // Fade the chrome AND the dim scrim, so the canvas is fully revealed.
         // Set visibility to INVISIBLE when active to prevent ghost touches.
-        listOf(tabBar, handle, navDivider, closeBtn, scrim).forEach { view ->
+        listOf(tabBar, handle, navDivider, closeBtn, veloLogo, scrim).forEach { view ->
             view.animate().cancel()
             if (!active) view.visibility = View.VISIBLE
             view.animate().alpha(a).setDuration(PREVIEW_FADE_MS)
@@ -298,7 +300,7 @@ class MenuSheetController(
     private fun resetScrubPreview() {
         scrubPreview = false
         if (::tabBar.isInitialized) {
-            listOf(tabBar, handle, navDivider, closeBtn, scrim).forEach { view ->
+            listOf(tabBar, handle, navDivider, closeBtn, veloLogo, scrim).forEach { view ->
                 view.animate().cancel()
                 view.alpha = 1f
                 view.visibility = View.VISIBLE
