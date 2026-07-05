@@ -222,7 +222,7 @@ class IntroLogoScene {
             uniform float u_sizeScale;
             out float v_assemble;
             out float v_disperse;
-            out float v_hue;
+            out float v_gradient;
 
             float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
             vec2 hash2(float n) { return fract(sin(vec2(n, n + 1.0)) * vec2(43758.5453, 22578.1459)); }
@@ -271,13 +271,11 @@ class IntroLogoScene {
                 v_assemble = u_assemble;
                 v_disperse = u_disperse;
 
-                // Per-particle hue: a smooth rainbow banded across the V (so it
-                // reads as a spectrum, not noise), with a little per-particle
-                // jitter, a slow drift, and an extra spread as it shatters.
-                float baseHue = fract(aTarget.y * 0.55 + aTarget.x * 0.18 + 0.5);
+                // Map target coordinates to the diagonal Velo gradient [0..1]
+                float t = (aTarget.x - aTarget.y) * 0.65 + 0.5;
                 float jitter = (hash(vec2(aSeed, 7.0)) - 0.5) * 0.06;
-                v_hue = baseHue + jitter + u_time * 0.03
-                        + u_disperse * (hash(vec2(aSeed, 3.0)) - 0.5) * 0.7;
+                v_gradient = t + jitter + sin(u_time * 2.0) * 0.03
+                           + u_disperse * (hash(vec2(aSeed, 3.0)) - 0.5) * 0.5;
             }
         """
 
@@ -286,12 +284,21 @@ class IntroLogoScene {
             uniform float u_intensity;
             in float v_assemble;
             in float v_disperse;
-            in float v_hue;
+            in float v_gradient;
             out vec4 fragColor;
 
-            const float TAU = 6.28318530718;
-            vec3 rainbow(float h) {
-                return 0.5 + 0.5 * cos(TAU * (h + vec3(0.0, 0.33, 0.67)));
+            vec3 veloGradient(float t) {
+                t = clamp(t, 0.0, 0.999) * 5.0;
+                int i = int(t);
+                float f = fract(t);
+                vec3 cols[6];
+                cols[0] = vec3(1.0, 0.302, 0.616);  // Pink #FFFF4D9D
+                cols[1] = vec3(0.694, 0.302, 1.0);  // Purple #FFB14DFF
+                cols[2] = vec3(0.302, 0.490, 1.0);  // Blue #FF4D7DFF
+                cols[3] = vec3(0.169, 0.851, 0.851);// Cyan #FF2BD9D9
+                cols[4] = vec3(0.302, 1.0, 0.533);  // Green #FF4DFF88
+                cols[5] = vec3(1.0, 0.886, 0.302);  // Yellow #FFFFE24D
+                return mix(cols[i], cols[i+1], f);
             }
 
             void main() {
@@ -300,10 +307,7 @@ class IntroLogoScene {
                 if (d > 1.0) discard;
                 float core = exp(-d * 3.5);
 
-                // Vivid per-particle rainbow. Deepen saturation, stay dim before
-                // the V assembles, then keep the colour right through the shatter
-                // (intensify rather than wash to white) — a music-visualiser bloom.
-                vec3 col = rainbow(v_hue);
+                vec3 col = veloGradient(v_gradient);
                 col = mix(vec3(dot(col, vec3(0.333))), col, 1.45);   // saturate
                 col *= mix(0.35, 1.0, clamp(v_assemble, 0.0, 1.0));  // ignite up
                 col += col * v_disperse * 0.7;                       // flare on dissolve
