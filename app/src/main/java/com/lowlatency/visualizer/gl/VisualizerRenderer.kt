@@ -134,6 +134,7 @@ class VisualizerRenderer(private val context: Context) : GLSurfaceView.Renderer 
             38 -> VeilScene()
             39 -> MeridianScene()
             40 -> VeilTopDownScene()
+            41 -> TechnoClubScene()
             42 -> ChromaticDotsScene()
             else -> RawScopeScene()
         }
