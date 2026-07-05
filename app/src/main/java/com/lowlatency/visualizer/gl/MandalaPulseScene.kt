@@ -46,6 +46,13 @@ class MandalaPulseScene : GlScene {
     // Present-pass uniforms.
     private var pFb = 0; private var pDim = 0
 
+    // Live-waveform texture (raw PCM traced into the ring) + its auto-gain.
+    private var pcmTex = 0
+    private var uPcm = 0
+    private var agc = 8f
+    private val wfBuf: FloatBuffer = ByteBuffer
+        .allocateDirect(WF_PTS * 4 * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
+
     private val prevFbo = IntArray(1)
     private val prevViewport = IntArray(4)
 
@@ -77,6 +84,7 @@ class MandalaPulseScene : GlScene {
         uEnergy = GLES20.glGetUniformLocation(fbProg, "u_energy")
         pFb = GLES20.glGetUniformLocation(presentProg, "u_fb")
         pDim = GLES20.glGetUniformLocation(presentProg, "u_dim")
+        uPcm = GLES20.glGetUniformLocation(fbProg, "u_pcm")
 
         val ids = IntArray(1)
         GLES20.glGenBuffers(1, ids, 0)
@@ -86,6 +94,7 @@ class MandalaPulseScene : GlScene {
             .asFloatBuffer().apply { put(floatArrayOf(-1f, -1f, 1f, -1f, -1f, 1f, 1f, 1f)); position(0) }
         GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, 8 * 4, qb, GLES20.GL_STATIC_DRAW)
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
+        pcmTex = makeTexture(WF_PTS, 1)
     }
 
     override fun onResize(width: Int, height: Int, aspect: Float) {
@@ -145,6 +154,24 @@ class MandalaPulseScene : GlScene {
         return t * t * (3f - 2f * t)
     }
 
+    /** Auto-gain the PCM and upload it as the by-angle waveform texture. */
+    private fun uploadWaveform(pcm: FloatArray) {
+        var peak = 0f
+        for (s in pcm) { val a = if (s < 0f) -s else s; if (a > peak) peak = a }
+        agc += ((AGC_TARGET / max(peak, AGC_FLOOR)).coerceIn(3f, 150f) - agc) * 0.08f
+        val stride = (pcm.size / WF_PTS).coerceAtLeast(1)
+        wfBuf.clear()
+        for (i in 0 until WF_PTS) {
+            val g = pcm[(i * stride).coerceAtMost(pcm.size - 1)] * agc
+            val soft = g / (1f + if (g < 0f) -g else g)
+            wfBuf.put(soft); wfBuf.put(0f); wfBuf.put(0f); wfBuf.put(1f)
+        }
+        wfBuf.position(0)
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE1)
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, pcmTex)
+        GLES20.glTexSubImage2D(GLES20.GL_TEXTURE_2D, 0, 0, 0, WF_PTS, 1, GLES20.GL_RGBA, GLES20.GL_FLOAT, wfBuf)
+    }
+
     override fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
         if (broken || fbW == 0) return
         val first = lastT < 0f
@@ -168,6 +195,8 @@ class MandalaPulseScene : GlScene {
         if (beat != lastBeat) { lastBeat = beat; shockAge = 0f }
         shockAge = (shockAge + dt).coerceAtMost(2f)
 
+        uploadWaveform(pcm)
+
         GLES20.glGetIntegerv(GLES30.GL_FRAMEBUFFER_BINDING, prevFbo, 0)
         GLES20.glGetIntegerv(GLES20.GL_VIEWPORT, prevViewport, 0)
         GLES20.glDisable(GLES20.GL_BLEND)
@@ -180,6 +209,9 @@ class MandalaPulseScene : GlScene {
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, fbTex[readIdx])
         GLES20.glUniform1i(uPrev, 0)
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE1)
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, pcmTex)
+        GLES20.glUniform1i(uPcm, 1)
         GLES20.glUniform2f(uRes, fbW.toFloat(), fbH.toFloat())
         GLES20.glUniform1f(uTime, timeSec)
         GLES20.glUniform1f(uLow, sLow)
@@ -220,6 +252,9 @@ class MandalaPulseScene : GlScene {
 
     companion object {
         private const val NOISE_FLOOR = 0.07f   // band level shaved off as mic noise
+        private const val WF_PTS = 256          // waveform texture width
+        private const val AGC_TARGET = 2.3f     // auto-gain target (soft-clip peak)
+        private const val AGC_FLOOR = 0.03f
     }
 }
 
@@ -243,6 +278,7 @@ private object MandalaShaders {
     const val FEEDBACK_FS = """#version 300 es
         precision highp float;
         uniform sampler2D u_prev;
+        uniform sampler2D u_pcm;      // R = auto-gained waveform sample, by angle
         uniform vec2  u_res;
         uniform float u_time, u_low, u_mid, u_high, u_pulse, u_punch, u_shock, u_energy;
         in vec2 v_uv;
@@ -296,6 +332,15 @@ private object MandalaShaders {
             float rays = pow(0.5 + 0.5 * cos(a1 * 12.0 - u_time * 0.4), 3.0)
                          * smoothstep(0.12, 0.5, r) * smoothstep(1.35, 0.7, r);
             e += pal(0.32 + u_high * 0.4) * rays * (u_mid * 0.9 + u_high * 0.5);
+
+            // The live waveform, woven in: the raw PCM traced once around a mid
+            // ring (slowly rotating), its radius riding the sample — a delicate
+            // circular oscilloscope that the feedback gives a soft glowing trail.
+            float wcoord = fract((baseAng + u_time * 0.15) / TAU);
+            float wf = texture(u_pcm, vec2(wcoord, 0.5)).r;
+            float rW = 0.66 + wf * 0.18;
+            float wave = exp(-pow((r - rW) / 0.022, 2.0));
+            e += pal(0.52 + u_high * 0.25) * wave * (0.18 + u_energy * 0.9);
             // Fine treble sparkle woven through the rim.
             float spk = pow(0.5 + 0.5 * cos(a2 * 18.0 + r * 30.0 - u_time * 4.0), 6.0);
             e += vec3(0.8, 0.9, 1.0) * spk * u_high * 0.6 * smoothstep(0.3, 0.95, r);
