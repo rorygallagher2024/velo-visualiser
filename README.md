@@ -40,7 +40,7 @@ Velo Visualiser listens to the **actual sound** in the room and moves with it in
 ## Core Features
 * **High-FPS, HDR-Capable 3D Visuals:** Targets 120+ fps for fluid, tear-free rendering (device and preset dependent).
 * **Ableton Link Integration:** Supplement the microphone input with perfect phase-synchronization and predictive beat detection broadcast directly from your DJ software (Traktor, Live, Serato).
-* **Room Lighting Control:** Drive your physical room lighting with the exact same zero-lag transient detection used for the on-screen visuals. Supports Philips Hue, Lifx bulbs, and Nanoleaf panels.
+* **Smart Home Room Lighting Control:** Drive your physical room lighting with the exact same zero-lag transient detection used for the on-screen visuals. Supports Philips Hue, Lifx bulbs, and Nanoleaf panels.
 * **No Nonsense:** 100% local processing. No data collection. No ads. I don't want your data, and nobody wants ads.
 
 ## The full feature list
@@ -187,9 +187,9 @@ like to chip in for coffee, it's hugely appreciated:
 
 ## About the Developer
 
-Velo Visualiser was engineered by me, Rory Gallagher. I am a **Solutions Engineer** with over 14 years of experience in enterprise software architecture and currently leading innovation and experimentation teams. My day-to-day focus centers on leading teams to evaluate and build enterprise capabilities using emerging technologies.
+Velo Visualiser was engineered by me, Rory Gallagher. I am a Engineer with over 14 years of experience in enterprise software architecture and currently leading innovation and experimentation teams. My day-to-day focus centers on leading teams to evaluate and build enterprise capabilities using emerging technologies.
 
-With interests in music technology, live performance, hardware and IoT, I built Velo Visualiser to serve as both a practical tool for live sets and a personal deep-dive to explore the bare-metal performance limits of native Android audio pipelines and network hardware coordination.
+Building Velo Visualiser is a culmination of my interests in music technology and audio science, live performance, hardware, software engineering and IoT. The visualiser serves as both a practical tool for live sets and originated from my personal deep-dive in exploring the bare-metal performance limits of native Android audio pipelines and network hardware coordination.
 
 Feel free to connect:
 * **LinkedIn:** [linkedin.com/in/rory-gallagher-51822532](https://www.linkedin.com/in/rory-gallagher-51822532)
