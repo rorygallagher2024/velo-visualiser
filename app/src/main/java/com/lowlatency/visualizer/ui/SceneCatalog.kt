@@ -40,7 +40,6 @@ object SceneCatalog {
         SceneEntry(30, R.string.vis_spectral_canyon, SceneCategory.REACTIVE),
         SceneEntry(31, R.string.vis_spectral_canyon_classic, SceneCategory.REACTIVE),
         SceneEntry(7, R.string.vis_starscape, SceneCategory.REACTIVE),
-        SceneEntry(6, R.string.vis_bloom, SceneCategory.REACTIVE),
         SceneEntry(12, R.string.vis_electric_iris, SceneCategory.REACTIVE),
         SceneEntry(1, R.string.vis_tunnel, SceneCategory.REACTIVE),
         SceneEntry(3, R.string.vis_laser, SceneCategory.REACTIVE),
@@ -54,6 +53,7 @@ object SceneCatalog {
         SceneEntry(10, R.string.vis_fireworks, SceneCategory.REACTIVE),
         SceneEntry(42, R.string.vis_chromatic_dots, SceneCategory.REACTIVE),
         // ----- Immersive (rich generative, heavier GPU) -----
+        SceneEntry(6, R.string.vis_bloom, SceneCategory.IMMERSIVE),
         SceneEntry(13, R.string.vis_mandala, SceneCategory.IMMERSIVE),
         SceneEntry(39, R.string.vis_meridian, SceneCategory.IMMERSIVE),
         SceneEntry(37, R.string.vis_slipstream, SceneCategory.IMMERSIVE),
