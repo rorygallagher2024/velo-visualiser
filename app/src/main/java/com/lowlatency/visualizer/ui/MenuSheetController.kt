@@ -5,6 +5,7 @@ import android.animation.ValueAnimator
 import android.graphics.RenderEffect
 import android.graphics.Shader
 import android.os.Build
+import android.os.SystemClock
 import android.view.GestureDetector
 import android.view.Gravity
 import android.view.MotionEvent
@@ -38,24 +39,31 @@ class MenuSheetController(
     private lateinit var tabBar: View
     private lateinit var handle: View
     private lateinit var navDivider: View
+    private lateinit var closeBtn: View
     private var scrubPreview = false
 
     private var blurAnimator: ValueAnimator? = null
     private var currentBlurRadius = 0f
     private var sheetDragActive = false
     private var sheetTravel = 0f
+    private var lastClosedMs = 0L
 
     var isOpen = false
         private set
+
+    /** Horizontal flick on the sheet → change section (+1 next / -1 previous). */
+    var onTabSwipe: (Int) -> Unit = {}
 
     @Suppress("ClickableViewAccessibility")
     fun bind() {
         scrim = activity.findViewById(R.id.scrim)
         optionsSheet = activity.findViewById(R.id.options_sheet)
         sheetContent = activity.findViewById(R.id.options_sheet_content)
-        tabBar = activity.findViewById(R.id.sheet_tab_bar)
+        tabBar = activity.findViewById(R.id.section_tabs)
         handle = activity.findViewById(R.id.sheet_handle)
         navDivider = activity.findViewById(R.id.sheet_nav_divider)
+        closeBtn = activity.findViewById(R.id.btn_close_menu)
+        closeBtn.setOnClickListener { close() }
         optionsSheet.visibility = View.GONE
         applyWidthCap()
 
@@ -64,6 +72,7 @@ class MenuSheetController(
         glView.onMenuDragStart = { beginDrag() }
         glView.onMenuDrag = { dyUp -> updateDrag(dyUp) }
         glView.onMenuDragRelease = { vUp -> endDrag(vUp) }
+        glView.onLongHold = { open() }   // long-press the canvas → open the menu
 
         scrim.setOnClickListener { close() }
 
@@ -73,6 +82,10 @@ class MenuSheetController(
         val sheetGestures = GestureDetector(activity, object : GestureDetector.SimpleOnGestureListener() {
             override fun onDown(e: MotionEvent) = false
             override fun onFling(e1: MotionEvent?, e2: MotionEvent, vx: Float, vy: Float): Boolean {
+                if (abs(vx) > abs(vy) && abs(vx) > TAB_SWIPE_VELOCITY) {   // horizontal flick → section
+                    onTabSwipe(if (vx < 0f) 1 else -1)
+                    return false
+                }
                 if (vy > SWIPE_DOWN_VELOCITY && abs(vy) > abs(vx) && optionsSheet.scrollY == 0) {
                     close()
                     return true
@@ -118,6 +131,13 @@ class MenuSheetController(
         if (isOpen) return
         scrim.bringToFront()
         optionsSheet.bringToFront()
+        open()
+    }
+
+    /** Open the sheet with the standard slide-up (e.g. a long-press on the canvas). */
+    fun open() {
+        if (isOpen) return
+        if (SystemClock.elapsedRealtime() - lastClosedMs < REOPEN_COOLDOWN_MS) return
         beginDrag()                 // primes the sheet off-screen + refreshes contents
         sheetDragActive = false     // not a finger drag — settle handles the animation
         settle(open = true, speedPxPerS = 0f)
@@ -138,6 +158,7 @@ class MenuSheetController(
      *  can track the finger from off-screen. */
     private fun beginDrag() {
         if (sheetDragActive) return
+        if (SystemClock.elapsedRealtime() - lastClosedMs < REOPEN_COOLDOWN_MS) return
         sheetDragActive = true
         isOpen = true
         glView.isMenuOpen = true
@@ -183,6 +204,7 @@ class MenuSheetController(
     private fun settle(open: Boolean, speedPxPerS: Float) {
         isOpen = open
         glView.isMenuOpen = open
+        if (!open) lastClosedMs = SystemClock.elapsedRealtime()
         if (open) {
             optionsSheet.visibility = View.VISIBLE
             scrim.visibility = View.VISIBLE
@@ -245,7 +267,7 @@ class MenuSheetController(
         scrubPreview = active
         val a = if (active) 0f else 1f
         // Fade the chrome AND the dim scrim, so the canvas is fully revealed.
-        listOf(tabBar, handle, navDivider, scrim).forEach {
+        listOf(tabBar, handle, navDivider, closeBtn, scrim).forEach {
             it.animate().alpha(a).setDuration(PREVIEW_FADE_MS).start()
         }
     }
@@ -257,17 +279,19 @@ class MenuSheetController(
             tabBar.alpha = 1f
             handle.alpha = 1f
             navDivider.alpha = 1f
+            closeBtn.alpha = 1f
         }
     }
 
     companion object {
         private const val SWIPE_DOWN_VELOCITY = 1200f
+        private const val TAB_SWIPE_VELOCITY = 700f   // horizontal flick to change section
         private const val MENU_BLUR_MAX = 32f
         private const val SHEET_SETTLE_VELOCITY = 600f  // px/s flick that decisively opens/closes
         private const val WIDTH_CAP_TRIGGER_DP = 600    // apply the cap above this screen width
         private const val WIDTH_CAP_DP = 560f           // centered content column width
         private const val SHEET_ALPHA = 210             // ~82% translucent glass (open)
-        private const val PREVIEW_SHEET_ALPHA = 0       // fully clear the glass while scrubbing
         private const val PREVIEW_FADE_MS = 200L
+        private const val REOPEN_COOLDOWN_MS = 300L     // block re-open right after a close
     }
 }

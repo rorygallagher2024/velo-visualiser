@@ -56,6 +56,10 @@ class SceneWheelView @JvmOverloads constructor(
     var onPick: (() -> Unit)? = null
     /** Long-press a row → toggle it as a favourite. */
     var onFavourite: ((Int) -> Unit)? = null
+    /** Horizontal flick on the wheel → change section (+1 next / -1 previous). */
+    var onHorizontalFling: ((Int) -> Unit)? = null
+    /** Downward flick while already at the top of the list → close the menu. */
+    var onOverscrollDown: (() -> Unit)? = null
 
     private var scrollPx = 0f
     private var rowH = 120f
@@ -88,6 +92,8 @@ class SceneWheelView @JvmOverloads constructor(
             }
 
             override fun onScroll(e1: MotionEvent?, e2: MotionEvent, dx: Float, dy: Float): Boolean {
+                // A horizontal drag belongs to the section pager, not the scrub.
+                if (abs(e2.x - (e1?.x ?: e2.x)) > abs(e2.y - (e1?.y ?: e2.y))) return true
                 dragging = true
                 setScrubbing(true)
                 scrollPx = (scrollPx + dy).coerceIn(0f, maxScroll())
@@ -95,6 +101,18 @@ class SceneWheelView @JvmOverloads constructor(
             }
 
             override fun onFling(e1: MotionEvent?, e2: MotionEvent, vx: Float, vy: Float): Boolean {
+                // A decisive, clearly-horizontal flick changes section; a slow or
+                // slightly-diagonal vertical scrub must never be misread as one.
+                if (abs(vx) > abs(vy) * H_FLING_RATIO && abs(vx) > MIN_FLING_V) {
+                    setScrubbing(false)                        // restore chrome before the wheel hides
+                    onHorizontalFling?.invoke(if (vx < 0f) 1 else -1)
+                    return true
+                }
+                if (vy > MIN_FLING_V && scrollPx <= 1f) {      // at the top + decisive flick down → close
+                    setScrubbing(false)
+                    onOverscrollDown?.invoke()
+                    return true
+                }
                 dragging = false; flinging = true
                 setScrubbing(true)
                 scroller.fling(0, scrollPx.toInt(), 0, (-vy).toInt(), 0, 0, 0, maxScroll().toInt())
@@ -288,5 +306,7 @@ class SceneWheelView @JvmOverloads constructor(
         private const val BASE_FRAC = 0.105f    // hero text size as a fraction of height
         private const val FIT_FRAC = 0.88f      // max name width as a fraction of view width
         private const val SHADOW_DP = 5f        // legibility halo behind names
+        private const val H_FLING_RATIO = 1.4f  // vx must beat vy by this to count as a section flick
+        private const val MIN_FLING_V = 900f    // min velocity (px/s) for a section flick / close
     }
 }

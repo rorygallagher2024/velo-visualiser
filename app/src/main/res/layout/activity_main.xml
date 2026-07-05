@@ -239,37 +239,31 @@
                     android:orientation="vertical"
                     android:paddingBottom="4dp">
 
-                    <LinearLayout
+                    <TextView
+                        android:id="@+id/btn_fav_filter"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_gravity="center_horizontal"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical"
-                        android:layout_marginBottom="4dp">
+                        android:text="☆"
+                        android:textSize="32sp"
+                        android:textColor="@color/text_dim"
+                        android:paddingStart="12dp"
+                        android:paddingEnd="12dp"
+                        android:paddingTop="4dp"
+                        android:paddingBottom="8dp"
+                        android:clickable="true"
+                        android:focusable="true" />
 
-                        <TextView
-                            android:id="@+id/btn_fav_filter"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="☆"
-                            android:textSize="24sp"
-                            android:textColor="@color/text_dim"
-                            android:paddingStart="8dp"
-                            android:paddingEnd="10dp"
-                            android:paddingTop="4dp"
-                            android:paddingBottom="4dp"
-                            android:clickable="true"
-                            android:focusable="true" />
-
-                        <TextView
-                            android:id="@+id/scene_counter"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:fontFamily="@font/space_mono"
-                            android:textColor="@color/text_dim"
-                            android:textSize="12sp"
-                            android:letterSpacing="0.3" />
-                    </LinearLayout>
+                    <TextView
+                        android:id="@+id/scene_counter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center_horizontal"
+                        android:fontFamily="@font/space_mono"
+                        android:textColor="@color/text_dim"
+                        android:textSize="12sp"
+                        android:letterSpacing="0.3"
+                        android:layout_marginBottom="4dp" />
 
                     <TextView
                         android:id="@+id/scene_hint"
@@ -292,69 +286,41 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
 
-        <!-- Drag handle -->
-        <View
-            android:id="@+id/sheet_handle"
-            android:layout_width="44dp"
-            android:layout_height="4dp"
-            android:layout_gravity="center_horizontal"
-            android:layout_marginBottom="16dp"
-            android:background="@color/text_dim" />
-
-        <!-- Tab bar: Visuals | Lighting | Settings -->
-        <LinearLayout
-            android:id="@+id/sheet_tab_bar"
+        <!-- Header: drag handle (centred) + an explicit, labelled close button
+             (accessible tap-to-dismiss for TalkBack / motor users). -->
+        <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginBottom="20dp">
+            android:layout_marginBottom="12dp">
+
+            <View
+                android:id="@+id/sheet_handle"
+                android:layout_width="44dp"
+                android:layout_height="4dp"
+                android:layout_gravity="center"
+                android:background="@color/text_dim" />
 
             <Button
-                android:id="@+id/tab_btn_visuals"
-                android:layout_width="0dp"
-                android:layout_height="48dp"
-                android:layout_weight="1"
-                android:layout_marginEnd="4dp"
-                android:background="@drawable/segment_button_bg"
-                android:text="@string/tab_visualizers"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="true"
-                android:letterSpacing="0.1"
-                android:textStyle="normal"
-                android:textSize="12sp"
+                android:id="@+id/btn_close_menu"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:layout_gravity="end|center_vertical"
+                android:text="✕"
+                android:textSize="18sp"
+                android:textColor="@color/text_dim"
+                android:textAllCaps="false"
+                android:contentDescription="@string/close_menu"
+                android:background="?attr/selectableItemBackgroundBorderless"
                 android:stateListAnimator="@null" />
+        </FrameLayout>
 
-            <Button
-                android:id="@+id/tab_btn_lighting"
-                android:layout_width="0dp"
-                android:layout_height="48dp"
-                android:layout_weight="1"
-                android:layout_marginStart="4dp"
-                android:layout_marginEnd="4dp"
-                android:background="@drawable/segment_button_bg"
-                android:text="@string/tab_lighting"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="true"
-                android:letterSpacing="0.1"
-                android:textStyle="normal"
-                android:textSize="12sp"
-                android:stateListAnimator="@null" />
-
-            <Button
-                android:id="@+id/tab_btn_settings"
-                android:layout_width="0dp"
-                android:layout_height="48dp"
-                android:layout_weight="1"
-                android:layout_marginStart="4dp"
-                android:background="@drawable/segment_button_bg"
-                android:text="@string/tab_settings"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="true"
-                android:letterSpacing="0.1"
-                android:textStyle="normal"
-                android:textSize="12sp"
-                android:stateListAnimator="@null" />
-        </LinearLayout>
+        <!-- Section selector: Visuals · Lighting · Settings shown together, with a
+             pill that slides under the active tab. Tap a tab, or flick the content. -->
+        <com.lowlatency.visualizer.ui.SectionTabsView
+            android:id="@+id/section_tabs"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginBottom="18dp" />
 
         <!-- ───── divider: Main Nav / Content ───── -->
         <View android:id="@+id/sheet_nav_divider" style="@style/Divider" android:layout_marginBottom="24dp" />

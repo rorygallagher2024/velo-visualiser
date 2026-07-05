@@ -74,12 +74,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var prefs: SharedPreferences
 
     // --- Settings tabs ---
-    private lateinit var tabBtnVisuals: Button
-    private lateinit var tabBtnLighting: Button
-    private lateinit var tabBtnSettings: Button
+    private lateinit var sectionTabs: com.lowlatency.visualizer.ui.SectionTabsView
     private lateinit var tabVisualizers: View
     private lateinit var tabLighting: View
     private lateinit var tabSettings: View
+    private var currentTab = TAB_VISUALS
     private lateinit var btnCastDisplay: Button
     private lateinit var castOverlay: TextView
 
@@ -142,9 +141,7 @@ class MainActivity : AppCompatActivity() {
         btnAbout = findViewById(R.id.btn_about)
         btnPeakLuminance = findViewById(R.id.btn_peak_luminance)
         groupPeakLuminance = findViewById(R.id.group_peak_luminance)
-        tabBtnVisuals = findViewById(R.id.tab_btn_visuals)
-        tabBtnLighting = findViewById(R.id.tab_btn_lighting)
-        tabBtnSettings = findViewById(R.id.tab_btn_settings)
+        sectionTabs = findViewById(R.id.section_tabs)
         tabVisualizers = findViewById(R.id.tab_visualizers)
         tabLighting = findViewById(R.id.tab_lighting)
         tabSettings = findViewById(R.id.tab_settings)
@@ -245,6 +242,7 @@ class MainActivity : AppCompatActivity() {
             onCloseMenu = { menuSheetController.close() },
         )
         scenesController.bind()
+        scenesController.onTabSwipe = { swipeTab(it) }   // horizontal flick on the wheel
 
         secondaryDisplayController = com.lowlatency.visualizer.ui.SecondaryDisplayController(this, glView, btnCastDisplay, castOverlay)
         secondaryDisplayController.bind()
@@ -262,6 +260,7 @@ class MainActivity : AppCompatActivity() {
             },
         )
         menuSheetController.bind()
+        menuSheetController.onTabSwipe = { swipeTab(it) }   // horizontal flick on the sheet content
 
         menuDiscoveryController =
             MenuDiscoveryController(this, prefs, isMenuOpen = { menuSheetController.isOpen })
@@ -359,23 +358,44 @@ class MainActivity : AppCompatActivity() {
     // ----- Settings tabs: Visuals | Lighting | Settings -----
 
     private fun wireTabs() {
-        tabBtnVisuals.setOnClickListener { selectTab(TAB_VISUALS) }
-        tabBtnLighting.setOnClickListener { selectTab(TAB_LIGHTING) }
-        tabBtnSettings.setOnClickListener { selectTab(TAB_SETTINGS) }
+        sectionTabs.setItems(
+            listOf(
+                getString(R.string.tab_visualizers),
+                getString(R.string.tab_lighting),
+                getString(R.string.tab_settings),
+            ),
+            TAB_VISUALS,
+        )
+        sectionTabs.onSelect = { selectTab(it) }
         selectTab(TAB_VISUALS)   // default to the Visuals tab
     }
 
+    /** Flick left/right in the sheet: step to the next/previous section, skipping
+     *  Lighting when it's disabled (system audio). */
+    private fun swipeTab(dir: Int) {
+        var t = currentTab + dir
+        if (t == TAB_LIGHTING && audioSourceController.systemAudioMode) t += dir
+        if (t in TAB_VISUALS..TAB_SETTINGS && t != currentTab) selectTab(t)
+    }
+
     private fun selectTab(tab: Int) {
-        tabBtnVisuals.isSelected = tab == TAB_VISUALS
-        tabBtnLighting.isSelected = tab == TAB_LIGHTING
-        tabBtnSettings.isSelected = tab == TAB_SETTINGS
+        currentTab = tab
+        sectionTabs.setActive(tab)
         for ((view, id) in listOf(
             tabVisualizers to TAB_VISUALS,
             tabLighting to TAB_LIGHTING,
             tabSettings to TAB_SETTINGS,
         )) {
             val active = tab == id
-            view.visibility = if (active) View.VISIBLE else View.GONE
+            if (active && view.visibility != View.VISIBLE) {
+                view.visibility = View.VISIBLE
+                view.alpha = 0f
+                view.animate().alpha(1f).setDuration(180L).start()
+            } else if (!active) {
+                view.animate().cancel()
+                view.alpha = 1f
+                view.visibility = View.GONE
+            }
         }
     }
 
@@ -568,12 +588,11 @@ class MainActivity : AppCompatActivity() {
      */
     private fun onAudioSourceChanged() {
         val systemAudio = audioSourceController.systemAudioMode
-        tabBtnLighting.isEnabled = !systemAudio
-        tabBtnLighting.alpha = if (systemAudio) 0.5f else 1.0f
+        sectionTabs.disabled = if (systemAudio) setOf(TAB_LIGHTING) else emptySet()
 
         if (systemAudio) {
             if (::lightingController.isInitialized) lightingController.onSystemAudioEngaged()
-            if (tabBtnLighting.isSelected) {
+            if (currentTab == TAB_LIGHTING) {
                 selectTab(TAB_VISUALS)
             }
         }
