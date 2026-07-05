@@ -84,9 +84,13 @@ class MandalaPulseScene : GlScene {
                 vec2 uv = (gl_FragCoord.xy - 0.5 * u_resolution)
                           / min(u_resolution.x, u_resolution.y);
                 uv *= 2.05;
-                // Breathing zoom on the bass pulse, plus a tiny always-on idle
-                // breath so a silent mandala is calm but never frozen.
-                uv /= (1.0 + u_pulse * 0.20 + u_low * 0.10 + 0.015 * sin(u_time * 0.6));
+                // Soft-knee the pulse for everything that *moves* geometry (zoom +
+                // parallax) so low-level bass jitter can't twitch it — only real
+                // hits displace the mandala; petal detail still reacts below this.
+                float punch = smoothstep(0.12, 0.5, u_pulse);
+                // Breathing zoom on the bass, plus a tiny always-on idle breath so
+                // a silent mandala is calm but never frozen.
+                uv /= (1.0 + punch * 0.22 + u_low * 0.10 + 0.015 * sin(u_time * 0.6));
 
                 float r0 = length(uv);
                 vec3 col = vec3(0.0);
@@ -99,7 +103,7 @@ class MandalaPulseScene : GlScene {
                     float dir = (mod(fi, 2.0) < 0.5) ? 1.0 : -1.0;
                     // Per-octave depth parallax: inner rings pop toward you on the
                     // bass more than the outer ones, so the layers separate in depth.
-                    float depth = 1.0 - u_pulse * (0.22 - fi * 0.09);
+                    float depth = 1.0 - punch * (0.22 - fi * 0.09);
                     vec2 p = uv * rot(spin * dir + fi * 0.7) * depth;
                     float n = 12.0 + fi * 12.0;                 // 12, 24, 36 petals
                     float r = kaleido(p, n);
