@@ -5,6 +5,7 @@ import android.animation.ValueAnimator
 import android.graphics.RenderEffect
 import android.graphics.Shader
 import android.os.Build
+import android.os.SystemClock
 import android.view.GestureDetector
 import android.view.Gravity
 import android.view.MotionEvent
@@ -45,6 +46,7 @@ class MenuSheetController(
     private var currentBlurRadius = 0f
     private var sheetDragActive = false
     private var sheetTravel = 0f
+    private var lastClosedMs = 0L
 
     var isOpen = false
         private set
@@ -135,6 +137,7 @@ class MenuSheetController(
     /** Open the sheet with the standard slide-up (e.g. a long-press on the canvas). */
     fun open() {
         if (isOpen) return
+        if (SystemClock.elapsedRealtime() - lastClosedMs < REOPEN_COOLDOWN_MS) return
         beginDrag()                 // primes the sheet off-screen + refreshes contents
         sheetDragActive = false     // not a finger drag — settle handles the animation
         settle(open = true, speedPxPerS = 0f)
@@ -155,6 +158,7 @@ class MenuSheetController(
      *  can track the finger from off-screen. */
     private fun beginDrag() {
         if (sheetDragActive) return
+        if (SystemClock.elapsedRealtime() - lastClosedMs < REOPEN_COOLDOWN_MS) return
         sheetDragActive = true
         isOpen = true
         glView.isMenuOpen = true
@@ -200,6 +204,7 @@ class MenuSheetController(
     private fun settle(open: Boolean, speedPxPerS: Float) {
         isOpen = open
         glView.isMenuOpen = open
+        if (!open) lastClosedMs = SystemClock.elapsedRealtime()
         if (open) {
             optionsSheet.visibility = View.VISIBLE
             scrim.visibility = View.VISIBLE
@@ -286,7 +291,7 @@ class MenuSheetController(
         private const val WIDTH_CAP_TRIGGER_DP = 600    // apply the cap above this screen width
         private const val WIDTH_CAP_DP = 560f           // centered content column width
         private const val SHEET_ALPHA = 210             // ~82% translucent glass (open)
-        private const val PREVIEW_SHEET_ALPHA = 0       // fully clear the glass while scrubbing
         private const val PREVIEW_FADE_MS = 200L
+        private const val REOPEN_COOLDOWN_MS = 500L     // block re-open right after a close
     }
 }

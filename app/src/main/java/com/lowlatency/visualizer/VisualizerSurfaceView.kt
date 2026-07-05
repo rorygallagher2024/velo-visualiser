@@ -119,7 +119,7 @@ class VisualizerSurfaceView @JvmOverloads constructor(
             }
 
             override fun onLongPress(e: MotionEvent) {
-                if (renderer.introActive || menuDragging) return
+                if (renderer.introActive || menuDragging || isMenuOpen) return
                 this@VisualizerSurfaceView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
                 onLongHold?.invoke()
             }
@@ -128,6 +128,8 @@ class VisualizerSurfaceView @JvmOverloads constructor(
                 e1: MotionEvent?, e2: MotionEvent,
                 velocityX: Float, velocityY: Float
             ): Boolean {
+                if (isMenuOpen) return false
+
                 // Horizontal fling => change scene. The vertical (menu) gesture is
                 // handled interactively in onTouchEvent, not here.
                 if (abs(velocityX) > abs(velocityY) && abs(velocityX) > SWIPE_VELOCITY) {
@@ -277,7 +279,7 @@ class VisualizerSurfaceView @JvmOverloads constructor(
                         gestureDecided = true
                         // Upward drag from the bottom region (and not during the
                         // intro) becomes an interactive menu pull.
-                        if (startedLow && dy < 0 && abs(dy) > abs(dx) &&
+                        if (!isMenuOpen && startedLow && dy < 0 && abs(dy) > abs(dx) &&
                             onMenuDragStart != null && !renderer.introActive
                         ) {
                             menuDragging = true
