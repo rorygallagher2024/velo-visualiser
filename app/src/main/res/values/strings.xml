@@ -192,7 +192,7 @@
     <string name="link_status_searching">Searching for Link peers…</string>
     <string name="link_status_connected">Connected · %1$d peer(s) · %2$.0f BPM</string>
     <string name="status_idle">Oboe Engine: starting…</string>
-    <string name="version_fmt">Velo v%1$s</string>
+    <string name="version_fmt">Velo Visualiser v%1$s</string>
 
     <!-- Settings tabs -->
     <string name="tab_visualizers">Visuals</string>
