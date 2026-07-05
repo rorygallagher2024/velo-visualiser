@@ -2,41 +2,23 @@ package com.lowlatency.visualizer.gl
 
 import android.opengl.GLES20
 import com.lowlatency.visualizer.BeatPulse
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
-import kotlin.random.Random
 
 /**
- * "Aurora Drift" — a calm, emotional flow visualizer in the spirit of Tetris
- * Effect's dreamlike particle scenes (inspired by the art style only).
+ * "Aurora Drift" — a volumetric, flowing aurora visualizer.
  *
- * A lush gradient backdrop (never pure black) sits behind thousands of luminous
- * particles that stream along gently undulating currents — coordinated rivers of
- * light rather than a turbulent storm. An IQ cosine palette drifts slowly through
- * cyan / violet / gold, and the music breathes through it: bass quickens the flow
- * and widens the undulation, beats surge the glow ([BeatPulse]), mids drift the
- * hue. Particle cores exceed 1.0 so they bloom on the FP16 HDR buffer.
+ * Rendered as a single full-screen pass using Fractional Brownian Motion (FBM)
+ * to simulate sweeping curtains of light in the night sky, complete with a
+ * parallax starfield that twinkles to the high frequencies.
  *
- * The motion is stateless (closed-form from a per-particle seed + time), so it
- * needs no compute shaders and runs the same on every device — each particle
- * flows left→right and wraps, fading at the edges so the loop is invisible.
+ * Reactivity:
+ * - Bass & Beat: Drive the height, intensity, and vertical surge of the aurora.
+ * - Mids: Shift the underlying color palette organically.
+ * - Highs (Treble): Twinkle the stars.
  */
 class AuroraDriftScene : GlScene {
 
     companion object {
-        private const val COUNT = 6000
-        private const val FLOATS_PER = 4          // vec4: phase, laneY, freq, depth
-        private const val STRIDE = FLOATS_PER * 4
-
-        // Shared IQ cosine palette — cool, oceanic, cosmic (cyan→violet→gold).
-        private const val PALETTE = """
-            vec3 palette(float t) {
-                return 0.5 + 0.5 * cos(6.2831853 * (vec3(1.0) * t + vec3(0.0, 0.15, 0.35)));
-            }
-        """
-
-        // ---- Background: full-screen gradient field (one big triangle) ----
-        private val BG_VS = """#version 300 es
+        private val VS = """#version 300 es
             out vec2 v_uv;
             void main() {
                 vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2));
@@ -45,171 +27,184 @@ class AuroraDriftScene : GlScene {
             }
         """
 
-        private val BG_FS = """#version 300 es
+        private val FS = """#version 300 es
             precision highp float;
             in vec2 v_uv;
             uniform float u_time;
-            uniform float u_env;
             uniform float u_dim;
-            out vec4 o;
-            $PALETTE
-            void main() {
-                // Vertical gradient between two slowly hue-cycling deep tones, kept
-                // below the bloom threshold so only the particles glow.
-                vec3 top = palette(u_time * 0.015 + 0.55) * 0.16;
-                vec3 bot = palette(u_time * 0.015 + 0.10) * 0.07;
-                vec3 col = mix(bot, top, v_uv.y);
-                // Soft central aura that swells on the beat.
-                float r = distance(v_uv, vec2(0.5, 0.55));
-                col += palette(u_time * 0.02 + 0.3) * (0.04 + u_env * 0.22) * smoothstep(0.85, 0.0, r);
-                o = vec4(col * u_dim, 1.0);
-            }
-        """
-
-        // ---- Particles: flowing streams of glowing points ----
-        private val VS = """#version 300 es
-            layout(location = 0) in vec4 a;   // x=phase, y=laneY, z=freq, w=depth
-            uniform float u_time;
-            uniform float u_speed;   // bass adds flow speed
-            uniform float u_amp;     // bass widens undulation
             uniform float u_bass;
             uniform float u_mid;
-            uniform float u_env;     // beat envelope
-            uniform float u_pointSize;
-            out float v_bright;
-            out float v_hue;
-            out float v_depth;
-            void main() {
-                float depth = a.w;                       // 0 far .. 1 near (parallax)
-                float spd = (0.035 + u_speed) * mix(0.5, 1.4, depth);
-                float prog = fract(a.x + u_time * spd);   // 0..1 travel along the current
-                float x = prog * 2.4 - 1.2;
-                float amp = (0.10 + u_amp) * mix(0.5, 1.2, depth);
-                float y = a.y + amp * sin(x * a.z + u_time * 0.7 + a.x * 6.2831);
-                y += 0.03 * sin(u_time * 0.3 + a.y * 4.0);  // slow collective bob
-                gl_Position = vec4(x, y, 0.0, 1.0);
-
-                float edge = smoothstep(0.0, 0.12, prog) * (1.0 - smoothstep(0.88, 1.0, prog));
-                float sz = u_pointSize * mix(0.5, 2.2, depth) * (1.0 + u_bass * 1.2 + u_env * 0.8);
-                gl_PointSize = clamp(sz * edge + 0.5, 1.0, 14.0);
-
-                v_bright = edge * mix(0.35, 1.0, depth) * (0.5 + u_env * 0.9);
-                v_hue = a.y * 0.25 + u_time * 0.025 + u_mid * 0.35 + depth * 0.15;
-                v_depth = depth;
-            }
-        """
-
-        private val FS = """#version 300 es
-            precision highp float;
-            in float v_bright;
-            in float v_hue;
-            in float v_depth;
-            uniform float u_dim;
+            uniform float u_high;
+            uniform float u_env;
+            uniform float u_aspect;
             out vec4 fragColor;
-            $PALETTE
+
+            // Hash without Sine
+            float hash12(vec2 p) {
+                vec3 p3  = fract(vec3(p.xyx) * .1031);
+                p3 += dot(p3, p3.yzx + 33.33);
+                return fract((p3.x + p3.y) * p3.z);
+            }
+
+            // 2D Noise
+            float noise(vec2 p) {
+                vec2 i = floor(p);
+                vec2 f = fract(p);
+                vec2 u = f*f*(3.0-2.0*f);
+                return mix( mix( hash12( i + vec2(0.0,0.0) ), 
+                                 hash12( i + vec2(1.0,0.0) ), u.x),
+                            mix( hash12( i + vec2(0.0,1.0) ), 
+                                 hash12( i + vec2(1.0,1.0) ), u.x), u.y);
+            }
+
+            // FBM for organic structure
+            float fbm(vec2 p) {
+                float v = 0.0;
+                float a = 0.5;
+                vec2 shift = vec2(100.0);
+                mat2 rot = mat2(cos(0.5), sin(0.5), -sin(0.5), cos(0.50));
+                for (int i = 0; i < 5; ++i) {
+                    v += a * noise(p);
+                    p = rot * p * 2.0 + shift;
+                    a *= 0.5;
+                }
+                return v;
+            }
+
+            // Custom palette for the aurora
+            vec3 getAuroraColor(float t) {
+                // Modulate palette by mid frequencies
+                float offset = u_mid * 0.7;
+                vec3 a = vec3(0.3, 0.5, 0.5);
+                vec3 b = vec3(0.5, 0.5, 0.5);
+                vec3 c = vec3(1.0, 1.0, 1.0);
+                vec3 d = vec3(0.2, 0.40, 0.50) + vec3(0.0, offset * 0.5, offset);
+                return a + b * cos(6.28318 * (c * t + d));
+            }
+
             void main() {
-                vec2 c = gl_PointCoord * 2.0 - 1.0;
-                float d2 = dot(c, c);
-                if (d2 > 1.0) discard;
-                float glow = exp(-d2 * 3.0);
-                vec3 col = palette(v_hue) * glow * v_bright;
-                col *= 1.0 + v_depth * 0.8;            // near particles burn brighter (HDR -> bloom)
+                vec2 uv = v_uv;
+                uv.x *= u_aspect;
+                
+                vec3 col = vec3(0.0);
+                
+                // --- Starfield ---
+                // Use a dense grid for stars, but only draw the very brightest points
+                float starVal = hash12(uv * 200.0);
+                if (starVal > 0.993) {
+                    float twinkle = sin(u_time * 3.0 + starVal * 100.0) * 0.5 + 0.5;
+                    col += vec3(1.0) * twinkle * (0.5 + u_high * 1.5);
+                } else if (starVal > 0.985) {
+                    col += vec3(0.6) * (0.2 + u_high * 0.5);
+                }
+
+                // --- Aurora Curtains ---
+                // Base coordinates modified by time and noise
+                vec2 p = uv;
+                p.x += u_time * 0.02; // slow horizontal drift
+                
+                float auroraHeight = 0.35 + u_bass * 0.5 + u_env * 0.4; 
+                vec3 auroraCol = vec3(0.0);
+
+                // Layered rendering of aurora ribbons
+                for (float i = 0.0; i < 3.0; i++) {
+                    vec2 q = p * (1.0 + i * 0.3);
+                    q.y += u_time * 0.05;
+                    
+                    float n = fbm(q + vec2(u_time * 0.02 * (i+1.0), 0.0));
+                    
+                    // Vertical falloff based on height and noise
+                    // The curtain arcs across the sky
+                    float shape = smoothstep(0.0, auroraHeight, uv.y + n * 0.5 - 0.2);
+                    shape *= smoothstep(auroraHeight + 0.4, auroraHeight - 0.2, uv.y + n * 0.5);
+                    
+                    // Add vertical streaks to simulate atmospheric collision
+                    float streak = smoothstep(0.3, 0.7, noise(vec2(q.x * 8.0, q.y * 0.05)));
+                    
+                    float curIntensity = shape * (0.3 + streak * 0.5) * (1.0 - i * 0.25);
+                    
+                    // Modulate color based on layer and noise
+                    vec3 layerCol = getAuroraColor(n + i * 0.15 + u_time * 0.02);
+                    
+                    auroraCol += layerCol * curIntensity;
+                }
+                
+                // Boost intensity based on beat and bass, but keep it constrained to prevent wash-out
+                auroraCol *= (1.0 + u_bass * 1.2 + u_env * 0.8);
+                
+                // Add aurora to background
+                col += auroraCol;
+
+                // Add a subtle deep blue gradient background at the bottom
+                vec3 bgGlow = vec3(0.0, 0.05, 0.15) * (1.0 - uv.y) * (1.0 + u_bass * 0.5);
+                col += bgGlow;
+
                 fragColor = vec4(col * u_dim, 1.0);
             }
         """
     }
 
-    private var bgProg = 0
-    private var prog = 0
-    private var vbo = 0
+    private var program = 0
+    private var uTime = 0
+    private var uDim = 0
+    private var uBass = 0
+    private var uMid = 0
+    private var uHigh = 0
+    private var uEnv = 0
+    private var uAspect = 0
 
-    private var ubgTime = 0; private var ubgEnv = 0; private var ubgDim = 0
-    private var uTime = 0; private var uSpeed = 0; private var uAmp = 0
-    private var uBass = 0; private var uMid = 0; private var uEnv = 0
-    private var uPointSize = 0; private var uDim = 0
-
-    private var height = 1080f
-    private var speed = 0f
-    private var amp = 0f
+    private var smoothedBass = 0f
+    private var smoothedMid = 0f
+    private var smoothedHigh = 0f
+    private var smoothedEnv = 0f
+    private var aspect = 1f
 
     override fun onCreated() {
-        bgProg = ShaderUtil.buildProgram(BG_VS, BG_FS)
-        prog = ShaderUtil.buildProgram(VS, FS)
-
-        ubgTime = GLES20.glGetUniformLocation(bgProg, "u_time")
-        ubgEnv = GLES20.glGetUniformLocation(bgProg, "u_env")
-        ubgDim = GLES20.glGetUniformLocation(bgProg, "u_dim")
-        uTime = GLES20.glGetUniformLocation(prog, "u_time")
-        uSpeed = GLES20.glGetUniformLocation(prog, "u_speed")
-        uAmp = GLES20.glGetUniformLocation(prog, "u_amp")
-        uBass = GLES20.glGetUniformLocation(prog, "u_bass")
-        uMid = GLES20.glGetUniformLocation(prog, "u_mid")
-        uEnv = GLES20.glGetUniformLocation(prog, "u_env")
-        uPointSize = GLES20.glGetUniformLocation(prog, "u_pointSize")
-        uDim = GLES20.glGetUniformLocation(prog, "u_dim")
-
-        val data = FloatArray(COUNT * FLOATS_PER)
-        val rnd = Random(0xA0FE)
-        var i = 0
-        repeat(COUNT) {
-            data[i++] = rnd.nextFloat()                 // phase 0..1
-            data[i++] = rnd.nextFloat() * 2.1f - 1.05f  // laneY
-            data[i++] = 1.5f + rnd.nextFloat() * 2.5f   // undulation frequency
-            data[i++] = rnd.nextFloat()                 // depth 0..1
-        }
-        val buf = ByteBuffer.allocateDirect(data.size * 4).order(ByteOrder.nativeOrder())
-            .asFloatBuffer().apply { put(data); position(0) }
-        val ids = IntArray(1)
-        GLES20.glGenBuffers(1, ids, 0)
-        vbo = ids[0]
-        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, vbo)
-        GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, data.size * 4, buf, GLES20.GL_STATIC_DRAW)
-        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
+        program = ShaderUtil.buildProgram(VS, FS)
+        uTime = GLES20.glGetUniformLocation(program, "u_time")
+        uDim = GLES20.glGetUniformLocation(program, "u_dim")
+        uBass = GLES20.glGetUniformLocation(program, "u_bass")
+        uMid = GLES20.glGetUniformLocation(program, "u_mid")
+        uHigh = GLES20.glGetUniformLocation(program, "u_high")
+        uEnv = GLES20.glGetUniformLocation(program, "u_env")
+        uAspect = GLES20.glGetUniformLocation(program, "u_aspect")
     }
 
     override fun onResize(width: Int, height: Int, aspect: Float) {
-        this.height = height.toFloat()
+        this.aspect = aspect
     }
 
     override fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
-        val low = bands[0]; val mid = bands[1]
-        // Smooth the bass-driven flow so the current eases rather than jerks.
-        speed += (low * 0.10f - speed) * 0.08f
-        amp += (low * 0.12f - amp) * 0.08f
+        if (program == 0) return
+
+        val low = bands[0]
+        val mid = bands[1]
+        val high = bands[2]
+        
+        // Exponential smoothing to make the aurora movement fluid, not jittery
+        smoothedBass += (low - smoothedBass) * 0.04f
+        smoothedMid += (mid - smoothedMid) * 0.04f
+        smoothedHigh += (high - smoothedHigh) * 0.04f
+        
         val env = BeatPulse.envelope
+        // Smooth the envelope aggressively because auroras shouldn't snap abruptly
+        smoothedEnv += (env - smoothedEnv) * 0.03f
 
-        // 1. Gradient backdrop (opaque, overwrites the cleared buffer).
+        // Single full-screen pass (opaque, overwrites buffer)
         GLES20.glDisable(GLES20.GL_BLEND)
-        GLES20.glUseProgram(bgProg)
-        GLES20.glUniform1f(ubgTime, timeSec)
-        GLES20.glUniform1f(ubgEnv, env)
-        GLES20.glUniform1f(ubgDim, dim)
-        GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, 3)
-
-        // 2. Flowing particles (additive glow).
-        GLES20.glEnable(GLES20.GL_BLEND)
-        GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE)
-        GLES20.glUseProgram(prog)
+        GLES20.glUseProgram(program)
+        
         GLES20.glUniform1f(uTime, timeSec)
-        GLES20.glUniform1f(uSpeed, speed)
-        GLES20.glUniform1f(uAmp, amp)
-        GLES20.glUniform1f(uBass, low)
-        GLES20.glUniform1f(uMid, mid)
-        GLES20.glUniform1f(uEnv, env)
-        GLES20.glUniform1f(uPointSize, (height * 0.006f).coerceIn(2f, 9f))
         GLES20.glUniform1f(uDim, dim)
-
-        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, vbo)
-        GLES20.glEnableVertexAttribArray(0)
-        GLES20.glVertexAttribPointer(0, 4, GLES20.GL_FLOAT, false, STRIDE, 0)
-        GLES20.glDrawArrays(GLES20.GL_POINTS, 0, COUNT)
-        GLES20.glDisableVertexAttribArray(0)
-        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
+        GLES20.glUniform1f(uBass, smoothedBass)
+        GLES20.glUniform1f(uMid, smoothedMid)
+        GLES20.glUniform1f(uHigh, smoothedHigh)
+        GLES20.glUniform1f(uEnv, smoothedEnv)
+        GLES20.glUniform1f(uAspect, aspect)
+        
+        // Draw full screen quad (3 vertices covers the screen when configured in VS)
+        GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, 3)
     }
 
-    override fun onDeactivate() {
-        GLES20.glDisable(GLES20.GL_BLEND)
-        GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA)
-        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
-    }
+    override val respondsToBeat: Boolean get() = true
 }
