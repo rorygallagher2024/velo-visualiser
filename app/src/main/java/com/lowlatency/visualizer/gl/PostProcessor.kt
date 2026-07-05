@@ -59,6 +59,17 @@ class PostProcessor {
     private var ready = false
 
     fun onCreated() {
+        // The GL context was recreated. Old handles belong to the dead context.
+        sceneTex = 0
+        sceneFbo = 0
+        bloomTex[0] = 0
+        bloomTex[1] = 0
+        bloomFbo[0] = 0
+        bloomFbo[1] = 0
+        ready = false
+        allocatedW = 0
+        allocatedH = 0
+
         brightProg = ShaderUtil.buildProgram(QUAD_VS, BRIGHT_FS)
         blurProg = ShaderUtil.buildProgram(QUAD_VS, BLUR_FS)
         compositeProg = ShaderUtil.buildProgram(QUAD_VS, COMPOSITE_FS)
