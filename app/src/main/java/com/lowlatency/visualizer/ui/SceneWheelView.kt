@@ -209,7 +209,33 @@ class SceneWheelView @JvmOverloads constructor(
         return true
     }
 
-    private fun snap() = animateTo((scrollPx / rowH).roundToInt().coerceIn(0, lastIndex()))
+    private fun snap() {
+        var pos = (scrollPx / rowH).roundToInt().coerceIn(0, lastIndex())
+        if (items.getOrNull(pos)?.isHeader == true) {
+            val exactPos = scrollPx / rowH
+            if (exactPos >= pos && pos + 1 <= lastIndex()) {
+                pos += 1
+            } else if (pos - 1 >= 0) {
+                pos -= 1
+            } else if (pos + 1 <= lastIndex()) {
+                pos += 1
+            }
+            
+            // Edge case: ensure we don't land on another header
+            var step = 1
+            val originalPos = pos
+            while (items.getOrNull(pos)?.isHeader == true) {
+                pos = originalPos + step
+                if (pos > lastIndex()) {
+                    pos = originalPos - step
+                }
+                step++
+                if (step > items.size) break
+            }
+            pos = pos.coerceIn(0, lastIndex())
+        }
+        animateTo(pos)
+    }
 
     private fun animateTo(pos: Int) {
         val target = (pos * rowH).toInt()
