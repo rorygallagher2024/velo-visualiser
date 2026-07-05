@@ -488,12 +488,12 @@ private object SlipstreamShaders {
             c.x /= u_aspect;
             vec2 uvw = c + 0.5;
             float inside = step(0.0, uvw.x) * step(uvw.x, 1.0) * step(0.0, uvw.y) * step(uvw.y, 1.0);
-            vec3 prev = texture(u_canvas, uvw).rgb * exp(-u_dt * 1.05) * inside;
+            vec3 prev = texture(u_canvas, uvw).rgb * exp(-u_dt * 1.8) * inside;
             // Hue-preserving ceiling: additive feedback can otherwise run away to
             // white when the field clusters (steady state ~ input / (1 - fade)).
             // A clamp is idempotent, so this stays frame-rate independent.
             float m = max(prev.r, max(prev.g, prev.b));
-            if (m > 3.2) prev *= 3.2 / m;
+            if (m > 1.5) prev *= 1.5 / m;
             fragColor = vec4(prev, 1.0);
         }
     """
@@ -521,8 +521,8 @@ private object SlipstreamShaders {
             vec3 c = mix(u_pal[2], u_pal[5], u_palMix);
             vec3 col = hue < 0.5 ? mix(a, b, hue * 2.0) : mix(b, c, hue * 2.0 - 1.0);
             // Speed is heat: the fast ones burn white through the bloom.
-            col = mix(col, vec3(1.25, 1.28, 1.35), smoothstep(0.35, 1.3, spd));
-            v_col = col * (0.30 + spd * 1.1) * (0.9 + u_env * 0.5);
+            col = mix(col, vec3(1.0, 1.05, 1.15), smoothstep(0.5, 1.6, spd));
+            v_col = col * (0.15 + spd * 0.4) * (0.8 + u_env * 0.4);
             gl_PointSize = clamp((1.2 + spd * 3.0) * u_px, 1.0, 7.0);
         }
     """
@@ -562,7 +562,7 @@ private object SlipstreamShaders {
         in vec2 v_uv;
         out vec4 fragColor;
         void main() {
-            vec3 col = texture(u_canvas, v_uv).rgb * 1.05;   // slight lift for bloom
+            vec3 col = texture(u_canvas, v_uv).rgb;
             fragColor = vec4(col * u_dim, 1.0);
         }
     """
