@@ -53,7 +53,7 @@ class MenuSheetController(
         scrim = activity.findViewById(R.id.scrim)
         optionsSheet = activity.findViewById(R.id.options_sheet)
         sheetContent = activity.findViewById(R.id.options_sheet_content)
-        tabBar = activity.findViewById(R.id.sheet_tab_bar)
+        tabBar = activity.findViewById(R.id.section_wheel)
         handle = activity.findViewById(R.id.sheet_handle)
         navDivider = activity.findViewById(R.id.sheet_nav_divider)
         optionsSheet.visibility = View.GONE
