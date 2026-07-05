@@ -35,6 +35,7 @@ class MenuSheetController(
 ) {
     private lateinit var scrim: View
     private lateinit var optionsSheet: View
+    private lateinit var sheetScroll: View
     private lateinit var sheetContent: View
     private lateinit var tabBar: View
     private lateinit var handle: View
@@ -58,6 +59,7 @@ class MenuSheetController(
     fun bind() {
         scrim = activity.findViewById(R.id.scrim)
         optionsSheet = activity.findViewById(R.id.options_sheet)
+        sheetScroll = activity.findViewById(R.id.options_sheet_scroll)
         sheetContent = activity.findViewById(R.id.options_sheet_content)
         tabBar = activity.findViewById(R.id.section_tabs)
         handle = activity.findViewById(R.id.sheet_handle)
@@ -86,14 +88,14 @@ class MenuSheetController(
                     onTabSwipe(if (vx < 0f) 1 else -1)
                     return false
                 }
-                if (vy > SWIPE_DOWN_VELOCITY && abs(vy) > abs(vx) && optionsSheet.scrollY == 0) {
+                if (vy > SWIPE_DOWN_VELOCITY && abs(vy) > abs(vx) && sheetScroll.scrollY == 0) {
                     close()
                     return true
                 }
                 return false
             }
         })
-        optionsSheet.setOnTouchListener { _, ev -> sheetGestures.onTouchEvent(ev); false }
+        sheetScroll.setOnTouchListener { _, ev -> sheetGestures.onTouchEvent(ev); false }
     }
 
     /**
@@ -292,6 +294,6 @@ class MenuSheetController(
         private const val WIDTH_CAP_DP = 560f           // centered content column width
         private const val SHEET_ALPHA = 210             // ~82% translucent glass (open)
         private const val PREVIEW_FADE_MS = 200L
-        private const val REOPEN_COOLDOWN_MS = 500L     // block re-open right after a close
+        private const val REOPEN_COOLDOWN_MS = 300L     // block re-open right after a close
     }
 }
