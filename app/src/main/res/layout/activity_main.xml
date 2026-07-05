@@ -190,7 +190,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_gravity="bottom"
-        android:layout_marginTop="72dp"
+        android:layout_marginTop="@dimen/sheet_margin_top"
         android:layout_marginBottom="-40dp"
         android:paddingBottom="40dp"
         android:clipChildren="false"
@@ -228,14 +228,16 @@
                     android:id="@+id/scene_wheel"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:layout_marginTop="-88dp"
-                    android:layout_marginBottom="-80dp" />
+                    android:layout_marginTop="@dimen/scene_wheel_margin_top"
+                    android:layout_marginBottom="@dimen/scene_wheel_margin_bottom" />
 
                 <!-- The counter and hint stay safely at the bottom of the visible pad -->
                 <LinearLayout
+                    android:id="@+id/scene_footer"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_gravity="bottom"
+                    android:layout_marginBottom="@dimen/scene_footer_margin_bottom"
                     android:orientation="vertical"
                     android:paddingBottom="4dp">
 

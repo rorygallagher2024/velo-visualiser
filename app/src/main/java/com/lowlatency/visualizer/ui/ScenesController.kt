@@ -256,6 +256,21 @@ class ScenesController(
         sceneLabel.postDelayed(hide, 1100L)
     }
 
+    fun onConfigurationChanged() {
+        if (::wheel.isInitialized) {
+            val lp = wheel.layoutParams as android.widget.FrameLayout.LayoutParams
+            lp.topMargin = activity.resources.getDimensionPixelSize(R.dimen.scene_wheel_margin_top)
+            lp.bottomMargin = activity.resources.getDimensionPixelSize(R.dimen.scene_wheel_margin_bottom)
+            wheel.layoutParams = lp
+        }
+        val footer = activity.findViewById<View>(R.id.scene_footer)
+        if (footer != null) {
+            val lp = footer.layoutParams as android.widget.FrameLayout.LayoutParams
+            lp.bottomMargin = activity.resources.getDimensionPixelSize(R.dimen.scene_footer_margin_bottom)
+            footer.layoutParams = lp
+        }
+    }
+
     companion object {
         private const val KEY_FAVOURITES = "favourite_scenes"
         private const val KEY_SCENE_LABEL = "scene_label_enabled"

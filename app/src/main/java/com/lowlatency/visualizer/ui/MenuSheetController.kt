@@ -119,6 +119,21 @@ class MenuSheetController(
     /** Re-fit the content column after a rotation / fold change. */
     fun onConfigurationChanged() {
         if (::sheetContent.isInitialized) applyWidthCap()
+        if (::optionsSheet.isInitialized) {
+            val lp = optionsSheet.layoutParams as FrameLayout.LayoutParams
+            lp.topMargin = activity.resources.getDimensionPixelSize(R.dimen.sheet_margin_top)
+            optionsSheet.layoutParams = lp
+            
+            optionsSheet.post {
+                if (!isOpen && !sheetDragActive) {
+                    sheetTravel = sheetTravelPx()
+                    optionsSheet.translationY = sheetTravel
+                } else if (isOpen && !sheetDragActive) {
+                    sheetTravel = sheetTravelPx()
+                    optionsSheet.translationY = 0f
+                }
+            }
+        }
     }
 
     /**
@@ -267,8 +282,15 @@ class MenuSheetController(
         scrubPreview = active
         val a = if (active) 0f else 1f
         // Fade the chrome AND the dim scrim, so the canvas is fully revealed.
-        listOf(tabBar, handle, navDivider, closeBtn, scrim).forEach {
-            it.animate().alpha(a).setDuration(PREVIEW_FADE_MS).start()
+        // Set visibility to INVISIBLE when active to prevent ghost touches.
+        listOf(tabBar, handle, navDivider, closeBtn, scrim).forEach { view ->
+            view.animate().cancel()
+            if (!active) view.visibility = View.VISIBLE
+            view.animate().alpha(a).setDuration(PREVIEW_FADE_MS)
+                .withEndAction {
+                    if (active) view.visibility = View.INVISIBLE
+                }
+                .start()
         }
     }
 
@@ -276,10 +298,11 @@ class MenuSheetController(
     private fun resetScrubPreview() {
         scrubPreview = false
         if (::tabBar.isInitialized) {
-            tabBar.alpha = 1f
-            handle.alpha = 1f
-            navDivider.alpha = 1f
-            closeBtn.alpha = 1f
+            listOf(tabBar, handle, navDivider, closeBtn, scrim).forEach { view ->
+                view.animate().cancel()
+                view.alpha = 1f
+                view.visibility = View.VISIBLE
+            }
         }
     }
 

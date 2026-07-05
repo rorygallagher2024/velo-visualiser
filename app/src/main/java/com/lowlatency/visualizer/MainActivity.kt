@@ -748,6 +748,7 @@ class MainActivity : AppCompatActivity() {
         if (::displayModeController.isInitialized) displayModeController.onOrientationChanged()
         // The settings sheet re-fits its content column (width cap on wide displays).
         if (::menuSheetController.isInitialized) menuSheetController.onConfigurationChanged()
+        if (::scenesController.isInitialized) scenesController.onConfigurationChanged()
     }
 
     override fun onResume() {
