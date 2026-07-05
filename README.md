@@ -13,11 +13,15 @@ When you open the app, you'll see the default oscilloscope visualisation which r
 
 A bare-metal C++/Oboe audio engine and custom OpenGL ES 3.1 shaders bypass standard Android bottlenecks to deliver sub-10 ms audio-to-pixel response, whilst also capable of driving smart home lighting and device haptics in real-time.
 
-Beyond its absolute speed and zero-lag smart lighting integration, the visuals are a great showcase for premium Android hardware because it can push modern flagship devices to their limits combining 120Hz tear-free OLED motion, true HDR luminance, and dynamic scaling for tablet displays and foldables.
+## What's the app for
+
+1. Primarily visualising music: This offers a modern take on the classic PC visualisers from the 2000s. Except now with 120fps HDR visuals. The visuals are a great showcase for modern Android hardware and supports dynamic scaling so will look great on large tablets and foldables too.
+   
+3. A live performance tool thats ideal for home DJs: The visualiser is well suited for use on android based projectors, or large secondary displays as a live performance tool. Its low latency smart home lighting control additionally offers a low latency smart home lighting control.
 
 ## Demo
 **Velo Visualiser: Low Latency Music Visualiser Demo Video**
-[![Velo Demo](https://img.youtube.com/vi/ql0CwtlYDyI/maxresdefault.jpg)](https://youtu.be/ql0CwtlYDyI)
+[![Velo Demo](https://img.youtube.com/vi/3o23HX5KE0E/maxresdefault.jpg)](https://youtu.be/3o23HX5KE0E)
 `▶ Watch on YouTube`
 
 ## Beta Testers Needed
