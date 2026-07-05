@@ -70,6 +70,7 @@ class MenuSheetController(
         glView.onMenuDragStart = { beginDrag() }
         glView.onMenuDrag = { dyUp -> updateDrag(dyUp) }
         glView.onMenuDragRelease = { vUp -> endDrag(vUp) }
+        glView.onLongHold = { open() }   // long-press the canvas → open the menu
 
         scrim.setOnClickListener { close() }
 
@@ -128,6 +129,12 @@ class MenuSheetController(
         if (isOpen) return
         scrim.bringToFront()
         optionsSheet.bringToFront()
+        open()
+    }
+
+    /** Open the sheet with the standard slide-up (e.g. a long-press on the canvas). */
+    fun open() {
+        if (isOpen) return
         beginDrag()                 // primes the sheet off-screen + refreshes contents
         sheetDragActive = false     // not a finger drag — settle handles the animation
         settle(open = true, speedPxPerS = 0f)

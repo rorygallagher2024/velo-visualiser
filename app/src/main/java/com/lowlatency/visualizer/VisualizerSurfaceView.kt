@@ -5,6 +5,7 @@ import android.opengl.GLSurfaceView
 import android.os.Build
 import android.util.AttributeSet
 import android.view.GestureDetector
+import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.Surface
 import android.view.VelocityTracker
@@ -66,6 +67,10 @@ class VisualizerSurfaceView @JvmOverloads constructor(
     var onMenuDrag: ((Float) -> Unit)? = null
     var onMenuDragRelease: ((Float) -> Unit)? = null
 
+    /** Long-press on the canvas (menu closed) → open the menu — an edge-independent
+     *  alternative to the swipe-up, which can clash with the system nav gesture. */
+    var onLongHold: (() -> Unit)? = null
+
     /** Invoked on the UI thread when the scene is changed (via swipe or select). */
     var onSceneChanged: ((Int) -> Unit)? = null
 
@@ -111,6 +116,12 @@ class VisualizerSurfaceView @JvmOverloads constructor(
                 if (renderer.introActive) { skipIntro(); return true }
                 onTap?.invoke()
                 return true
+            }
+
+            override fun onLongPress(e: MotionEvent) {
+                if (renderer.introActive || menuDragging) return
+                this@VisualizerSurfaceView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                onLongHold?.invoke()
             }
 
             override fun onFling(
