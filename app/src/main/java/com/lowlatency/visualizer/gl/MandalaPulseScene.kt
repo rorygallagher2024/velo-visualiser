@@ -288,10 +288,13 @@ private object MandalaShaders {
         const float DECAY = 0.83;     // trail persistence (kept low so it can't flood)
         const float INJECT = 0.28;    // fresh-energy gain
         const float N = 6.0;          // kaleidoscopic symmetry
+        const float HUE_SPEED = 0.04; // global colour-cycle rate (~25 s per full spectrum)
 
         mat2 rot(float a) { float c = cos(a), s = sin(a); return mat2(c, -s, s, c); }
+        // Cosine palette with a slow global hue drift, so the whole mandala cycles
+        // through the full spectrum over time instead of settling on one colour.
         vec3 pal(float t) {
-            return 0.5 + 0.5 * cos(TAU * (t + vec3(0.0, 0.33, 0.67)));
+            return 0.5 + 0.5 * cos(TAU * (t + u_time * HUE_SPEED + vec3(0.0, 0.33, 0.67)));
         }
         // Fold an angle into one mirrored sector of n-fold symmetry.
         float fold(float a, float n) { float s = TAU / n; return abs(mod(a, s) - s * 0.5); }
