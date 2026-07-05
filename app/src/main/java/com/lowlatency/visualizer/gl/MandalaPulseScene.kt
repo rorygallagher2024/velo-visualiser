@@ -77,6 +77,9 @@ class MandalaPulseScene : GlScene {
                 return smoothstep(w + aa, w - aa, abs(d));
             }
 
+            const vec3 LIGHT_DIR = vec3(-0.448, 0.647, 0.617);  // key light (pre-normalized)
+            const float RELIEF = 34.0;                          // petal emboss strength
+
             void main() {
                 vec2 uv = (gl_FragCoord.xy - 0.5 * u_resolution)
                           / min(u_resolution.x, u_resolution.y);
@@ -94,7 +97,10 @@ class MandalaPulseScene : GlScene {
                 for (int i = 0; i < 3; i++) {
                     float fi = float(i);
                     float dir = (mod(fi, 2.0) < 0.5) ? 1.0 : -1.0;
-                    vec2 p = uv * rot(spin * dir + fi * 0.7);
+                    // Per-octave depth parallax: inner rings pop toward you on the
+                    // bass more than the outer ones, so the layers separate in depth.
+                    float depth = 1.0 - u_pulse * (0.22 - fi * 0.09);
+                    vec2 p = uv * rot(spin * dir + fi * 0.7) * depth;
                     float n = 12.0 + fi * 12.0;                 // 12, 24, 36 petals
                     float r = kaleido(p, n);
 
@@ -103,18 +109,25 @@ class MandalaPulseScene : GlScene {
                     float petal = sin(lobe * (3.0 + fi) + r * 4.0);
                     float field = ring * 0.6 + petal * 0.4;
 
-                    // Crisp filigree edge, plus a soft filled-lobe glow so the
-                    // petals read as lush glowing bodies, not just wireframe.
+                    // Crisp filigree edge + a soft filled lobe.
                     float line = aaLine(field, 0.04 + u_high * 0.05);
                     float body = smoothstep(0.0, 0.7, field);
                     body *= body;
-                    // Radial window so each octave owns a band of radius.
+
+                    // Fake relief: treat the lobe as a height field and light it, so
+                    // petals look raised and glassy — dimension without geometry.
+                    vec3 nrm = normalize(vec3(-dFdx(body) * RELIEF, -dFdy(body) * RELIEF, 1.0));
+                    float diff = clamp(dot(nrm, LIGHT_DIR) * 0.5 + 0.5, 0.0, 1.0);
+                    float spec = pow(diff, 28.0) * body;
+
+                    // Radial window; outer octaves sit back a touch (atmospheric depth).
                     float band = smoothstep(0.02, 0.28, r) * smoothstep(1.25, 0.5, r);
                     float amp  = (i == 2) ? u_high : (i == 0 ? u_low : u_mid);
-                    float w = band * (0.45 + amp * 1.1);
+                    float w = band * (0.45 + amp * 1.1) * (1.0 - fi * 0.12);
 
-                    col += pal(r * 0.42 + fi * 0.16 + u_time * 0.05 + u_mid * 0.3)
-                           * (line + body * 0.35) * w;
+                    vec3 pc = pal(r * 0.42 + fi * 0.16 + u_time * 0.05 + u_mid * 0.3);
+                    col += pc * (line + body * 0.4 * diff) * w;    // shaded lobe fill
+                    col += vec3(0.9, 0.95, 1.0) * spec * w * 0.5;  // glassy sheen
                 }
 
                 // HDR lift on the linework so it blooms — applied BEFORE the core
