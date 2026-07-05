@@ -249,41 +249,56 @@ private object MandalaShaders {
         out vec4 o;
 
         const float TAU = 6.28318530718;
-        const float DECAY = 0.82;     // trail persistence (kept low so it can't flood)
-        const float INJECT = 0.32;    // fresh-energy gain
+        const float DECAY = 0.83;     // trail persistence (kept low so it can't flood)
+        const float INJECT = 0.28;    // fresh-energy gain
         const float N = 6.0;          // kaleidoscopic symmetry
 
+        mat2 rot(float a) { float c = cos(a), s = sin(a); return mat2(c, -s, s, c); }
         vec3 pal(float t) {
             return 0.5 + 0.5 * cos(TAU * (t + vec3(0.0, 0.33, 0.67)));
         }
+        // Fold an angle into one mirrored sector of n-fold symmetry.
+        float fold(float a, float n) { float s = TAU / n; return abs(mod(a, s) - s * 0.5); }
 
         void main() {
             float asp = u_res.x / u_res.y;
             vec2 c = v_uv - 0.5;
             c.x *= asp;                                  // round, not stretched
 
-            // --- feedback: radial zoom-out (rays) + fade; symmetry-preserving ---
-            float zoom = 1.0 - 0.002 - u_punch * 0.018;  // <1 => gentle outward drift
-            vec2 wc = c * zoom;
-            vec2 wuv = vec2(wc.x / asp, wc.y) + 0.5;
-            vec3 prev = texture(u_prev, wuv).rgb * DECAY;
+            // Feedback: gentle outward zoom + a slow swirl, so the trails spiral out
+            // as an energy vortex rather than drifting straight.
+            float swirl = 0.010 + u_mid * 0.03;
+            float zoom = 1.0 - 0.0025 - u_punch * 0.016;
+            vec2 wc = rot(swirl) * c * zoom;
+            vec3 prev = texture(u_prev, vec2(wc.x / asp, wc.y) + 0.5).rgb * DECAY;
 
-            // --- fresh kaleidoscopic energy ---
+            // --- fresh, ornate kaleidoscopic energy ---
             float r = length(c) * 2.0;
-            float ang = atan(c.y, c.x) + u_time * 0.06;
-            float sector = TAU / N;
-            ang = abs(mod(ang, sector) - sector * 0.5);  // mirror fold
+            float baseAng = atan(c.y, c.x);
+            float a1 = fold(baseAng + u_time * 0.05, N);        // primary symmetry
+            float a2 = fold(baseAng - u_time * 0.07, N * 2.0);  // secondary, counter-rotating
 
             vec3 e = vec3(0.0);
-            for (int k = 0; k < 3; k++) {
+            for (int k = 0; k < 4; k++) {
                 float fk = float(k);
-                float rr = 0.33 + fk * 0.33;                                 // ring radii
-                float band = (k == 0) ? u_low : (k == 1) ? u_mid : u_high;
-                float ring = exp(-pow((r - rr) * (5.5 - fk), 2.0));          // soft ring
-                float pet = 0.5 + 0.5 * cos(ang * (3.0 + fk * 2.0) - u_time * (0.4 + fk * 0.25));
-                float glow = ring * pet * (0.04 + band * 2.4);               // ~0 when quiet
-                e += pal(rr * 0.5 + fk * 0.16 + u_time * 0.03) * glow;
+                float rr = 0.24 + fk * 0.24;
+                float band = (k == 0) ? u_low : (k == 1) ? u_mid : (k == 2) ? u_high : u_mid;
+                // Soft ring with fine concentric banding for filigree detail.
+                float ring = exp(-pow((r - rr) * (6.0 - fk * 0.5), 2.0))
+                             * (0.55 + 0.45 * cos(r * 20.0 - u_time * 1.6));
+                // Woven petals: two symmetry orders multiplied together.
+                float petal = (0.5 + 0.5 * cos(a1 * (4.0 + fk * 2.0)))
+                              * (0.45 + 0.55 * cos(a2 * 6.0 + u_time * 0.3));
+                e += pal(rr * 0.45 + a1 * 0.08 + fk * 0.12 + u_time * 0.03)
+                     * ring * petal * (0.03 + band * 2.0);
             }
+            // Radial filaments streaming out between the petals.
+            float rays = pow(0.5 + 0.5 * cos(a1 * 12.0 - u_time * 0.4), 3.0)
+                         * smoothstep(0.12, 0.5, r) * smoothstep(1.35, 0.7, r);
+            e += pal(0.32 + u_high * 0.4) * rays * (u_mid * 0.9 + u_high * 0.5);
+            // Fine treble sparkle woven through the rim.
+            float spk = pow(0.5 + 0.5 * cos(a2 * 18.0 + r * 30.0 - u_time * 4.0), 6.0);
+            e += vec3(0.8, 0.9, 1.0) * spk * u_high * 0.6 * smoothstep(0.3, 0.95, r);
             // Hot core on the bass.
             float core = exp(-r * r * 3.4);
             e += pal(0.06 + u_high * 0.3) * core * (0.04 + u_pulse * 1.8);
