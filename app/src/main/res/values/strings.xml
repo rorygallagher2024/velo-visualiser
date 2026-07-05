@@ -88,7 +88,7 @@
     <string name="btn_privacy_policy">View Privacy Policy</string>
     <string name="btn_about">About &amp; Licenses</string>
     <string name="about_title">About</string>
-    <string name="about_copyright">© 2026 Rory. All rights reserved.</string>
+    <string name="about_copyright">© 2026 Rory Gallagher. All rights reserved.</string>
     <string name="about_licenses_title">Third-Party Licenses</string>
     <string name="about_licenses_text"><b>Android Jetpack (androidx)</b>\n
         Copyright © Google LLC. Licensed under the Apache License, Version 2.0.\n\n
@@ -192,7 +192,7 @@
     <string name="link_status_searching">Searching for Link peers…</string>
     <string name="link_status_connected">Connected · %1$d peer(s) · %2$.0f BPM</string>
     <string name="status_idle">Oboe Engine: starting…</string>
-    <string name="version_fmt">Velo Visualiser v%1$s</string>
+    <string name="version_fmt">Velo Visualiser · v%1$s</string>
 
     <!-- Settings tabs -->
     <string name="tab_visualizers">Visuals</string>
