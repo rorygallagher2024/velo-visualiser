@@ -35,7 +35,6 @@ class MenuSheetController(
 ) {
     private lateinit var scrim: View
     private lateinit var optionsSheet: View
-    private lateinit var sheetScroll: View
     private lateinit var sheetContent: View
     private lateinit var tabBar: View
     private lateinit var handle: View
@@ -59,7 +58,6 @@ class MenuSheetController(
     fun bind() {
         scrim = activity.findViewById(R.id.scrim)
         optionsSheet = activity.findViewById(R.id.options_sheet)
-        sheetScroll = activity.findViewById(R.id.options_sheet_scroll)
         sheetContent = activity.findViewById(R.id.options_sheet_content)
         tabBar = activity.findViewById(R.id.section_tabs)
         handle = activity.findViewById(R.id.sheet_handle)
@@ -88,14 +86,14 @@ class MenuSheetController(
                     onTabSwipe(if (vx < 0f) 1 else -1)
                     return false
                 }
-                if (vy > SWIPE_DOWN_VELOCITY && abs(vy) > abs(vx) && sheetScroll.scrollY == 0) {
+                if (vy > SWIPE_DOWN_VELOCITY && abs(vy) > abs(vx) && optionsSheet.scrollY == 0) {
                     close()
                     return true
                 }
                 return false
             }
         })
-        sheetScroll.setOnTouchListener { _, ev -> sheetGestures.onTouchEvent(ev); false }
+        optionsSheet.setOnTouchListener { _, ev -> sheetGestures.onTouchEvent(ev); false }
     }
 
     /**
