@@ -48,12 +48,15 @@ class MenuSheetController(
     var isOpen = false
         private set
 
+    /** Horizontal flick on the sheet → change section (+1 next / -1 previous). */
+    var onTabSwipe: (Int) -> Unit = {}
+
     @Suppress("ClickableViewAccessibility")
     fun bind() {
         scrim = activity.findViewById(R.id.scrim)
         optionsSheet = activity.findViewById(R.id.options_sheet)
         sheetContent = activity.findViewById(R.id.options_sheet_content)
-        tabBar = activity.findViewById(R.id.section_wheel)
+        tabBar = activity.findViewById(R.id.section_tabs)
         handle = activity.findViewById(R.id.sheet_handle)
         navDivider = activity.findViewById(R.id.sheet_nav_divider)
         optionsSheet.visibility = View.GONE
@@ -73,6 +76,10 @@ class MenuSheetController(
         val sheetGestures = GestureDetector(activity, object : GestureDetector.SimpleOnGestureListener() {
             override fun onDown(e: MotionEvent) = false
             override fun onFling(e1: MotionEvent?, e2: MotionEvent, vx: Float, vy: Float): Boolean {
+                if (abs(vx) > abs(vy) && abs(vx) > TAB_SWIPE_VELOCITY) {   // horizontal flick → section
+                    onTabSwipe(if (vx < 0f) 1 else -1)
+                    return false
+                }
                 if (vy > SWIPE_DOWN_VELOCITY && abs(vy) > abs(vx) && optionsSheet.scrollY == 0) {
                     close()
                     return true
@@ -262,6 +269,7 @@ class MenuSheetController(
 
     companion object {
         private const val SWIPE_DOWN_VELOCITY = 1200f
+        private const val TAB_SWIPE_VELOCITY = 700f   // horizontal flick to change section
         private const val MENU_BLUR_MAX = 32f
         private const val SHEET_SETTLE_VELOCITY = 600f  // px/s flick that decisively opens/closes
         private const val WIDTH_CAP_TRIGGER_DP = 600    // apply the cap above this screen width

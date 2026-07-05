@@ -56,6 +56,10 @@ class SceneWheelView @JvmOverloads constructor(
     var onPick: (() -> Unit)? = null
     /** Long-press a row → toggle it as a favourite. */
     var onFavourite: ((Int) -> Unit)? = null
+    /** Horizontal flick on the wheel → change section (+1 next / -1 previous). */
+    var onHorizontalFling: ((Int) -> Unit)? = null
+    /** Downward flick while already at the top of the list → close the menu. */
+    var onOverscrollDown: (() -> Unit)? = null
 
     private var scrollPx = 0f
     private var rowH = 120f
@@ -88,6 +92,8 @@ class SceneWheelView @JvmOverloads constructor(
             }
 
             override fun onScroll(e1: MotionEvent?, e2: MotionEvent, dx: Float, dy: Float): Boolean {
+                // A horizontal drag belongs to the section pager, not the scrub.
+                if (abs(e2.x - (e1?.x ?: e2.x)) > abs(e2.y - (e1?.y ?: e2.y))) return true
                 dragging = true
                 setScrubbing(true)
                 scrollPx = (scrollPx + dy).coerceIn(0f, maxScroll())
@@ -95,6 +101,14 @@ class SceneWheelView @JvmOverloads constructor(
             }
 
             override fun onFling(e1: MotionEvent?, e2: MotionEvent, vx: Float, vy: Float): Boolean {
+                if (abs(vx) > abs(vy)) {                       // horizontal flick → change section
+                    onHorizontalFling?.invoke(if (vx < 0f) 1 else -1)
+                    return true
+                }
+                if (vy > 0f && scrollPx <= 1f) {               // already at the top + flick down → close
+                    onOverscrollDown?.invoke()
+                    return true
+                }
                 dragging = false; flinging = true
                 setScrubbing(true)
                 scroller.fling(0, scrollPx.toInt(), 0, (-vy).toInt(), 0, 0, 0, maxScroll().toInt())

@@ -34,6 +34,9 @@ class ScenesController(
 ) {
     private val entries = SceneCatalog.ENTRIES
 
+    /** Horizontal flick on the scene wheel → change menu section (wired by MainActivity). */
+    var onTabSwipe: ((Int) -> Unit)? = null
+
     private lateinit var wheel: SceneWheelView
     private lateinit var counter: TextView
     private lateinit var hint: TextView
@@ -72,6 +75,8 @@ class ScenesController(
         wheel.onScrubbingChange = { setScrubPreview(it) }
         wheel.onPick = { onCloseMenu() }
         wheel.onFavourite = { toggleFavourite(it) }
+        wheel.onHorizontalFling = { onTabSwipe?.invoke(it) }
+        wheel.onOverscrollDown = { onCloseMenu() }   // flick down at the top → dismiss
 
         favFilter.setOnClickListener { toggleFavFilter() }
         updateFavFilterIcon()

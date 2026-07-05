@@ -74,7 +74,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var prefs: SharedPreferences
 
     // --- Settings tabs ---
-    private lateinit var sectionWheel: com.lowlatency.visualizer.ui.SectionWheelView
+    private lateinit var sectionTabs: com.lowlatency.visualizer.ui.SectionTabsView
     private lateinit var tabVisualizers: View
     private lateinit var tabLighting: View
     private lateinit var tabSettings: View
@@ -141,7 +141,7 @@ class MainActivity : AppCompatActivity() {
         btnAbout = findViewById(R.id.btn_about)
         btnPeakLuminance = findViewById(R.id.btn_peak_luminance)
         groupPeakLuminance = findViewById(R.id.group_peak_luminance)
-        sectionWheel = findViewById(R.id.section_wheel)
+        sectionTabs = findViewById(R.id.section_tabs)
         tabVisualizers = findViewById(R.id.tab_visualizers)
         tabLighting = findViewById(R.id.tab_lighting)
         tabSettings = findViewById(R.id.tab_settings)
@@ -242,6 +242,7 @@ class MainActivity : AppCompatActivity() {
             onCloseMenu = { menuSheetController.close() },
         )
         scenesController.bind()
+        scenesController.onTabSwipe = { swipeTab(it) }   // horizontal flick on the wheel
 
         secondaryDisplayController = com.lowlatency.visualizer.ui.SecondaryDisplayController(this, glView, btnCastDisplay, castOverlay)
         secondaryDisplayController.bind()
@@ -259,6 +260,7 @@ class MainActivity : AppCompatActivity() {
             },
         )
         menuSheetController.bind()
+        menuSheetController.onTabSwipe = { swipeTab(it) }   // horizontal flick on the sheet content
 
         menuDiscoveryController =
             MenuDiscoveryController(this, prefs, isMenuOpen = { menuSheetController.isOpen })
@@ -356,7 +358,7 @@ class MainActivity : AppCompatActivity() {
     // ----- Settings tabs: Visuals | Lighting | Settings -----
 
     private fun wireTabs() {
-        sectionWheel.setItems(
+        sectionTabs.setItems(
             listOf(
                 getString(R.string.tab_visualizers),
                 getString(R.string.tab_lighting),
@@ -364,13 +366,21 @@ class MainActivity : AppCompatActivity() {
             ),
             TAB_VISUALS,
         )
-        sectionWheel.onSelect = { selectTab(it) }
+        sectionTabs.onSelect = { selectTab(it) }
         selectTab(TAB_VISUALS)   // default to the Visuals tab
+    }
+
+    /** Flick left/right in the sheet: step to the next/previous section, skipping
+     *  Lighting when it's disabled (system audio). */
+    private fun swipeTab(dir: Int) {
+        var t = currentTab + dir
+        if (t == TAB_LIGHTING && audioSourceController.systemAudioMode) t += dir
+        if (t in TAB_VISUALS..TAB_SETTINGS && t != currentTab) selectTab(t)
     }
 
     private fun selectTab(tab: Int) {
         currentTab = tab
-        sectionWheel.setActive(tab)
+        sectionTabs.setActive(tab)
         for ((view, id) in listOf(
             tabVisualizers to TAB_VISUALS,
             tabLighting to TAB_LIGHTING,
@@ -578,7 +588,7 @@ class MainActivity : AppCompatActivity() {
      */
     private fun onAudioSourceChanged() {
         val systemAudio = audioSourceController.systemAudioMode
-        sectionWheel.disabled = if (systemAudio) setOf(TAB_LIGHTING) else emptySet()
+        sectionTabs.disabled = if (systemAudio) setOf(TAB_LIGHTING) else emptySet()
 
         if (systemAudio) {
             if (::lightingController.isInitialized) lightingController.onSystemAudioEngaged()

@@ -301,10 +301,10 @@
             android:layout_marginBottom="16dp"
             android:background="@color/text_dim" />
 
-        <!-- Section selector: Visuals · Lighting · Settings as a sliding label
-             carousel (swipe or tap). Echoes the vertical scene wheel. -->
-        <com.lowlatency.visualizer.ui.SectionWheelView
-            android:id="@+id/section_wheel"
+        <!-- Section selector: Visuals · Lighting · Settings shown together, with a
+             pill that slides under the active tab. Tap a tab, or flick the content. -->
+        <com.lowlatency.visualizer.ui.SectionTabsView
+            android:id="@+id/section_tabs"
             android:layout_width="match_parent"
             android:layout_height="42dp"
             android:layout_marginBottom="18dp" />
