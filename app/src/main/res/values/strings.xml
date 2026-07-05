@@ -89,6 +89,7 @@
     <string name="btn_about">About &amp; Licenses</string>
     <string name="about_title">About</string>
     <string name="about_copyright">© 2026 Rory Gallagher. All rights reserved.</string>
+    <string name="about_github">https://github.com/rorygallagher2024/velo-visualiser/</string>
     <string name="about_licenses_title">Third-Party Licenses</string>
     <string name="about_licenses_text"><b>Android Jetpack (androidx)</b>\n
         Copyright © Google LLC. Licensed under the Apache License, Version 2.0.\n\n
