@@ -36,7 +36,7 @@ class VisualizerSurfaceView @JvmOverloads constructor(
             if (field != value) {
                 field = value
                 if (value) {
-                    holder.setFixedSize(width / 2, height / 2)
+                    holder.setFixedSize((width / 2).coerceAtLeast(1), (height / 2).coerceAtLeast(1))
                 } else {
                     // Revert to the full layout size so it auto-resizes on fold/rotate
                     holder.setSizeFromLayout()
@@ -47,7 +47,7 @@ class VisualizerSurfaceView @JvmOverloads constructor(
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
         if (isMenuOpen) {
-            holder.setFixedSize(w / 2, h / 2)
+            holder.setFixedSize((w / 2).coerceAtLeast(1), (h / 2).coerceAtLeast(1))
         }
     }
 
