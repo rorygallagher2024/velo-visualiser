@@ -66,6 +66,7 @@ class LightingController(
 
     private val huePingHandler = Handler(Looper.getMainLooper())
     private var huePingPollerRunning = false
+    private var lifxPingPollerRunning = false
     private val uiHandler = Handler(Looper.getMainLooper())
 
     // ----- Views (bound in [bind]) -----
@@ -93,6 +94,7 @@ class LightingController(
     private lateinit var btnLifxSync: Button
     private lateinit var tvLifxState: TextView
     private lateinit var imgLifxState: android.widget.ImageView
+    private lateinit var tvLifxHint: TextView
     private lateinit var btnNanoleafSync: Button
     private lateinit var lightControlSection: LinearLayout
     private lateinit var sceneGrid: LinearLayout
@@ -128,6 +130,46 @@ class LightingController(
                 }
                 if (huePingPollerRunning) huePingHandler.postDelayed(this, 5000L)
             }
+        }
+    }
+
+    private val lifxPingPoller = object : Runnable {
+        override fun run() {
+            if (!lifxPingPollerRunning) return
+            
+            if (::tvLifxState.isInitialized) {
+                if (!isWifiConnected()) {
+                    if (tvLifxState.text != "Disconnected") {
+                        tvLifxState.text = "Disconnected"
+                        tvLifxState.setTextColor(activity.getColor(R.color.text_dim))
+                        imgLifxState.imageTintList = android.content.res.ColorStateList.valueOf(activity.getColor(R.color.hue_disconnected))
+                        btnLifxSync.isEnabled = false
+                    }
+                } else {
+                    if (tvLifxState.text == "Disconnected") {
+                        val bulbCount = lifxBulbContainer.childCount
+                        if (bulbCount == 0) {
+                            tvLifxState.text = "Not Scanned"
+                            tvLifxState.setTextColor(activity.getColor(R.color.hue_pending))
+                            imgLifxState.imageTintList = android.content.res.ColorStateList.valueOf(activity.getColor(R.color.hue_pending))
+                            btnLifxSync.isEnabled = false
+                        } else {
+                            if (lifxSyncing) {
+                                tvLifxState.text = "Streaming Active"
+                                tvLifxState.setTextColor(activity.getColor(R.color.hue_connected))
+                                imgLifxState.imageTintList = android.content.res.ColorStateList.valueOf(activity.getColor(R.color.hue_connected))
+                            } else {
+                                tvLifxState.text = "Ready"
+                                tvLifxState.setTextColor(activity.getColor(R.color.hue_connected))
+                                imgLifxState.imageTintList = android.content.res.ColorStateList.valueOf(activity.getColor(R.color.hue_connected))
+                            }
+                            btnLifxSync.isEnabled = true
+                        }
+                    }
+                }
+                tvLifxHint.visibility = if (tvLifxState.text == "Ready" || tvLifxState.text == "Streaming Active") View.GONE else View.VISIBLE
+            }
+            if (lifxPingPollerRunning) huePingHandler.postDelayed(this, 3000L)
         }
     }
 
@@ -182,7 +224,16 @@ class LightingController(
             btnLifxSync.setText(R.string.hue_sync_off)
             btnLifxSync.isSelected = false
             if (::tvLifxState.isInitialized) {
-                tvLifxState.text = "Ready"
+                if (lifxBulbContainer.childCount == 0) {
+                    tvLifxState.text = "Not Scanned"
+                    tvLifxState.setTextColor(activity.getColor(R.color.hue_pending))
+                    imgLifxState.imageTintList = android.content.res.ColorStateList.valueOf(activity.getColor(R.color.hue_pending))
+                } else {
+                    tvLifxState.text = "Ready"
+                    tvLifxState.setTextColor(activity.getColor(R.color.hue_connected))
+                    imgLifxState.imageTintList = android.content.res.ColorStateList.valueOf(activity.getColor(R.color.hue_connected))
+                }
+                tvLifxHint.visibility = if (tvLifxState.text == "Ready") View.GONE else View.VISIBLE
             }
         }
         if (btnNanoleafSync.text == activity.getString(R.string.hue_sync_on)) {
@@ -214,12 +265,20 @@ class LightingController(
                 }
             }
         }
+        if (activeBrand == LightingBrand.NANOLEAF) {
+            nanoleafController.startReachabilityPoller()
+        } else if (activeBrand == LightingBrand.LIFX) {
+            startLifxPingPoller()
+        }
     }
 
     fun onPause() {
         if (::hueController.isInitialized) hueController.paused = true
         huePingHandler.removeCallbacks(huePingPoller)
         wledPanel.onPause()
+        nanoleafController.stopReachabilityPoller()
+        stopLifxPingPoller()
+        if (::lifxScanSpinner.isInitialized) lifxScanSpinner.visibility = View.GONE
     }
 
     fun onDestroy() {
@@ -269,7 +328,11 @@ class LightingController(
         val statusLifx = activity.findViewById<View>(R.id.status_lifx)
         tvLifxState = statusLifx.findViewById(R.id.tv_state)
         imgLifxState = statusLifx.findViewById(R.id.img_state)
+        tvLifxHint = activity.findViewById(R.id.tv_lifx_hint)
         tvLifxState.text = "Not Scanned"
+        tvLifxState.setTextColor(activity.getColor(R.color.hue_pending))
+        imgLifxState.imageTintList = android.content.res.ColorStateList.valueOf(activity.getColor(R.color.hue_pending))
+        tvLifxHint.visibility = View.VISIBLE
 
         // Light-sync tuning (persisted). Colour/timing are restored individually;
         // the reactivity dynamics come from the saved preset (CUSTOM restores the
@@ -299,6 +362,13 @@ class LightingController(
 
         switchBrand(LightingBrand.HUE)
 
+        val lifxAutoOffRunnable = Runnable {
+            if (lifxSyncing && !lifxController.hasSelectedBulbs()) {
+                btnLifxSync.performClick()
+                android.widget.Toast.makeText(activity, "LIFX Sync stopped (no bulbs selected)", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
+
         btnLifxScan.setOnClickListener {
             if (!isWifiConnected()) {
                 android.widget.Toast.makeText(activity, "Connect to Wi-Fi first", android.widget.Toast.LENGTH_SHORT).show()
@@ -311,6 +381,7 @@ class LightingController(
             tvLifxState.text = "Searching network..."
             tvLifxState.setTextColor(activity.getColor(R.color.text_primary))
             imgLifxState.imageTintList = android.content.res.ColorStateList.valueOf(activity.getColor(R.color.hue_pending))
+            tvLifxHint.visibility = View.VISIBLE
 
             lifxController.startDiscovery(
                 onBulbFound = { bulb ->
@@ -319,14 +390,19 @@ class LightingController(
                         val bulbNameText = card.findViewById<TextView>(R.id.bulb_name)
                         bulbNameText.text = bulb.label
 
-                        // The view starts unselected (matching LifxBulb default state)
-                        card.isSelected = false
+                        // The view starts unselected unless it was preserved during a rescan
+                        card.isSelected = bulb.isSelected
 
                         // Add simple scale animation on touch/click
                         card.setOnClickListener { v ->
                             val isChecked = !v.isSelected
                             lifxController.setBulbSelected(bulb.ip, isChecked)
                             v.isSelected = isChecked
+
+                            v.removeCallbacks(lifxAutoOffRunnable)
+                            if (!lifxController.hasSelectedBulbs() && lifxSyncing) {
+                                v.postDelayed(lifxAutoOffRunnable, 5000)
+                            }
 
                             // Micro-animation "spring" bounce
                             v.animate()
@@ -361,6 +437,7 @@ class LightingController(
                             tvLifxState.setTextColor(activity.getColor(R.color.hue_connected))
                             imgLifxState.imageTintList = android.content.res.ColorStateList.valueOf(activity.getColor(R.color.hue_connected))
                         }
+                        tvLifxHint.visibility = if (tvLifxState.text == "Ready") View.GONE else View.VISIBLE
                     }
                 }
             )
@@ -377,6 +454,7 @@ class LightingController(
                 btnLifxSync.setText(R.string.hue_sync_off)
                 btnLifxSync.isSelected = false
                 tvLifxState.text = "Ready"
+                tvLifxHint.visibility = View.GONE
                 updateAdvancedVisibility()
             } else {
                 if (!lifxController.hasSelectedBulbs()) {
@@ -391,6 +469,7 @@ class LightingController(
                 tvLifxState.text = "Streaming Active"
                 tvLifxState.setTextColor(activity.getColor(R.color.hue_connected))
                 imgLifxState.imageTintList = android.content.res.ColorStateList.valueOf(activity.getColor(R.color.hue_connected))
+                tvLifxHint.visibility = View.GONE
                 updateAdvancedVisibility()
             }
         }
@@ -445,6 +524,8 @@ class LightingController(
                         tvNanoleafState.setTextColor(activity.getColor(R.color.text_dim))
                         imgNanoleafState.imageTintList = android.content.res.ColorStateList.valueOf(activity.getColor(R.color.hue_disconnected))
                         btnNanoleafScan.visibility = View.VISIBLE
+                        btnNanoleafSync.text = activity.getString(R.string.hue_sync_off)
+                        btnNanoleafSync.isSelected = false
                         btnNanoleafSync.isEnabled = false
                         btnNanoleafForget.visibility = View.GONE
                     }
@@ -467,6 +548,8 @@ class LightingController(
                         tvNanoleafState.setTextColor(activity.getColor(R.color.hue_connected))
                         imgNanoleafState.imageTintList = android.content.res.ColorStateList.valueOf(activity.getColor(R.color.hue_connected))
                         btnNanoleafScan.visibility = View.GONE
+                        btnNanoleafSync.text = activity.getString(R.string.hue_sync_off)
+                        btnNanoleafSync.isSelected = false
                         btnNanoleafSync.isEnabled = true
                         btnNanoleafForget.visibility = View.VISIBLE
                     }
@@ -474,11 +557,24 @@ class LightingController(
                         tvNanoleafState.text = "Streaming Active"
                         btnNanoleafSync.text = activity.getString(R.string.hue_sync_on)
                         btnNanoleafSync.isSelected = true
+                        btnNanoleafSync.isEnabled = true
                     }
                     NanoleafController.State.ERROR -> {
                         tvNanoleafState.text = "Error Occurred"
                         tvNanoleafState.setTextColor(activity.getColor(R.color.text_destructive))
                         imgNanoleafState.imageTintList = android.content.res.ColorStateList.valueOf(activity.getColor(R.color.text_destructive))
+                        btnNanoleafSync.text = activity.getString(R.string.hue_sync_off)
+                        btnNanoleafSync.isSelected = false
+                    }
+                    NanoleafController.State.UNREACHABLE -> {
+                        tvNanoleafState.text = "Paired · not reachable"
+                        tvNanoleafState.setTextColor(activity.getColor(R.color.hue_pending))
+                        imgNanoleafState.imageTintList = android.content.res.ColorStateList.valueOf(activity.getColor(R.color.hue_pending))
+                        btnNanoleafScan.visibility = View.GONE
+                        btnNanoleafSync.text = activity.getString(R.string.hue_sync_off)
+                        btnNanoleafSync.isSelected = false
+                        btnNanoleafSync.isEnabled = false
+                        btnNanoleafForget.visibility = View.VISIBLE
                     }
                 }
 
@@ -928,10 +1024,11 @@ class LightingController(
     private fun updateHueSections() {
         if (!::lightControlSection.isInitialized) return
         val reachable = currentHueState == HueConn.REACHABLE || currentHueState == HueConn.STREAMING
+        val isStreaming = currentHueState == HueConn.STREAMING
         val hasSelected = reachable && selectedArea != null
 
-        // All sections are always visible to act as "ghosted teasers"
-        hueAreaSection.visibility = View.VISIBLE
+        // Areas section is hidden entirely during sync; otherwise visible (ghosted if unreachable)
+        hueAreaSection.visibility = if (isStreaming) View.GONE else View.VISIBLE
         lightControlSection.visibility = View.VISIBLE
         hueSyncSection.visibility = View.VISIBLE
 
@@ -1018,8 +1115,20 @@ class LightingController(
         huePingHandler.removeCallbacks(huePingPoller)
     }
 
+    private fun startLifxPingPoller() {
+        if (lifxPingPollerRunning) return
+        lifxPingPollerRunning = true
+        huePingHandler.post(lifxPingPoller)
+    }
+
+    private fun stopLifxPingPoller() {
+        lifxPingPollerRunning = false
+        huePingHandler.removeCallbacks(lifxPingPoller)
+    }
+
     private fun switchBrand(brand: LightingBrand) {
         activeBrand = brand
+        if (::lifxScanSpinner.isInitialized) lifxScanSpinner.visibility = View.GONE
 
         val btnBrandNanoleaf = activity.findViewById<Button>(R.id.btn_brand_nanoleaf)
         val containerNanoleaf = activity.findViewById<View>(R.id.container_nanoleaf)
@@ -1033,6 +1142,18 @@ class LightingController(
         containerLifx.visibility = if (brand == LightingBrand.LIFX) View.VISIBLE else View.GONE
         containerNanoleaf.visibility = if (brand == LightingBrand.NANOLEAF) View.VISIBLE else View.GONE
         wledPanel.container.visibility = if (brand == LightingBrand.WLED) View.VISIBLE else View.GONE
+
+        if (brand == LightingBrand.NANOLEAF) {
+            nanoleafController.startReachabilityPoller()
+        } else {
+            nanoleafController.stopReachabilityPoller()
+        }
+        
+        if (brand == LightingBrand.LIFX) {
+            startLifxPingPoller()
+        } else {
+            stopLifxPingPoller()
+        }
     }
 
     // ----- Advanced tuning dialog -----

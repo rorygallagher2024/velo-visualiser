@@ -1493,6 +1493,7 @@
                 layout="@layout/layout_connection_status" />
 
             <TextView
+                android:id="@+id/tv_lifx_hint"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="LIFX creates Wi-Fi smart bulbs. Unlike Philips Hue, they connect directly to your router without requiring a bridge.\n\nMake sure your phone is connected to the same Wi-Fi network as your bulbs to sync them with the visualizer."

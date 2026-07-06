@@ -46,6 +46,7 @@ class NanoleafController(context: Context) {
         PAIRING,
         PAIRED,
         STREAMING,
+        UNREACHABLE,
         ERROR
     }
 
@@ -69,13 +70,33 @@ class NanoleafController(context: Context) {
             discoveredIp = creds.ip
             discoveredPort = creds.port
             // We assume pairing is lost until proven reachable
-            currentState = State.DISCONNECTED
+            currentState = State.UNREACHABLE
             checkReachability()
             
             if (store.syncEnabled) {
                 startSync()
             }
         }
+    }
+
+    private val reachabilityPoller = object : Runnable {
+        override fun run() {
+            checkReachability()
+            mainHandler.postDelayed(this, 5000L)
+        }
+    }
+
+    private var isPollingReachability = false
+
+    fun startReachabilityPoller() {
+        if (isPollingReachability) return
+        isPollingReachability = true
+        mainHandler.post(reachabilityPoller)
+    }
+
+    fun stopReachabilityPoller() {
+        isPollingReachability = false
+        mainHandler.removeCallbacks(reachabilityPoller)
     }
 
     fun onBands(low: Float, mid: Float, high: Float) {
@@ -88,18 +109,26 @@ class NanoleafController(context: Context) {
         linkBeatCount++
     }
 
-    fun search() {
-        if (currentState == State.SEARCHING) return
-        currentState = State.SEARCHING
+    private var isSearching = false
+    private var discoveryListener: NsdManager.DiscoveryListener? = null
+
+    fun search(silent: Boolean = false) {
+        if (isSearching) return
+        if (!silent) currentState = State.SEARCHING
+        isSearching = true
 
         val nsdManager = appContext.getSystemService(Context.NSD_SERVICE) as NsdManager
-        nsdManager.discoverServices(
-            "_nanoleafapi._tcp",
-            NsdManager.PROTOCOL_DNS_SD,
-            object : NsdManager.DiscoveryListener {
-                override fun onDiscoveryStarted(regType: String) {}
-                override fun onServiceFound(service: NsdServiceInfo) {
-                    nsdManager.resolveService(service, object : NsdManager.ResolveListener {
+        discoveryListener?.let { 
+            try { nsdManager.stopServiceDiscovery(it) } catch (_: Exception) {} 
+        }
+        try {
+            nsdManager.discoverServices(
+                "_nanoleafapi._tcp",
+                NsdManager.PROTOCOL_DNS_SD,
+                object : NsdManager.DiscoveryListener {
+                    override fun onDiscoveryStarted(regType: String) {}
+                    override fun onServiceFound(service: NsdServiceInfo) {
+                        nsdManager.resolveService(service, object : NsdManager.ResolveListener {
                         override fun onResolveFailed(srv: NsdServiceInfo, errorCode: Int) {}
                         override fun onServiceResolved(srv: NsdServiceInfo) {
                             val host = srv.host.hostAddress ?: return
@@ -108,8 +137,32 @@ class NanoleafController(context: Context) {
                             nsdManager.stopServiceDiscovery(this@NanoleafController.discoveryListener)
                             
                             val creds = store.loadCredentials()
-                            if (creds != null && creds.ip == host) {
-                                currentState = State.PAIRED
+                            if (creds != null) {
+                                if (creds.ip == host && creds.port == srv.port) {
+                                    currentState = State.PAIRED
+                                } else {
+                                    thread {
+                                        try {
+                                            val url = URL("http://$host:${srv.port}/api/v1/${creds.authToken}/")
+                                            val conn = url.openConnection() as HttpURLConnection
+                                            conn.connectTimeout = 2000
+                                            conn.readTimeout = 2000
+                                            val code = conn.responseCode
+                                            if (code == 200) {
+                                                store.saveCredentials(NanoleafCredentials(host, creds.authToken, srv.port))
+                                                currentState = State.PAIRED
+                                            } else if (code == 401 || code == 403) {
+                                                currentState = State.FOUND_UNPAIRED
+                                                startAutoPairing()
+                                            } else {
+                                                currentState = State.UNREACHABLE
+                                            }
+                                            conn.disconnect()
+                                        } catch (_: Exception) {
+                                            currentState = State.UNREACHABLE
+                                        }
+                                    }
+                                }
                             } else {
                                 currentState = State.FOUND_UNPAIRED
                                 startAutoPairing()
@@ -118,14 +171,15 @@ class NanoleafController(context: Context) {
                     })
                 }
                 override fun onServiceLost(service: NsdServiceInfo) {}
-                override fun onDiscoveryStopped(serviceType: String) {}
-                override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) {}
-                override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) {}
+                override fun onDiscoveryStopped(serviceType: String) { isSearching = false }
+                override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) { isSearching = false }
+                override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) { isSearching = false }
             }.also { discoveryListener = it }
         )
+        } catch (e: Exception) {
+            isSearching = false
+        }
     }
-
-    private var discoveryListener: NsdManager.DiscoveryListener? = null
 
     private var autoPairing = false
 
@@ -178,18 +232,24 @@ class NanoleafController(context: Context) {
                     conn.connectTimeout = 2000
                     conn.readTimeout = 2000
                     if (conn.responseCode == 200) {
-                        if (currentState == State.DISCONNECTED) {
+                        if (currentState == State.DISCONNECTED || currentState == State.UNREACHABLE) {
                             currentState = State.PAIRED
                         }
                     } else {
-                        if (currentState == State.PAIRED) {
-                            currentState = State.DISCONNECTED
+                        if (currentState == State.PAIRED || currentState == State.STREAMING) {
+                            val wasStreaming = currentState == State.STREAMING
+                            currentState = State.UNREACHABLE
+                            if (wasStreaming) stopSync()
+                            search(silent = true)
                         }
                     }
                     conn.disconnect()
                 } catch (_: Exception) {
-                    if (currentState == State.PAIRED) {
-                        currentState = State.DISCONNECTED
+                    if (currentState == State.PAIRED || currentState == State.STREAMING) {
+                        val wasStreaming = currentState == State.STREAMING
+                        currentState = State.UNREACHABLE
+                        if (wasStreaming) stopSync()
+                        search(silent = true)
                     }
                 }
             }
@@ -201,6 +261,7 @@ class NanoleafController(context: Context) {
     fun startSync() {
         val creds = store.loadCredentials() ?: return
         if (running) return
+        running = true
 
         thread {
             try {
@@ -227,6 +288,7 @@ class NanoleafController(context: Context) {
 
                 if (panelIds.isEmpty()) {
                     currentState = State.ERROR
+                    running = false
                     return@thread
                 }
 
@@ -265,12 +327,12 @@ class NanoleafController(context: Context) {
                     val errResp = putConn.errorStream?.bufferedReader()?.readText()
                     Log.e("Nanoleaf", "Failed to start extControl: $responseCode - $errResp")
                     currentState = State.ERROR
+                    running = false
                     return@thread
                 }
                 putConn.disconnect()
 
                 // 3. Start UDP Streaming
-                running = true
                 store.syncEnabled = true
                 currentState = State.STREAMING
                 socket = DatagramSocket()
@@ -283,6 +345,7 @@ class NanoleafController(context: Context) {
             } catch (e: Exception) {
                 Log.e("Nanoleaf", "Start sync failed: ${e.message}")
                 currentState = State.ERROR
+                running = false
             }
         }
     }

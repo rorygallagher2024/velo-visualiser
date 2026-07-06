@@ -11,6 +11,7 @@ import java.net.DatagramSocket
 import java.net.InetAddress
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.util.concurrent.Executors
 
 data class LifxBulb(val ip: String, val mac: ByteArray, val label: String) {
     var isSelected: Boolean = false
@@ -32,6 +33,9 @@ class LifxController {
     @Volatile private var streaming = false
     val isStreaming: Boolean get() = streaming
     private var senderThread: Thread? = null
+    
+    @Volatile private var isSearching = false
+    private val commandExecutor = Executors.newSingleThreadExecutor()
 
     // Audio-reactive state
     @Volatile private var curL = 0f
@@ -60,17 +64,28 @@ class LifxController {
     }
 
     fun startDiscovery(onBulbFound: (LifxBulb) -> Unit, onFinished: () -> Unit) {
+        if (isSearching) return
+        isSearching = true
+        val oldSelectedMacs = synchronized(bulbs) {
+            bulbs.filter { it.isSelected }.map { ByteBuffer.wrap(it.mac) }.toSet()
+        }
         synchronized(bulbs) { bulbs.clear() }
         Thread {
             try {
                 val socket = DatagramSocket().apply {
                     broadcast = true
                 }
-                scanNetworkForBulbs(socket, onBulbFound)
+                scanNetworkForBulbs(socket) { bulb ->
+                    if (oldSelectedMacs.contains(ByteBuffer.wrap(bulb.mac))) {
+                        bulb.isSelected = true
+                    }
+                    onBulbFound(bulb)
+                }
                 socket.close()
             } catch (e: Exception) {
                 Log.e(TAG, "Discovery error: ${e.message}")
             } finally {
+                isSearching = false
                 onFinished()
             }
         }.start()
@@ -153,11 +168,11 @@ class LifxController {
             bulbs.find { it.ip == ip }?.apply { isSelected = selected }
         }
         
-        // If deselected while streaming is on, immediately turn the bulb off
-        if (bulb != null && !selected && streaming) {
-            Thread {
-                sendSetPower(null, bulb.ip, bulb.mac, false)
-            }.start()
+        // If changed while streaming is on, immediately turn the bulb on or off
+        if (bulb != null && streaming) {
+            commandExecutor.execute {
+                sendSetPower(null, bulb.ip, bulb.mac, selected)
+            }
         }
     }
 
@@ -172,7 +187,7 @@ class LifxController {
         senderThread?.join(100)
         senderThread = null
 
-        Thread {
+        commandExecutor.execute {
             try {
                 val activeBulbs = synchronized(bulbs) { bulbs.filter { it.isSelected } }
                 val socket = DatagramSocket()
@@ -181,7 +196,7 @@ class LifxController {
                 }
                 socket.close()
             } catch (_: Exception) {}
-        }.start()
+        }
     }
 
     private fun startSender() {
@@ -198,8 +213,14 @@ class LifxController {
             val frameNs = 1_000_000_000L / SEND_HZ
             
             // Send SetPower to all selected bulbs to ensure they are on
-            for (bulb in synchronized(bulbs) { bulbs.filter { it.isSelected } }) {
-                sendSetPower(socket, bulb.ip, bulb.mac, true)
+            commandExecutor.execute {
+                try {
+                    val socketPower = DatagramSocket()
+                    for (bulb in synchronized(bulbs) { bulbs.filter { it.isSelected } }) {
+                        sendSetPower(socketPower, bulb.ip, bulb.mac, true)
+                    }
+                    socketPower.close()
+                } catch (_: Exception) {}
             }
 
             // Pre-allocate a buffer for SetColor (102) -> 49 bytes
