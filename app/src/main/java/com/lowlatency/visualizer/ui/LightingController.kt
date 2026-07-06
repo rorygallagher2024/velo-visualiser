@@ -214,12 +214,16 @@ class LightingController(
                 }
             }
         }
+        if (activeBrand == LightingBrand.NANOLEAF) {
+            nanoleafController.startReachabilityPoller()
+        }
     }
 
     fun onPause() {
         if (::hueController.isInitialized) hueController.paused = true
         huePingHandler.removeCallbacks(huePingPoller)
         wledPanel.onPause()
+        nanoleafController.stopReachabilityPoller()
     }
 
     fun onDestroy() {
@@ -445,6 +449,8 @@ class LightingController(
                         tvNanoleafState.setTextColor(activity.getColor(R.color.text_dim))
                         imgNanoleafState.imageTintList = android.content.res.ColorStateList.valueOf(activity.getColor(R.color.hue_disconnected))
                         btnNanoleafScan.visibility = View.VISIBLE
+                        btnNanoleafSync.text = activity.getString(R.string.hue_sync_off)
+                        btnNanoleafSync.isSelected = false
                         btnNanoleafSync.isEnabled = false
                         btnNanoleafForget.visibility = View.GONE
                     }
@@ -467,6 +473,8 @@ class LightingController(
                         tvNanoleafState.setTextColor(activity.getColor(R.color.hue_connected))
                         imgNanoleafState.imageTintList = android.content.res.ColorStateList.valueOf(activity.getColor(R.color.hue_connected))
                         btnNanoleafScan.visibility = View.GONE
+                        btnNanoleafSync.text = activity.getString(R.string.hue_sync_off)
+                        btnNanoleafSync.isSelected = false
                         btnNanoleafSync.isEnabled = true
                         btnNanoleafForget.visibility = View.VISIBLE
                     }
@@ -474,11 +482,24 @@ class LightingController(
                         tvNanoleafState.text = "Streaming Active"
                         btnNanoleafSync.text = activity.getString(R.string.hue_sync_on)
                         btnNanoleafSync.isSelected = true
+                        btnNanoleafSync.isEnabled = true
                     }
                     NanoleafController.State.ERROR -> {
                         tvNanoleafState.text = "Error Occurred"
                         tvNanoleafState.setTextColor(activity.getColor(R.color.text_destructive))
                         imgNanoleafState.imageTintList = android.content.res.ColorStateList.valueOf(activity.getColor(R.color.text_destructive))
+                        btnNanoleafSync.text = activity.getString(R.string.hue_sync_off)
+                        btnNanoleafSync.isSelected = false
+                    }
+                    NanoleafController.State.UNREACHABLE -> {
+                        tvNanoleafState.text = "Paired · not reachable"
+                        tvNanoleafState.setTextColor(activity.getColor(R.color.hue_pending))
+                        imgNanoleafState.imageTintList = android.content.res.ColorStateList.valueOf(activity.getColor(R.color.hue_pending))
+                        btnNanoleafScan.visibility = View.GONE
+                        btnNanoleafSync.text = activity.getString(R.string.hue_sync_off)
+                        btnNanoleafSync.isSelected = false
+                        btnNanoleafSync.isEnabled = false
+                        btnNanoleafForget.visibility = View.VISIBLE
                     }
                 }
 
@@ -1033,6 +1054,12 @@ class LightingController(
         containerLifx.visibility = if (brand == LightingBrand.LIFX) View.VISIBLE else View.GONE
         containerNanoleaf.visibility = if (brand == LightingBrand.NANOLEAF) View.VISIBLE else View.GONE
         wledPanel.container.visibility = if (brand == LightingBrand.WLED) View.VISIBLE else View.GONE
+
+        if (brand == LightingBrand.NANOLEAF) {
+            nanoleafController.startReachabilityPoller()
+        } else {
+            nanoleafController.stopReachabilityPoller()
+        }
     }
 
     // ----- Advanced tuning dialog -----

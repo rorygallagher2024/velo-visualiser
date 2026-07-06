@@ -46,6 +46,7 @@ class NanoleafController(context: Context) {
         PAIRING,
         PAIRED,
         STREAMING,
+        UNREACHABLE,
         ERROR
     }
 
@@ -69,13 +70,33 @@ class NanoleafController(context: Context) {
             discoveredIp = creds.ip
             discoveredPort = creds.port
             // We assume pairing is lost until proven reachable
-            currentState = State.DISCONNECTED
+            currentState = State.UNREACHABLE
             checkReachability()
             
             if (store.syncEnabled) {
                 startSync()
             }
         }
+    }
+
+    private val reachabilityPoller = object : Runnable {
+        override fun run() {
+            checkReachability()
+            mainHandler.postDelayed(this, 5000L)
+        }
+    }
+
+    private var isPollingReachability = false
+
+    fun startReachabilityPoller() {
+        if (isPollingReachability) return
+        isPollingReachability = true
+        mainHandler.post(reachabilityPoller)
+    }
+
+    fun stopReachabilityPoller() {
+        isPollingReachability = false
+        mainHandler.removeCallbacks(reachabilityPoller)
     }
 
     fun onBands(low: Float, mid: Float, high: Float) {
@@ -178,18 +199,22 @@ class NanoleafController(context: Context) {
                     conn.connectTimeout = 2000
                     conn.readTimeout = 2000
                     if (conn.responseCode == 200) {
-                        if (currentState == State.DISCONNECTED) {
+                        if (currentState == State.DISCONNECTED || currentState == State.UNREACHABLE) {
                             currentState = State.PAIRED
                         }
                     } else {
-                        if (currentState == State.PAIRED) {
-                            currentState = State.DISCONNECTED
+                        if (currentState == State.PAIRED || currentState == State.STREAMING) {
+                            val wasStreaming = currentState == State.STREAMING
+                            currentState = State.UNREACHABLE
+                            if (wasStreaming) stopSync()
                         }
                     }
                     conn.disconnect()
                 } catch (_: Exception) {
-                    if (currentState == State.PAIRED) {
-                        currentState = State.DISCONNECTED
+                    if (currentState == State.PAIRED || currentState == State.STREAMING) {
+                        val wasStreaming = currentState == State.STREAMING
+                        currentState = State.UNREACHABLE
+                        if (wasStreaming) stopSync()
                     }
                 }
             }
@@ -201,6 +226,7 @@ class NanoleafController(context: Context) {
     fun startSync() {
         val creds = store.loadCredentials() ?: return
         if (running) return
+        running = true
 
         thread {
             try {
@@ -227,6 +253,7 @@ class NanoleafController(context: Context) {
 
                 if (panelIds.isEmpty()) {
                     currentState = State.ERROR
+                    running = false
                     return@thread
                 }
 
@@ -265,12 +292,12 @@ class NanoleafController(context: Context) {
                     val errResp = putConn.errorStream?.bufferedReader()?.readText()
                     Log.e("Nanoleaf", "Failed to start extControl: $responseCode - $errResp")
                     currentState = State.ERROR
+                    running = false
                     return@thread
                 }
                 putConn.disconnect()
 
                 // 3. Start UDP Streaming
-                running = true
                 store.syncEnabled = true
                 currentState = State.STREAMING
                 socket = DatagramSocket()
@@ -283,6 +310,7 @@ class NanoleafController(context: Context) {
             } catch (e: Exception) {
                 Log.e("Nanoleaf", "Start sync failed: ${e.message}")
                 currentState = State.ERROR
+                running = false
             }
         }
     }
