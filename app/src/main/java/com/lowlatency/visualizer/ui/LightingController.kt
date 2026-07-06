@@ -1023,6 +1023,10 @@ class LightingController(
             override fun onProgressChanged(s: SeekBar, progress: Int, fromUser: Boolean) {}
             override fun onStartTrackingTouch(s: SeekBar) {}
             override fun onStopTrackingTouch(s: SeekBar) {
+                if (!lifxController.hasSelectedBulbs()) {
+                    android.widget.Toast.makeText(activity, "Tap a LIFX bulb in the list above to select it for control.", android.widget.Toast.LENGTH_SHORT).show()
+                    return
+                }
                 val bri = s.progress / 100f
                 lifxController.setStaticColor(brightness = bri)
             }
@@ -1054,9 +1058,14 @@ class LightingController(
     }
 
     private fun applyLifxScene(scene: LightScene) {
+        if (!lifxController.hasSelectedBulbs()) {
+            android.widget.Toast.makeText(activity, "Tap a LIFX bulb in the list above to select it for control.", android.widget.Toast.LENGTH_SHORT).show()
+            return
+        }
         if (!scene.on) {
             lifxController.setStaticPower(false)
         } else {
+            lifxController.setStaticPower(true)
             val kelvin = if (scene.mirek != null) 1_000_000 / scene.mirek else 3500
             val bri = lifxBrightnessSlider.progress / 100f
             lifxController.setStaticColor(scene.hue, scene.sat, bri, kelvin)

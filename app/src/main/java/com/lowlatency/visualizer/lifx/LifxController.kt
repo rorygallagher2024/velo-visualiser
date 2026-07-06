@@ -180,8 +180,13 @@ class LifxController {
         commandExecutor.execute {
             try {
                 val socketPower = DatagramSocket()
-                for (bulb in synchronized(bulbs) { bulbs.filter { it.isSelected } }) {
-                    sendSetPower(socketPower, bulb.ip, bulb.mac, isOn)
+                val targetBulbs = synchronized(bulbs) {
+                    bulbs.filter { it.isSelected }
+                }
+                for (bulb in targetBulbs) {
+                    try {
+                        sendSetPower(socketPower, bulb.ip, bulb.mac, isOn)
+                    } catch (_: Exception) {}
                 }
                 socketPower.close()
             } catch (_: Exception) {}
@@ -193,40 +198,47 @@ class LifxController {
             try {
                 val socket = DatagramSocket()
                 val buf = ByteBuffer.allocate(49).order(ByteOrder.LITTLE_ENDIAN)
-                val activeBulbs = synchronized(bulbs) { bulbs.filter { it.isSelected } }
+                val targetBulbs = synchronized(bulbs) {
+                    bulbs.filter { it.isSelected }
+                }
                 
-                for (bulb in activeBulbs) {
-                    buf.clear()
-                    buf.putShort(49.toShort()) // Size
-                    buf.putShort(0x1400.toShort()) // Addressable, Protocol=1024
-                    buf.putInt(12345) // Source
-                    buf.put(bulb.mac) // Target
-                    buf.put(ByteArray(6)) // Reserved
-                    buf.put(0) // Ack/Res
-                    buf.put(0) // Sequence
-                    buf.putLong(0L) // Reserved Protocol
-                    buf.putShort(102.toShort()) // Type: SetColor
-                    buf.putShort(0.toShort()) // Reserved
-                    
-                    // Payload
-                    buf.put(0) // Reserved
-                    
-                    // Use existing cached color if param is null (or defaults if missing)
-                    val h = hue ?: senderCurrentHue
-                    val s = sat ?: senderCurrentSat
-                    val b = brightness ?: 1.0f
-                    
-                    val h16 = ((h / 360f) * 65535f).toInt().toShort()
-                    val s16 = (s * 65535f).toInt().toShort()
-                    val b16 = (b * 65535f).toInt().toShort()
-                    
-                    buf.putShort(h16)
-                    buf.putShort(s16)
-                    buf.putShort(b16)
-                    buf.putShort(kelvin.toShort()) // Kelvin
-                    buf.putInt(400) // Duration in ms
-                    
-                    socket.send(DatagramPacket(buf.array(), 49, InetAddress.getByName(bulb.ip), 56700))
+                for (bulb in targetBulbs) {
+                    try {
+                        buf.clear()
+                        buf.putShort(49.toShort()) // Size
+                        buf.putShort(0x1400.toShort()) // Addressable, Protocol=1024
+                        buf.putInt(12345) // Source
+                        buf.put(bulb.mac) // Target
+                        buf.put(ByteArray(6)) // Reserved
+                        buf.put(0) // Ack/Res
+                        buf.put(0) // Sequence
+                        buf.putLong(0L) // Reserved Protocol
+                        buf.putShort(102.toShort()) // Type: SetColor
+                        buf.putShort(0.toShort()) // Reserved
+                        
+                        // Payload
+                        buf.put(0) // Reserved
+                        
+                        // Use existing cached color if param is null (or defaults if missing)
+                        if (hue != null) senderCurrentHue = hue
+                        if (sat != null) senderCurrentSat = sat
+                        
+                        val h = senderCurrentHue
+                        val s = senderCurrentSat
+                        val b = brightness ?: 1.0f
+                        
+                        val h16 = ((h / 360f) * 65535f).toInt().toShort()
+                        val s16 = (s * 65535f).toInt().toShort()
+                        val b16 = (b * 65535f).toInt().toShort()
+                        
+                        buf.putShort(h16)
+                        buf.putShort(s16)
+                        buf.putShort(b16)
+                        buf.putShort(kelvin.toShort()) // Kelvin
+                        buf.putInt(400) // Duration in ms
+                        
+                        socket.send(DatagramPacket(buf.array(), 49, InetAddress.getByName(bulb.ip), 56700))
+                    } catch (_: Exception) {}
                 }
                 socket.close()
             } catch (_: Exception) {}
