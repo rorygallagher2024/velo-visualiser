@@ -146,17 +146,19 @@ class NanoleafController(context: Context) {
                                             val conn = url.openConnection() as HttpURLConnection
                                             conn.connectTimeout = 2000
                                             conn.readTimeout = 2000
-                                            if (conn.responseCode == 200) {
+                                            val code = conn.responseCode
+                                            if (code == 200) {
                                                 store.saveCredentials(NanoleafCredentials(host, creds.authToken, srv.port))
                                                 currentState = State.PAIRED
-                                            } else {
+                                            } else if (code == 401 || code == 403) {
                                                 currentState = State.FOUND_UNPAIRED
                                                 startAutoPairing()
+                                            } else {
+                                                currentState = State.UNREACHABLE
                                             }
                                             conn.disconnect()
                                         } catch (_: Exception) {
-                                            currentState = State.FOUND_UNPAIRED
-                                            startAutoPairing()
+                                            currentState = State.UNREACHABLE
                                         }
                                     }
                                 }
