@@ -26,6 +26,7 @@ import com.lowlatency.visualizer.hue.HueCredentials
 import com.lowlatency.visualizer.hue.HueEntertainmentArea
 import com.lowlatency.visualizer.hue.HueLightController
 import com.lowlatency.visualizer.lifx.LifxController
+import com.lowlatency.visualizer.lifx.LifxBulb
 import com.lowlatency.visualizer.nanoleaf.NanoleafController
 import com.lowlatency.visualizer.ui.lighting.LightBrandPanel
 import com.lowlatency.visualizer.ui.lighting.WledBrandPanel
@@ -93,6 +94,7 @@ class LightingController(
     private lateinit var lifxBulbContainer: android.widget.GridLayout
     private lateinit var btnLifxSync: Button
     private lateinit var tvLifxState: TextView
+    private lateinit var btnLifxForget: Button
     private lateinit var imgLifxState: android.widget.ImageView
     private lateinit var tvLifxHint: TextView
     private lateinit var btnNanoleafSync: Button
@@ -304,7 +306,7 @@ class LightingController(
     fun bind() {
         hueStore = HueCredentialStore(activity)
         hueController = HueLightController(activity)
-        lifxController = LifxController()
+        lifxController = LifxController(activity)
         nanoleafController = NanoleafController(activity)
 
         // ----- View binding (moved from MainActivity.bindViews) -----
@@ -335,7 +337,15 @@ class LightingController(
         val statusLifx = activity.findViewById<View>(R.id.status_lifx)
         tvLifxState = statusLifx.findViewById(R.id.tv_state)
         imgLifxState = statusLifx.findViewById(R.id.img_state)
+        btnLifxForget = statusLifx.findViewById(R.id.btn_forget)
+        btnLifxForget.text = "Forget Bulbs"
         tvLifxHint = activity.findViewById(R.id.tv_lifx_hint)
+
+        btnLifxForget.setOnClickListener {
+            lifxController.forgetBulbs()
+            lifxBulbContainer.removeAllViews()
+            updateLifxUI()
+        }
         tvLifxState.text = "Not Scanned"
         tvLifxState.setTextColor(activity.getColor(R.color.hue_pending))
         imgLifxState.imageTintList = android.content.res.ColorStateList.valueOf(activity.getColor(R.color.hue_pending))
@@ -376,76 +386,45 @@ class LightingController(
             }
         }
 
+        // Populate initial UI
+        activity.runOnUiThread {
+            lifxController.getCachedBulbs().forEach { addLifxBulbToUI(it) }
+            updateLifxUI()
+        }
+
         btnLifxScan.setOnClickListener {
             if (!isWifiConnected()) {
                 android.widget.Toast.makeText(activity, "Connect to Wi-Fi first", android.widget.Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
-            lifxScanSpinner.visibility = View.VISIBLE
-            lifxBulbContainer.removeAllViews()
+            lifxScanSpinner.visibility = android.view.View.VISIBLE
             btnLifxScan.isEnabled = false
 
             tvLifxState.text = "Searching network..."
             tvLifxState.setTextColor(activity.getColor(R.color.text_primary))
             imgLifxState.imageTintList = android.content.res.ColorStateList.valueOf(activity.getColor(R.color.hue_pending))
-            tvLifxHint.visibility = View.VISIBLE
+            tvLifxHint.visibility = android.view.View.VISIBLE
 
             lifxController.startDiscovery(
                 onBulbFound = { bulb ->
                     activity.runOnUiThread {
-                        val card = activity.layoutInflater.inflate(R.layout.lifx_bulb_item, lifxBulbContainer, false)
-                        val bulbNameText = card.findViewById<TextView>(R.id.bulb_name)
-                        bulbNameText.text = bulb.label
-
-                        // The view starts unselected unless it was preserved during a rescan
-                        card.isSelected = bulb.isSelected
-
-                        // Add simple scale animation on touch/click
-                        card.setOnClickListener { v ->
-                            val isChecked = !v.isSelected
-                            lifxController.setBulbSelected(bulb.ip, isChecked)
-                            v.isSelected = isChecked
-
-                            v.removeCallbacks(lifxAutoOffRunnable)
-                            if (!lifxController.hasSelectedBulbs() && lifxSyncing) {
-                                v.postDelayed(lifxAutoOffRunnable, 5000)
-                            }
-
-                            // Micro-animation "spring" bounce
-                            v.animate()
-                                .scaleX(0.95f).scaleY(0.95f)
-                                .setDuration(50)
-                                .withEndAction {
-                                    v.animate()
-                                        .scaleX(1.0f).scaleY(1.0f)
-                                        .setDuration(150)
-                                        .setInterpolator(android.view.animation.OvershootInterpolator(1.5f))
-                                        .start()
-                                }
-                                .start()
+                        val existing = lifxBulbContainer.findViewWithTag<android.view.View>(java.nio.ByteBuffer.wrap(bulb.mac))
+                        if (existing == null) {
+                            addLifxBulbToUI(bulb)
+                        } else {
+                            val tv = existing.findViewById<android.widget.TextView>(R.id.bulb_name)
+                            if (tv.text != bulb.label) tv.text = bulb.label
                         }
-
-                        lifxBulbContainer.addView(card)
-                        btnLifxSync.isEnabled = true
-                        btnLifxSync.setText(R.string.hue_sync_off)
                     }
                 },
                 onFinished = {
                     activity.runOnUiThread {
-                        lifxScanSpinner.visibility = View.GONE
+                        lifxScanSpinner.visibility = android.view.View.GONE
                         btnLifxScan.isEnabled = true
+                        updateLifxUI()
                         if (lifxBulbContainer.childCount == 0) {
-                            tvLifxState.text = "No bulbs found"
-                            tvLifxState.setTextColor(activity.getColor(R.color.text_destructive))
-                            imgLifxState.imageTintList = android.content.res.ColorStateList.valueOf(activity.getColor(R.color.text_destructive))
                             android.widget.Toast.makeText(activity, "No LIFX bulbs found on network.", android.widget.Toast.LENGTH_SHORT).show()
-                        } else {
-                            tvLifxState.text = "Ready"
-                            tvLifxState.setTextColor(activity.getColor(R.color.hue_connected))
-                            imgLifxState.imageTintList = android.content.res.ColorStateList.valueOf(activity.getColor(R.color.hue_connected))
                         }
-                        tvLifxHint.visibility = if (tvLifxState.text == "Ready") View.GONE else View.VISIBLE
-                        lifxLightControlSection.visibility = if (tvLifxState.text == "Ready") View.VISIBLE else View.GONE
                     }
                 }
             )
@@ -1383,5 +1362,62 @@ class LightingController(
         private const val KEY_ADV_HUE_LOOKAHEAD = "adv_hue_lookahead"
         private const val KEY_LIGHTING_PRESET = "lighting_preset"
         private const val HUE_RESYNC_AWAY_MS = 3000L
+    }
+
+
+    private fun addLifxBulbToUI(bulb: LifxBulb) {
+        val card = activity.layoutInflater.inflate(R.layout.lifx_bulb_item, lifxBulbContainer, false)
+        card.tag = java.nio.ByteBuffer.wrap(bulb.mac)
+        val bulbNameText = card.findViewById<android.widget.TextView>(R.id.bulb_name)
+        bulbNameText.text = bulb.label
+
+        card.isSelected = bulb.isSelected
+
+        card.setOnClickListener { v ->
+            val isChecked = !v.isSelected
+            v.isSelected = isChecked
+            lifxController.setBulbSelected(bulb.ip, isChecked)
+            bulb.isSelected = isChecked
+            lifxController.saveState()
+            updateLifxUI()
+
+            if (!lifxController.hasSelectedBulbs() && lifxSyncing) {
+                v.postDelayed({
+                    if (lifxSyncing && !lifxController.hasSelectedBulbs()) {
+                        btnLifxSync.performClick()
+                        android.widget.Toast.makeText(activity, "LIFX Sync stopped (no bulbs selected)", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }, 5000)
+            }
+
+            v.animate()
+                .scaleX(0.95f).scaleY(0.95f)
+                .setDuration(50)
+                .withEndAction {
+                    v.animate()
+                        .scaleX(1.0f).scaleY(1.0f)
+                        .setDuration(150)
+                        .setInterpolator(android.view.animation.OvershootInterpolator(1.5f))
+                        .start()
+                }
+                .start()
+        }
+        lifxBulbContainer.addView(card)
+    }
+
+    private fun updateLifxUI() {
+        if (lifxBulbContainer.childCount == 0) {
+            tvLifxState.text = "Not Scanned"
+            tvLifxState.setTextColor(activity.getColor(R.color.hue_pending))
+            imgLifxState.imageTintList = android.content.res.ColorStateList.valueOf(activity.getColor(R.color.hue_pending))
+        } else {
+            tvLifxState.text = "Ready"
+            tvLifxState.setTextColor(activity.getColor(R.color.hue_connected))
+            imgLifxState.imageTintList = android.content.res.ColorStateList.valueOf(activity.getColor(R.color.hue_connected))
+        }
+        btnLifxForget.visibility = if (lifxBulbContainer.childCount > 0) android.view.View.VISIBLE else android.view.View.GONE
+        tvLifxHint.visibility = if (tvLifxState.text == "Ready") android.view.View.GONE else android.view.View.VISIBLE
+        lifxLightControlSection.visibility = if (tvLifxState.text == "Ready") android.view.View.VISIBLE else android.view.View.GONE
+        btnLifxSync.isEnabled = lifxBulbContainer.childCount > 0
     }
 }

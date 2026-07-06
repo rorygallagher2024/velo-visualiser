@@ -25,9 +25,27 @@ data class LifxBulb(val ip: String, val mac: ByteArray, val label: String) {
     override fun hashCode(): Int = ip.hashCode()
 }
 
-class LifxController {
+class LifxController(context: android.content.Context) {
 
+    private val store = LifxStore(context)
     private val bulbs = mutableListOf<LifxBulb>()
+
+    init {
+        bulbs.addAll(store.loadBulbs())
+    }
+
+    fun getCachedBulbs(): List<LifxBulb> = synchronized(bulbs) { bulbs.toList() }
+
+    fun forgetBulbs() {
+        synchronized(bulbs) { 
+            bulbs.clear()
+            store.clearBulbs() 
+        }
+    }
+
+    fun saveState() {
+        synchronized(bulbs) { store.saveBulbs(bulbs) }
+    }
     fun hasSelectedBulbs(): Boolean = synchronized(bulbs) { bulbs.any { it.isSelected } }
 
     @Volatile private var streaming = false
@@ -64,22 +82,30 @@ class LifxController {
     }
 
     fun startDiscovery(onBulbFound: (LifxBulb) -> Unit, onFinished: () -> Unit) {
-        if (isSearching) return
         isSearching = true
-        val oldSelectedMacs = synchronized(bulbs) {
-            bulbs.filter { it.isSelected }.map { ByteBuffer.wrap(it.mac) }.toSet()
-        }
-        synchronized(bulbs) { bulbs.clear() }
         Thread {
             try {
                 val socket = DatagramSocket().apply {
                     broadcast = true
                 }
                 scanNetworkForBulbs(socket) { bulb ->
-                    if (oldSelectedMacs.contains(ByteBuffer.wrap(bulb.mac))) {
-                        bulb.isSelected = true
+                    synchronized(bulbs) {
+                        val existing = bulbs.find { java.nio.ByteBuffer.wrap(it.mac) == java.nio.ByteBuffer.wrap(bulb.mac) }
+                        if (existing != null) {
+                            // Update IP if changed, keep selection state
+                            if (existing.ip != bulb.ip || existing.label != bulb.label) {
+                                val idx = bulbs.indexOf(existing)
+                                val updated = LifxBulb(bulb.ip, bulb.mac, bulb.label).apply { isSelected = existing.isSelected }
+                                bulbs[idx] = updated
+                                store.saveBulbs(bulbs)
+                                onBulbFound(updated)
+                            }
+                        } else {
+                            bulbs.add(bulb)
+                            store.saveBulbs(bulbs)
+                            onBulbFound(bulb)
+                        }
                     }
-                    onBulbFound(bulb)
                 }
                 socket.close()
             } catch (e: Exception) {
@@ -154,12 +180,7 @@ class LifxController {
             val label = String(labelBytes, Charsets.UTF_8).trimEnd('\u0000').ifEmpty { "LIFX Bulb" }
             val ip = rxPacket.address.hostAddress ?: return
             val bulb = LifxBulb(ip, mac, label)
-            synchronized(bulbs) {
-                if (!bulbs.contains(bulb)) {
-                    bulbs.add(bulb)
-                    onBulbFound(bulb)
-                }
-            }
+            onBulbFound(bulb)
         }
     }
     
