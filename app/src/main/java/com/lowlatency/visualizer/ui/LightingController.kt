@@ -323,8 +323,8 @@ class LightingController(
                         val bulbNameText = card.findViewById<TextView>(R.id.bulb_name)
                         bulbNameText.text = bulb.label
 
-                        // The view starts unselected (matching LifxBulb default state)
-                        card.isSelected = false
+                        // The view starts unselected unless it was preserved during a rescan
+                        card.isSelected = bulb.isSelected
 
                         // Add simple scale animation on touch/click
                         card.setOnClickListener { v ->

@@ -60,13 +60,21 @@ class LifxController {
     }
 
     fun startDiscovery(onBulbFound: (LifxBulb) -> Unit, onFinished: () -> Unit) {
+        val oldSelectedMacs = synchronized(bulbs) {
+            bulbs.filter { it.isSelected }.map { ByteBuffer.wrap(it.mac) }.toSet()
+        }
         synchronized(bulbs) { bulbs.clear() }
         Thread {
             try {
                 val socket = DatagramSocket().apply {
                     broadcast = true
                 }
-                scanNetworkForBulbs(socket, onBulbFound)
+                scanNetworkForBulbs(socket) { bulb ->
+                    if (oldSelectedMacs.contains(ByteBuffer.wrap(bulb.mac))) {
+                        bulb.isSelected = true
+                    }
+                    onBulbFound(bulb)
+                }
                 socket.close()
             } catch (e: Exception) {
                 Log.e(TAG, "Discovery error: ${e.message}")
@@ -153,10 +161,10 @@ class LifxController {
             bulbs.find { it.ip == ip }?.apply { isSelected = selected }
         }
         
-        // If deselected while streaming is on, immediately turn the bulb off
-        if (bulb != null && !selected && streaming) {
+        // If changed while streaming is on, immediately turn the bulb on or off
+        if (bulb != null && streaming) {
             Thread {
-                sendSetPower(null, bulb.ip, bulb.mac, false)
+                sendSetPower(null, bulb.ip, bulb.mac, selected)
             }.start()
         }
     }

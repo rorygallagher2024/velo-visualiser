@@ -109,11 +109,18 @@ class NanoleafController(context: Context) {
         linkBeatCount++
     }
 
-    fun search() {
-        if (currentState == State.SEARCHING) return
-        currentState = State.SEARCHING
+    private var isSearching = false
+    private var discoveryListener: NsdManager.DiscoveryListener? = null
+
+    fun search(silent: Boolean = false) {
+        if (isSearching) return
+        if (!silent) currentState = State.SEARCHING
+        isSearching = true
 
         val nsdManager = appContext.getSystemService(Context.NSD_SERVICE) as NsdManager
+        discoveryListener?.let { 
+            try { nsdManager.stopServiceDiscovery(it) } catch (_: Exception) {} 
+        }
         nsdManager.discoverServices(
             "_nanoleafapi._tcp",
             NsdManager.PROTOCOL_DNS_SD,
@@ -129,8 +136,30 @@ class NanoleafController(context: Context) {
                             nsdManager.stopServiceDiscovery(this@NanoleafController.discoveryListener)
                             
                             val creds = store.loadCredentials()
-                            if (creds != null && creds.ip == host) {
-                                currentState = State.PAIRED
+                            if (creds != null) {
+                                if (creds.ip == host && creds.port == srv.port) {
+                                    currentState = State.PAIRED
+                                } else {
+                                    thread {
+                                        try {
+                                            val url = URL("http://$host:${srv.port}/api/v1/${creds.authToken}/")
+                                            val conn = url.openConnection() as HttpURLConnection
+                                            conn.connectTimeout = 2000
+                                            conn.readTimeout = 2000
+                                            if (conn.responseCode == 200) {
+                                                store.saveCredentials(NanoleafCredentials(host, creds.authToken, srv.port))
+                                                currentState = State.PAIRED
+                                            } else {
+                                                currentState = State.FOUND_UNPAIRED
+                                                startAutoPairing()
+                                            }
+                                            conn.disconnect()
+                                        } catch (_: Exception) {
+                                            currentState = State.FOUND_UNPAIRED
+                                            startAutoPairing()
+                                        }
+                                    }
+                                }
                             } else {
                                 currentState = State.FOUND_UNPAIRED
                                 startAutoPairing()
@@ -139,14 +168,12 @@ class NanoleafController(context: Context) {
                     })
                 }
                 override fun onServiceLost(service: NsdServiceInfo) {}
-                override fun onDiscoveryStopped(serviceType: String) {}
-                override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) {}
-                override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) {}
+                override fun onDiscoveryStopped(serviceType: String) { isSearching = false }
+                override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) { isSearching = false }
+                override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) { isSearching = false }
             }.also { discoveryListener = it }
         )
     }
-
-    private var discoveryListener: NsdManager.DiscoveryListener? = null
 
     private var autoPairing = false
 
@@ -207,6 +234,7 @@ class NanoleafController(context: Context) {
                             val wasStreaming = currentState == State.STREAMING
                             currentState = State.UNREACHABLE
                             if (wasStreaming) stopSync()
+                            search(silent = true)
                         }
                     }
                     conn.disconnect()
@@ -215,6 +243,7 @@ class NanoleafController(context: Context) {
                         val wasStreaming = currentState == State.STREAMING
                         currentState = State.UNREACHABLE
                         if (wasStreaming) stopSync()
+                        search(silent = true)
                     }
                 }
             }
