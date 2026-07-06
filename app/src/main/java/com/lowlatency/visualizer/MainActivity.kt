@@ -59,6 +59,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnPrivacyPolicy: Button
     private lateinit var btnAbout: Button
     private lateinit var btnFeedback: Button
+    private var activeDialog: android.app.Dialog? = null
     private lateinit var btnPeakLuminance: Button
     private lateinit var groupPeakLuminance: View
     private lateinit var perfOverlayController: PerfOverlayController
@@ -642,11 +643,15 @@ class MainActivity : AppCompatActivity() {
     private fun showPrivacyPolicy() {
         val dialog = Dialog(this)
         val view = layoutInflater.inflate(R.layout.dialog_privacy, null)
-        val message = HtmlCompat.fromHtml(getString(R.string.privacy_policy_text), HtmlCompat.FROM_HTML_MODE_LEGACY)
+        val rawText = getString(R.string.privacy_policy_text).replace("\n", "<br>")
+        val message = HtmlCompat.fromHtml(rawText, HtmlCompat.FROM_HTML_MODE_LEGACY)
         view.findViewById<TextView>(R.id.privacy_text).text = message
 
         dialog.setContentView(view)
         dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+        
+        activeDialog = dialog
+        dialog.setOnDismissListener { if (activeDialog === dialog) activeDialog = null }
         
         dialog.show()
         configureDialogWindow(dialog)
@@ -676,6 +681,9 @@ class MainActivity : AppCompatActivity() {
 
         dialog.setContentView(view)
         dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+        
+        activeDialog = dialog
+        dialog.setOnDismissListener { if (activeDialog === dialog) activeDialog = null }
         
         dialog.show()
         configureDialogWindow(dialog)
@@ -769,6 +777,8 @@ class MainActivity : AppCompatActivity() {
         // The settings sheet re-fits its content column (width cap on wide displays).
         if (::menuSheetController.isInitialized) menuSheetController.onConfigurationChanged()
         if (::scenesController.isInitialized) scenesController.onConfigurationChanged()
+        
+        activeDialog?.let { configureDialogWindow(it) }
     }
 
     override fun onResume() {
