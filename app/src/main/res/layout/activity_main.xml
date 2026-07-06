@@ -101,13 +101,14 @@
                     android:text="@string/perf_unit_fps"
                     android:textColor="@color/text_dim"
                     android:textSize="11sp"
-                    android:letterSpacing="0.3"
+                    android:letterSpacing="0.1"
                     android:textAllCaps="true" />
 
                 <TextView
                     android:id="@+id/perf_frame_ms"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:fontFeatureSettings="tnum"
                     android:text="—"
                     android:textColor="@color/text_dim"
                     android:textSize="11sp"
@@ -130,6 +131,7 @@
             android:id="@+id/perf_detail"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:fontFeatureSettings="tnum"
             android:textColor="@color/text_primary"
             android:textSize="11sp"
             android:lineSpacingMultiplier="1.5" />
@@ -1812,7 +1814,7 @@
                 android:id="@+id/display_clock"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:fontFamily="@font/clash_display" app:fontFamily="@font/clash_display"
+
                 android:fontWeight="200"
                 android:textColor="@color/text_primary"
                 android:textSize="104sp"
@@ -1837,7 +1839,7 @@
                     android:layout_marginTop="14dp"
                     android:textColor="@color/text_dim"
                     android:textSize="12sp"
-                    android:letterSpacing="0.30"
+                    android:letterSpacing="0.1"
                     android:textAllCaps="true"
                     android:text="" />
 
@@ -1866,7 +1868,7 @@
                         android:layout_marginBottom="2dp"
                         android:textColor="@color/text_dim"
                         android:textSize="11sp"
-                        android:letterSpacing="0.18"
+                        android:letterSpacing="0.05"
                         android:text="@string/display_bpm_unit" />
                 </LinearLayout>
 
@@ -1890,7 +1892,7 @@
             android:layout_marginBottom="52dp"
             android:textColor="@color/text_dim"
             android:textSize="12sp"
-            android:letterSpacing="0.18"
+            android:letterSpacing="0.05"
             android:textAllCaps="true"
             android:alpha="0"
             android:text="@string/ambient_mode_hint" />
