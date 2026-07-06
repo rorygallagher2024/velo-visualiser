@@ -3,17 +3,21 @@
     <font
         android:fontStyle="normal"
         android:fontWeight="200"
-        android:font="@font/inter_extralight" />
+        android:font="@font/satoshi_light" />
     <font
         android:fontStyle="normal"
         android:fontWeight="300"
-        android:font="@font/inter_light" />
+        android:font="@font/satoshi_light" />
     <font
         android:fontStyle="normal"
         android:fontWeight="400"
-        android:font="@font/inter_regular" />
+        android:font="@font/satoshi_regular" />
     <font
         android:fontStyle="normal"
         android:fontWeight="500"
-        android:font="@font/inter_medium" />
+        android:font="@font/satoshi_medium" />
+    <font
+        android:fontStyle="normal"
+        android:fontWeight="700"
+        android:font="@font/satoshi_bold" />
 </font-family>

@@ -21,8 +21,8 @@
     <rect x="0" y="0" width="470" height="500" fill="url(#fade)"/>
     <path d="M 181.0 124.0 L 250.0 256.5 L 319.0 124.0" fill="none" stroke="url(#vGrad)" stroke-width="28.7" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)" opacity="0.9"/>
     <path d="M 181.0 124.0 L 250.0 256.5 L 319.0 124.0" fill="none" stroke="url(#vGrad)" stroke-width="28.7" stroke-linecap="round" stroke-linejoin="round" />
-    <text x="250.0" y="310.5" font-family="'Inter', 'Helvetica Neue', sans-serif" font-size="24.0" font-weight="200" fill="#1A1A22" text-anchor="middle" letter-spacing="0.34em" style="text-transform:uppercase">VELO VISUALISER</text>
-    <text x="250" y="352.5" font-family="'Inter', 'Helvetica Neue', sans-serif" font-size="17" font-weight="300" fill="#6E6E68" text-anchor="middle" letter-spacing="0.04em">Sound becomes light.</text>
+    <text x="250.0" y="310.5" font-family="'Clash Display', 'Helvetica Neue', sans-serif" font-size="24.0" font-weight="200" fill="#1A1A22" text-anchor="middle" letter-spacing="0.34em" style="text-transform:uppercase">VELO VISUALISER</text>
+    <text x="250" y="352.5" font-family="'Clash Display', 'Helvetica Neue', sans-serif" font-size="17" font-weight="300" fill="#6E6E68" text-anchor="middle" letter-spacing="0.04em">Sound becomes light.</text>
     <rect x="22" y="22" width="980" height="456"
           fill="none" stroke="#1A1A22" stroke-opacity="0.18" stroke-width="1"/>
   </g>

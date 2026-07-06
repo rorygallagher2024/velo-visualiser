@@ -104,8 +104,8 @@ class DisplayModeController(
         exitHint = activity.findViewById(R.id.display_exit_hint)
         cutoutClock = activity.findViewById(R.id.display_clock_window)
         cutoutClock.setTypefaces(
-            ResourcesCompat.getFont(activity, R.font.inter_medium),
-            ResourcesCompat.getFont(activity, R.font.space_mono),
+            ResourcesCompat.getFont(activity, R.font.satoshi_medium),
+            ResourcesCompat.getFont(activity, R.font.satoshi),
         )
         shiftRadiusPx = SHIFT_RADIUS_DP * activity.resources.displayMetrics.density
         wireOverlayGestures()

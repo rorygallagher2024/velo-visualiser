@@ -74,7 +74,7 @@ class SceneWheelView @JvmOverloads constructor(
 
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
-        typeface = ResourcesCompat.getFont(context, R.font.inter) ?: Typeface.DEFAULT
+        typeface = ResourcesCompat.getFont(context, R.font.clash_display) ?: Typeface.DEFAULT
         letterSpacing = 0.06f
     }
     private val tickPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {

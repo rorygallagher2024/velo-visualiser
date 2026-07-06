@@ -9,5 +9,5 @@
   </defs>
   <path d="M 178.0 40.0 L 256.0 189.8 L 334.0 40.0" fill="none" stroke="url(#vGrad)" stroke-width="32.4" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)" opacity="0.9"/>
     <path d="M 178.0 40.0 L 256.0 189.8 L 334.0 40.0" fill="none" stroke="url(#vGrad)" stroke-width="32.4" stroke-linecap="round" stroke-linejoin="round" />
-  <text x="256.0" y="253.8" font-family="'Inter', 'Helvetica Neue', sans-serif" font-size="30.0" font-weight="200" fill="#F4F4F2" text-anchor="middle" letter-spacing="0.34em" style="text-transform:uppercase">VELO VISUALISER</text>
+  <text x="256.0" y="253.8" font-family="'Clash Display', 'Helvetica Neue', sans-serif" font-size="30.0" font-weight="200" fill="#F4F4F2" text-anchor="middle" letter-spacing="0.34em" style="text-transform:uppercase">VELO VISUALISER</text>
 </svg>
