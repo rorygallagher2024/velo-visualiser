@@ -1545,6 +1545,55 @@
                 android:columnCount="2"
                 android:layout_marginBottom="16dp" />
 
+            <!-- ── SECTION: LIGHT CONTROL ── -->
+            <LinearLayout
+                android:id="@+id/lifx_light_control"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <View style="@style/DividerSubtle" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/hue_light_control_label"
+                    android:textColor="@color/text_dim"
+                    android:textSize="12sp"
+                    android:textStyle="normal"
+                    android:textAllCaps="true"
+                    android:letterSpacing="0.08"
+                    android:layout_marginBottom="12dp" />
+
+                <LinearLayout
+                    android:id="@+id/lifx_scene_grid"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/hue_brightness_label"
+                    android:textColor="@color/text_primary"
+                    android:textSize="12sp"
+                    android:layout_marginTop="10dp"
+                    android:layout_marginBottom="8dp" />
+
+                <SeekBar
+                    android:id="@+id/lifx_brightness"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:max="100"
+                    android:progress="100"
+                    android:progressDrawable="@drawable/seekbar_spectrum"
+                    android:thumbTint="@color/accent"
+                    android:layout_marginBottom="4dp" />
+
+            </LinearLayout>
+
             <View style="@style/DividerSubtle" />
 
             <TextView
@@ -1635,6 +1684,55 @@
                 android:textSize="14sp"
                 android:stateListAnimator="@null" />
 
+
+            <!-- ── SECTION: LIGHT CONTROL ── -->
+            <LinearLayout
+                android:id="@+id/nanoleaf_light_control"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <View style="@style/DividerSubtle" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/hue_light_control_label"
+                    android:textColor="@color/text_dim"
+                    android:textSize="12sp"
+                    android:textStyle="normal"
+                    android:textAllCaps="true"
+                    android:letterSpacing="0.08"
+                    android:layout_marginBottom="12dp" />
+
+                <LinearLayout
+                    android:id="@+id/nanoleaf_scene_grid"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/hue_brightness_label"
+                    android:textColor="@color/text_primary"
+                    android:textSize="12sp"
+                    android:layout_marginTop="10dp"
+                    android:layout_marginBottom="8dp" />
+
+                <SeekBar
+                    android:id="@+id/nanoleaf_brightness"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:max="100"
+                    android:progress="100"
+                    android:progressDrawable="@drawable/seekbar_spectrum"
+                    android:thumbTint="@color/accent"
+                    android:layout_marginBottom="4dp" />
+
+            </LinearLayout>
 
             <View style="@style/DividerSubtle" />
 

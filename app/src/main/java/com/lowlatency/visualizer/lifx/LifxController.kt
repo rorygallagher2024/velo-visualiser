@@ -176,6 +176,63 @@ class LifxController {
         }
     }
 
+    fun setStaticPower(isOn: Boolean) {
+        commandExecutor.execute {
+            try {
+                val socketPower = DatagramSocket()
+                for (bulb in synchronized(bulbs) { bulbs.filter { it.isSelected } }) {
+                    sendSetPower(socketPower, bulb.ip, bulb.mac, isOn)
+                }
+                socketPower.close()
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun setStaticColor(hue: Float? = null, sat: Float? = null, brightness: Float? = null, kelvin: Int = 3500) {
+        commandExecutor.execute {
+            try {
+                val socket = DatagramSocket()
+                val buf = ByteBuffer.allocate(49).order(ByteOrder.LITTLE_ENDIAN)
+                val activeBulbs = synchronized(bulbs) { bulbs.filter { it.isSelected } }
+                
+                for (bulb in activeBulbs) {
+                    buf.clear()
+                    buf.putShort(49.toShort()) // Size
+                    buf.putShort(0x1400.toShort()) // Addressable, Protocol=1024
+                    buf.putInt(12345) // Source
+                    buf.put(bulb.mac) // Target
+                    buf.put(ByteArray(6)) // Reserved
+                    buf.put(0) // Ack/Res
+                    buf.put(0) // Sequence
+                    buf.putLong(0L) // Reserved Protocol
+                    buf.putShort(102.toShort()) // Type: SetColor
+                    buf.putShort(0.toShort()) // Reserved
+                    
+                    // Payload
+                    buf.put(0) // Reserved
+                    
+                    // Use existing cached color if param is null (or defaults if missing)
+                    val h = hue ?: senderCurrentHue
+                    val s = sat ?: senderCurrentSat
+                    val b = brightness ?: 1.0f
+                    
+                    val h16 = ((h / 360f) * 65535f).toInt().toShort()
+                    val s16 = (s * 65535f).toInt().toShort()
+                    val b16 = (b * 65535f).toInt().toShort()
+                    
+                    buf.putShort(h16)
+                    buf.putShort(s16)
+                    buf.putShort(b16)
+                    buf.putShort(kelvin.toShort()) // Kelvin
+                    buf.putInt(400) // Duration in ms
+                    
+                    socket.send(DatagramPacket(buf.array(), 49, InetAddress.getByName(bulb.ip), 56700))
+                }
+                socket.close()
+            } catch (_: Exception) {}
+        }
+    }
+
     fun enableStreaming() {
         if (streaming) return
         streaming = true
