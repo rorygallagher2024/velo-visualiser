@@ -1,0 +1,30 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="26dp"
+    android:height="25dp"
+    android:viewportWidth="52"
+    android:viewportHeight="50">
+    <!-- Tightly cropped version of the Velo brand mark for use as an inline logo -->
+    <group android:translateX="-28" android:translateY="-31">
+        <path
+            android:pathData="M33,36 L54,76 L75,36"
+            android:strokeWidth="9.5"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:fillColor="#00000000">
+            <aapt:attr name="android:strokeColor">
+                <gradient
+                    android:type="linear"
+                    android:startX="33" android:startY="36"
+                    android:endX="75" android:endY="76">
+                    <item android:offset="0.0" android:color="#FFFF4D9D" />
+                    <item android:offset="0.2" android:color="#FFB14DFF" />
+                    <item android:offset="0.4" android:color="#FF4D7DFF" />
+                    <item android:offset="0.6" android:color="#FF2BD9D9" />
+                    <item android:offset="0.8" android:color="#FF4DFF88" />
+                    <item android:offset="1.0" android:color="#FFFFE24D" />
+                </gradient>
+            </aapt:attr>
+        </path>
+    </group>
+</vector>

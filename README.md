@@ -167,7 +167,8 @@ Velo Visualiser stands on excellent open source work:
 - [KissFFT](https://github.com/mborgerding/kissfft). FFT
 - [OkHttp](https://square.github.io/okhttp/). Hue REST
 - [Bouncy Castle](https://www.bouncycastle.org/). DTLS-PSK
-- [Space Mono](https://fonts.google.com/specimen/Space+Mono). UI typeface
+- [Satoshi](https://www.fontshare.com/fonts/satoshi). Core UI typeface
+- [Clash Display](https://www.fontshare.com/fonts/clash-display). Spectacle typeface
 
 ## License
 

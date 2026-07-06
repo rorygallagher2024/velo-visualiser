@@ -40,7 +40,7 @@ class SectionTabsView @JvmOverloads constructor(
 
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
-        typeface = ResourcesCompat.getFont(context, R.font.inter) ?: Typeface.DEFAULT
+        typeface = ResourcesCompat.getFont(context, R.font.satoshi) ?: Typeface.DEFAULT
         letterSpacing = 0.09f
     }
     private val pillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
