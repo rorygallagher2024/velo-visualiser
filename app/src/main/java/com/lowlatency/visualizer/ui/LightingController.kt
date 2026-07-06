@@ -99,6 +99,12 @@ class LightingController(
     private lateinit var lightControlSection: LinearLayout
     private lateinit var sceneGrid: LinearLayout
     private lateinit var brightnessSlider: SeekBar
+    private lateinit var lifxLightControlSection: LinearLayout
+    private lateinit var lifxSceneGrid: LinearLayout
+    private lateinit var lifxBrightnessSlider: SeekBar
+    private lateinit var nanoleafLightControlSection: LinearLayout
+    private lateinit var nanoleafSceneGrid: LinearLayout
+    private lateinit var nanoleafBrightnessSlider: SeekBar
 
     // Shared cross-brand reactivity presets (the "Reactivity" section, shown when a
     // light is syncing). One choice drives every integration via LightingSettings.
@@ -168,6 +174,7 @@ class LightingController(
                     }
                 }
                 tvLifxHint.visibility = if (tvLifxState.text == "Ready" || tvLifxState.text == "Streaming Active") View.GONE else View.VISIBLE
+                lifxLightControlSection.visibility = if (tvLifxState.text == "Ready") View.VISIBLE else View.GONE
             }
             if (lifxPingPollerRunning) huePingHandler.postDelayed(this, 3000L)
         }
@@ -438,6 +445,7 @@ class LightingController(
                             imgLifxState.imageTintList = android.content.res.ColorStateList.valueOf(activity.getColor(R.color.hue_connected))
                         }
                         tvLifxHint.visibility = if (tvLifxState.text == "Ready") View.GONE else View.VISIBLE
+                        lifxLightControlSection.visibility = if (tvLifxState.text == "Ready") View.VISIBLE else View.GONE
                     }
                 }
             )
@@ -455,6 +463,7 @@ class LightingController(
                 btnLifxSync.isSelected = false
                 tvLifxState.text = "Ready"
                 tvLifxHint.visibility = View.GONE
+                lifxLightControlSection.visibility = View.VISIBLE
                 updateAdvancedVisibility()
             } else {
                 if (!lifxController.hasSelectedBulbs()) {
@@ -470,6 +479,7 @@ class LightingController(
                 tvLifxState.setTextColor(activity.getColor(R.color.hue_connected))
                 imgLifxState.imageTintList = android.content.res.ColorStateList.valueOf(activity.getColor(R.color.hue_connected))
                 tvLifxHint.visibility = View.GONE
+                lifxLightControlSection.visibility = View.GONE
                 updateAdvancedVisibility()
             }
         }
@@ -579,6 +589,7 @@ class LightingController(
                 }
 
                 tvNanoleafHint.visibility = if (state == NanoleafController.State.PAIRED || state == NanoleafController.State.STREAMING) View.GONE else View.VISIBLE
+                nanoleafLightControlSection.visibility = if (state == NanoleafController.State.PAIRED) View.VISIBLE else View.GONE
                 updateAdvancedVisibility()
             }
         }
@@ -919,69 +930,83 @@ class LightingController(
     private data class LightScene(
         val label: String, val dotColor: Int, val on: Boolean,
         val mirek: Int? = null, val x: Double? = null, val y: Double? = null,
+        val hue: Float? = null, val sat: Float? = null
     )
 
     private val lightScenes = listOf(
         LightScene("Off",        0xFF666666.toInt(), on = false),
-        LightScene("Cool White", 0xFFD4E4FF.toInt(), on = true, mirek = 250),
-        LightScene("Warm White", 0xFFFFDEA0.toInt(), on = true, mirek = 370),
-        LightScene("Candlelight",0xFFFFB050.toInt(), on = true, mirek = 454),
-        LightScene("Red",        0xFFFF3030.toInt(), on = true, x = 0.675, y = 0.322),
-        LightScene("Blue",       0xFF3060FF.toInt(), on = true, x = 0.167, y = 0.04),
-        LightScene("Green",      0xFF30DD60.toInt(), on = true, x = 0.2, y = 0.68),
-        LightScene("Purple",     0xFF9030FF.toInt(), on = true, x = 0.27, y = 0.12),
+        LightScene("Cool White", 0xFFD4E4FF.toInt(), on = true, mirek = 250, hue = 210f, sat = 0.2f),
+        LightScene("Warm White", 0xFFFFDEA0.toInt(), on = true, mirek = 370, hue = 40f, sat = 0.5f),
+        LightScene("Candlelight",0xFFFFB050.toInt(), on = true, mirek = 454, hue = 30f, sat = 0.8f),
+        LightScene("Red",        0xFFFF3030.toInt(), on = true, x = 0.675, y = 0.322, hue = 0f, sat = 1.0f),
+        LightScene("Blue",       0xFF3060FF.toInt(), on = true, x = 0.167, y = 0.04, hue = 240f, sat = 1.0f),
+        LightScene("Green",      0xFF30DD60.toInt(), on = true, x = 0.2, y = 0.68, hue = 120f, sat = 1.0f),
+        LightScene("Purple",     0xFF9030FF.toInt(), on = true, x = 0.27, y = 0.12, hue = 270f, sat = 1.0f),
     )
 
     private fun buildLightControlUI() {
         lightControlSection = activity.findViewById(R.id.hue_light_control)
         sceneGrid = activity.findViewById(R.id.hue_scene_grid)
         brightnessSlider = activity.findViewById(R.id.hue_brightness)
+        
+        lifxLightControlSection = activity.findViewById(R.id.lifx_light_control)
+        lifxSceneGrid = activity.findViewById(R.id.lifx_scene_grid)
+        lifxBrightnessSlider = activity.findViewById(R.id.lifx_brightness)
 
-        val dp = activity.resources.displayMetrics.density
-        val h = (dp * 48).toInt()
-        val gap = (dp * 6).toInt()
+        nanoleafLightControlSection = activity.findViewById(R.id.nanoleaf_light_control)
+        nanoleafSceneGrid = activity.findViewById(R.id.nanoleaf_scene_grid)
+        nanoleafBrightnessSlider = activity.findViewById(R.id.nanoleaf_brightness)
 
-        for (i in lightScenes.indices step 2) {
-            val row = LinearLayout(activity).apply {
-                orientation = LinearLayout.HORIZONTAL
-                layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                ).apply { bottomMargin = gap }
-            }
-            for (j in i until minOf(i + 2, lightScenes.size)) {
-                val scene = lightScenes[j]
-                val dot = GradientDrawable().apply {
-                    shape = GradientDrawable.OVAL
-                    setSize((dp * 10).toInt(), (dp * 10).toInt())
-                    // Derive a bright secondary color for the gradient to give a premium 3D/specular look
-                    val hsv = FloatArray(3)
-                    Color.colorToHSV(scene.dotColor, hsv)
-                    hsv[1] = (hsv[1] * 0.6f).coerceAtLeast(0f)  // desaturate
-                    hsv[2] = (hsv[2] * 1.2f).coerceAtMost(1f)   // brighten
-                    val brightColor = Color.HSVToColor(hsv)
-                    orientation = GradientDrawable.Orientation.TL_BR
-                    colors = intArrayOf(brightColor, scene.dotColor)
+        fun populateGrid(grid: LinearLayout, onSceneSelected: (LightScene) -> Unit) {
+            val dp = activity.resources.displayMetrics.density
+            val h = (dp * 48).toInt()
+            val gap = (dp * 6).toInt()
+            
+            for (i in lightScenes.indices step 2) {
+                val row = LinearLayout(activity).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    ).apply { bottomMargin = gap }
                 }
-                val btn = Button(activity).apply {
-                    text = scene.label
-                    isAllCaps = false
-                    textSize = 12f
-                    setTextColor(ContextCompat.getColorStateList(activity, R.color.btn_text))
-                    setBackgroundResource(R.drawable.pill_button_bg)
-                    stateListAnimator = null
-                    setCompoundDrawablesRelativeWithIntrinsicBounds(dot, null, null, null)
-                    compoundDrawablePadding = (dp * 8).toInt()
-                    setPaddingRelative((dp * 16).toInt(), 0, (dp * 12).toInt(), 0)
-                    layoutParams = LinearLayout.LayoutParams(0, h, 1f).apply {
-                        if (j == i) marginEnd = gap / 2 else marginStart = gap / 2
+                for (j in i until minOf(i + 2, lightScenes.size)) {
+                    val scene = lightScenes[j]
+                    val dot = GradientDrawable().apply {
+                        shape = GradientDrawable.OVAL
+                        setSize((dp * 10).toInt(), (dp * 10).toInt())
+                        val hsv = FloatArray(3)
+                        Color.colorToHSV(scene.dotColor, hsv)
+                        hsv[1] = (hsv[1] * 0.6f).coerceAtLeast(0f)
+                        hsv[2] = (hsv[2] * 1.2f).coerceAtMost(1f)
+                        val brightColor = Color.HSVToColor(hsv)
+                        orientation = GradientDrawable.Orientation.TL_BR
+                        colors = intArrayOf(brightColor, scene.dotColor)
                     }
-                    setOnClickListener { applyLightScene(scene) }
+                    val btn = Button(activity).apply {
+                        text = scene.label
+                        isAllCaps = false
+                        textSize = 12f
+                        setTextColor(ContextCompat.getColorStateList(activity, R.color.btn_text))
+                        setBackgroundResource(R.drawable.pill_button_bg)
+                        stateListAnimator = null
+                        setCompoundDrawablesRelativeWithIntrinsicBounds(dot, null, null, null)
+                        compoundDrawablePadding = (dp * 8).toInt()
+                        setPaddingRelative((dp * 16).toInt(), 0, (dp * 12).toInt(), 0)
+                        layoutParams = LinearLayout.LayoutParams(0, h, 1f).apply {
+                            if (j == i) marginEnd = gap / 2 else marginStart = gap / 2
+                        }
+                        setOnClickListener { onSceneSelected(scene) }
+                    }
+                    row.addView(btn)
                 }
-                row.addView(btn)
+                grid.addView(row)
             }
-            sceneGrid.addView(row)
         }
+        
+        populateGrid(sceneGrid) { applyHueScene(it) }
+        populateGrid(lifxSceneGrid) { applyLifxScene(it) }
+        populateGrid(nanoleafSceneGrid) { applyNanoleafScene(it) }
 
         brightnessSlider.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(s: SeekBar, progress: Int, fromUser: Boolean) {}
@@ -993,9 +1018,31 @@ class LightingController(
                 hueController.setup.controlLights(creds, area.lightIds, on = true, brightness = bri)
             }
         })
+
+        lifxBrightnessSlider.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(s: SeekBar, progress: Int, fromUser: Boolean) {}
+            override fun onStartTrackingTouch(s: SeekBar) {}
+            override fun onStopTrackingTouch(s: SeekBar) {
+                if (!lifxController.hasSelectedBulbs()) {
+                    android.widget.Toast.makeText(activity, "Tap a LIFX bulb in the list above to select it for control.", android.widget.Toast.LENGTH_SHORT).show()
+                    return
+                }
+                val bri = s.progress / 100f
+                lifxController.setStaticColor(brightness = bri)
+            }
+        })
+
+        nanoleafBrightnessSlider.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(s: SeekBar, progress: Int, fromUser: Boolean) {}
+            override fun onStartTrackingTouch(s: SeekBar) {}
+            override fun onStopTrackingTouch(s: SeekBar) {
+                val bri = s.progress / 100f
+                nanoleafController.setStaticState(on = true, bri = bri)
+            }
+        })
     }
 
-    private fun applyLightScene(scene: LightScene) {
+    private fun applyHueScene(scene: LightScene) {
         val area = selectedArea ?: return
         val creds = hueStore.loadCredentials() ?: return
         if (!scene.on) {
@@ -1007,6 +1054,30 @@ class LightingController(
                 brightness = brightnessSlider.progress.coerceIn(1, 100),
                 mirek = scene.mirek, x = scene.x, y = scene.y,
             )
+        }
+    }
+
+    private fun applyLifxScene(scene: LightScene) {
+        if (!lifxController.hasSelectedBulbs()) {
+            android.widget.Toast.makeText(activity, "Tap a LIFX bulb in the list above to select it for control.", android.widget.Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (!scene.on) {
+            lifxController.setStaticPower(false)
+        } else {
+            lifxController.setStaticPower(true)
+            val kelvin = if (scene.mirek != null) 1_000_000 / scene.mirek else 3500
+            val bri = lifxBrightnessSlider.progress / 100f
+            lifxController.setStaticColor(scene.hue, scene.sat, bri, kelvin)
+        }
+    }
+
+    private fun applyNanoleafScene(scene: LightScene) {
+        if (!scene.on) {
+            nanoleafController.setStaticState(on = false)
+        } else {
+            val bri = nanoleafBrightnessSlider.progress / 100f
+            nanoleafController.setStaticState(on = true, bri = bri, hue = scene.hue, sat = scene.sat)
         }
     }
 
@@ -1029,7 +1100,7 @@ class LightingController(
 
         // Areas section is hidden entirely during sync; otherwise visible (ghosted if unreachable)
         hueAreaSection.visibility = if (isStreaming) View.GONE else View.VISIBLE
-        lightControlSection.visibility = View.VISIBLE
+        lightControlSection.visibility = if (isStreaming) View.GONE else View.VISIBLE
         hueSyncSection.visibility = View.VISIBLE
 
         hueAreaSection.alpha = if (reachable) 1.0f else 0.3f

@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+            android:id="@+id/container_lifx"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/hue_section_bridge"
+                android:textColor="@color/text_dim"
+                android:textSize="12sp"
+                android:textStyle="normal"
+                android:textAllCaps="true"
+                android:letterSpacing="0.08"
+                android:layout_marginBottom="12dp" />
+
+            <include
+                android:id="@+id/status_lifx"
+                layout="@layout/layout_connection_status" />
+
+            <TextView
+                android:id="@+id/tv_lifx_hint"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="LIFX creates Wi-Fi smart bulbs. Unlike Philips Hue, they connect directly to your router without requiring a bridge.\n\nMake sure your phone is connected to the same Wi-Fi network as your bulbs to sync them with the visualizer."
+                android:textColor="@color/text_primary"
+                android:textSize="13sp"
+                android:lineSpacingMultiplier="1.2"
+                android:padding="16dp"
+                android:background="@drawable/segment_button_bg"
+                android:layout_marginBottom="16dp"
+                android:gravity="start" />
+
+            <Button
+                android:id="@+id/btn_lifx_scan"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginBottom="16dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="Scan for LIFX Bulbs"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="14sp"
+                android:stateListAnimator="@null" />
+
+            <ProgressBar
+                android:id="@+id/lifx_scan_spinner"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_gravity="center"
+                android:layout_marginBottom="16dp"
+                android:indeterminateTint="@color/accent"
+                android:visibility="gone" />
+
+            <GridLayout
+                android:id="@+id/lifx_bulb_container"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:columnCount="2"
+                android:layout_marginBottom="16dp" />
+
+            <!-- ── SECTION: LIGHT CONTROL ── -->
+            <LinearLayout
+                android:id="@+id/lifx_light_control"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <View style="@style/DividerSubtle" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/hue_light_control_label"
+                    android:textColor="@color/text_dim"
+                    android:textSize="12sp"
+                    android:textStyle="normal"
+                    android:textAllCaps="true"
+                    android:letterSpacing="0.08"
+                    android:layout_marginBottom="12dp" />
+
+                <LinearLayout
+                    android:id="@+id/lifx_scene_grid"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/hue_brightness_label"
+                    android:textColor="@color/text_primary"
+                    android:textSize="12sp"
+                    android:layout_marginTop="10dp"
+                    android:layout_marginBottom="8dp" />
+
+                <SeekBar
+                    android:id="@+id/lifx_brightness"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:max="100"
+                    android:progress="100"
+                    android:progressDrawable="@drawable/seekbar_spectrum"
+                    android:thumbTint="@color/accent"
+                    android:layout_marginBottom="4dp" />
+
+            </LinearLayout>
+
+            <View style="@style/DividerSubtle" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Audio Sync"
+                android:textColor="@color/text_dim"
+                android:textSize="12sp"
+                android:textStyle="normal"
+                android:textAllCaps="true"
+                android:letterSpacing="0.08"
+                android:layout_marginBottom="12dp" />
+
+            <Button
+                android:id="@+id/btn_lifx_sync"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/hue_sync_off"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="14sp"
+                android:enabled="false"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_lifx_advanced"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginBottom="20dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/adv_button"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="14sp"
+                android:visibility="gone"
+                android:stateListAnimator="@null" />
+
+        </LinearLayout>

@@ -14,6 +14,7 @@ import com.lowlatency.visualizer.NativeBridge
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
+import java.io.OutputStreamWriter
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.HttpURLConnection
@@ -255,6 +256,34 @@ class NanoleafController(context: Context) {
             }
         } else {
             currentState = State.DISCONNECTED
+        }
+    }
+
+    fun setStaticState(on: Boolean, bri: Float? = null, hue: Float? = null, sat: Float? = null) {
+        val creds = store.loadCredentials() ?: return
+        thread {
+            try {
+                val url = URL("http://${creds.ip}:${creds.port}/api/v1/${creds.authToken}/state")
+                val conn = url.openConnection() as HttpURLConnection
+                conn.requestMethod = "PUT"
+                conn.setRequestProperty("Content-Type", "application/json")
+                conn.doOutput = true
+                
+                val body = JSONObject()
+                body.put("on", JSONObject().put("value", on))
+                
+                bri?.let { body.put("brightness", JSONObject().put("value", (it * 100).toInt().coerceIn(1, 100))) }
+                hue?.let { body.put("hue", JSONObject().put("value", it.toInt().coerceIn(0, 360))) }
+                sat?.let { body.put("sat", JSONObject().put("value", (it * 100).toInt().coerceIn(0, 100))) }
+                
+                val writer = OutputStreamWriter(conn.outputStream)
+                writer.write(body.toString())
+                writer.flush()
+                writer.close()
+                
+                conn.responseCode
+                conn.disconnect()
+            } catch (_: Exception) {}
         }
     }
 
