@@ -661,6 +661,24 @@ class MainActivity : AppCompatActivity() {
         configureDialogWindow(dialog)
         
         view.findViewById<Button>(R.id.btn_about_ok).setOnClickListener { dialog.dismiss() }
+        
+        view.findViewById<Button>(R.id.btn_about_report_bug).setOnClickListener {
+            val subject = android.net.Uri.encode("Feedback: Velo Visualiser ${appVersionName()}")
+            val bodyText = "\n\n\n--- Debug Info ---\n" +
+                           "App Version: ${appVersionName()}\n" +
+                           "OS Version: Android ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})\n" +
+                           "Device: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}\n"
+            val body = android.net.Uri.encode(bodyText)
+            
+            val intent = android.content.Intent(android.content.Intent.ACTION_SENDTO).apply {
+                data = android.net.Uri.parse("mailto:velovisualiser.support@gmail.com?subject=$subject&body=$body")
+            }
+            try {
+                startActivity(intent)
+            } catch (e: android.content.ActivityNotFoundException) {
+                android.widget.Toast.makeText(this, "No email app found.", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     /**
