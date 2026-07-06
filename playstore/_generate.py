@@ -13,8 +13,8 @@ import math, os
 OUT = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(OUT)
 
-# Slender grotesque — Inter (matches the in-app UI font). weight 200 = ExtraLight.
-THIN = "'Inter', 'Helvetica Neue', sans-serif"
+# Spectacle display font — Clash Display. weight 200 = ExtraLight.
+THIN = "'Clash Display', 'Helvetica Neue', sans-serif"
 
 # Deep grounds so the colour glows; caption stays legible.
 DARK = dict(bg="#0A0A0F", ink="#F4F4F2", sub="#9A9AA8")
