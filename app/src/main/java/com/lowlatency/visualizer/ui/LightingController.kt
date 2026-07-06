@@ -362,6 +362,13 @@ class LightingController(
 
         switchBrand(LightingBrand.HUE)
 
+        val lifxAutoOffRunnable = Runnable {
+            if (lifxSyncing && !lifxController.hasSelectedBulbs()) {
+                btnLifxSync.performClick()
+                android.widget.Toast.makeText(activity, "LIFX Sync stopped (no bulbs selected)", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
+
         btnLifxScan.setOnClickListener {
             if (!isWifiConnected()) {
                 android.widget.Toast.makeText(activity, "Connect to Wi-Fi first", android.widget.Toast.LENGTH_SHORT).show()
@@ -391,6 +398,11 @@ class LightingController(
                             val isChecked = !v.isSelected
                             lifxController.setBulbSelected(bulb.ip, isChecked)
                             v.isSelected = isChecked
+
+                            v.removeCallbacks(lifxAutoOffRunnable)
+                            if (!lifxController.hasSelectedBulbs() && lifxSyncing) {
+                                v.postDelayed(lifxAutoOffRunnable, 5000)
+                            }
 
                             // Micro-animation "spring" bounce
                             v.animate()
@@ -1012,10 +1024,11 @@ class LightingController(
     private fun updateHueSections() {
         if (!::lightControlSection.isInitialized) return
         val reachable = currentHueState == HueConn.REACHABLE || currentHueState == HueConn.STREAMING
+        val isStreaming = currentHueState == HueConn.STREAMING
         val hasSelected = reachable && selectedArea != null
 
-        // All sections are always visible to act as "ghosted teasers"
-        hueAreaSection.visibility = View.VISIBLE
+        // Areas section is hidden entirely during sync; otherwise visible (ghosted if unreachable)
+        hueAreaSection.visibility = if (isStreaming) View.GONE else View.VISIBLE
         lightControlSection.visibility = View.VISIBLE
         hueSyncSection.visibility = View.VISIBLE
 
