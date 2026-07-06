@@ -278,6 +278,7 @@ class LightingController(
         wledPanel.onPause()
         nanoleafController.stopReachabilityPoller()
         stopLifxPingPoller()
+        if (::lifxScanSpinner.isInitialized) lifxScanSpinner.visibility = View.GONE
     }
 
     fun onDestroy() {
@@ -1114,6 +1115,7 @@ class LightingController(
 
     private fun switchBrand(brand: LightingBrand) {
         activeBrand = brand
+        if (::lifxScanSpinner.isInitialized) lifxScanSpinner.visibility = View.GONE
 
         val btnBrandNanoleaf = activity.findViewById<Button>(R.id.btn_brand_nanoleaf)
         val containerNanoleaf = activity.findViewById<View>(R.id.container_nanoleaf)

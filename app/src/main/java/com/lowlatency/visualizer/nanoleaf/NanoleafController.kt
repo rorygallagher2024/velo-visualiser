@@ -121,13 +121,14 @@ class NanoleafController(context: Context) {
         discoveryListener?.let { 
             try { nsdManager.stopServiceDiscovery(it) } catch (_: Exception) {} 
         }
-        nsdManager.discoverServices(
-            "_nanoleafapi._tcp",
-            NsdManager.PROTOCOL_DNS_SD,
-            object : NsdManager.DiscoveryListener {
-                override fun onDiscoveryStarted(regType: String) {}
-                override fun onServiceFound(service: NsdServiceInfo) {
-                    nsdManager.resolveService(service, object : NsdManager.ResolveListener {
+        try {
+            nsdManager.discoverServices(
+                "_nanoleafapi._tcp",
+                NsdManager.PROTOCOL_DNS_SD,
+                object : NsdManager.DiscoveryListener {
+                    override fun onDiscoveryStarted(regType: String) {}
+                    override fun onServiceFound(service: NsdServiceInfo) {
+                        nsdManager.resolveService(service, object : NsdManager.ResolveListener {
                         override fun onResolveFailed(srv: NsdServiceInfo, errorCode: Int) {}
                         override fun onServiceResolved(srv: NsdServiceInfo) {
                             val host = srv.host.hostAddress ?: return
@@ -175,6 +176,9 @@ class NanoleafController(context: Context) {
                 override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) { isSearching = false }
             }.also { discoveryListener = it }
         )
+        } catch (e: Exception) {
+            isSearching = false
+        }
     }
 
     private var autoPairing = false
