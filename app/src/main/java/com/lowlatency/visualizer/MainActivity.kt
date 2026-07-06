@@ -58,6 +58,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnThemeMono: Button
     private lateinit var btnPrivacyPolicy: Button
     private lateinit var btnAbout: Button
+    private lateinit var btnFeedback: Button
     private lateinit var btnPeakLuminance: Button
     private lateinit var groupPeakLuminance: View
     private lateinit var perfOverlayController: PerfOverlayController
@@ -139,6 +140,7 @@ class MainActivity : AppCompatActivity() {
         btnThemeMono = findViewById(R.id.btn_theme_mono)
         btnPrivacyPolicy = findViewById(R.id.btn_privacy_policy)
         btnAbout = findViewById(R.id.btn_about)
+        btnFeedback = findViewById(R.id.btn_feedback)
         btnPeakLuminance = findViewById(R.id.btn_peak_luminance)
         groupPeakLuminance = findViewById(R.id.group_peak_luminance)
         sectionTabs = findViewById(R.id.section_tabs)
@@ -447,6 +449,24 @@ class MainActivity : AppCompatActivity() {
 
         btnAbout.setOnClickListener {
             showAboutDialog()
+        }
+        
+        btnFeedback.setOnClickListener {
+            val subject = android.net.Uri.encode("Feedback: Velo Visualiser ${appVersionName()}")
+            val bodyText = "\n\n\n--- Debug Info ---\n" +
+                           "App Version: ${appVersionName()}\n" +
+                           "OS Version: Android ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})\n" +
+                           "Device: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}\n"
+            val body = android.net.Uri.encode(bodyText)
+            
+            val intent = android.content.Intent(android.content.Intent.ACTION_SENDTO).apply {
+                data = android.net.Uri.parse("mailto:velovisualiser.support@gmail.com?subject=$subject&body=$body")
+            }
+            try {
+                startActivity(intent)
+            } catch (e: android.content.ActivityNotFoundException) {
+                android.widget.Toast.makeText(this, "No email app found.", android.widget.Toast.LENGTH_SHORT).show()
+            }
         }
 
         // Vibrate-on-beat haptics (persisted, default off). Disabled if the

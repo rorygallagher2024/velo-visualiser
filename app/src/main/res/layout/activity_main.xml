@@ -1099,10 +1099,22 @@
             android:id="@+id/btn_about"
             android:layout_width="match_parent"
             android:layout_height="48dp"
-            android:layout_marginBottom="20dp"
+            android:layout_marginBottom="8dp"
             android:background="@drawable/pill_button_bg"
             android:text="@string/btn_about"
             android:textColor="@color/btn_text"
+            android:textAllCaps="false"
+            android:textSize="14sp"
+            android:stateListAnimator="@null" />
+
+        <Button
+            android:id="@+id/btn_feedback"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginBottom="20dp"
+            android:background="@drawable/segment_button_bg"
+            android:text="Send Feedback"
+            android:textColor="@color/text_primary"
             android:textAllCaps="false"
             android:textSize="14sp"
             android:stateListAnimator="@null" />
