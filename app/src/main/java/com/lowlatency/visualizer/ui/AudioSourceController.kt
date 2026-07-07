@@ -188,7 +188,7 @@ class AudioSourceController(
         if (hasMicPermission()) {
             startMicrophone()
         } else {
-            requestPermissions.launch(buildPermissionList())
+            launchMicPermissionWithRationale()
         }
     }
 
@@ -212,7 +212,25 @@ class AudioSourceController(
         ContextCompat.checkSelfPermission(activity, Manifest.permission.RECORD_AUDIO) ==
             PackageManager.PERMISSION_GRANTED
 
-    fun requestPermissionsNow() = requestPermissions.launch(buildPermissionList())
+    fun requestPermissionsNow() = launchMicPermissionWithRationale()
+
+    private fun launchMicPermissionWithRationale() {
+        if (prefs.getBoolean(KEY_MIC_RATIONALE, false)) {
+            requestPermissions.launch(buildPermissionList())
+            return
+        }
+        AlertDialog.Builder(activity)
+            .setTitle(R.string.mic_rationale_title)
+            .setMessage(R.string.mic_rationale_message)
+            .setPositiveButton(R.string.mic_rationale_continue) { _, _ ->
+                prefs.edit { putBoolean(KEY_MIC_RATIONALE, true) }
+                requestPermissions.launch(buildPermissionList())
+            }
+            .setNegativeButton(android.R.string.cancel) { _, _ ->
+                refreshSelection()
+            }
+            .show()
+    }
 
     /** Hold the runtime-permission dialog back until [fireDeferredPermissionRequest]. */
     fun deferPermissionRequest() { deferredPermissionRequest = true }
@@ -221,7 +239,7 @@ class AudioSourceController(
     fun fireDeferredPermissionRequest() {
         if (!deferredPermissionRequest) return
         deferredPermissionRequest = false
-        requestPermissions.launch(buildPermissionList())
+        launchMicPermissionWithRationale()
     }
 
     fun onResume() {
@@ -239,5 +257,6 @@ class AudioSourceController(
     companion object {
         private const val TAG = "AudioSourceController"
         private const val KEY_SCREENSHARE_RATIONALE = "screenshare_rationale_shown"
+        private const val KEY_MIC_RATIONALE = "mic_rationale_shown"
     }
 }

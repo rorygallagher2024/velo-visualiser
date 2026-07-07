@@ -248,6 +248,10 @@
     <string name="screenshare_continue">Continue</string>
     <string name="internal_audio_latency_warning">Internal audio has higher latency due to system buffering. For the best low-latency experience, use the Microphone.</string>
 
+    <!-- Microphone rationale (shown once) -->
+    <string name="mic_rationale_title">Microphone Access</string>
+    <string name="mic_rationale_message">Velo Visualiser needs microphone access to react to music in the room.\n\nAudio is processed locally in real-time to generate visuals and is never recorded, saved, or transmitted.</string>
+    <string name="mic_rationale_continue">Continue</string>
 
     <!-- First-boot overlay -->
     <string name="hint_swipe_sides">◀  Swipe left / right to change visuals  ▶</string>

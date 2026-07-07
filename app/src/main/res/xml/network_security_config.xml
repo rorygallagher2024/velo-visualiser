@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- 
+      Cleartext traffic is enabled globally here instead of in the manifest 
+      to explicitly document its necessity for local network IoT communication.
+      Philips Hue Bridges, WLED controllers, and LIFX bulbs operate on local IP 
+      addresses without TLS certificates, requiring local cleartext HTTP/UDP.
+    -->
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>
