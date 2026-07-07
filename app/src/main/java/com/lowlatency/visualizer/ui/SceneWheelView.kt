@@ -56,8 +56,6 @@ class SceneWheelView @JvmOverloads constructor(
     var onPick: (() -> Unit)? = null
     /** Long-press a row → toggle it as a favourite. */
     var onFavourite: ((Int) -> Unit)? = null
-    /** Horizontal flick on the wheel → change section (+1 next / -1 previous). */
-    var onHorizontalFling: ((Int) -> Unit)? = null
     /** Downward flick while already at the top of the list → close the menu. */
     var onOverscrollDown: (() -> Unit)? = null
 
@@ -101,13 +99,6 @@ class SceneWheelView @JvmOverloads constructor(
             }
 
             override fun onFling(e1: MotionEvent?, e2: MotionEvent, vx: Float, vy: Float): Boolean {
-                // A decisive, clearly-horizontal flick changes section; a slow or
-                // slightly-diagonal vertical scrub must never be misread as one.
-                if (abs(vx) > abs(vy) * H_FLING_RATIO && abs(vx) > MIN_FLING_V) {
-                    setScrubbing(false)                        // restore chrome before the wheel hides
-                    onHorizontalFling?.invoke(if (vx < 0f) 1 else -1)
-                    return true
-                }
                 if (vy > MIN_FLING_V && scrollPx <= 1f) {      // at the top + decisive flick down → close
                     setScrubbing(false)
                     onOverscrollDown?.invoke()

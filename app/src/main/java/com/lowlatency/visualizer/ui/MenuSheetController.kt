@@ -41,6 +41,7 @@ class MenuSheetController(
     private lateinit var navDivider: View
     private lateinit var closeBtn: View
     private lateinit var veloLogo: View
+    private lateinit var optionsSheetScroll: View
     private var scrubPreview = false
 
     private var blurAnimator: ValueAnimator? = null
@@ -52,8 +53,6 @@ class MenuSheetController(
     var isOpen = false
         private set
 
-    /** Horizontal flick on the sheet → change section (+1 next / -1 previous). */
-    var onTabSwipe: (Int) -> Unit = {}
 
     @Suppress("ClickableViewAccessibility")
     fun bind() {
@@ -65,6 +64,7 @@ class MenuSheetController(
         navDivider = activity.findViewById(R.id.sheet_nav_divider)
         closeBtn = activity.findViewById(R.id.btn_close_menu)
         veloLogo = activity.findViewById(R.id.velo_logo)
+        optionsSheetScroll = activity.findViewById(R.id.options_sheet_scroll)
         closeBtn.setOnClickListener { close() }
         optionsSheet.visibility = View.GONE
         applyWidthCap()
@@ -84,11 +84,7 @@ class MenuSheetController(
         val sheetGestures = GestureDetector(activity, object : GestureDetector.SimpleOnGestureListener() {
             override fun onDown(e: MotionEvent) = false
             override fun onFling(e1: MotionEvent?, e2: MotionEvent, vx: Float, vy: Float): Boolean {
-                if (abs(vx) > abs(vy) && abs(vx) > TAB_SWIPE_VELOCITY) {   // horizontal flick → section
-                    onTabSwipe(if (vx < 0f) 1 else -1)
-                    return false
-                }
-                if (vy > SWIPE_DOWN_VELOCITY && abs(vy) > abs(vx) && optionsSheet.scrollY == 0) {
+                if (vy > SWIPE_DOWN_VELOCITY && abs(vy) > abs(vx) && optionsSheetScroll.scrollY == 0) {
                     close()
                     return true
                 }

@@ -182,10 +182,9 @@
         android:visibility="gone"
         android:contentDescription="@string/cd_close_menu" />
 
-    <!-- Options sheet: lower portion of the canvas. A ScrollView so the full
-         control list (now 8 visualizers) always fits — on short screens it
-         scrolls internally instead of pushing the top controls off-screen. -->
-    <ScrollView
+    <!-- Options sheet: lower portion of the canvas. A wrapper LinearLayout holds
+         the scrollable content plus the fixed bottom tab bar. -->
+    <LinearLayout
         android:id="@+id/options_sheet"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -198,9 +197,18 @@
         android:background="@drawable/sheet_background"
         android:clickable="true"
         android:focusable="true"
-        android:fillViewport="true"
-        android:scrollbars="none"
+        android:orientation="vertical"
         android:accessibilityPaneTitle="@string/cd_settings_menu">
+
+    <ScrollView
+        android:id="@+id/options_sheet_scroll"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        android:fillViewport="true"
+        android:scrollbars="none">
 
         <!-- Content column: capped to a centered max-width on tablets/unfolded
              foldables (MenuSheetController.applyWidthCap) so controls don't
@@ -325,17 +333,6 @@
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:stateListAnimator="@null" />
         </FrameLayout>
-
-        <!-- Section selector: Visuals · Lighting · Settings shown together, with a
-             pill that slides under the active tab. Tap a tab, or flick the content. -->
-        <com.lowlatency.visualizer.ui.SectionTabsView
-            android:id="@+id/section_tabs"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:layout_marginBottom="18dp" />
-
-        <!-- ───── divider: Main Nav / Content ───── -->
-        <View android:id="@+id/sheet_nav_divider" style="@style/Divider" android:layout_marginBottom="24dp" />
 
         <!-- ===== TAB 3: Settings ===== -->
         <LinearLayout
@@ -1312,6 +1309,20 @@
             </LinearLayout>
         </FrameLayout>
     </ScrollView>
+
+    <!-- ───── divider: Content / Bottom Nav ───── -->
+    <View android:id="@+id/sheet_nav_divider" style="@style/Divider" />
+
+    <!-- Section selector pinned at the bottom for one-handed reach.
+         Tap a tab to switch sections. -->
+    <com.lowlatency.visualizer.ui.SectionTabsView
+        android:id="@+id/section_tabs"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp" />
+
+    </LinearLayout>
 
     <!-- Display / standby mode: oversized clock + live BPM + presence meter over
          the dimmed live scene. A deliberate full-screen takeover (not persistent
