@@ -118,13 +118,33 @@ class LissajousScopeScene : GlScene {
     override fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {}
 
     fun drawStereo(pcmStereo: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
-        val limit = minOf(POINTS, pcmStereo.size / 2)
+        val totalPairs = pcmStereo.size / 2
+        var startIndex = 0
+
+        // Hardware Oscilloscope Positive-Edge Trigger:
+        // We search the first portion of the buffer for a moment where the Left (X) channel 
+        // crosses from negative to positive. By always starting our drawing from the same 
+        // phase of the wave, we phase-lock the visual to the audio frequency. 
+        // This completely eliminates the "fuzziness" and "multiple lines" caused by the 
+        // display frame-rate drifting out of sync with the audio!
+        val searchLimit = maxOf(0, totalPairs - POINTS)
+        for (i in 0 until searchLimit - 1) {
+            val left1 = pcmStereo[i * 2]
+            val left2 = pcmStereo[(i + 1) * 2]
+            // We require a minimum amplitude threshold (0.01f) to prevent triggering on silent noise
+            if (left1 <= 0f && left2 > 0f && pcmStereo[(i + 2) * 2] > 0.01f) {
+                startIndex = i
+                break
+            }
+        }
+
+        val limit = minOf(POINTS, totalPairs - startIndex)
         if (limit <= 1) return
 
         var vi = 0
         for (i in 0 until limit) {
-            verts[vi++] = pcmStereo[i * 2]               // Left -> X
-            verts[vi++] = pcmStereo[i * 2 + 1]           // Right -> Y
+            verts[vi++] = pcmStereo[(startIndex + i) * 2]               // Left -> X
+            verts[vi++] = pcmStereo[(startIndex + i) * 2 + 1]           // Right -> Y
         }
         vbuf.clear(); vbuf.put(verts, 0, limit * 2); vbuf.position(0)
 
