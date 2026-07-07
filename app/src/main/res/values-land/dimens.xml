@@ -3,8 +3,8 @@
     <!-- Scene Picker Dimensions (Landscape) -->
     <dimen name="scene_wheel_margin_top">0dp</dimen>
     <dimen name="scene_wheel_margin_bottom">0dp</dimen>
-    <dimen name="scene_footer_margin_bottom">68dp</dimen>
-    <dimen name="bottom_nav_margin_bottom">8dp</dimen>
-    <dimen name="options_sheet_scroll_margin_bottom">61dp</dimen>
+    <dimen name="scene_footer_margin_bottom">64dp</dimen>
+    <dimen name="bottom_nav_margin_bottom">4dp</dimen>
+    <dimen name="options_sheet_scroll_margin_bottom">57dp</dimen>
     <dimen name="sheet_margin_top">0dp</dimen>
 </resources>

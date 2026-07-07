@@ -3,8 +3,8 @@
     <!-- Scene Picker Dimensions -->
     <dimen name="scene_wheel_margin_top">0dp</dimen>
     <dimen name="scene_wheel_margin_bottom">0dp</dimen>
-    <dimen name="scene_footer_margin_bottom">88dp</dimen>
-    <dimen name="bottom_nav_margin_bottom">28dp</dimen>
-    <dimen name="options_sheet_scroll_margin_bottom">81dp</dimen>
+    <dimen name="scene_footer_margin_bottom">89dp</dimen>
+    <dimen name="bottom_nav_margin_bottom">29dp</dimen>
+    <dimen name="options_sheet_scroll_margin_bottom">82dp</dimen>
     <dimen name="sheet_margin_top">72dp</dimen>
 </resources>

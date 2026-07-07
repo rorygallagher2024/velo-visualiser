@@ -127,6 +127,15 @@ class MenuSheetController(
             lpNav.gravity = if (widthPx == ViewGroup.LayoutParams.MATCH_PARENT) Gravity.BOTTOM else Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
             bottomNav.layoutParams = lpNav
         }
+        
+        // Tab margins must be updated dynamically since we handle config changes without recreation.
+        val sectionTabs = activity.findViewById<View>(R.id.section_tabs)
+        if (sectionTabs != null) {
+            val lpTabs = sectionTabs.layoutParams as LinearLayout.LayoutParams
+            val isLandscape = activity.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+            lpTabs.bottomMargin = if (isLandscape) (4f * activity.resources.displayMetrics.density).toInt() else (29f * activity.resources.displayMetrics.density).toInt()
+            sectionTabs.layoutParams = lpTabs
+        }
     }
 
     /** Re-fit the content column after a rotation / fold change. */

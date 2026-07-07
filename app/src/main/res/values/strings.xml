@@ -255,7 +255,7 @@
     <!-- First-run "make a sound" moment: cause the reaction, feel it land. -->
     <string name="moat_prompt">Make a sound</string>
     <string name="moat_nudge">Clap · snap · speak</string>
-    <string name="hint_swipe_up">▲  Swipe up for settings</string>
+    <string name="hint_swipe_up">▲  Swipe up to open the menu</string>
 
     <!-- Accessibility Content Descriptions -->
     <string name="cd_close_menu">Close menu</string>
