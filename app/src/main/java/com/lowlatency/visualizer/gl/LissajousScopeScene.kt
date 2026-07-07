@@ -1,0 +1,173 @@
+package com.lowlatency.visualizer.gl
+
+import android.opengl.GLES20
+import android.opengl.GLES30
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import java.nio.FloatBuffer
+import kotlin.math.abs
+
+/**
+ * "Lissajous Scope" — a true stereo XY hardware oscilloscope.
+ *
+ * Perfect for viewing Jerobeam Fenderson's oscilloscope music. The Left audio
+ * channel drives the X axis, and the Right audio channel drives the Y axis.
+ * It traces a single continuous glowing line using GL_LINE_STRIP.
+ *
+ * To prevent OLED burn-in, it applies a subtle slow orbital drift just like
+ * the RawScopeScene and OscilloscopeScene.
+ */
+class LissajousScopeScene : GlScene {
+
+    override val respondsToBeat get() = false
+
+    companion object {
+        private const val POINTS = 1024
+
+        // Soft-clip gain to prevent hard clipping against the screen edges.
+        // It provides a small amount of "headroom" compression.
+        private const val AGC_TARGET = 4.0f
+        private const val AGC_FLOOR = 0.05f
+        private const val AGC_SMOOTH = 0.1f
+        private const val AGC_MIN = 1f
+        private const val AGC_MAX = 50f
+
+        private const val SCOPE_VS = """#version 300 es
+            layout(location = 0) in vec2 aPos;   // XY from Left/Right audio
+            uniform float u_time;
+            uniform float u_aspect;              // width / height
+            uniform float u_count;
+            out float v_t;                       // 0..1 along the beam
+            
+            void main() {
+                // OLED burn-in protection orbit (pixels to normalized device coordinates)
+                // Roughly +/- 3 pixels of drift.
+                vec2 orbit = vec2(
+                    sin(u_time * 0.31) + 0.5 * sin(u_time * 0.13 + 1.7),
+                    cos(u_time * 0.27) + 0.5 * cos(u_time * 0.19 + 0.9)
+                ) * 0.005;
+
+                // Apply aspect ratio correction so perfect circles remain circles.
+                // aPos is [-1, 1]. Divide X by aspect ratio to keep it square.
+                vec2 p = aPos;
+                p.x /= u_aspect;
+                
+                // Scale slightly to leave a margin
+                p *= 0.9;
+
+                gl_Position = vec4(p + orbit, 0.0, 1.0);
+                v_t = float(gl_VertexID) / u_count;
+            }
+        """
+
+        private const val SCOPE_FS = """#version 300 es
+            precision highp float;
+            uniform float u_dim;
+            in float v_t;
+            out vec4 fragColor;
+
+            void main() {
+                // Classic oscilloscope phosphor green tint
+                vec3 phosphorTint = vec3(0.45, 1.0, 0.65);
+                
+                // Slightly brighter at the head of the trace (like a real CRT sweeping)
+                float age = 1.0 - v_t;
+                float intensity = 0.7 + 0.3 * exp(-age * 4.0);
+
+                // Add HDR lift for the bloom post-processor
+                vec3 col = phosphorTint * intensity * 2.5;
+                
+                fragColor = vec4(col * u_dim, 1.0);
+            }
+        """
+    }
+
+    private val verts = FloatArray(POINTS * 2)
+    private val vbuf: FloatBuffer = ByteBuffer
+        .allocateDirect(POINTS * 2 * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
+
+    private var program = 0
+    private var aPos = 0
+    private var uTime = 0
+    private var uAspect = 0
+    private var uCount = 0
+    private var uDim = 0
+    private var vbo = 0
+    private var aspect = 1f
+    private var agc = 2f
+
+    override fun onCreated() {
+        program = ShaderUtil.buildProgram(SCOPE_VS, SCOPE_FS)
+        aPos = GLES20.glGetAttribLocation(program, "aPos")
+        uTime = GLES20.glGetUniformLocation(program, "u_time")
+        uAspect = GLES20.glGetUniformLocation(program, "u_aspect")
+        uCount = GLES20.glGetUniformLocation(program, "u_count")
+        uDim = GLES20.glGetUniformLocation(program, "u_dim")
+
+        val ids = IntArray(1)
+        GLES20.glGenBuffers(1, ids, 0)
+        vbo = ids[0]
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, vbo)
+        GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, POINTS * 2 * 4, null, GLES20.GL_DYNAMIC_DRAW)
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
+    }
+
+    override fun onResize(width: Int, height: Int, aspect: Float) {
+        this.aspect = if (height > 0) width.toFloat() / height else 1f
+    }
+
+    private fun softClip(s: Float): Float {
+        val g = s * agc
+        return g / (1f + abs(g))
+    }
+
+    // Unused for stereo scene, but required by interface
+    override fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {}
+
+    fun drawStereo(pcmStereo: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
+        val limit = minOf(POINTS, pcmStereo.size / 2)
+        if (limit <= 1) return
+
+        // Jerobeam's music is often perfectly mastered to fit within the boundaries,
+        // but we apply a gentle auto-gain just in case System Audio volume is low.
+        var peak = 0f
+        for (i in 0 until limit * 2) {
+            val a = abs(pcmStereo[i]); if (a > peak) peak = a
+        }
+        val desired = (AGC_TARGET / maxOf(peak, AGC_FLOOR)).coerceIn(AGC_MIN, AGC_MAX)
+        agc += (desired - agc) * AGC_SMOOTH
+
+        var vi = 0
+        for (i in 0 until limit) {
+            verts[vi++] = softClip(pcmStereo[i * 2])         // Left -> X
+            verts[vi++] = softClip(pcmStereo[i * 2 + 1])     // Right -> Y
+        }
+        vbuf.clear(); vbuf.put(verts, 0, limit * 2); vbuf.position(0)
+
+        GLES20.glEnable(GLES20.GL_BLEND)
+        GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE)
+
+        GLES20.glUseProgram(program)
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, vbo)
+        GLES20.glBufferSubData(GLES20.GL_ARRAY_BUFFER, 0, limit * 2 * 4, vbuf)
+        GLES20.glEnableVertexAttribArray(aPos)
+        GLES20.glVertexAttribPointer(aPos, 2, GLES20.GL_FLOAT, false, 0, 0)
+
+        GLES20.glUniform1f(uTime, timeSec)
+        GLES20.glUniform1f(uAspect, aspect)
+        GLES20.glUniform1f(uCount, (limit - 1).toFloat())
+        GLES20.glUniform1f(uDim, dim)
+
+        GLES20.glLineWidth(2f)
+        GLES30.glDrawArrays(GLES20.GL_LINE_STRIP, 0, limit)
+
+        GLES20.glDisableVertexAttribArray(aPos)
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
+    }
+
+    override fun onDeactivate() {
+        GLES20.glDisable(GLES20.GL_BLEND)
+        GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA)
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
+    }
+}

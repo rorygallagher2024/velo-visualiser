@@ -35,6 +35,12 @@ object NativeBridge {
     external fun fillLatestAudioBuffer(out: FloatArray): Int
 
     /**
+     * Fills the provided caller-owned [outInterleaved] array with the most recent
+     * stereo PCM window (Left, Right, Left, Right...). Size should be 2x the mono window.
+     */
+    external fun fillLatestStereoAudioBuffer(outInterleaved: FloatArray): Int
+
+    /**
      * One-time initialization of the shared DirectByteBuffer. Call this
      * at startup so the native layer can store the address.
      */
