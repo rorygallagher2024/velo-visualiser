@@ -22,12 +22,8 @@ class LissajousScopeScene : GlScene {
     override val respondsToBeat get() = false
 
     companion object {
-        // Drawing too many points (e.g. 4096) draws 85ms of history simultaneously. 
-        // If the shape rotates or morphs, drawing 85ms means you see multiple 
-        // "ghost" frames overlapping, creating fuzzy multiple lines. 
-        // 1200 points is exactly 25ms of audio at 48kHz, which is the perfect
-        // sweet spot to close the shape loops without overlapping past shapes!
-        private const val POINTS = 1200
+        // The absolute maximum number of points we can draw from the 8192-sample buffer.
+        private const val MAX_POINTS = 4096
 
         private const val SCOPE_VS = """#version 300 es
             layout(location = 0) in vec2 aPos;   // XY from Left/Right audio
@@ -67,23 +63,23 @@ class LissajousScopeScene : GlScene {
                 // Classic oscilloscope phosphor green tint
                 vec3 phosphorTint = vec3(0.45, 1.0, 0.65);
                 
-                // Emulate CRT phosphor decay. The newest points (v_t = 1.0) are bright,
-                // and the oldest points fade out. This prevents "multiple lines" from
-                // time-smearing when the shape rapidly morphs.
-                float age = 1.0 - v_t;
-                float intensity = exp(-age * 3.0);
+                // Emulate CRT phosphor. Because we now perfectly auto-tune the 
+                // trace length to exactly one shape cycle, we don't need steep 
+                // artificial decay to hide overlaps. Uniform brightness creates a solid shape!
+                float intensity = 1.0;
 
-                // Add HDR lift for the bloom post-processor
-                vec3 col = phosphorTint * intensity * 3.0;
+                // Provide enough brightness for visibility but prevent HDR bloom from 
+                // smearing thin intricate geometry into a fuzzy mess.
+                vec3 col = phosphorTint * intensity * 1.5;
                 
                 fragColor = vec4(col * u_dim, 1.0);
             }
         """
     }
 
-    private val verts = FloatArray(POINTS * 2)
+    private val verts = FloatArray(MAX_POINTS * 2)
     private val vbuf: FloatBuffer = ByteBuffer
-        .allocateDirect(POINTS * 2 * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
+        .allocateDirect(MAX_POINTS * 2 * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
 
     private var program = 0
     private var aPos = 0
@@ -106,7 +102,7 @@ class LissajousScopeScene : GlScene {
         GLES20.glGenBuffers(1, ids, 0)
         vbo = ids[0]
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, vbo)
-        GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, POINTS * 2 * 4, null, GLES20.GL_DYNAMIC_DRAW)
+        GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, MAX_POINTS * 2 * 4, null, GLES20.GL_DYNAMIC_DRAW)
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
     }
 
@@ -121,24 +117,40 @@ class LissajousScopeScene : GlScene {
         val totalPairs = pcmStereo.size / 2
         var startIndex = 0
 
-        // Hardware Oscilloscope Positive-Edge Trigger:
-        // We search the first portion of the buffer for a moment where the Left (X) channel 
-        // crosses from negative to positive. By always starting our drawing from the same 
-        // phase of the wave, we phase-lock the visual to the audio frequency. 
-        // This completely eliminates the "fuzziness" and "multiple lines" caused by the 
-        // display frame-rate drifting out of sync with the audio!
-        val searchLimit = maxOf(0, totalPairs - POINTS)
+        // 1. Hardware Oscilloscope Positive-Edge Trigger (Phase Lock)
+        val searchLimit = maxOf(0, totalPairs - 4000)
         for (i in 0 until searchLimit - 1) {
             val left1 = pcmStereo[i * 2]
             val left2 = pcmStereo[(i + 1) * 2]
-            // We require a minimum amplitude threshold (0.01f) to prevent triggering on silent noise
             if (left1 <= 0f && left2 > 0f && pcmStereo[(i + 2) * 2] > 0.01f) {
                 startIndex = i
                 break
             }
         }
 
-        val limit = minOf(POINTS, totalPairs - startIndex)
+        // 2. Auto-Tune Trace Length (Jerobeam Fenderson Sync Algorithm)
+        val startR = pcmStereo[startIndex * 2 + 1]
+        var period = 1200 // Fallback if no full cycle is found
+        
+        // Start searching immediately after the trigger point to avoid skipping the 
+        // first cycle of high-frequency shapes! (Skipping it forces 2+ cycles to draw).
+        for (i in startIndex + 1 until totalPairs - 1) {
+            val l1 = pcmStereo[i * 2]
+            val l2 = pcmStereo[(i + 1) * 2]
+            if (l1 <= 0f && l2 > 0f) {
+                val r = pcmStereo[i * 2 + 1]
+                // Be slightly forgiving (10%) to account for Android OS resampler phase drift
+                if (abs(r - startR) < 0.10f) {
+                    period = i - startIndex
+                    break
+                }
+            }
+        }
+
+        // Draw EXACTLY one fundamental period. If we draw more than 1 cycle, 
+        // shapes that morph or lines that move will overlap slightly, causing
+        // the "many lines" visual artifact. 
+        val limit = minOf(period, totalPairs - startIndex).coerceAtMost(MAX_POINTS)
         if (limit <= 1) return
 
         var vi = 0
@@ -162,7 +174,7 @@ class LissajousScopeScene : GlScene {
         GLES20.glUniform1f(uCount, (limit - 1).toFloat())
         GLES20.glUniform1f(uDim, dim)
 
-        GLES20.glLineWidth(2f)
+        GLES20.glLineWidth(1f) // 1px line prevents bloom from smearing dense lines together
         GLES30.glDrawArrays(GLES20.GL_LINE_STRIP, 0, limit)
 
         GLES20.glDisableVertexAttribArray(aPos)
