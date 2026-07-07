@@ -282,11 +282,18 @@ class SceneWheelView @JvmOverloads constructor(
         canvas.drawLine(inset, cy - half, width - inset, cy - half, tickPaint)
         canvas.drawLine(inset, cy + half, width - inset, cy + half, tickPaint)
         
-        // Dynamically compute restricted edge to clear the footer (favourites icon) by ~130dp
-        val bottomClearancePx = 130f * resources.displayMetrics.density
-        val maxDrawY = height - bottomClearancePx
-        val maxSin = ((maxDrawY - cy) / radius).coerceIn(0.1f, 0.99f)
-        val restrictedEdge = asin(maxSin)
+        // Dynamically compute bottom edge to clear the footer (favourites icon)
+        // Footer top is ~173dp from the bottom in portrait. Add padding = 185dp.
+        val footerClearancePx = 185f * resources.displayMetrics.density
+        val maxDrawY = height - footerClearancePx - (fittedBase / 2f)
+        val maxSinBottom = ((maxDrawY - cy) / radius).coerceIn(0.01f, 0.99f)
+        val restrictedBottomEdge = asin(maxSinBottom)
+        
+        // Dynamically compute top edge to clear the header (drag handle)
+        val headerClearancePx = 72f * resources.displayMetrics.density
+        val minDrawY = headerClearancePx + (fittedBase / 2f)
+        val maxSinTop = ((cy - minDrawY) / radius).coerceIn(0.1f, 0.99f)
+        val restrictedTopEdge = asin(maxSinTop)
         
         for (i in items.indices) {
             val angle = ((i * rowH - scrollPx) / rowH) * ANGLE_STEP
@@ -297,7 +304,10 @@ class SceneWheelView @JvmOverloads constructor(
             val fav = !items[i].isHeader && favourites.contains(items[i].index)
             val name = (if (fav) "★  " else "") + items[i].name.uppercase()
             
-            // Restrict visible angle when not scrubbing to prevent extending under buttons
+            val isBottom = angle > 0
+            val restrictedEdge = if (isBottom) restrictedBottomEdge else restrictedTopEdge
+            
+            // Restrict visible angle when not scrubbing to prevent extending under buttons/header
             val currentEdge = restrictedEdge + scrubFrac * (EDGE_ANGLE - restrictedEdge)
             val distanceFrac = abs(angle) / currentEdge
             if (distanceFrac >= 1f) continue
