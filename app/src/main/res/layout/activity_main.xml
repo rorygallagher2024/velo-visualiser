@@ -182,10 +182,9 @@
         android:visibility="gone"
         android:contentDescription="@string/cd_close_menu" />
 
-    <!-- Options sheet: lower portion of the canvas. A ScrollView so the full
-         control list (now 8 visualizers) always fits — on short screens it
-         scrolls internally instead of pushing the top controls off-screen. -->
-    <ScrollView
+    <!-- Options sheet: lower portion of the canvas. A wrapper LinearLayout holds
+         the scrollable content plus the fixed bottom tab bar. -->
+    <FrameLayout
         android:id="@+id/options_sheet"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -193,14 +192,88 @@
         android:layout_marginTop="@dimen/sheet_margin_top"
         android:layout_marginBottom="-40dp"
         android:paddingBottom="40dp"
-        android:clipChildren="false"
-        android:clipToPadding="false"
         android:background="@drawable/sheet_background"
         android:clickable="true"
         android:focusable="true"
-        android:fillViewport="true"
-        android:scrollbars="none"
         android:accessibilityPaneTitle="@string/cd_settings_menu">
+
+    <!-- TAB 1: Visualizers (Spans full height behind chrome) -->
+    <FrameLayout
+        android:id="@+id/tab_visualizers"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:paddingTop="16dp"
+        android:clipChildren="false"
+        android:clipToPadding="false">
+        
+        <com.lowlatency.visualizer.ui.SceneWheelView
+            android:id="@+id/scene_wheel"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginTop="@dimen/scene_wheel_margin_top"
+            android:layout_marginBottom="@dimen/scene_wheel_margin_bottom" />
+
+        <!-- The counter and hint stay safely at the bottom of the visible pad -->
+        <LinearLayout
+            android:id="@+id/scene_footer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:layout_marginBottom="@dimen/scene_footer_margin_bottom"
+            android:orientation="vertical"
+            android:paddingBottom="4dp">
+
+            <TextView
+                android:id="@+id/btn_fav_filter"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:text="☆"
+                android:textSize="32sp"
+                android:textColor="@color/text_dim"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:paddingTop="4dp"
+                android:paddingBottom="8dp"
+                android:clickable="true"
+                android:focusable="true" />
+
+            <TextView
+                android:id="@+id/scene_counter"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:fontFamily="@font/satoshi" app:fontFamily="@font/satoshi"
+                android:textColor="@color/text_dim"
+                android:textSize="12sp"
+                android:letterSpacing="0.1"
+                android:layout_marginBottom="4dp" />
+
+            <TextView
+                android:id="@+id/scene_hint"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:fontFamily="@font/satoshi" app:fontFamily="@font/satoshi"
+                android:textColor="@color/text_dim"
+                android:textSize="11sp"
+                android:letterSpacing="0.05"
+                android:alpha="0"
+                android:text="@string/scene_hint"
+                android:layout_marginBottom="8dp" />
+        </LinearLayout>
+    </FrameLayout>
+
+    <ScrollView
+        android:id="@+id/options_sheet_scroll"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:layout_marginBottom="@dimen/options_sheet_scroll_margin_bottom"
+        android:fillViewport="true"
+        android:scrollbars="none">
 
         <!-- Content column: capped to a centered max-width on tablets/unfolded
              foldables (MenuSheetController.applyWidthCap) so controls don't
@@ -212,81 +285,16 @@
             android:paddingStart="24dp"
             android:paddingEnd="24dp"
             android:paddingTop="16dp"
-            android:paddingBottom="80dp"
-            android:clipChildren="false"
             android:clipToPadding="false">
 
-            <!-- TAB 1: Visualizers (Spans full height behind chrome) -->
-            <FrameLayout
-                android:id="@+id/tab_visualizers"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:clipChildren="false"
-                android:clipToPadding="false">
-                
-                <com.lowlatency.visualizer.ui.SceneWheelView
-                    android:id="@+id/scene_wheel"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:layout_marginTop="@dimen/scene_wheel_margin_top"
-                    android:layout_marginBottom="@dimen/scene_wheel_margin_bottom" />
 
-                <!-- The counter and hint stay safely at the bottom of the visible pad -->
-                <LinearLayout
-                    android:id="@+id/scene_footer"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="bottom"
-                    android:layout_marginBottom="@dimen/scene_footer_margin_bottom"
-                    android:orientation="vertical"
-                    android:paddingBottom="4dp">
-
-                    <TextView
-                        android:id="@+id/btn_fav_filter"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_gravity="center_horizontal"
-                        android:text="☆"
-                        android:textSize="32sp"
-                        android:textColor="@color/text_dim"
-                        android:paddingStart="12dp"
-                        android:paddingEnd="12dp"
-                        android:paddingTop="4dp"
-                        android:paddingBottom="8dp"
-                        android:clickable="true"
-                        android:focusable="true" />
-
-                    <TextView
-                        android:id="@+id/scene_counter"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_gravity="center_horizontal"
-                        android:fontFamily="@font/satoshi" app:fontFamily="@font/satoshi"
-                        android:textColor="@color/text_dim"
-                        android:textSize="12sp"
-                        android:letterSpacing="0.1"
-                        android:layout_marginBottom="4dp" />
-
-                    <TextView
-                        android:id="@+id/scene_hint"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_gravity="center_horizontal"
-                        android:fontFamily="@font/satoshi" app:fontFamily="@font/satoshi"
-                        android:textColor="@color/text_dim"
-                        android:textSize="11sp"
-                        android:letterSpacing="0.05"
-                        android:alpha="0"
-                        android:text="@string/scene_hint"
-                        android:layout_marginBottom="8dp" />
-                </LinearLayout>
-            </FrameLayout>
 
             <!-- CHROME LAYER -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical">
+                android:orientation="vertical"
+                android:clipToPadding="false">
 
         <!-- Header: drag handle (centred) + an explicit, labelled close button
              (accessible tap-to-dismiss for TalkBack / motor users). -->
@@ -325,17 +333,6 @@
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:stateListAnimator="@null" />
         </FrameLayout>
-
-        <!-- Section selector: Visuals · Lighting · Settings shown together, with a
-             pill that slides under the active tab. Tap a tab, or flick the content. -->
-        <com.lowlatency.visualizer.ui.SectionTabsView
-            android:id="@+id/section_tabs"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:layout_marginBottom="18dp" />
-
-        <!-- ───── divider: Main Nav / Content ───── -->
-        <View android:id="@+id/sheet_nav_divider" style="@style/Divider" android:layout_marginBottom="24dp" />
 
         <!-- ===== TAB 3: Settings ===== -->
         <LinearLayout
@@ -1312,6 +1309,30 @@
             </LinearLayout>
         </FrameLayout>
     </ScrollView>
+
+    <!-- Fixed bottom navigation container -->
+    <LinearLayout
+        android:id="@+id/bottom_nav_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:orientation="vertical">
+
+        <!-- ───── divider: Content / Bottom Nav ───── -->
+        <View android:id="@+id/sheet_nav_divider" style="@style/Divider" />
+
+        <!-- Section selector pinned at the bottom for one-handed reach.
+             Tap a tab to switch sections. -->
+        <com.lowlatency.visualizer.ui.SectionTabsView
+            android:id="@+id/section_tabs"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginBottom="@dimen/bottom_nav_margin_bottom"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp" />
+    </LinearLayout>
+
+    </FrameLayout>
 
     <!-- Display / standby mode: oversized clock + live BPM + presence meter over
          the dimmed live scene. A deliberate full-screen takeover (not persistent

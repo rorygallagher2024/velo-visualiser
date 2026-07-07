@@ -13,6 +13,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.animation.DecelerateInterpolator
 import android.widget.FrameLayout
+import android.widget.LinearLayout
 import androidx.appcompat.app.AppCompatActivity
 import com.lowlatency.visualizer.R
 import com.lowlatency.visualizer.VisualizerSurfaceView
@@ -41,6 +42,13 @@ class MenuSheetController(
     private lateinit var navDivider: View
     private lateinit var closeBtn: View
     private lateinit var veloLogo: View
+    private lateinit var optionsSheetScroll: View
+    
+    // Dynamically positioned elements
+    private lateinit var sceneWheel: View
+    private lateinit var bottomNavContainer: View
+    private lateinit var sceneFooter: View
+    
     private var scrubPreview = false
 
     private var blurAnimator: ValueAnimator? = null
@@ -52,8 +60,6 @@ class MenuSheetController(
     var isOpen = false
         private set
 
-    /** Horizontal flick on the sheet → change section (+1 next / -1 previous). */
-    var onTabSwipe: (Int) -> Unit = {}
 
     @Suppress("ClickableViewAccessibility")
     fun bind() {
@@ -65,6 +71,11 @@ class MenuSheetController(
         navDivider = activity.findViewById(R.id.sheet_nav_divider)
         closeBtn = activity.findViewById(R.id.btn_close_menu)
         veloLogo = activity.findViewById(R.id.velo_logo)
+        optionsSheetScroll = activity.findViewById(R.id.options_sheet_scroll)
+        sceneWheel = activity.findViewById(R.id.scene_wheel)
+        bottomNavContainer = activity.findViewById(R.id.bottom_nav_container)
+        sceneFooter = activity.findViewById(R.id.scene_footer)
+        
         closeBtn.setOnClickListener { close() }
         optionsSheet.visibility = View.GONE
         applyWidthCap()
@@ -84,11 +95,7 @@ class MenuSheetController(
         val sheetGestures = GestureDetector(activity, object : GestureDetector.SimpleOnGestureListener() {
             override fun onDown(e: MotionEvent) = false
             override fun onFling(e1: MotionEvent?, e2: MotionEvent, vx: Float, vy: Float): Boolean {
-                if (abs(vx) > abs(vy) && abs(vx) > TAB_SWIPE_VELOCITY) {   // horizontal flick → section
-                    onTabSwipe(if (vx < 0f) 1 else -1)
-                    return false
-                }
-                if (vy > SWIPE_DOWN_VELOCITY && abs(vy) > abs(vx) && optionsSheet.scrollY == 0) {
+                if (vy > SWIPE_DOWN_VELOCITY && abs(vy) > abs(vx) && optionsSheetScroll.scrollY == 0) {
                     close()
                     return true
                 }
@@ -96,6 +103,7 @@ class MenuSheetController(
             }
         })
         optionsSheet.setOnTouchListener { _, ev -> sheetGestures.onTouchEvent(ev); false }
+        optionsSheetScroll.setOnTouchListener { _, ev -> sheetGestures.onTouchEvent(ev); false }
     }
 
     /**
@@ -105,17 +113,41 @@ class MenuSheetController(
      * sheet's translucent background still spans the full width — only the
      * content centers.
      */
+    private fun applyWidthCapToView(view: View, widthPx: Int, baseGravity: Int) {
+        val lp = view.layoutParams as FrameLayout.LayoutParams
+        lp.width = widthPx
+        lp.gravity = if (widthPx == ViewGroup.LayoutParams.MATCH_PARENT) baseGravity else baseGravity or Gravity.CENTER_HORIZONTAL
+        view.layoutParams = lp
+    }
+
     private fun applyWidthCap() {
         val widthDp = activity.resources.configuration.screenWidthDp
-        val lp = sheetContent.layoutParams as FrameLayout.LayoutParams
-        if (widthDp > WIDTH_CAP_TRIGGER_DP) {
-            lp.width = (WIDTH_CAP_DP * activity.resources.displayMetrics.density).toInt()
-            lp.gravity = Gravity.CENTER_HORIZONTAL
-        } else {
-            lp.width = ViewGroup.LayoutParams.MATCH_PARENT
-            lp.gravity = Gravity.NO_GRAVITY
+        val widthPx = if (widthDp > WIDTH_CAP_TRIGGER_DP) (WIDTH_CAP_DP * activity.resources.displayMetrics.density).toInt() else ViewGroup.LayoutParams.MATCH_PARENT
+        
+        applyWidthCapToView(sheetContent, widthPx, Gravity.NO_GRAVITY)
+        
+        val tabVis = activity.findViewById<View>(R.id.tab_visualizers)
+        if (tabVis != null) {
+            applyWidthCapToView(tabVis, widthPx, Gravity.NO_GRAVITY)
         }
-        sheetContent.layoutParams = lp
+        
+        applyWidthCapToView(bottomNavContainer, widthPx, Gravity.BOTTOM)
+        
+        // Tab margins and scroll margins must be updated dynamically since we handle config changes without recreation.
+        val lpTabs = tabBar.layoutParams as LinearLayout.LayoutParams
+        val lpScroll = optionsSheetScroll.layoutParams as FrameLayout.LayoutParams
+        val isLandscape = activity.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        
+        if (isLandscape) {
+            lpTabs.bottomMargin = (4f * activity.resources.displayMetrics.density).toInt()
+            lpScroll.bottomMargin = (57f * activity.resources.displayMetrics.density).toInt()
+        } else {
+            lpTabs.bottomMargin = activity.resources.getDimensionPixelSize(R.dimen.bottom_nav_margin_bottom)
+            lpScroll.bottomMargin = activity.resources.getDimensionPixelSize(R.dimen.options_sheet_scroll_margin_bottom)
+        }
+        
+        tabBar.layoutParams = lpTabs
+        optionsSheetScroll.layoutParams = lpScroll
     }
 
     /** Re-fit the content column after a rotation / fold change. */
@@ -285,7 +317,7 @@ class MenuSheetController(
         val a = if (active) 0f else 1f
         // Fade the chrome AND the dim scrim, so the canvas is fully revealed.
         // Set visibility to INVISIBLE when active to prevent ghost touches.
-        listOf(tabBar, handle, navDivider, closeBtn, veloLogo, scrim).forEach { view ->
+        listOfNotNull(bottomNavContainer, handle, closeBtn, veloLogo, scrim, sceneFooter).forEach { view ->
             view.animate().cancel()
             if (!active) view.visibility = View.VISIBLE
             view.animate().alpha(a).setDuration(PREVIEW_FADE_MS)
@@ -300,7 +332,7 @@ class MenuSheetController(
     private fun resetScrubPreview() {
         scrubPreview = false
         if (::tabBar.isInitialized) {
-            listOf(tabBar, handle, navDivider, closeBtn, veloLogo, scrim).forEach { view ->
+            listOfNotNull(bottomNavContainer, handle, closeBtn, veloLogo, scrim, sceneFooter).forEach { view ->
                 view.animate().cancel()
                 view.alpha = 1f
                 view.visibility = View.VISIBLE

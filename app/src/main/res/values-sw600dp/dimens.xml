@@ -1,8 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Scene Picker Dimensions (Large Screens) -->
-    <dimen name="scene_wheel_margin_top">104dp</dimen>
-    <dimen name="scene_wheel_margin_bottom">-16dp</dimen>
-    <dimen name="scene_footer_margin_bottom">-64dp</dimen>
     <dimen name="sheet_margin_top">0dp</dimen>
 </resources>

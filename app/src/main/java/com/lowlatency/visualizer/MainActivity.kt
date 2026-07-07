@@ -245,7 +245,6 @@ class MainActivity : AppCompatActivity() {
             onCloseMenu = { menuSheetController.close() },
         )
         scenesController.bind()
-        scenesController.onTabSwipe = { swipeTab(it) }   // horizontal flick on the wheel
 
         secondaryDisplayController = com.lowlatency.visualizer.ui.SecondaryDisplayController(this, glView, btnCastDisplay, castOverlay)
         secondaryDisplayController.bind()
@@ -263,7 +262,6 @@ class MainActivity : AppCompatActivity() {
             },
         )
         menuSheetController.bind()
-        menuSheetController.onTabSwipe = { swipeTab(it) }   // horizontal flick on the sheet content
 
         menuDiscoveryController =
             MenuDiscoveryController(this, prefs, isMenuOpen = { menuSheetController.isOpen })
@@ -371,14 +369,6 @@ class MainActivity : AppCompatActivity() {
         )
         sectionTabs.onSelect = { selectTab(it) }
         selectTab(TAB_VISUALS)   // default to the Visuals tab
-    }
-
-    /** Flick left/right in the sheet: step to the next/previous section, skipping
-     *  Lighting when it's disabled (system audio). */
-    private fun swipeTab(dir: Int) {
-        var t = currentTab + dir
-        if (t == TAB_LIGHTING && audioSourceController.systemAudioMode) t += dir
-        if (t in TAB_VISUALS..TAB_SETTINGS && t != currentTab) selectTab(t)
     }
 
     private fun selectTab(tab: Int) {

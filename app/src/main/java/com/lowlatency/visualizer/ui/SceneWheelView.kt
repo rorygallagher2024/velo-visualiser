@@ -56,8 +56,6 @@ class SceneWheelView @JvmOverloads constructor(
     var onPick: (() -> Unit)? = null
     /** Long-press a row → toggle it as a favourite. */
     var onFavourite: ((Int) -> Unit)? = null
-    /** Horizontal flick on the wheel → change section (+1 next / -1 previous). */
-    var onHorizontalFling: ((Int) -> Unit)? = null
     /** Downward flick while already at the top of the list → close the menu. */
     var onOverscrollDown: (() -> Unit)? = null
 
@@ -101,13 +99,6 @@ class SceneWheelView @JvmOverloads constructor(
             }
 
             override fun onFling(e1: MotionEvent?, e2: MotionEvent, vx: Float, vy: Float): Boolean {
-                // A decisive, clearly-horizontal flick changes section; a slow or
-                // slightly-diagonal vertical scrub must never be misread as one.
-                if (abs(vx) > abs(vy) * H_FLING_RATIO && abs(vx) > MIN_FLING_V) {
-                    setScrubbing(false)                        // restore chrome before the wheel hides
-                    onHorizontalFling?.invoke(if (vx < 0f) 1 else -1)
-                    return true
-                }
                 if (vy > MIN_FLING_V && scrollPx <= 1f) {      // at the top + decisive flick down → close
                     setScrubbing(false)
                     onOverscrollDown?.invoke()
@@ -290,6 +281,20 @@ class SceneWheelView @JvmOverloads constructor(
         val inset = width * 0.16f
         canvas.drawLine(inset, cy - half, width - inset, cy - half, tickPaint)
         canvas.drawLine(inset, cy + half, width - inset, cy + half, tickPaint)
+        
+        // Dynamically compute bottom edge to clear the footer (favourites icon)
+        // Footer top is ~173dp from the bottom in portrait. Add padding = 185dp.
+        val footerClearancePx = 185f * resources.displayMetrics.density
+        val maxDrawY = height - footerClearancePx - (fittedBase / 2f)
+        val maxSinBottom = ((maxDrawY - cy) / radius).coerceIn(0.01f, 0.99f)
+        val restrictedBottomEdge = asin(maxSinBottom)
+        
+        // Dynamically compute top edge to clear the header (drag handle)
+        val headerClearancePx = 72f * resources.displayMetrics.density
+        val minDrawY = headerClearancePx + (fittedBase / 2f)
+        val maxSinTop = ((cy - minDrawY) / radius).coerceIn(0.1f, 0.99f)
+        val restrictedTopEdge = asin(maxSinTop)
+        
         for (i in items.indices) {
             val angle = ((i * rowH - scrollPx) / rowH) * ANGLE_STEP
             if (abs(angle) >= EDGE_ANGLE) continue
@@ -299,8 +304,10 @@ class SceneWheelView @JvmOverloads constructor(
             val fav = !items[i].isHeader && favourites.contains(items[i].index)
             val name = (if (fav) "★  " else "") + items[i].name.uppercase()
             
-            // Restrict visible angle when not scrubbing to prevent extending under buttons
-            val restrictedEdge = 0.82f
+            val isBottom = angle > 0
+            val restrictedEdge = if (isBottom) restrictedBottomEdge else restrictedTopEdge
+            
+            // Restrict visible angle when not scrubbing to prevent extending under buttons/header
             val currentEdge = restrictedEdge + scrubFrac * (EDGE_ANGLE - restrictedEdge)
             val distanceFrac = abs(angle) / currentEdge
             if (distanceFrac >= 1f) continue
