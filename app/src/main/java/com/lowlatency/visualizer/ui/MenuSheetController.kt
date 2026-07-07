@@ -133,15 +133,21 @@ class MenuSheetController(
         
         applyWidthCapToView(bottomNavContainer, widthPx, Gravity.BOTTOM)
         
-        // Tab margins must be updated dynamically since we handle config changes without recreation.
+        // Tab margins and scroll margins must be updated dynamically since we handle config changes without recreation.
         val lpTabs = tabBar.layoutParams as LinearLayout.LayoutParams
+        val lpScroll = optionsSheetScroll.layoutParams as FrameLayout.LayoutParams
         val isLandscape = activity.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-        lpTabs.bottomMargin = if (isLandscape) {
-            (4f * activity.resources.displayMetrics.density).toInt()
+        
+        if (isLandscape) {
+            lpTabs.bottomMargin = (4f * activity.resources.displayMetrics.density).toInt()
+            lpScroll.bottomMargin = (57f * activity.resources.displayMetrics.density).toInt()
         } else {
-            activity.resources.getDimensionPixelSize(R.dimen.bottom_nav_margin_bottom)
+            lpTabs.bottomMargin = activity.resources.getDimensionPixelSize(R.dimen.bottom_nav_margin_bottom)
+            lpScroll.bottomMargin = activity.resources.getDimensionPixelSize(R.dimen.options_sheet_scroll_margin_bottom)
         }
+        
         tabBar.layoutParams = lpTabs
+        optionsSheetScroll.layoutParams = lpScroll
     }
 
     /** Re-fit the content column after a rotation / fold change. */
