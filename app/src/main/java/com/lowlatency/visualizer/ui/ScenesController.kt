@@ -10,6 +10,7 @@ import androidx.core.content.edit
 import com.lowlatency.visualizer.R
 import com.lowlatency.visualizer.SecondaryVisualizerActivity
 import com.lowlatency.visualizer.VisualizerSurfaceView
+import com.lowlatency.visualizer.gl.VisualizerRenderer
 
 /**
  * Owns the Visuals tab: the scene [wheel] (which fills the tab) and the transient
@@ -29,10 +30,12 @@ class ScenesController(
     private val isMenuOpen: () -> Boolean,
     private val perfOverlayBottom: () -> Int,
     private val onManualSceneChange: () -> Unit,
+    private val isSystemAudio: () -> Boolean,
     private val onScrubPreview: (Boolean) -> Unit = {},
     private val onCloseMenu: () -> Unit = {},
 ) {
-    private val entries = SceneCatalog.ENTRIES
+    private val allEntries = SceneCatalog.ENTRIES
+    private val entries get() = allEntries.filter { !it.requiresSystemAudio || isSystemAudio() }
 
     private lateinit var wheel: SceneWheelView
     private lateinit var counter: TextView
@@ -105,6 +108,18 @@ class ScenesController(
         return items
     }
 
+    fun onAudioSourceChanged() {
+        glView.sceneOrder = entries.map { it.index }
+        updateFavouritesOrder()
+        rebuildWheel()
+        
+        // If the current scene is now unavailable (e.g. requires system audio but we switched to mic),
+        // fallback to the default scene.
+        if (entries.none { it.index == glView.sceneIndex }) {
+            glView.selectScene(VisualizerRenderer.DEFAULT_SCENE)
+        }
+    }
+
     private fun rebuildWheel() {
         wheel.setScenes(buildWheelItems(), glView.sceneIndex)
     }
@@ -175,7 +190,7 @@ class ScenesController(
     }
 
     private fun nameOf(index: Int): String =
-        entries.firstOrNull { it.index == index }?.let { activity.getString(it.nameRes) } ?: ""
+        allEntries.firstOrNull { it.index == index }?.let { activity.getString(it.nameRes) } ?: ""
 
     private fun updateCounter(index: Int) {
         val e = entries.firstOrNull { it.index == index } ?: return

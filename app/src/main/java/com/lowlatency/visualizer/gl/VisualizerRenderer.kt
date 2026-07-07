@@ -80,7 +80,7 @@ class VisualizerRenderer(private val context: Context) : GLSurfaceView.Renderer 
 
     // Reused per-frame — no allocation in the loop.
     private val pcm = FloatArray(POINTS)
-    private val pcmStereo = FloatArray(POINTS * 2)
+    private val pcmStereo = FloatArray(8192)
     private val bands = FloatArray(3)
 
     // Shared buffer for zero-copy audio transfer to scenes/GPU.

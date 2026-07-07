@@ -22,15 +22,7 @@ class LissajousScopeScene : GlScene {
     override val respondsToBeat get() = false
 
     companion object {
-        private const val POINTS = 1024
-
-        // Soft-clip gain to prevent hard clipping against the screen edges.
-        // It provides a small amount of "headroom" compression.
-        private const val AGC_TARGET = 4.0f
-        private const val AGC_FLOOR = 0.05f
-        private const val AGC_SMOOTH = 0.1f
-        private const val AGC_MIN = 1f
-        private const val AGC_MAX = 50f
+        private const val POINTS = 4096
 
         private const val SCOPE_VS = """#version 300 es
             layout(location = 0) in vec2 aPos;   // XY from Left/Right audio
@@ -94,7 +86,6 @@ class LissajousScopeScene : GlScene {
     private var uDim = 0
     private var vbo = 0
     private var aspect = 1f
-    private var agc = 2f
 
     override fun onCreated() {
         program = ShaderUtil.buildProgram(SCOPE_VS, SCOPE_FS)
@@ -116,11 +107,6 @@ class LissajousScopeScene : GlScene {
         this.aspect = if (height > 0) width.toFloat() / height else 1f
     }
 
-    private fun softClip(s: Float): Float {
-        val g = s * agc
-        return g / (1f + abs(g))
-    }
-
     // Unused for stereo scene, but required by interface
     override fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {}
 
@@ -128,19 +114,10 @@ class LissajousScopeScene : GlScene {
         val limit = minOf(POINTS, pcmStereo.size / 2)
         if (limit <= 1) return
 
-        // Jerobeam's music is often perfectly mastered to fit within the boundaries,
-        // but we apply a gentle auto-gain just in case System Audio volume is low.
-        var peak = 0f
-        for (i in 0 until limit * 2) {
-            val a = abs(pcmStereo[i]); if (a > peak) peak = a
-        }
-        val desired = (AGC_TARGET / maxOf(peak, AGC_FLOOR)).coerceIn(AGC_MIN, AGC_MAX)
-        agc += (desired - agc) * AGC_SMOOTH
-
         var vi = 0
         for (i in 0 until limit) {
-            verts[vi++] = softClip(pcmStereo[i * 2])         // Left -> X
-            verts[vi++] = softClip(pcmStereo[i * 2 + 1])     // Right -> Y
+            verts[vi++] = pcmStereo[i * 2]               // Left -> X
+            verts[vi++] = pcmStereo[i * 2 + 1]           // Right -> Y
         }
         vbuf.clear(); vbuf.put(verts, 0, limit * 2); vbuf.position(0)
 

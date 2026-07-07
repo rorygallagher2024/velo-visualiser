@@ -207,15 +207,15 @@ Java_com_lowlatency_visualizer_NativeBridge_nativePushPcm(JNIEnv *env, jobject,
     static thread_local std::vector<float> stereo;
     if (stereo.size() < static_cast<size_t>(frames * 2)) stereo.resize(frames * 2);
 
-    const float kInv = (1.0f / 32768.0f) * gain;
+    const float kNorm = 1.0f / 32768.0f;
 
     if (channels == 2) {
         for (int f = 0; f < frames; ++f) {
-            float L = static_cast<float>(src[f * 2]) * kInv;
-            float R = static_cast<float>(src[f * 2 + 1]) * kInv;
+            float L = static_cast<float>(src[f * 2]) * kNorm;
+            float R = static_cast<float>(src[f * 2 + 1]) * kNorm;
             stereo[f * 2] = L;
             stereo[f * 2 + 1] = R;
-            mono[f] = (L + R) * 0.5f;
+            mono[f] = (L + R) * 0.5f * gain;
         }
     } else {
         // Generic fallback for mono or surround
@@ -224,10 +224,10 @@ Java_com_lowlatency_visualizer_NativeBridge_nativePushPcm(JNIEnv *env, jobject,
             for (jint c = 0; c < channels; ++c) {
                 acc += static_cast<float>(src[f * channels + c]);
             }
-            float m = acc * (kInv / static_cast<float>(channels));
-            mono[f] = m;
-            stereo[f * 2] = m;
-            stereo[f * 2 + 1] = m;
+            float mRaw = acc * (kNorm / static_cast<float>(channels));
+            stereo[f * 2] = mRaw;
+            stereo[f * 2 + 1] = mRaw;
+            mono[f] = mRaw * gain;
         }
     }
 
