@@ -136,7 +136,11 @@ class MenuSheetController(
         // Tab margins must be updated dynamically since we handle config changes without recreation.
         val lpTabs = tabBar.layoutParams as LinearLayout.LayoutParams
         val isLandscape = activity.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-        lpTabs.bottomMargin = if (isLandscape) (4f * activity.resources.displayMetrics.density).toInt() else (29f * activity.resources.displayMetrics.density).toInt()
+        lpTabs.bottomMargin = if (isLandscape) {
+            (4f * activity.resources.displayMetrics.density).toInt()
+        } else {
+            activity.resources.getDimensionPixelSize(R.dimen.bottom_nav_margin_bottom)
+        }
         tabBar.layoutParams = lpTabs
     }
 

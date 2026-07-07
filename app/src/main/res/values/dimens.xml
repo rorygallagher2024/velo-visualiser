@@ -4,7 +4,7 @@
     <dimen name="scene_wheel_margin_top">0dp</dimen>
     <dimen name="scene_wheel_margin_bottom">0dp</dimen>
     <dimen name="scene_footer_margin_bottom">89dp</dimen>
-    <dimen name="bottom_nav_margin_bottom">29dp</dimen>
-    <dimen name="options_sheet_scroll_margin_bottom">82dp</dimen>
+    <dimen name="bottom_nav_margin_bottom">32dp</dimen>
+    <dimen name="options_sheet_scroll_margin_bottom">85dp</dimen>
     <dimen name="sheet_margin_top">72dp</dimen>
 </resources>
