@@ -63,13 +63,13 @@ class LissajousScopeScene : GlScene {
                 // Classic oscilloscope phosphor green tint
                 vec3 phosphorTint = vec3(0.45, 1.0, 0.65);
                 
-                // Emulate CRT phosphor. Because we now perfectly auto-tune the 
-                // trace length to exactly one shape cycle, we don't need steep 
-                // artificial decay to hide overlaps. Uniform brightness creates a solid shape!
-                float intensity = 1.0;
+                // Emulate CRT phosphor decay. Because we are drawing a continuous 
+                // fixed-length trace again, we need the tail of the trace to fade out 
+                // naturally to prevent screen clutter, just like a real analog scope!
+                float age = 1.0 - v_t;
+                float intensity = exp(-age * 3.5);
 
-                // Provide enough brightness for visibility but prevent HDR bloom from 
-                // smearing thin intricate geometry into a fuzzy mess.
+                // Provide enough brightness for visibility but prevent HDR bloom from smearing
                 vec3 col = phosphorTint * intensity * 1.5;
                 
                 fragColor = vec4(col * u_dim, 1.0);
@@ -118,7 +118,7 @@ class LissajousScopeScene : GlScene {
         var startIndex = 0
 
         // 1. Hardware Oscilloscope Positive-Edge Trigger (Phase Lock)
-        // Search only the first 1000 samples to leave plenty of buffer for period detection
+        // We keep the trigger to anchor the shapes and prevent frame-rate jitter.
         val searchLimit = minOf(1000, totalPairs - 1)
         for (i in 0 until searchLimit) {
             val left1 = pcmStereo[i * 2]
@@ -129,45 +129,14 @@ class LissajousScopeScene : GlScene {
             }
         }
 
-        // 2. Auto-Tune Trace Length via 2D AMDF (Average Magnitude Difference Function)
-        // This calculates the true fundamental repeating period of the 2D shape. 
-        // It perfectly distinguishes between a simple moving line (short period) and 
-        // a complex morphing geometry (long period) by finding the exact time-shift 
-        // that minimizes the geometric difference!
-        var period = 1200
-        var minDiff = Float.MAX_VALUE
-        val N = 250 // Number of samples to cross-correlate (captures shape signature)
-        val maxP = minOf(2000, totalPairs - startIndex - N)
-        
-        if (maxP > 16) {
-            for (p in 16..maxP) {
-                var diff = 0f
-                for (i in 0 until N) {
-                    val idx1 = startIndex + i
-                    val idx2 = startIndex + i + p
-                    val dx = pcmStereo[idx1 * 2] - pcmStereo[idx2 * 2]
-                    val dy = pcmStereo[idx1 * 2 + 1] - pcmStereo[idx2 * 2 + 1]
-                    diff += abs(dx) + abs(dy)
-                }
-                
-                if (diff < minDiff) {
-                    minDiff = diff
-                    period = p
-                }
-                
-                // If the average geometric error is tiny (< 3% per channel), it's a perfect period match!
-                // N * 0.06 = 250 * 0.06 = 15.0f
-                if (diff < 15.0f) {
-                    period = p
-                    break
-                }
-            }
-        }
-
-        // Draw EXACTLY one fundamental period. If we draw more than 1 cycle, 
-        // shapes that morph or lines that move will overlap slightly, causing
-        // the "many lines" visual artifact. 
-        val limit = minOf(period, totalPairs - startIndex).coerceAtMost(MAX_POINTS)
+        // 2. Fixed Continuous Trace
+        // Because the user is now using a lossless WAV, there is no phase drift! 
+        // We no longer need to violently truncate the trace length to 1 cycle.
+        // We can draw a long continuous history buffer (e.g. 2000 points = ~41ms).
+        // This gives the visualizer enough time to draw all the "missing" multiplexed 
+        // shapes and complex geometry that a short 1-cycle trace was cutting off.
+        val drawPoints = 2000
+        val limit = minOf(drawPoints, totalPairs - startIndex).coerceAtMost(MAX_POINTS)
         if (limit <= 1) return
 
         var vi = 0
