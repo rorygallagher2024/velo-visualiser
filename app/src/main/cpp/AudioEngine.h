@@ -49,10 +49,15 @@ public:
     // System-audio push path. `data` is interleaved PCM already downmixed to
     // mono float by the caller. Real-time safe; forwards to the ring buffer.
     void pushExternalPcm(const float *data, size_t numSamples) noexcept;
+    void pushExternalPcmStereo(const float *interleaved, size_t numSamples) noexcept;
 
     // --- consumer side (GL render thread) ---
     // Fills `out` with the latest `numSamples` samples (chronological order).
     void copyLatest(float *out, size_t numSamples) const noexcept;
+
+    // Fills `outInterleaved` with the latest `numSamples` *pairs* of stereo samples.
+    // If the stream is mono, L and R will be identical.
+    void copyLatestStereo(float *outInterleaved, size_t numSamples) const noexcept;
 
     // Runs the FFT pipeline over the latest window and writes 3 band energies
     // (low, mid, high), each in [0, 1], into `outBands`. GL thread only.
@@ -85,6 +90,7 @@ private:
 
     std::shared_ptr<oboe::AudioStream> mStream;
     std::unique_ptr<CircularBuffer> mBuffer;
+    std::unique_ptr<CircularBuffer> mStereoBuffer;
 
     // FFT analysis state — touched only by the consumer (GL) thread.
     std::unique_ptr<FftProcessor> mFft;

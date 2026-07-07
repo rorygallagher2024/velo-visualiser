@@ -83,6 +83,19 @@ Java_com_lowlatency_visualizer_NativeBridge_fillLatestAudioBuffer(JNIEnv *env, j
     return len;
 }
 
+JNIEXPORT jint JNICALL
+Java_com_lowlatency_visualizer_NativeBridge_fillLatestStereoAudioBuffer(JNIEnv *env, jobject,
+                                                                        jfloatArray outInterleaved) {
+    if (outInterleaved == nullptr) return 0;
+    const jsize len = env->GetArrayLength(outInterleaved);
+    
+    jfloat *dst = env->GetFloatArrayElements(outInterleaved, nullptr);
+    if (dst == nullptr) return 0;
+    AudioEngine::instance().copyLatestStereo(dst, static_cast<size_t>(len / 2));
+    env->ReleaseFloatArrayElements(outInterleaved, dst, 0);
+    return len;
+}
+
 // ---------------------------------------------------------------------------
 // Frequency bands. Runs the windowed FFT over the latest PCM window and returns
 // 3 normalized energies: [0]=Lows, [1]=Mids, [2]=Highs. Spec method (allocates).
@@ -191,31 +204,34 @@ Java_com_lowlatency_visualizer_NativeBridge_nativePushPcm(JNIEnv *env, jobject,
     static thread_local std::vector<float> mono;
     if (mono.size() < static_cast<size_t>(frames)) mono.resize(frames);
 
+    static thread_local std::vector<float> stereo;
+    if (stereo.size() < static_cast<size_t>(frames * 2)) stereo.resize(frames * 2);
+
+    const float kNorm = 1.0f / 32768.0f;
+
     if (channels == 2) {
-        const float kInvStereo = (1.0f / (32768.0f * 2.0f)) * gain;
-        int f = 0;
-        for (; f <= frames - 4; f += 4) {
-            int16x8_t stereo = vld1q_s16(&src[f * 2]);
-            int32x4_t sum = vpaddlq_s16(stereo);
-            float32x4_t fsum = vcvtq_f32_s32(sum);
-            float32x4_t res = vmulq_n_f32(fsum, kInvStereo);
-            vst1q_f32(&mono[f], res);
-        }
-        for (; f < frames; ++f) {
-            mono[f] = (static_cast<float>(src[f * 2]) + static_cast<float>(src[f * 2 + 1])) * kInvStereo;
+        for (int f = 0; f < frames; ++f) {
+            float L = static_cast<float>(src[f * 2]) * kNorm;
+            float R = static_cast<float>(src[f * 2 + 1]) * kNorm;
+            stereo[f * 2] = L;
+            stereo[f * 2 + 1] = R;
+            mono[f] = (L + R) * 0.5f * gain;
         }
     } else {
         // Generic fallback for mono or surround
-        const float kInv = (1.0f / (32768.0f * static_cast<float>(channels))) * gain;
         for (jint f = 0; f < frames; ++f) {
             float acc = 0.0f;
             for (jint c = 0; c < channels; ++c) {
                 acc += static_cast<float>(src[f * channels + c]);
             }
-            mono[f] = acc * kInv;
+            float mRaw = acc * (kNorm / static_cast<float>(channels));
+            stereo[f * 2] = mRaw;
+            stereo[f * 2 + 1] = mRaw;
+            mono[f] = mRaw * gain;
         }
     }
 
+    AudioEngine::instance().pushExternalPcmStereo(stereo.data(), static_cast<size_t>(frames));
     AudioEngine::instance().pushExternalPcm(mono.data(), static_cast<size_t>(frames));
     env->ReleaseShortArrayElements(pcm, src, JNI_ABORT); // read-only, no copy-back
 

@@ -17,7 +17,9 @@ A bare-metal C++/Oboe audio engine and custom OpenGL ES 3.1 shaders bypass stand
 
 1. Primarily visualising music: This offers a modern take on the classic PC visualisers from the 2000s. Except now with 120fps HDR visuals. The visuals are a great showcase for modern Android hardware and supports dynamic scaling so will look great on large tablets and foldables too.
    
-3. A live performance tool: That is ideal for home DJs: The visualiser is well suited for use on android based projectors, or large secondary displays as a live performance tool. Its low latency smart home lighting control additionally offers beat synchronised lighting in time with your set 
+2. A live performance tool: That is ideal for home DJs: The visualiser is well suited for use on android based projectors, or large secondary displays as a live performance tool. Its low latency smart home lighting control additionally offers beat synchronised lighting in time with your set 
+
+3. Playing Oscilloscope Music: Features a dedicated, true stereo "Stereo Scope" mode designed to perfectly render the mathematical audio-visual vector art of oscilloscope music (Like Jerobeam Fenderson) . *(Note: This visual is exclusive to 'System Audio' mode. We highly recommend using a lossless audio file like WAV or FLAC for playback, as MP3 or YouTube compression will permanently destroy the shape geometries!)*
 
 ## Demo
 **Velo Visualiser: Low Latency Music Visualiser Demo Video**
@@ -43,6 +45,7 @@ Velo Visualiser listens to the **actual sound** in the room and moves with it in
 
 ## Core Features
 * **High-FPS, HDR-Capable 3D Visuals:** Targets 120+ fps for fluid, tear-free rendering (device and preset dependent).
+* **True Stereo Oscilloscope Rendering:** Includes a specialised X/Y "Stereo Scope" visual for rendering mathematical vector audio art (Oscilloscope Music). Requires System Audio capture and lossless audio files for perfect phase alignment.
 * **Ableton Link Integration:** Supplement the microphone input with perfect phase-synchronization and predictive beat detection broadcast directly from your DJ software (Traktor, Live, Serato).
 * **Smart Home Room Lighting Control:** Drive your physical room lighting with the exact same zero-lag transient detection used for the on-screen visuals. Supports Philips Hue, Lifx bulbs, and Nanoleaf panels.
 * **No Nonsense:** 100% local processing. No data collection. No ads. I don't want your data, and nobody wants ads.

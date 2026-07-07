@@ -13,6 +13,7 @@ AudioEngine &AudioEngine::instance() {
 
 AudioEngine::AudioEngine()
         : mBuffer(std::make_unique<CircularBuffer>(kBufferCapacity)),
+          mStereoBuffer(std::make_unique<CircularBuffer>(kBufferCapacity * 2)),
           mFft(std::make_unique<FftProcessor>()),
           mFftScratch(FftProcessor::kFftSize) {}
 
@@ -97,7 +98,17 @@ oboe::DataCallbackResult AudioEngine::onAudioReady(oboe::AudioStream *stream,
     mLastCallbackTime = now;
 
     const auto *samples = static_cast<const float *>(audioData);
+    
+    // Mic is always mono.
     mBuffer->write(samples, static_cast<size_t>(numFrames));
+    static thread_local std::vector<float> stereo;
+    if (stereo.size() < static_cast<size_t>(numFrames * 2)) stereo.resize(numFrames * 2);
+    for (int i = 0; i < numFrames; ++i) {
+        stereo[i*2] = samples[i];
+        stereo[i*2+1] = samples[i];
+    }
+    mStereoBuffer->write(stereo.data(), static_cast<size_t>(numFrames * 2));
+    
     return oboe::DataCallbackResult::Continue;
 }
 
@@ -106,8 +117,16 @@ void AudioEngine::pushExternalPcm(const float *data, size_t numSamples) noexcept
     mBuffer->write(data, numSamples);
 }
 
+void AudioEngine::pushExternalPcmStereo(const float *interleaved, size_t numSamples) noexcept {
+    mStereoBuffer->write(interleaved, numSamples * 2);
+}
+
 void AudioEngine::copyLatest(float *out, size_t numSamples) const noexcept {
     mBuffer->readLatest(out, numSamples);
+}
+
+void AudioEngine::copyLatestStereo(float *outInterleaved, size_t numSamples) const noexcept {
+    mStereoBuffer->readLatest(outInterleaved, numSamples * 2);
 }
 
 void AudioEngine::computeBands(float *outBands) noexcept {

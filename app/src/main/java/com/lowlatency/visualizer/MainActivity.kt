@@ -241,6 +241,7 @@ class MainActivity : AppCompatActivity() {
                 else 0
             },
             onManualSceneChange = { shuffleController.onSceneChanged() },
+            isSystemAudio = { audioSourceController.systemAudioMode },
             onScrubPreview = { active -> menuSheetController.setScrubPreview(active) },
             onCloseMenu = { menuSheetController.close() },
         )
@@ -600,6 +601,8 @@ class MainActivity : AppCompatActivity() {
     private fun onAudioSourceChanged() {
         val systemAudio = audioSourceController.systemAudioMode
         sectionTabs.disabled = if (systemAudio) setOf(TAB_LIGHTING) else emptySet()
+        
+        scenesController.onAudioSourceChanged()
 
         if (systemAudio) {
             if (::lightingController.isInitialized) lightingController.onSystemAudioEngaged()
