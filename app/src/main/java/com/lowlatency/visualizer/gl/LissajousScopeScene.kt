@@ -22,7 +22,12 @@ class LissajousScopeScene : GlScene {
     override val respondsToBeat get() = false
 
     companion object {
-        private const val POINTS = 4096
+        // Drawing too many points (e.g. 4096) draws 85ms of history simultaneously. 
+        // If the shape rotates or morphs, drawing 85ms means you see multiple 
+        // "ghost" frames overlapping, creating fuzzy multiple lines. 
+        // 1200 points is exactly 25ms of audio at 48kHz, which is the perfect
+        // sweet spot to close the shape loops without overlapping past shapes!
+        private const val POINTS = 1200
 
         private const val SCOPE_VS = """#version 300 es
             layout(location = 0) in vec2 aPos;   // XY from Left/Right audio
@@ -62,12 +67,14 @@ class LissajousScopeScene : GlScene {
                 // Classic oscilloscope phosphor green tint
                 vec3 phosphorTint = vec3(0.45, 1.0, 0.65);
                 
-                // Slightly brighter at the head of the trace (like a real CRT sweeping)
+                // Emulate CRT phosphor decay. The newest points (v_t = 1.0) are bright,
+                // and the oldest points fade out. This prevents "multiple lines" from
+                // time-smearing when the shape rapidly morphs.
                 float age = 1.0 - v_t;
-                float intensity = 0.7 + 0.3 * exp(-age * 4.0);
+                float intensity = exp(-age * 3.0);
 
                 // Add HDR lift for the bloom post-processor
-                vec3 col = phosphorTint * intensity * 2.5;
+                vec3 col = phosphorTint * intensity * 3.0;
                 
                 fragColor = vec4(col * u_dim, 1.0);
             }
