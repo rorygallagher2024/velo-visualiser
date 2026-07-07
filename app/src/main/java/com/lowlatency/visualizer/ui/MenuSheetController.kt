@@ -13,6 +13,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.animation.DecelerateInterpolator
 import android.widget.FrameLayout
+import android.widget.LinearLayout
 import androidx.appcompat.app.AppCompatActivity
 import com.lowlatency.visualizer.R
 import com.lowlatency.visualizer.VisualizerSurfaceView
@@ -92,6 +93,7 @@ class MenuSheetController(
             }
         })
         optionsSheet.setOnTouchListener { _, ev -> sheetGestures.onTouchEvent(ev); false }
+        optionsSheetScroll.setOnTouchListener { _, ev -> sheetGestures.onTouchEvent(ev); false }
     }
 
     /**
@@ -103,15 +105,28 @@ class MenuSheetController(
      */
     private fun applyWidthCap() {
         val widthDp = activity.resources.configuration.screenWidthDp
-        val lp = sheetContent.layoutParams as FrameLayout.LayoutParams
-        if (widthDp > WIDTH_CAP_TRIGGER_DP) {
-            lp.width = (WIDTH_CAP_DP * activity.resources.displayMetrics.density).toInt()
-            lp.gravity = Gravity.CENTER_HORIZONTAL
-        } else {
-            lp.width = ViewGroup.LayoutParams.MATCH_PARENT
-            lp.gravity = Gravity.NO_GRAVITY
+        val widthPx = if (widthDp > WIDTH_CAP_TRIGGER_DP) (WIDTH_CAP_DP * activity.resources.displayMetrics.density).toInt() else ViewGroup.LayoutParams.MATCH_PARENT
+        
+        val lpContent = sheetContent.layoutParams as FrameLayout.LayoutParams
+        lpContent.width = widthPx
+        lpContent.gravity = if (widthPx == ViewGroup.LayoutParams.MATCH_PARENT) Gravity.NO_GRAVITY else Gravity.CENTER_HORIZONTAL
+        sheetContent.layoutParams = lpContent
+        
+        val tabVis = activity.findViewById<View>(R.id.tab_visualizers)
+        if (tabVis != null) {
+            val lpVis = tabVis.layoutParams as FrameLayout.LayoutParams
+            lpVis.width = widthPx
+            lpVis.gravity = if (widthPx == ViewGroup.LayoutParams.MATCH_PARENT) Gravity.NO_GRAVITY else Gravity.CENTER_HORIZONTAL
+            tabVis.layoutParams = lpVis
         }
-        sheetContent.layoutParams = lp
+
+        val bottomNav = activity.findViewById<View>(R.id.bottom_nav_container)
+        if (bottomNav != null) {
+            val lpNav = bottomNav.layoutParams as FrameLayout.LayoutParams
+            lpNav.width = widthPx
+            lpNav.gravity = if (widthPx == ViewGroup.LayoutParams.MATCH_PARENT) Gravity.BOTTOM else Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+            bottomNav.layoutParams = lpNav
+        }
     }
 
     /** Re-fit the content column after a rotation / fold change. */
@@ -281,7 +296,9 @@ class MenuSheetController(
         val a = if (active) 0f else 1f
         // Fade the chrome AND the dim scrim, so the canvas is fully revealed.
         // Set visibility to INVISIBLE when active to prevent ghost touches.
-        listOf(tabBar, handle, navDivider, closeBtn, veloLogo, scrim).forEach { view ->
+        val bottomNav = activity.findViewById<View>(R.id.bottom_nav_container)
+        val sceneFooter = activity.findViewById<View>(R.id.scene_footer)
+        listOfNotNull(bottomNav, handle, closeBtn, veloLogo, scrim, sceneFooter).forEach { view ->
             view.animate().cancel()
             if (!active) view.visibility = View.VISIBLE
             view.animate().alpha(a).setDuration(PREVIEW_FADE_MS)
@@ -296,7 +313,9 @@ class MenuSheetController(
     private fun resetScrubPreview() {
         scrubPreview = false
         if (::tabBar.isInitialized) {
-            listOf(tabBar, handle, navDivider, closeBtn, veloLogo, scrim).forEach { view ->
+            val bottomNav = activity.findViewById<View>(R.id.bottom_nav_container)
+            val sceneFooter = activity.findViewById<View>(R.id.scene_footer)
+            listOfNotNull(bottomNav, handle, closeBtn, veloLogo, scrim, sceneFooter).forEach { view ->
                 view.animate().cancel()
                 view.alpha = 1f
                 view.visibility = View.VISIBLE

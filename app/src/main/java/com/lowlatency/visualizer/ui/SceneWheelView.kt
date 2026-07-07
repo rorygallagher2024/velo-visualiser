@@ -281,6 +281,13 @@ class SceneWheelView @JvmOverloads constructor(
         val inset = width * 0.16f
         canvas.drawLine(inset, cy - half, width - inset, cy - half, tickPaint)
         canvas.drawLine(inset, cy + half, width - inset, cy + half, tickPaint)
+        
+        // Dynamically compute restricted edge to clear the footer (favourites icon) by ~130dp
+        val bottomClearancePx = 130f * resources.displayMetrics.density
+        val maxDrawY = height - bottomClearancePx
+        val maxSin = ((maxDrawY - cy) / radius).coerceIn(0.1f, 0.99f)
+        val restrictedEdge = asin(maxSin)
+        
         for (i in items.indices) {
             val angle = ((i * rowH - scrollPx) / rowH) * ANGLE_STEP
             if (abs(angle) >= EDGE_ANGLE) continue
@@ -291,7 +298,6 @@ class SceneWheelView @JvmOverloads constructor(
             val name = (if (fav) "★  " else "") + items[i].name.uppercase()
             
             // Restrict visible angle when not scrubbing to prevent extending under buttons
-            val restrictedEdge = 0.82f
             val currentEdge = restrictedEdge + scrubFrac * (EDGE_ANGLE - restrictedEdge)
             val distanceFrac = abs(angle) / currentEdge
             if (distanceFrac >= 1f) continue
