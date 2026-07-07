@@ -118,8 +118,9 @@ class LissajousScopeScene : GlScene {
         var startIndex = 0
 
         // 1. Hardware Oscilloscope Positive-Edge Trigger (Phase Lock)
-        val searchLimit = maxOf(0, totalPairs - 4000)
-        for (i in 0 until searchLimit - 1) {
+        // Search only the first 1000 samples to leave plenty of buffer for period detection
+        val searchLimit = minOf(1000, totalPairs - 1)
+        for (i in 0 until searchLimit) {
             val left1 = pcmStereo[i * 2]
             val left2 = pcmStereo[(i + 1) * 2]
             if (left1 <= 0f && left2 > 0f && pcmStereo[(i + 2) * 2] > 0.01f) {
@@ -128,20 +129,36 @@ class LissajousScopeScene : GlScene {
             }
         }
 
-        // 2. Auto-Tune Trace Length (Jerobeam Fenderson Sync Algorithm)
-        val startR = pcmStereo[startIndex * 2 + 1]
-        var period = 1200 // Fallback if no full cycle is found
+        // 2. Auto-Tune Trace Length via 2D AMDF (Average Magnitude Difference Function)
+        // This calculates the true fundamental repeating period of the 2D shape. 
+        // It perfectly distinguishes between a simple moving line (short period) and 
+        // a complex morphing geometry (long period) by finding the exact time-shift 
+        // that minimizes the geometric difference!
+        var period = 1200
+        var minDiff = Float.MAX_VALUE
+        val N = 250 // Number of samples to cross-correlate (captures shape signature)
+        val maxP = minOf(2000, totalPairs - startIndex - N)
         
-        // Start searching immediately after the trigger point to avoid skipping the 
-        // first cycle of high-frequency shapes! (Skipping it forces 2+ cycles to draw).
-        for (i in startIndex + 1 until totalPairs - 1) {
-            val l1 = pcmStereo[i * 2]
-            val l2 = pcmStereo[(i + 1) * 2]
-            if (l1 <= 0f && l2 > 0f) {
-                val r = pcmStereo[i * 2 + 1]
-                // Be slightly forgiving (10%) to account for Android OS resampler phase drift
-                if (abs(r - startR) < 0.10f) {
-                    period = i - startIndex
+        if (maxP > 16) {
+            for (p in 16..maxP) {
+                var diff = 0f
+                for (i in 0 until N) {
+                    val idx1 = startIndex + i
+                    val idx2 = startIndex + i + p
+                    val dx = pcmStereo[idx1 * 2] - pcmStereo[idx2 * 2]
+                    val dy = pcmStereo[idx1 * 2 + 1] - pcmStereo[idx2 * 2 + 1]
+                    diff += abs(dx) + abs(dy)
+                }
+                
+                if (diff < minDiff) {
+                    minDiff = diff
+                    period = p
+                }
+                
+                // If the average geometric error is tiny (< 3% per channel), it's a perfect period match!
+                // N * 0.06 = 250 * 0.06 = 15.0f
+                if (diff < 15.0f) {
+                    period = p
                     break
                 }
             }
