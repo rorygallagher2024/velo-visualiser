@@ -192,8 +192,6 @@
         android:layout_marginTop="@dimen/sheet_margin_top"
         android:layout_marginBottom="-40dp"
         android:paddingBottom="40dp"
-        android:clipChildren="false"
-        android:clipToPadding="false"
         android:background="@drawable/sheet_background"
         android:clickable="true"
         android:focusable="true"
@@ -205,8 +203,6 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:clipChildren="false"
-        android:clipToPadding="false"
         android:fillViewport="true"
         android:scrollbars="none">
 
@@ -220,9 +216,7 @@
             android:paddingStart="24dp"
             android:paddingEnd="24dp"
             android:paddingTop="16dp"
-            android:paddingBottom="80dp"
-            android:clipChildren="false"
-            android:clipToPadding="false">
+            android:paddingBottom="80dp">
 
             <!-- TAB 1: Visualizers (Spans full height behind chrome) -->
             <FrameLayout
@@ -1319,6 +1313,7 @@
         android:id="@+id/section_tabs"
         android:layout_width="match_parent"
         android:layout_height="52dp"
+        android:layout_marginBottom="24dp"
         android:paddingStart="24dp"
         android:paddingEnd="24dp" />
 
