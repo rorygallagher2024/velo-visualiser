@@ -11,7 +11,10 @@ import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 
-class LocalAudioPlayer(private val context: Context) {
+class LocalAudioPlayer(
+    private val context: Context,
+    private val onCompletion: () -> Unit = {}
+) {
 
     private var extractor: MediaExtractor? = null
     private var codec: MediaCodec? = null
@@ -174,6 +177,10 @@ class LocalAudioPlayer(private val context: Context) {
             }
         }
         
-        NativeBridge.nativeStop()
+        if (isPlaying.get()) {
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                onCompletion()
+            }
+        }
     }
 }
