@@ -228,7 +228,12 @@ class MainActivity : AppCompatActivity() {
         )
         audioSourceController.bind()
         
-        localAudioPlayer = com.lowlatency.visualizer.audio.LocalAudioPlayer(this)
+        localAudioPlayer = com.lowlatency.visualizer.audio.LocalAudioPlayer(this) {
+            // Fired natively when the track naturally finishes EOF
+            if (isLocalSessionActive) {
+                btnMediaClose.performClick()
+            }
+        }
         
         btnMediaPlayPause.setOnClickListener {
             if (isLocalSessionActive) {
