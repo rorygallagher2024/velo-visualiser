@@ -66,7 +66,6 @@ class VisualizerSurfaceView @JvmOverloads constructor(
     var onMenuDragStart: (() -> Unit)? = null
     var onMenuDrag: ((Float) -> Unit)? = null
     var onMenuDragRelease: ((upwardVelocity: Float) -> Unit)? = null
-    var onSwipeDown: (() -> Unit)? = null
 
     /** Long-press on the canvas (menu closed) → open the menu — an edge-independent
      *  alternative to the swipe-up, which can clash with the system nav gesture. */
@@ -134,12 +133,6 @@ class VisualizerSurfaceView @JvmOverloads constructor(
                 // Horizontal fling => change scene.
                 if (abs(velocityX) > abs(velocityY) && abs(velocityX) > SWIPE_VELOCITY) {
                     swipeScene(if (velocityX < 0) 1 else -1)
-                    return true
-                }
-                
-                // Vertical downward fling => Media Controls
-                if (abs(velocityY) > abs(velocityX) && velocityY > SWIPE_VELOCITY) {
-                    onSwipeDown?.invoke()
                     return true
                 }
                 

@@ -409,7 +409,7 @@ class MainActivity : AppCompatActivity() {
             }
         })
         
-        glView.onSwipeDown = {
+        glView.onTap = {
             if (isLocalSessionActive) {
                 if (mediaControlsOverlay.visibility == View.GONE) {
                     mediaControlsOverlay.visibility = View.VISIBLE
@@ -663,7 +663,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun syncMenuState() {
-        if (::audioSourceController.isInitialized) audioSourceController.refreshSelection()
+        if (::audioSourceController.isInitialized) audioSourceController.refreshSelection(isLocalSessionActive)
         if (::scenesController.isInitialized) scenesController.updateSelection()
     }
 

@@ -175,38 +175,48 @@ void AudioEngine::pushExternalPcmStereo(const float *interleaved, size_t numSamp
 void AudioEngine::pushPlaybackAudio(const float *interleaved, size_t numFrames) noexcept {
     if (mStream && mStream->getDirection() == oboe::Direction::Output) {
         int channels = mStream->getChannelCount();
-        
-        // Blocking write to the speaker DAC (this provides the timing pace for the decoder thread)
-        // We use a large timeout because we WANT the decoder thread to block and wait for the DAC
         int64_t timeoutNanos = 500000000; // 500ms
-        auto result = mStream->write(interleaved, numFrames, timeoutNanos);
         
-        if (result.value() > 0) {
-            size_t framesWritten = result.value();
+        size_t framesRemaining = numFrames;
+        size_t offsetFrames = 0;
+        size_t chunkSize = 256; // About 5.3ms at 48kHz to ensure smooth 60fps+ visualizer updates
+        
+        while (framesRemaining > 0) {
+            size_t currentChunk = std::min(framesRemaining, chunkSize);
+            auto result = mStream->write(interleaved + (offsetFrames * channels), currentChunk, timeoutNanos);
             
-            // Push exact same frames to the visualizer buffers instantly!
-            if (channels == 2) {
-                mStereoBuffer->write(interleaved, framesWritten * 2);
+            if (result.value() > 0) {
+                size_t framesWritten = result.value();
                 
-                // Downmix to mono for FFT analysis
-                static thread_local std::vector<float> mono;
-                if (mono.size() < framesWritten) mono.resize(framesWritten);
-                for (size_t i = 0; i < framesWritten; ++i) {
-                    mono[i] = (interleaved[i*2] + interleaved[i*2+1]) * 0.5f;
+                // Push exact same frames to the visualizer buffers instantly, but in tiny chunks!
+                if (channels == 2) {
+                    mStereoBuffer->write(interleaved + (offsetFrames * channels), framesWritten * 2);
+                    
+                    // Downmix to mono for FFT analysis
+                    static thread_local std::vector<float> mono;
+                    if (mono.size() < framesWritten) mono.resize(framesWritten);
+                    for (size_t i = 0; i < framesWritten; ++i) {
+                        mono[i] = (interleaved[(offsetFrames + i)*2] + interleaved[(offsetFrames + i)*2+1]) * 0.5f;
+                    }
+                    mBuffer->write(mono.data(), framesWritten);
+                } else {
+                    // Mono track
+                    mBuffer->write(interleaved + offsetFrames, framesWritten);
+                    
+                    // Upmix to stereo for stereo visualizers
+                    static thread_local std::vector<float> stereo;
+                    if (stereo.size() < framesWritten * 2) stereo.resize(framesWritten * 2);
+                    for (size_t i = 0; i < framesWritten; ++i) {
+                        stereo[i*2] = interleaved[offsetFrames + i];
+                        stereo[i*2+1] = interleaved[offsetFrames + i];
+                    }
+                    mStereoBuffer->write(stereo.data(), framesWritten * 2);
                 }
-                mBuffer->write(mono.data(), framesWritten);
+                
+                offsetFrames += framesWritten;
+                framesRemaining -= framesWritten;
             } else {
-                // Mono track
-                mBuffer->write(interleaved, framesWritten);
-                
-                // Upmix to stereo for stereo visualizers
-                static thread_local std::vector<float> stereo;
-                if (stereo.size() < framesWritten * 2) stereo.resize(framesWritten * 2);
-                for (size_t i = 0; i < framesWritten; ++i) {
-                    stereo[i*2] = interleaved[i];
-                    stereo[i*2+1] = interleaved[i];
-                }
-                mStereoBuffer->write(stereo.data(), framesWritten * 2);
+                break; // Stream disconnected or timeout
             }
         }
     }
