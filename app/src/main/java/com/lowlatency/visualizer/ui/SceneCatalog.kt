@@ -33,6 +33,7 @@ object SceneCatalog {
         SceneEntry(17, R.string.vis_mechanical_meter, SceneCategory.INSTRUMENTS),
         SceneEntry(33, R.string.vis_phase_scope, SceneCategory.INSTRUMENTS),
         SceneEntry(41, R.string.vis_lissajous_scope, SceneCategory.INSTRUMENTS, requiresSystemAudio = true),
+        SceneEntry(43, R.string.vis_studio_analyzer, SceneCategory.INSTRUMENTS),
         // ----- Reactive (beat / energy driven) -----
         SceneEntry(38, R.string.vis_veil, SceneCategory.REACTIVE),
         SceneEntry(40, R.string.vis_veil_topdown, SceneCategory.REACTIVE),
