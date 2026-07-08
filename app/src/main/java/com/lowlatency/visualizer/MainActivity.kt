@@ -97,6 +97,30 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnMediaPlayPause: android.widget.ImageView
     private lateinit var btnMediaClose: android.widget.ImageView
     private var isLocalSessionActive = false
+    
+    private val hideMediaControlsRunnable = Runnable {
+        if (mediaControlsOverlay.visibility == View.VISIBLE) {
+            mediaControlsOverlay.animate().translationY(-200f).setDuration(300).withEndAction {
+                mediaControlsOverlay.visibility = View.GONE
+                if (::scenesController.isInitialized) scenesController.repositionSceneLabel()
+            }.start()
+        }
+    }
+    
+    private fun showMediaControlsTemporarily() {
+        if (!isLocalSessionActive) return
+        mediaControlsOverlay.removeCallbacks(hideMediaControlsRunnable)
+        if (mediaControlsOverlay.visibility == View.GONE) {
+            mediaControlsOverlay.visibility = View.VISIBLE
+            mediaControlsOverlay.translationY = -200f
+            mediaControlsOverlay.animate().translationY(0f).setDuration(300).start()
+            
+            mediaControlsOverlay.post {
+                if (::scenesController.isInitialized) scenesController.repositionSceneLabel()
+            }
+        }
+        mediaControlsOverlay.postDelayed(hideMediaControlsRunnable, 3000L)
+    }
 
     private val localFilePicker = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
@@ -104,8 +128,7 @@ class MainActivity : AppCompatActivity() {
             isLocalSessionActive = true
             updateMediaControls()
             
-            mediaControlsOverlay.visibility = View.VISIBLE
-            mediaControlsOverlay.animate().translationY(0f).setDuration(300).start()
+            showMediaControlsTemporarily()
             menuSheetController.close()
             audioSourceController.refreshSelection(true)
         } else {
@@ -204,14 +227,17 @@ class MainActivity : AppCompatActivity() {
                     localAudioPlayer.resume()
                 }
                 updateMediaControls()
+                showMediaControlsTemporarily() // reset timer on interaction
             }
         }
         
         btnMediaClose.setOnClickListener {
+            mediaControlsOverlay.removeCallbacks(hideMediaControlsRunnable)
             localAudioPlayer.stop()
             isLocalSessionActive = false
             mediaControlsOverlay.animate().translationY(-200f).setDuration(300).withEndAction {
                 mediaControlsOverlay.visibility = View.GONE
+                if (::scenesController.isInitialized) scenesController.repositionSceneLabel()
             }.start()
             audioSourceController.refreshSelection(false)
             audioSourceController.evaluateMicState()
@@ -285,9 +311,12 @@ class MainActivity : AppCompatActivity() {
             prefs = prefs,
             isMenuOpen = { menuSheetController.isOpen },
             perfOverlayBottom = {
+                var maxBottom = 0
                 if (perfOverlayController.enabled && perfOverlayController.overlayView.height > 0)
-                    perfOverlayController.overlayView.bottom
-                else 0
+                    maxBottom = perfOverlayController.overlayView.bottom
+                if (mediaControlsOverlay.visibility == View.VISIBLE && mediaControlsOverlay.height > 0)
+                    maxBottom = kotlin.math.max(maxBottom, mediaControlsOverlay.bottom)
+                maxBottom
             },
             onManualSceneChange = { shuffleController.onSceneChanged() },
             isStereoAudio = { audioSourceController.systemAudioMode || isLocalSessionActive },
@@ -413,13 +442,10 @@ class MainActivity : AppCompatActivity() {
         glView.onTap = {
             if (isLocalSessionActive) {
                 if (mediaControlsOverlay.visibility == View.GONE) {
-                    mediaControlsOverlay.visibility = View.VISIBLE
-                    mediaControlsOverlay.translationY = -200f
-                    mediaControlsOverlay.animate().translationY(0f).setDuration(300).start()
+                    showMediaControlsTemporarily()
                 } else {
-                    mediaControlsOverlay.animate().translationY(-200f).setDuration(300).withEndAction {
-                        mediaControlsOverlay.visibility = View.GONE
-                    }.start()
+                    mediaControlsOverlay.removeCallbacks(hideMediaControlsRunnable)
+                    hideMediaControlsRunnable.run()
                 }
             }
         }

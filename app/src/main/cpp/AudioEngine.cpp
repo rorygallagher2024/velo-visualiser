@@ -192,7 +192,7 @@ void AudioEngine::pushPlaybackAudio(const float *interleaved, size_t numFrames) 
                 // whereas microphone audio averages much lower. We apply an attenuation 
                 // factor ONLY to the mono buffer (which drives the FFT and reactive visuals)
                 // so they don't wash out, while leaving the stereo buffer untouched for the oscilloscope.
-                const float localPlaybackAttenuation = 0.25f;
+                const float localPlaybackAttenuation = 0.15f;
 
                 if (channels == 2) {
                     mStereoBuffer->write(interleaved + (offsetFrames * channels), framesWritten * 2);
