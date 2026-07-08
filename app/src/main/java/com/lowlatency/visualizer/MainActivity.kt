@@ -213,7 +213,18 @@ class MainActivity : AppCompatActivity() {
                 micStarted = true
                 if (::feelTheSpeedController.isInitialized) feelTheSpeedController.onMicStarted()
             },
-            onLocalFileRequested = { localFilePicker.launch("audio/*") }
+            onLocalFileRequested = { localFilePicker.launch("audio/*") },
+            onExternalSourceRequested = {
+                if (isLocalSessionActive) {
+                    localAudioPlayer.stop()
+                    isLocalSessionActive = false
+                    mediaControlsOverlay.removeCallbacks(hideMediaControlsRunnable)
+                    mediaControlsOverlay.animate().translationY(-200f).setDuration(300).withEndAction {
+                        mediaControlsOverlay.visibility = View.GONE
+                        if (::scenesController.isInitialized) scenesController.repositionSceneLabel()
+                    }.start()
+                }
+            }
         )
         audioSourceController.bind()
         
@@ -891,6 +902,10 @@ class MainActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
+        if (isLocalSessionActive && localAudioPlayer.isActivePlaying) {
+            localAudioPlayer.pause()
+            updateMediaControls()
+        }
         glView.onPause()
         if (::audioSourceController.isInitialized) audioSourceController.onPause()
         backgroundedAtMs = SystemClock.elapsedRealtime()

@@ -56,6 +56,7 @@ class AudioSourceController(
     private val onSourceChanged: () -> Unit,
     private val onMicStarted: () -> Unit = {},
     private val onLocalFileRequested: () -> Unit = {},
+    private val onExternalSourceRequested: () -> Unit = {},
 ) {
     var systemAudioMode = false
         private set
@@ -138,6 +139,7 @@ class AudioSourceController(
     }
 
     private fun selectMicrophone() {
+        onExternalSourceRequested()
         if (systemAudioMode) {
             activity.stopService(Intent(activity, AudioCaptureService::class.java))
             systemAudioMode = false
@@ -147,6 +149,7 @@ class AudioSourceController(
     }
 
     private fun selectInternalAudio() {
+        onExternalSourceRequested()
         if (systemAudioMode) return
         // First time: explain why Android will ask for screen-capture permission
         // (internal audio is routed through the screen-capture API).
