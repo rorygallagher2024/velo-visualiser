@@ -164,11 +164,19 @@ oboe::DataCallbackResult AudioEngine::onAudioReady(oboe::AudioStream *stream,
 }
 
 void AudioEngine::pushExternalPcm(const float *data, size_t numSamples) noexcept {
-    // System-audio path: still goes through the same real-time-safe ring write.
-    mBuffer->write(data, numSamples);
+    // System-audio path: attenuate mono buffer to prevent washing out FFTs, 
+    // since system audio is digitally mastered to 0dBFS.
+    const float systemAudioAttenuation = 0.15f;
+    static thread_local std::vector<float> attenuated;
+    if (attenuated.size() < numSamples) attenuated.resize(numSamples);
+    for (size_t i = 0; i < numSamples; ++i) {
+        attenuated[i] = data[i] * systemAudioAttenuation;
+    }
+    mBuffer->write(attenuated.data(), numSamples);
 }
 
 void AudioEngine::pushExternalPcmStereo(const float *interleaved, size_t numSamples) noexcept {
+    // Stereo buffer drives the oscilloscope, which remains full-scale and unattenuated.
     mStereoBuffer->write(interleaved, numSamples * 2);
 }
 
