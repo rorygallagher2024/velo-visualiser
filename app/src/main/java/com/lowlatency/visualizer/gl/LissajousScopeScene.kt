@@ -40,10 +40,14 @@ class LissajousScopeScene : GlScene {
                     cos(u_time * 0.27) + 0.5 * cos(u_time * 0.19 + 0.9)
                 ) * 0.005;
 
-                // Apply aspect ratio correction so perfect circles remain circles.
-                // aPos is [-1, 1]. Divide X by aspect ratio to keep it square.
+                // Apply aspect ratio correction so perfect circles remain circles,
+                // while ensuring it always fits within the screen regardless of portrait/landscape!
                 vec2 p = aPos;
-                p.x /= u_aspect;
+                if (u_aspect > 1.0) {
+                    p.x /= u_aspect;
+                } else {
+                    p.y *= u_aspect;
+                }
                 
                 // Scale slightly to leave a margin
                 p *= 0.9;
