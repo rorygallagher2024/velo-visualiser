@@ -21,6 +21,9 @@ class LocalAudioPlayer(private val context: Context) {
     
     private var sampleRate = 48000
     private var channelCount = 2
+    
+    val isActivePlaying: Boolean
+        get() = isPlaying.get() && !isPaused.get()
 
     fun play(uri: Uri) {
         stop()
@@ -117,7 +120,9 @@ class LocalAudioPlayer(private val context: Context) {
 
         while (isPlaying.get()) {
             if (isPaused.get()) {
-                Thread.sleep(50)
+                // Push silence instead of sleeping, to keep Oboe stream pacing alive and avoid under-runs
+                val silence = FloatArray(1024)
+                NativeBridge.nativePushPlaybackAudio(silence, 1024 / channelCount)
                 continue
             }
 

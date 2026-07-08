@@ -1550,34 +1550,33 @@
         android:layout_height="wrap_content"
         android:layout_gravity="top|center_horizontal"
         android:layout_marginTop="64dp"
-        android:background="@drawable/sheet_background"
+        android:background="@drawable/media_bar_bg"
         android:orientation="horizontal"
         android:paddingHorizontal="24dp"
-        android:paddingVertical="16dp"
+        android:paddingVertical="12dp"
         android:elevation="12dp"
         android:translationY="-200dp"
-        android:visibility="gone">
+        android:visibility="gone"
+        android:gravity="center_vertical">
 
-        <Button
-            android:id="@+id/btn_media_close"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:background="@drawable/pill_button_bg"
-            android:textColor="@color/btn_text"
-            android:text="✕"
-            android:textSize="20sp"
-            android:stateListAnimator="@null" />
-
-        <Button
+        <ImageView
             android:id="@+id/btn_media_play_pause"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_marginStart="16dp"
-            android:background="@drawable/pill_button_bg"
-            android:textColor="@color/btn_text"
-            android:text="⏸"
-            android:textSize="24sp"
-            android:stateListAnimator="@null" />
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_play"
+            android:scaleType="centerInside"
+            android:tint="#FFFFFFFF" />
+
+        <ImageView
+            android:id="@+id/btn_media_close"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:layout_marginStart="32dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_close"
+            android:scaleType="centerInside"
+            android:tint="#88FFFFFF" />
     </LinearLayout>
 
 </FrameLayout>

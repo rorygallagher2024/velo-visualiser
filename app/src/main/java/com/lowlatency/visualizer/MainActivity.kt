@@ -94,15 +94,16 @@ class MainActivity : AppCompatActivity() {
     // --- Local Playback ---
     private lateinit var localAudioPlayer: com.lowlatency.visualizer.audio.LocalAudioPlayer
     private lateinit var mediaControlsOverlay: View
-    private lateinit var btnMediaPlayPause: Button
-    private lateinit var btnMediaClose: Button
-    private var isMediaPlaying = false
+    private lateinit var btnMediaPlayPause: android.widget.ImageView
+    private lateinit var btnMediaClose: android.widget.ImageView
+    private var isLocalSessionActive = false
 
     private val localFilePicker = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
             localAudioPlayer.play(uri)
-            isMediaPlaying = true
+            isLocalSessionActive = true
             updateMediaControls()
+            
             mediaControlsOverlay.visibility = View.VISIBLE
             mediaControlsOverlay.animate().translationY(0f).setDuration(300).start()
             menuSheetController.close()
@@ -196,19 +197,19 @@ class MainActivity : AppCompatActivity() {
         localAudioPlayer = com.lowlatency.visualizer.audio.LocalAudioPlayer(this)
         
         btnMediaPlayPause.setOnClickListener {
-            if (isMediaPlaying) {
-                localAudioPlayer.pause()
-                isMediaPlaying = false
-            } else {
-                localAudioPlayer.resume()
-                isMediaPlaying = true
+            if (isLocalSessionActive) {
+                if (localAudioPlayer.isActivePlaying) {
+                    localAudioPlayer.pause()
+                } else {
+                    localAudioPlayer.resume()
+                }
+                updateMediaControls()
             }
-            updateMediaControls()
         }
         
         btnMediaClose.setOnClickListener {
             localAudioPlayer.stop()
-            isMediaPlaying = false
+            isLocalSessionActive = false
             mediaControlsOverlay.animate().translationY(-200f).setDuration(300).withEndAction {
                 mediaControlsOverlay.visibility = View.GONE
             }.start()
@@ -288,7 +289,7 @@ class MainActivity : AppCompatActivity() {
                 else 0
             },
             onManualSceneChange = { shuffleController.onSceneChanged() },
-            isStereoAudio = { audioSourceController.systemAudioMode || isMediaPlaying },
+            isStereoAudio = { audioSourceController.systemAudioMode || isLocalSessionActive },
             onScrubPreview = { active -> menuSheetController.setScrubPreview(active) },
             onCloseMenu = { menuSheetController.close() },
         )
@@ -305,6 +306,11 @@ class MainActivity : AppCompatActivity() {
             glView = glView,
             onBeforeOpen = {
                 syncMenuState()
+                if (mediaControlsOverlay.visibility == View.VISIBLE) {
+                    mediaControlsOverlay.animate().translationY(-200f).setDuration(300).withEndAction {
+                        mediaControlsOverlay.visibility = View.GONE
+                    }.start()
+                }
                 if (::menuDiscoveryController.isInitialized) menuDiscoveryController.onMenuOpened()
                 if (::scenesController.isInitialized) scenesController.onMenuOpened()
             },
@@ -404,19 +410,26 @@ class MainActivity : AppCompatActivity() {
         })
         
         glView.onSwipeDown = {
-            if (mediaControlsOverlay.visibility == View.GONE) {
-                mediaControlsOverlay.visibility = View.VISIBLE
-                mediaControlsOverlay.animate().translationY(0f).setDuration(300).start()
-            } else {
-                mediaControlsOverlay.animate().translationY(-200f).setDuration(300).withEndAction {
-                    mediaControlsOverlay.visibility = View.GONE
-                }.start()
+            if (isLocalSessionActive) {
+                if (mediaControlsOverlay.visibility == View.GONE) {
+                    mediaControlsOverlay.visibility = View.VISIBLE
+                    mediaControlsOverlay.translationY = -200f
+                    mediaControlsOverlay.animate().translationY(0f).setDuration(300).start()
+                } else {
+                    mediaControlsOverlay.animate().translationY(-200f).setDuration(300).withEndAction {
+                        mediaControlsOverlay.visibility = View.GONE
+                    }.start()
+                }
             }
         }
     }
     
     private fun updateMediaControls() {
-        btnMediaPlayPause.text = if (isMediaPlaying) "⏸" else "▶"
+        if (localAudioPlayer.isActivePlaying) {
+            btnMediaPlayPause.setImageResource(R.drawable.ic_pause)
+        } else {
+            btnMediaPlayPause.setImageResource(R.drawable.ic_play)
+        }
     }
 
     // ----- Settings tabs: Visuals | Lighting | Settings -----

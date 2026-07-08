@@ -107,7 +107,12 @@ bool AudioEngine::startPlayback(int sampleRate, int channelCount) {
     }
 
     mSampleRate.store(mStream->getSampleRate(), std::memory_order_relaxed);
-    mStream->setBufferSizeInFrames(mStream->getFramesPerBurst() * 2);
+    
+    // For playback pumped from a Java thread via JNI, we need a larger buffer 
+    // to absorb GC pauses and thread scheduling jitter to prevent audio cracking.
+    // The visualization is synchronized with the blocking write, so this larger
+    // audio buffer does not negatively impact A/V sync.
+    mStream->setBufferSizeInFrames(mStream->getBufferCapacityInFrames());
 
     result = mStream->requestStart();
     if (result != oboe::Result::OK) {
