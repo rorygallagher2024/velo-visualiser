@@ -262,26 +262,40 @@ class StudioAnalyzerScene(private val context: Context) : GlScene {
         val peakDb = 20f * log10(maxOf(peak, 0.00001f))
         
         val isSilent = rmsDb < -50f
-        val rawBass = if (isSilent) 0f else minOf(1f, bands[0])
-        val rawMid = if (isSilent) 0f else minOf(1f, bands[1])
-        val rawHigh = if (isSilent) 0f else minOf(1f, bands[2])
+
+        // Calculate custom band averages from the 128-bin spectrum for more dynamic UI (avoids native clamping)
+        var bassSum = 0f
+        for (i in 0 until 4) bassSum += SpectrumData.magnitudes[i]
+        val rawBass = if (isSilent) 0f else minOf(1f, bassSum / 4f)
+
+        var midSum = 0f
+        for (i in 4 until 32) midSum += SpectrumData.magnitudes[i]
+        // Mids are typically denser, apply a slight scale for visual balance
+        val rawMid = if (isSilent) 0f else minOf(1f, (midSum / 28f) * 1.5f)
+
+        var highSum = 0f
+        for (i in 32 until 128) highSum += SpectrumData.magnitudes[i]
+        // Highs require a boost to read well dynamically
+        val rawHigh = if (isSilent) 0f else minOf(1f, (highSum / 96f) * 2.5f)
 
         // Professional Metering Ballistics
-        // RMS and Bands use Exponential Moving Average (Smooth Attack & Release)
-        smoothedRms += (rmsDb - smoothedRms) * 0.15f
-        smoothedBass += (rawBass - smoothedBass) * 0.15f
-        smoothedMid += (rawMid - smoothedMid) * 0.15f
-        smoothedHigh += (rawHigh - smoothedHigh) * 0.15f
+        // RMS uses very slow EMA for readable, stable loudness (like short-term LUFS)
+        smoothedRms += (rmsDb - smoothedRms) * 0.02f
+        
+        // Bands use moderate EMA
+        smoothedBass += (rawBass - smoothedBass) * 0.1f
+        smoothedMid += (rawMid - smoothedMid) * 0.1f
+        smoothedHigh += (rawHigh - smoothedHigh) * 0.1f
 
-        // Peak uses Instant Attack, Slow Fall (Peak Hold)
+        // Peak uses Instant Attack, Extremely Slow Fall (True Peak Hold)
         if (peakDb > smoothedPeak) {
             smoothedPeak = peakDb
         } else {
-            smoothedPeak -= 0.3f // Falloff rate
+            smoothedPeak -= 0.05f // Very slow falloff (~3dB per second at 60fps)
         }
         
-        // --- 2. Update Text Overlay (Throttled to ~15 FPS for readability) ---
-        if (timeSec - lastTextUpdate > 0.06f) {
+        // --- 2. Update Text Overlay (Throttled to ~10 FPS for rock-solid readability) ---
+        if (timeSec - lastTextUpdate > 0.1f) {
             lastTextUpdate = timeSec
             
             textCanvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
@@ -291,14 +305,18 @@ class StudioAnalyzerScene(private val context: Context) : GlScene {
             val pY = texH * 0.12f
             val labelSpacing = texH * 0.09f
             
+            // Limit values for clean display
+            val dispRms = maxOf(-99.9f, smoothedRms)
+            val dispPeak = maxOf(-99.9f, smoothedPeak)
+            
             // RMS
             textCanvas.drawText("RMS LOUDNESS", pX, pY, textPaint)
-            textCanvas.drawText(String.format("%.1f dB", smoothedRms), pX, pY + labelSpacing, valuePaint)
+            textCanvas.drawText(String.format("%.1f dB", dispRms), pX, pY + labelSpacing, valuePaint)
             
             // PEAK
             val peakX = texW * 0.55f
             textCanvas.drawText("TRUE PEAK", peakX, pY, textPaint)
-            textCanvas.drawText(String.format("%.1f dB", smoothedPeak), peakX, pY + labelSpacing, valuePaint)
+            textCanvas.drawText(String.format("%.1f dB", dispPeak), peakX, pY + labelSpacing, valuePaint)
             
             // BANDS (Prominent row below)
             val bY = texH * 0.32f
