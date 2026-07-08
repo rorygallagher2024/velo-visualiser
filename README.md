@@ -26,14 +26,13 @@ A bare-metal C++/Oboe audio engine and custom OpenGL ES 3.1 shaders bypass stand
 [![Velo Demo](https://img.youtube.com/vi/3o23HX5KE0E/maxresdefault.jpg)](https://youtu.be/3o23HX5KE0E)
 `▶ Watch on YouTube`
 
-## Beta Testers Needed
+## Download on Google Play
 
-**Velo Visualiser is currently in Google Play Closed Beta.** I am actively looking for testers to help me hit the Google Play testing requirements for a full production launch.
+Velo Visualiser is available for free on the Google Play Store:
 
-To install the beta via the Play Store, please follow these steps in order:
-1. Join the testing group: [Velo Testers Google Group](https://groups.google.com/g/velo-testers)
-2. Opt-in on the web: [Play Store Beta Opt-in](https://play.google.com/apps/testing/com.lowlatency.visualizer)
-3. Download the app: [Velo on Google Play](https://play.google.com/store/apps/details?id=com.lowlatency.visualizer)
+<a href="https://play.google.com/store/apps/details?id=com.lowlatency.visualizer">
+  <img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Get it on Google Play" height="60">
+</a>
 
 *(Alternatively, prebuilt APKs for direct sideloading are available in the **Releases** tab. Note: Android will show an "Unverified Developer" warning on install — tap "More details" → "Install anyway.")*
 
