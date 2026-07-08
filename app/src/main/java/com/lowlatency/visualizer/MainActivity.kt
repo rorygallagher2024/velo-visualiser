@@ -208,7 +208,10 @@ class MainActivity : AppCompatActivity() {
         audioSourceController = AudioSourceController(
             activity = this,
             prefs = prefs,
-            onSourceChanged = { onAudioSourceChanged() },
+            onSourceChanged = {
+                if (::scenesController.isInitialized) scenesController.onAudioSourceChanged()
+                if (::linkSyncController.isInitialized) linkSyncController.setLocalPlaybackActive(isLocalSessionActive)
+            },
             onMicStarted = {
                 micStarted = true
                 if (::feelTheSpeedController.isInitialized) feelTheSpeedController.onMicStarted()
