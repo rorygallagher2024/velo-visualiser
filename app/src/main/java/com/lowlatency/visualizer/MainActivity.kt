@@ -214,6 +214,7 @@ class MainActivity : AppCompatActivity() {
                 mediaControlsOverlay.visibility = View.GONE
             }.start()
             audioSourceController.refreshSelection(false)
+            audioSourceController.evaluateMicState()
         }
 
         feelTheSpeedController = FeelTheSpeedController(
