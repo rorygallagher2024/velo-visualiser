@@ -365,11 +365,12 @@
                 android:layout_width="0dp"
                 android:layout_height="48dp"
                 android:layout_weight="1"
-                android:layout_marginEnd="4dp"
+                android:layout_marginEnd="2dp"
                 android:background="@drawable/segment_button_bg"
                 android:text="@string/source_mic"
                 android:textColor="@color/btn_text"
                 android:textAllCaps="false"
+                android:textSize="12sp"
                 android:stateListAnimator="@null" />
 
             <Button
@@ -377,11 +378,25 @@
                 android:layout_width="0dp"
                 android:layout_height="48dp"
                 android:layout_weight="1"
-                android:layout_marginStart="4dp"
+                android:layout_marginHorizontal="2dp"
                 android:background="@drawable/segment_button_bg"
                 android:text="@string/source_internal"
                 android:textColor="@color/btn_text"
                 android:textAllCaps="false"
+                android:textSize="12sp"
+                android:stateListAnimator="@null" />
+                
+            <Button
+                android:id="@+id/seg_local"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:layout_marginStart="2dp"
+                android:background="@drawable/segment_button_bg"
+                android:text="Local File"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="12sp"
                 android:stateListAnimator="@null" />
         </LinearLayout>
 
@@ -462,6 +477,8 @@
                 android:stateListAnimator="@null" />
         </LinearLayout>
 
+
+    <!-- Interactive Options Sheet (Bottom-anchored layer) -->
         <!-- Vibrate-on-beat haptics toggle -->
         <Button
             android:id="@+id/btn_haptics"
@@ -1525,5 +1542,42 @@
         android:contentDescription="@string/hint_swipe_up"
         android:alpha="0"
         android:visibility="gone" />
+
+    <!-- Media Controls Overlay (Top) -->
+    <LinearLayout
+        android:id="@+id/media_controls_overlay"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|center_horizontal"
+        android:layout_marginTop="64dp"
+        android:background="@drawable/sheet_background"
+        android:orientation="horizontal"
+        android:paddingHorizontal="24dp"
+        android:paddingVertical="16dp"
+        android:elevation="12dp"
+        android:translationY="-200dp"
+        android:visibility="gone">
+
+        <Button
+            android:id="@+id/btn_media_close"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@drawable/pill_button_bg"
+            android:textColor="@color/btn_text"
+            android:text="✕"
+            android:textSize="20sp"
+            android:stateListAnimator="@null" />
+
+        <Button
+            android:id="@+id/btn_media_play_pause"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="16dp"
+            android:background="@drawable/pill_button_bg"
+            android:textColor="@color/btn_text"
+            android:text="⏸"
+            android:textSize="24sp"
+            android:stateListAnimator="@null" />
+    </LinearLayout>
 
 </FrameLayout>

@@ -76,6 +76,52 @@ bool AudioEngine::startMicrophone() {
     return true;
 }
 
+bool AudioEngine::startPlayback(int sampleRate, int channelCount) {
+    std::lock_guard<std::mutex> lock(mLifecycleLock);
+    if (mRunning.load(std::memory_order_acquire)) {
+        return true;
+    }
+
+    oboe::AudioStreamBuilder builder;
+    builder.setDirection(oboe::Direction::Output)
+            ->setPerformanceMode(oboe::PerformanceMode::LowLatency)
+            ->setSharingMode(oboe::SharingMode::Exclusive)
+            ->setFormat(oboe::AudioFormat::Float)
+            ->setChannelCount(channelCount)
+            ->setSampleRate(sampleRate)
+            ->setSampleRateConversionQuality(oboe::SampleRateConversionQuality::None)
+            ->setAudioApi(oboe::AudioApi::AAudio);
+            // No DataCallback for playback! We use blocking write().
+
+    oboe::Result result = builder.openStream(mStream);
+    if (result != oboe::Result::OK) {
+        LOGW("Exclusive output open failed; retrying with Shared.");
+        builder.setSharingMode(oboe::SharingMode::Shared);
+        result = builder.openStream(mStream);
+    }
+
+    if (result != oboe::Result::OK) {
+        LOGE("Failed to open output stream: %s", oboe::convertToText(result));
+        mStream.reset();
+        return false;
+    }
+
+    mSampleRate.store(mStream->getSampleRate(), std::memory_order_relaxed);
+    mStream->setBufferSizeInFrames(mStream->getFramesPerBurst() * 2);
+
+    result = mStream->requestStart();
+    if (result != oboe::Result::OK) {
+        LOGE("requestStart failed for playback: %s", oboe::convertToText(result));
+        mStream->close();
+        mStream.reset();
+        return false;
+    }
+
+    LOGI("Playback stream started. rate=%d channels=%d", mStream->getSampleRate(), mStream->getChannelCount());
+    mRunning.store(true, std::memory_order_release);
+    return true;
+}
+
 void AudioEngine::stop() {
     std::lock_guard<std::mutex> lock(mLifecycleLock);
     mRunning.store(false, std::memory_order_release);
@@ -119,6 +165,46 @@ void AudioEngine::pushExternalPcm(const float *data, size_t numSamples) noexcept
 
 void AudioEngine::pushExternalPcmStereo(const float *interleaved, size_t numSamples) noexcept {
     mStereoBuffer->write(interleaved, numSamples * 2);
+}
+
+void AudioEngine::pushPlaybackAudio(const float *interleaved, size_t numFrames) noexcept {
+    if (mStream && mStream->getDirection() == oboe::Direction::Output) {
+        int channels = mStream->getChannelCount();
+        
+        // Blocking write to the speaker DAC (this provides the timing pace for the decoder thread)
+        // We use a large timeout because we WANT the decoder thread to block and wait for the DAC
+        int64_t timeoutNanos = 500000000; // 500ms
+        auto result = mStream->write(interleaved, numFrames, timeoutNanos);
+        
+        if (result.value() > 0) {
+            size_t framesWritten = result.value();
+            
+            // Push exact same frames to the visualizer buffers instantly!
+            if (channels == 2) {
+                mStereoBuffer->write(interleaved, framesWritten * 2);
+                
+                // Downmix to mono for FFT analysis
+                static thread_local std::vector<float> mono;
+                if (mono.size() < framesWritten) mono.resize(framesWritten);
+                for (size_t i = 0; i < framesWritten; ++i) {
+                    mono[i] = (interleaved[i*2] + interleaved[i*2+1]) * 0.5f;
+                }
+                mBuffer->write(mono.data(), framesWritten);
+            } else {
+                // Mono track
+                mBuffer->write(interleaved, framesWritten);
+                
+                // Upmix to stereo for stereo visualizers
+                static thread_local std::vector<float> stereo;
+                if (stereo.size() < framesWritten * 2) stereo.resize(framesWritten * 2);
+                for (size_t i = 0; i < framesWritten; ++i) {
+                    stereo[i*2] = interleaved[i];
+                    stereo[i*2+1] = interleaved[i];
+                }
+                mStereoBuffer->write(stereo.data(), framesWritten * 2);
+            }
+        }
+    }
 }
 
 void AudioEngine::copyLatest(float *out, size_t numSamples) const noexcept {

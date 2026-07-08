@@ -48,12 +48,14 @@ import com.lowlatency.visualizer.R
  * @param onSourceChanged invoked after every source transition so the host can
  *   refresh source-dependent UI (it reads [systemAudioMode]).
  * @param onMicStarted invoked after the mic stream successfully starts (every time).
+ * @param onLocalFileRequested invoked when the user selects the Local File source.
  */
 class AudioSourceController(
     private val activity: AppCompatActivity,
     private val prefs: SharedPreferences,
     private val onSourceChanged: () -> Unit,
     private val onMicStarted: () -> Unit = {},
+    private val onLocalFileRequested: () -> Unit = {},
 ) {
     var systemAudioMode = false
         private set
@@ -62,6 +64,7 @@ class AudioSourceController(
 
     private lateinit var segMic: Button
     private lateinit var segInternal: Button
+    private lateinit var segLocal: Button
     private lateinit var internalAudioWarning: TextView
 
     private val captureStopReceiver = object : BroadcastReceiver() {
@@ -111,9 +114,11 @@ class AudioSourceController(
     fun bind() {
         segMic = activity.findViewById(R.id.seg_mic)
         segInternal = activity.findViewById(R.id.seg_internal)
+        segLocal = activity.findViewById(R.id.seg_local)
         internalAudioWarning = activity.findViewById(R.id.internal_audio_warning)
         segMic.setOnClickListener { selectMicrophone() }
         segInternal.setOnClickListener { selectInternalAudio() }
+        segLocal.setOnClickListener { onLocalFileRequested() }
 
         ContextCompat.registerReceiver(
             activity,
@@ -124,9 +129,10 @@ class AudioSourceController(
     }
 
     /** Refresh the segment toggle to match the live source, then notify observers. */
-    fun refreshSelection() {
-        segMic.isSelected = !systemAudioMode
-        segInternal.isSelected = systemAudioMode
+    fun refreshSelection(isLocalPlaying: Boolean = false) {
+        segMic.isSelected = !systemAudioMode && !isLocalPlaying
+        segInternal.isSelected = systemAudioMode && !isLocalPlaying
+        segLocal.isSelected = isLocalPlaying
         internalAudioWarning.visibility = if (systemAudioMode) View.VISIBLE else View.GONE
         onSourceChanged()
     }

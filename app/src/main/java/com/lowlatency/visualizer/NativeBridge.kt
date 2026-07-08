@@ -16,8 +16,14 @@ object NativeBridge {
     /** Opens + starts the low-latency Oboe input stream (mic, Unprocessed). */
     external fun nativeStartMicrophone(): Boolean
 
+    /** Opens + starts the low-latency Oboe output stream (playback). */
+    external fun nativeStartPlayback(sampleRate: Int, channelCount: Int): Boolean
+
     /** Stops and closes the active stream. */
     external fun nativeStop()
+
+    /** Pushes decoded PCM to the speaker (blocking write) and visualizer buffers. */
+    external fun nativePushPlaybackAudio(pcm: FloatArray, frames: Int)
 
     /** Actual hardware sample rate negotiated by Oboe (e.g. 48000). */
     external fun nativeGetSampleRate(): Int

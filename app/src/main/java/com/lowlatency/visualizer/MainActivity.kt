@@ -90,6 +90,27 @@ class MainActivity : AppCompatActivity() {
     private var backgroundedAtMs = 0L
     private var micStarted = false          // has the mic stream gone live this session?
     private var introSequenceDone = false   // intro/hint finished — safe to show the menu cue
+    
+    // --- Local Playback ---
+    private lateinit var localAudioPlayer: com.lowlatency.visualizer.audio.LocalAudioPlayer
+    private lateinit var mediaControlsOverlay: View
+    private lateinit var btnMediaPlayPause: Button
+    private lateinit var btnMediaClose: Button
+    private var isMediaPlaying = false
+
+    private val localFilePicker = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            localAudioPlayer.play(uri)
+            isMediaPlaying = true
+            updateMediaControls()
+            mediaControlsOverlay.visibility = View.VISIBLE
+            mediaControlsOverlay.animate().translationY(0f).setDuration(300).start()
+            menuSheetController.close()
+            audioSourceController.refreshSelection(true)
+        } else {
+            audioSourceController.refreshSelection(false)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -150,7 +171,10 @@ class MainActivity : AppCompatActivity() {
         tabSettings = findViewById(R.id.tab_settings)
         btnCastDisplay = findViewById(R.id.btn_cast_display)
         castOverlay = findViewById(R.id.cast_overlay)
-        // Lighting views (Hue/LIFX/Nanoleaf) are bound inside LightingController.
+        
+        mediaControlsOverlay = findViewById(R.id.media_controls_overlay)
+        btnMediaPlayPause = findViewById(R.id.btn_media_play_pause)
+        btnMediaClose = findViewById(R.id.btn_media_close)
 
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
     }
@@ -165,8 +189,31 @@ class MainActivity : AppCompatActivity() {
                 micStarted = true
                 if (::feelTheSpeedController.isInitialized) feelTheSpeedController.onMicStarted()
             },
+            onLocalFileRequested = { localFilePicker.launch("audio/*") }
         )
         audioSourceController.bind()
+        
+        localAudioPlayer = com.lowlatency.visualizer.audio.LocalAudioPlayer(this)
+        
+        btnMediaPlayPause.setOnClickListener {
+            if (isMediaPlaying) {
+                localAudioPlayer.pause()
+                isMediaPlaying = false
+            } else {
+                localAudioPlayer.resume()
+                isMediaPlaying = true
+            }
+            updateMediaControls()
+        }
+        
+        btnMediaClose.setOnClickListener {
+            localAudioPlayer.stop()
+            isMediaPlaying = false
+            mediaControlsOverlay.animate().translationY(-200f).setDuration(300).withEndAction {
+                mediaControlsOverlay.visibility = View.GONE
+            }.start()
+            audioSourceController.refreshSelection(false)
+        }
 
         feelTheSpeedController = FeelTheSpeedController(
             activity = this,
@@ -355,6 +402,21 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         })
+        
+        glView.onSwipeDown = {
+            if (mediaControlsOverlay.visibility == View.GONE) {
+                mediaControlsOverlay.visibility = View.VISIBLE
+                mediaControlsOverlay.animate().translationY(0f).setDuration(300).start()
+            } else {
+                mediaControlsOverlay.animate().translationY(-200f).setDuration(300).withEndAction {
+                    mediaControlsOverlay.visibility = View.GONE
+                }.start()
+            }
+        }
+    }
+    
+    private fun updateMediaControls() {
+        btnMediaPlayPause.text = if (isMediaPlaying) "⏸" else "▶"
     }
 
     // ----- Settings tabs: Visuals | Lighting | Settings -----

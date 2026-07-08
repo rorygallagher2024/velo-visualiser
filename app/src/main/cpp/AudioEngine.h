@@ -36,43 +36,36 @@ class AudioEngine : public oboe::AudioStreamDataCallback,
 public:
     enum class InputSource {
         Microphone,
-        SystemAudio
+        SystemAudio,
+        LocalPlayback
     };
 
     static AudioEngine &instance();
 
     // --- lifecycle (called from the JNI / main thread) ---
     bool startMicrophone();
+    bool startPlayback(int sampleRate, int channelCount);
     void stop();
     bool isRunning() const { return mRunning.load(std::memory_order_acquire); }
 
-    // System-audio push path. `data` is interleaved PCM already downmixed to
-    // mono float by the caller. Real-time safe; forwards to the ring buffer.
+    // System-audio push path.
     void pushExternalPcm(const float *data, size_t numSamples) noexcept;
     void pushExternalPcmStereo(const float *interleaved, size_t numSamples) noexcept;
 
+    // Local playback push path (Blocking write to DAC).
+    void pushPlaybackAudio(const float *interleaved, size_t numFrames) noexcept;
+
     // --- consumer side (GL render thread) ---
-    // Fills `out` with the latest `numSamples` samples (chronological order).
     void copyLatest(float *out, size_t numSamples) const noexcept;
-
-    // Fills `outInterleaved` with the latest `numSamples` *pairs* of stereo samples.
-    // If the stream is mono, L and R will be identical.
     void copyLatestStereo(float *outInterleaved, size_t numSamples) const noexcept;
-
-    // Runs the FFT pipeline over the latest window and writes 3 band energies
-    // (low, mid, high), each in [0, 1], into `outBands`. GL thread only.
     void computeBands(float *outBands) noexcept;
-
-    // Full 128-bin spectrum for visuals.
     void computeFullSpectrum(float *outMagnitudes, float *outPeaks, float dt) noexcept;
-
-    // Single-FFT combined path: bands + full spectrum from one transform.
     void computeAll(float *outBands, float *outMagnitudes, float *outPeaks, float dt) noexcept;
 
     int sampleRate() const { return mSampleRate.load(std::memory_order_relaxed); }
     float callbackPeriodMs() const { return mCallbackPeriodMs.load(std::memory_order_relaxed); }
 
-    // --- Oboe callbacks ---
+    // --- Oboe callbacks (Used for Mic input only) ---
     oboe::DataCallbackResult onAudioReady(oboe::AudioStream *stream,
                                           void *audioData,
                                           int32_t numFrames) override;
@@ -85,18 +78,16 @@ private:
     AudioEngine(const AudioEngine &) = delete;
     AudioEngine &operator=(const AudioEngine &) = delete;
 
-    // Ring buffer sized for ~the most recent slice of audio we ever display.
     static constexpr size_t kBufferCapacity = 8192;
 
     std::shared_ptr<oboe::AudioStream> mStream;
     std::unique_ptr<CircularBuffer> mBuffer;
     std::unique_ptr<CircularBuffer> mStereoBuffer;
 
-    // FFT analysis state — touched only by the consumer (GL) thread.
     std::unique_ptr<FftProcessor> mFft;
     std::vector<float> mFftScratch;
 
-    std::mutex mLifecycleLock;        // guards open/close only — never the hot path
+    std::mutex mLifecycleLock;
     std::atomic<bool> mRunning{false};
     std::atomic<int> mSampleRate{48000};
     std::atomic<float> mCallbackPeriodMs{0};

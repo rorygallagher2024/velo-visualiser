@@ -37,6 +37,11 @@ Java_com_lowlatency_visualizer_NativeBridge_nativeStartMicrophone(JNIEnv *, jobj
     return AudioEngine::instance().startMicrophone() ? JNI_TRUE : JNI_FALSE;
 }
 
+JNIEXPORT jboolean JNICALL
+Java_com_lowlatency_visualizer_NativeBridge_nativeStartPlayback(JNIEnv *, jobject, jint sampleRate, jint channelCount) {
+    return AudioEngine::instance().startPlayback(sampleRate, channelCount) ? JNI_TRUE : JNI_FALSE;
+}
+
 JNIEXPORT void JNICALL
 Java_com_lowlatency_visualizer_NativeBridge_nativeStop(JNIEnv *, jobject) {
     AudioEngine::instance().stop();
@@ -237,6 +242,18 @@ Java_com_lowlatency_visualizer_NativeBridge_nativePushPcm(JNIEnv *env, jobject,
 
     auto end = std::chrono::steady_clock::now();
     gSystemAudioConvTimeUs.store(std::chrono::duration_cast<std::chrono::microseconds>(end - start).count());
+}
+
+JNIEXPORT void JNICALL
+Java_com_lowlatency_visualizer_NativeBridge_nativePushPlaybackAudio(JNIEnv *env, jobject, jfloatArray pcm, jint frames) {
+    if (pcm == nullptr || frames <= 0) return;
+    
+    jfloat *src = env->GetFloatArrayElements(pcm, nullptr);
+    if (src == nullptr) return;
+    
+    AudioEngine::instance().pushPlaybackAudio(src, static_cast<size_t>(frames));
+    
+    env->ReleaseFloatArrayElements(pcm, src, JNI_ABORT);
 }
 
 JNIEXPORT jfloatArray JNICALL
