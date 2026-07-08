@@ -166,7 +166,7 @@ oboe::DataCallbackResult AudioEngine::onAudioReady(oboe::AudioStream *stream,
 void AudioEngine::pushExternalPcm(const float *data, size_t numSamples) noexcept {
     // System-audio path: attenuate mono buffer to prevent washing out FFTs, 
     // since system audio is digitally mastered to 0dBFS.
-    const float systemAudioAttenuation = 0.15f;
+    const float systemAudioAttenuation = 0.25f;
     static thread_local std::vector<float> attenuated;
     if (attenuated.size() < numSamples) attenuated.resize(numSamples);
     for (size_t i = 0; i < numSamples; ++i) {
