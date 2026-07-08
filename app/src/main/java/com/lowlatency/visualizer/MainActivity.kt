@@ -288,7 +288,7 @@ class MainActivity : AppCompatActivity() {
                 else 0
             },
             onManualSceneChange = { shuffleController.onSceneChanged() },
-            isSystemAudio = { audioSourceController.systemAudioMode },
+            isStereoAudio = { audioSourceController.systemAudioMode || isMediaPlaying },
             onScrubPreview = { active -> menuSheetController.setScrubPreview(active) },
             onCloseMenu = { menuSheetController.close() },
         )

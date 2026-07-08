@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="SceneFooterStyle">
+        <item name="android:layout_gravity">bottom|end</item>
+        <item name="android:layout_marginEnd">32dp</item>
+    </style>
+</resources>

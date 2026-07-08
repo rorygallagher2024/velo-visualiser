@@ -30,12 +30,12 @@ class ScenesController(
     private val isMenuOpen: () -> Boolean,
     private val perfOverlayBottom: () -> Int,
     private val onManualSceneChange: () -> Unit,
-    private val isSystemAudio: () -> Boolean,
+    private val isStereoAudio: () -> Boolean,
     private val onScrubPreview: (Boolean) -> Unit = {},
     private val onCloseMenu: () -> Unit = {},
 ) {
     private val allEntries = SceneCatalog.ENTRIES
-    private val entries get() = allEntries.filter { !it.requiresSystemAudio || isSystemAudio() }
+    private val entries get() = allEntries.filter { !it.requiresStereoAudio || isStereoAudio() }
 
     private lateinit var wheel: SceneWheelView
     private lateinit var counter: TextView
