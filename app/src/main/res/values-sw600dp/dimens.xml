@@ -8,6 +8,7 @@
     <dimen name="media_bar_button_pad">13dp</dimen>        <!-- play glyph: 30dp -->
     <dimen name="media_bar_button_pad_small">15dp</dimen>  <!-- loop/close glyphs: 26dp -->
     <dimen name="media_bar_track_height">4dp</dimen>
+    <dimen name="media_bar_hero_text">27sp</dimen>
     <dimen name="media_bar_title_text">16sp</dimen>
     <dimen name="media_bar_time_text">14sp</dimen>
 </resources>

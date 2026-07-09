@@ -1557,8 +1557,10 @@
         android:alpha="0"
         android:visibility="gone" />
 
-    <!-- Media Controls Overlay (Top): title · time / transport · seek · loop.
-         Every control sits in a 44dp touch box; glyphs stay 22-24dp inside. -->
+    <!-- Media Controls Overlay (Top). Typography as spectacle: the track
+         title is the hero (same ultra-light treatment as the scene label);
+         time + hairline seek + centered transport sit quietly beneath it.
+         Every control keeps a 44-48dp touch box. -->
     <LinearLayout
         android:id="@+id/media_controls_overlay"
         android:layout_width="@dimen/media_bar_width"
@@ -1567,36 +1569,63 @@
         android:layout_marginTop="64dp"
         android:background="@drawable/media_bar_bg"
         android:orientation="vertical"
-        android:paddingHorizontal="16dp"
-        android:paddingTop="8dp"
+        android:paddingHorizontal="24dp"
+        android:paddingTop="16dp"
         android:paddingBottom="4dp"
         android:elevation="12dp"
         android:translationY="-200dp"
         android:visibility="gone">
 
+        <TextView
+            android:id="@+id/media_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_horizontal"
+            android:fontFamily="@font/clash_display" app:fontFamily="@font/clash_display"
+            android:fontWeight="200"
+            android:textAllCaps="true"
+            android:letterSpacing="0.08"
+            android:includeFontPadding="false"
+            android:maxLines="1"
+            android:textColor="#F2FFFFFF"
+            app:autoSizeTextType="uniform"
+            app:autoSizeMinTextSize="12sp"
+            app:autoSizeMaxTextSize="@dimen/media_bar_hero_text"
+            app:autoSizeStepGranularity="1sp" />
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
             android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:paddingHorizontal="@dimen/media_bar_button_pad">
-
-            <TextView
-                android:id="@+id/media_title"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:textSize="@dimen/media_bar_title_text"
-                android:textColor="#CCFFFFFF"
-                android:letterSpacing="0.02"
-                android:singleLine="true"
-                android:ellipsize="end" />
+            android:gravity="center_vertical">
 
             <TextView
                 android:id="@+id/media_time"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="12dp"
+                android:textSize="@dimen/media_bar_time_text"
+                android:textColor="#80FFFFFF"
+                android:fontFeatureSettings="tnum" />
+
+            <SeekBar
+                android:id="@+id/media_seek"
+                android:layout_width="0dp"
+                android:layout_height="@dimen/media_bar_button"
+                android:layout_weight="1"
+                android:layout_marginHorizontal="4dp"
+                android:minHeight="@dimen/media_bar_track_height"
+                android:maxHeight="@dimen/media_bar_track_height"
+                android:contentDescription="@string/cd_media_seek"
+                android:progressTint="#FFFFFFFF"
+                android:thumb="@drawable/media_seek_thumb"
+                android:progressBackgroundTint="#26FFFFFF"
+                android:splitTrack="false" />
+
+            <TextView
+                android:id="@+id/media_duration"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
                 android:textSize="@dimen/media_bar_time_text"
                 android:textColor="#80FFFFFF"
                 android:fontFeatureSettings="tnum" />
@@ -1606,37 +1635,25 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:gravity="center_vertical">
+            android:gravity="center">
 
             <ImageView
                 android:id="@+id/btn_media_play_pause"
-                android:layout_width="@dimen/media_bar_button"
-                android:layout_height="@dimen/media_bar_button"
-                android:padding="@dimen/media_bar_button_pad"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:padding="11dp"
                 android:background="?android:attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/cd_media_play_pause"
                 android:src="@drawable/ic_play"
                 android:scaleType="fitCenter"
                 app:tint="#FFFFFFFF" />
 
-            <SeekBar
-                android:id="@+id/media_seek"
-                android:layout_width="0dp"
-                android:layout_height="@dimen/media_bar_button"
-                android:layout_weight="1"
-                android:minHeight="@dimen/media_bar_track_height"
-                android:maxHeight="@dimen/media_bar_track_height"
-                android:contentDescription="@string/cd_media_seek"
-                android:progressTint="#FFFFFFFF"
-                android:thumbTint="#FFFFFFFF"
-                android:progressBackgroundTint="#33FFFFFF"
-                android:splitTrack="false" />
-
             <ImageView
                 android:id="@+id/btn_media_loop"
-                android:layout_width="@dimen/media_bar_button"
-                android:layout_height="@dimen/media_bar_button"
-                android:padding="@dimen/media_bar_button_pad_small"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginStart="28dp"
+                android:padding="14dp"
                 android:alpha="0.4"
                 android:background="?android:attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/cd_media_loop"
@@ -1646,9 +1663,10 @@
 
             <ImageView
                 android:id="@+id/btn_media_close"
-                android:layout_width="@dimen/media_bar_button"
-                android:layout_height="@dimen/media_bar_button"
-                android:padding="@dimen/media_bar_button_pad_small"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginStart="28dp"
+                android:padding="14dp"
                 android:background="?android:attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/cd_media_close"
                 android:src="@drawable/ic_close"

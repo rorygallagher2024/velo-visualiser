@@ -14,6 +14,7 @@
     <dimen name="media_bar_button_pad">10dp</dimen>        <!-- play glyph: 24dp -->
     <dimen name="media_bar_button_pad_small">11dp</dimen>  <!-- loop/close glyphs: 22dp -->
     <dimen name="media_bar_track_height">3dp</dimen>
+    <dimen name="media_bar_hero_text">21sp</dimen>
     <dimen name="media_bar_title_text">13sp</dimen>
     <dimen name="media_bar_time_text">12sp</dimen>
 </resources>

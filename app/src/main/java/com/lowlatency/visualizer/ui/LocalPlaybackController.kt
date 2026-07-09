@@ -56,6 +56,7 @@ class LocalPlaybackController(
     private lateinit var bar: View
     private lateinit var title: TextView
     private lateinit var time: TextView
+    private lateinit var duration: TextView
     private lateinit var btnPlayPause: ImageView
     private lateinit var btnLoop: ImageView
     private lateinit var btnClose: ImageView
@@ -99,6 +100,7 @@ class LocalPlaybackController(
         bar = activity.findViewById(R.id.media_controls_overlay)
         title = activity.findViewById(R.id.media_title)
         time = activity.findViewById(R.id.media_time)
+        duration = activity.findViewById(R.id.media_duration)
         btnPlayPause = activity.findViewById(R.id.btn_media_play_pause)
         btnLoop = activity.findViewById(R.id.btn_media_loop)
         btnClose = activity.findViewById(R.id.btn_media_close)
@@ -238,15 +240,16 @@ class LocalPlaybackController(
     private val progressPoller = object : Runnable {
         override fun run() {
             if (bar.visibility != View.VISIBLE) return
-            val duration = player.durationUs
+            val durationUs = player.durationUs
             if (!scrubbing) {
-                seek.isEnabled = duration > 0
-                seek.progress = if (duration > 0) {
-                    ((player.positionUs * SEEK_MAX) / max(duration, 1L)).toInt()
+                seek.isEnabled = durationUs > 0
+                seek.progress = if (durationUs > 0) {
+                    ((player.positionUs * SEEK_MAX) / max(durationUs, 1L)).toInt()
                 } else {
                     0
                 }
-                time.text = formatTime(player.positionUs, duration)
+                time.text = formatClock(player.positionUs)
+                duration.text = if (durationUs > 0) formatClock(durationUs) else ""
             }
             bar.postDelayed(this, PROGRESS_POLL_MS)
         }
@@ -283,7 +286,7 @@ class LocalPlaybackController(
 
     private val seekListener = object : SeekBar.OnSeekBarChangeListener {
         override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
-            if (fromUser) time.text = formatTime(progressToUs(progress), player.durationUs)
+            if (fromUser) time.text = formatClock(progressToUs(progress))
         }
 
         override fun onStartTrackingTouch(seekBar: SeekBar) {
@@ -300,11 +303,6 @@ class LocalPlaybackController(
 
     private fun progressToUs(progress: Int): Long =
         (player.durationUs * progress) / SEEK_MAX
-
-    private fun formatTime(positionUs: Long, durationUs: Long): String {
-        val pos = formatClock(positionUs)
-        return if (durationUs > 0) "$pos / ${formatClock(durationUs)}" else pos
-    }
 
     private fun formatClock(us: Long): String {
         val totalSec = (us / 1_000_000L).coerceAtLeast(0L)
