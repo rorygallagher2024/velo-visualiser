@@ -7,4 +7,13 @@
     <dimen name="bottom_nav_margin_bottom">32dp</dimen>
     <dimen name="options_sheet_scroll_margin_bottom">85dp</dimen>
     <dimen name="sheet_margin_top">72dp</dimen>
+
+    <!-- Local playback media bar (scaled up on sw600dp: opened folds / tablets) -->
+    <dimen name="media_bar_width">340dp</dimen>
+    <dimen name="media_bar_button">44dp</dimen>
+    <dimen name="media_bar_button_pad">10dp</dimen>        <!-- play glyph: 24dp -->
+    <dimen name="media_bar_button_pad_small">11dp</dimen>  <!-- loop/close glyphs: 22dp -->
+    <dimen name="media_bar_track_height">3dp</dimen>
+    <dimen name="media_bar_title_text">13sp</dimen>
+    <dimen name="media_bar_time_text">12sp</dimen>
 </resources>

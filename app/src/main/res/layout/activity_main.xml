@@ -1561,7 +1561,7 @@
          Every control sits in a 44dp touch box; glyphs stay 22-24dp inside. -->
     <LinearLayout
         android:id="@+id/media_controls_overlay"
-        android:layout_width="340dp"
+        android:layout_width="@dimen/media_bar_width"
         android:layout_height="wrap_content"
         android:layout_gravity="top|center_horizontal"
         android:layout_marginTop="64dp"
@@ -1579,14 +1579,14 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:paddingHorizontal="10dp">
+            android:paddingHorizontal="@dimen/media_bar_button_pad">
 
             <TextView
                 android:id="@+id/media_title"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:textSize="13sp"
+                android:textSize="@dimen/media_bar_title_text"
                 android:textColor="#CCFFFFFF"
                 android:letterSpacing="0.02"
                 android:singleLine="true"
@@ -1597,7 +1597,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="12dp"
-                android:textSize="12sp"
+                android:textSize="@dimen/media_bar_time_text"
                 android:textColor="#80FFFFFF"
                 android:fontFeatureSettings="tnum" />
         </LinearLayout>
@@ -1610,9 +1610,9 @@
 
             <ImageView
                 android:id="@+id/btn_media_play_pause"
-                android:layout_width="44dp"
-                android:layout_height="44dp"
-                android:padding="10dp"
+                android:layout_width="@dimen/media_bar_button"
+                android:layout_height="@dimen/media_bar_button"
+                android:padding="@dimen/media_bar_button_pad"
                 android:background="?android:attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/cd_media_play_pause"
                 android:src="@drawable/ic_play"
@@ -1622,10 +1622,10 @@
             <SeekBar
                 android:id="@+id/media_seek"
                 android:layout_width="0dp"
-                android:layout_height="44dp"
+                android:layout_height="@dimen/media_bar_button"
                 android:layout_weight="1"
-                android:minHeight="3dp"
-                android:maxHeight="3dp"
+                android:minHeight="@dimen/media_bar_track_height"
+                android:maxHeight="@dimen/media_bar_track_height"
                 android:contentDescription="@string/cd_media_seek"
                 android:progressTint="#FFFFFFFF"
                 android:thumbTint="#FFFFFFFF"
@@ -1634,9 +1634,9 @@
 
             <ImageView
                 android:id="@+id/btn_media_loop"
-                android:layout_width="44dp"
-                android:layout_height="44dp"
-                android:padding="11dp"
+                android:layout_width="@dimen/media_bar_button"
+                android:layout_height="@dimen/media_bar_button"
+                android:padding="@dimen/media_bar_button_pad_small"
                 android:alpha="0.4"
                 android:background="?android:attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/cd_media_loop"
@@ -1646,9 +1646,9 @@
 
             <ImageView
                 android:id="@+id/btn_media_close"
-                android:layout_width="44dp"
-                android:layout_height="44dp"
-                android:padding="11dp"
+                android:layout_width="@dimen/media_bar_button"
+                android:layout_height="@dimen/media_bar_button"
+                android:padding="@dimen/media_bar_button_pad_small"
                 android:background="?android:attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/cd_media_close"
                 android:src="@drawable/ic_close"

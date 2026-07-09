@@ -1,4 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <dimen name="sheet_margin_top">0dp</dimen>
+
+    <!-- Media bar: larger canvas, larger controls (opened fold / tablet) -->
+    <dimen name="media_bar_width">500dp</dimen>
+    <dimen name="media_bar_button">56dp</dimen>
+    <dimen name="media_bar_button_pad">13dp</dimen>        <!-- play glyph: 30dp -->
+    <dimen name="media_bar_button_pad_small">15dp</dimen>  <!-- loop/close glyphs: 26dp -->
+    <dimen name="media_bar_track_height">4dp</dimen>
+    <dimen name="media_bar_title_text">16sp</dimen>
+    <dimen name="media_bar_time_text">14sp</dimen>
 </resources>
