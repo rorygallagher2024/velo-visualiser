@@ -77,54 +77,83 @@ bool AudioEngine::startMicrophone() {
 }
 
 bool AudioEngine::startPlayback(int sampleRate, int channelCount) {
-    std::lock_guard<std::mutex> lock(mLifecycleLock);
-    if (mRunning.load(std::memory_order_acquire)) {
-        return true;
-    }
+    // Decode thread only — mPlaybackStream is single-thread owned (see header).
+    stopPlayback();   // defensive: mid-stream format change reopens the stream
 
     oboe::AudioStreamBuilder builder;
     builder.setDirection(oboe::Direction::Output)
             ->setPerformanceMode(oboe::PerformanceMode::LowLatency)
-            ->setSharingMode(oboe::SharingMode::Exclusive)
+            // Shared, not Exclusive: playback doesn't need the exclusive MMAP
+            // path (we control both ends of the A/V clock), and a shared
+            // stream is a better citizen when paused in the background.
+            ->setSharingMode(oboe::SharingMode::Shared)
             ->setFormat(oboe::AudioFormat::Float)
             ->setChannelCount(channelCount)
             ->setSampleRate(sampleRate)
-            ->setSampleRateConversionQuality(oboe::SampleRateConversionQuality::None)
+            // Let Oboe resample when the device won't run the file's rate
+            // natively (44.1k material on 48k-only hardware).
+            ->setSampleRateConversionQuality(oboe::SampleRateConversionQuality::Medium)
             ->setAudioApi(oboe::AudioApi::AAudio);
-            // No DataCallback for playback! We use blocking write().
+            // No DataCallback for playback — the decoder paces itself against
+            // blocking write().
 
-    oboe::Result result = builder.openStream(mStream);
-    if (result != oboe::Result::OK) {
-        LOGW("Exclusive output open failed; retrying with Shared.");
-        builder.setSharingMode(oboe::SharingMode::Shared);
-        result = builder.openStream(mStream);
-    }
-
+    oboe::Result result = builder.openStream(mPlaybackStream);
     if (result != oboe::Result::OK) {
         LOGE("Failed to open output stream: %s", oboe::convertToText(result));
-        mStream.reset();
+        mPlaybackStream.reset();
         return false;
     }
 
-    mSampleRate.store(mStream->getSampleRate(), std::memory_order_relaxed);
-    
-    // For playback pumped from a Java thread via JNI, we need a larger buffer 
-    // to absorb GC pauses and thread scheduling jitter to prevent audio cracking.
-    // The visualization is synchronized with the blocking write, so this larger
-    // audio buffer does not negatively impact A/V sync.
-    mStream->setBufferSizeInFrames(mStream->getBufferCapacityInFrames());
+    mSampleRate.store(mPlaybackStream->getSampleRate(), std::memory_order_relaxed);
 
-    result = mStream->requestStart();
+    // Buffer ~35 ms: enough to absorb decode-thread scheduling / GC jitter,
+    // small enough that the visual mirror (fed at enqueue time) stays within
+    // a frame or two of what is audible. A capacity-sized buffer here would
+    // make the visuals *lead* the audio by its full length.
+    const int32_t burst = mPlaybackStream->getFramesPerBurst();
+    if (burst > 0) {
+        const int32_t target = (mPlaybackStream->getSampleRate() * 35) / 1000;
+        const int32_t bursts = std::max(2, (target + burst - 1) / burst);
+        mPlaybackStream->setBufferSizeInFrames(
+                std::min(bursts * burst, mPlaybackStream->getBufferCapacityInFrames()));
+    }
+
+    result = mPlaybackStream->requestStart();
     if (result != oboe::Result::OK) {
         LOGE("requestStart failed for playback: %s", oboe::convertToText(result));
-        mStream->close();
-        mStream.reset();
+        mPlaybackStream->close();
+        mPlaybackStream.reset();
         return false;
     }
 
-    LOGI("Playback stream started. rate=%d channels=%d", mStream->getSampleRate(), mStream->getChannelCount());
-    mRunning.store(true, std::memory_order_release);
+    LOGI("Playback stream started. rate=%d channels=%d burst=%d bufSize=%d",
+         mPlaybackStream->getSampleRate(), mPlaybackStream->getChannelCount(),
+         mPlaybackStream->getFramesPerBurst(), mPlaybackStream->getBufferSizeInFrames());
     return true;
+}
+
+void AudioEngine::pausePlayback() noexcept {
+    if (mPlaybackStream) mPlaybackStream->requestPause();
+    // Fade the visuals to silence rather than freezing them on the last window.
+    clearVisualRings();
+}
+
+void AudioEngine::resumePlayback() noexcept {
+    if (mPlaybackStream) mPlaybackStream->requestStart();
+}
+
+void AudioEngine::stopPlayback() {
+    if (mPlaybackStream) {
+        mPlaybackStream->stop();
+        mPlaybackStream->close();
+        mPlaybackStream.reset();
+        clearVisualRings();
+    }
+}
+
+void AudioEngine::setInputSource(InputSource source) noexcept {
+    const float gain = source == InputSource::Microphone ? 1.0f : kDigitalAnalysisGain;
+    mAnalysisGain.store(gain, std::memory_order_relaxed);
 }
 
 void AudioEngine::stop() {
@@ -164,80 +193,73 @@ oboe::DataCallbackResult AudioEngine::onAudioReady(oboe::AudioStream *stream,
 }
 
 void AudioEngine::pushExternalPcm(const float *data, size_t numSamples) noexcept {
-    // System-audio path: attenuate mono buffer to prevent washing out FFTs, 
-    // since system audio is digitally mastered to 0dBFS.
-    const float systemAudioAttenuation = 0.25f;
-    static thread_local std::vector<float> attenuated;
-    if (attenuated.size() < numSamples) attenuated.resize(numSamples);
-    for (size_t i = 0; i < numSamples; ++i) {
-        attenuated[i] = data[i] * systemAudioAttenuation;
-    }
-    mBuffer->write(attenuated.data(), numSamples);
+    // System-audio path: same real-time-safe ring write as the mic callback.
+    // Source level differences are handled at the FFT boundary (see
+    // kDigitalAnalysisGain) so the ring stays truthful for the scope scenes
+    // and the beat gate.
+    mBuffer->write(data, numSamples);
 }
 
 void AudioEngine::pushExternalPcmStereo(const float *interleaved, size_t numSamples) noexcept {
-    // Stereo buffer drives the oscilloscope, which remains full-scale and unattenuated.
     mStereoBuffer->write(interleaved, numSamples * 2);
 }
 
-void AudioEngine::pushPlaybackAudio(const float *interleaved, size_t numFrames) noexcept {
-    if (mStream && mStream->getDirection() == oboe::Direction::Output) {
-        int channels = mStream->getChannelCount();
-        int64_t timeoutNanos = 500000000; // 500ms
-        
-        size_t framesRemaining = numFrames;
-        size_t offsetFrames = 0;
-        size_t chunkSize = 256; // About 5.3ms at 48kHz to ensure smooth 60fps+ visualizer updates
-        
-        while (framesRemaining > 0) {
-            size_t currentChunk = std::min(framesRemaining, chunkSize);
-            auto result = mStream->write(interleaved + (offsetFrames * channels), currentChunk, timeoutNanos);
-            
-            if (result.value() > 0) {
-                size_t framesWritten = result.value();
-                
-                // Local playback audio is often mastered to 0dBFS (very loud),
-                // whereas microphone audio averages much lower. We apply an attenuation 
-                // factor ONLY to the mono buffer (which drives the FFT and reactive visuals)
-                // so they don't wash out, while leaving the stereo buffer untouched for the oscilloscope.
-                const float localPlaybackAttenuation = 0.15f;
+bool AudioEngine::pushPlaybackAudio(const float *interleaved, size_t numFrames) noexcept {
+    if (!mPlaybackStream) return false;
+    const int channels = mPlaybackStream->getChannelCount();
+    // Generous per-chunk timeout — a healthy buffer drains a chunk in ~5 ms,
+    // so this only trips when the stream is stalled or disconnected.
+    constexpr int64_t kWriteTimeoutNanos = 250LL * 1000 * 1000;
+    // Small chunks so the visual mirror advances every few ms — the scope
+    // stays smooth at 120 fps instead of jumping once per decode buffer.
+    constexpr size_t kChunkFrames = 256;
 
-                if (channels == 2) {
-                    mStereoBuffer->write(interleaved + (offsetFrames * channels), framesWritten * 2);
-                    
-                    // Downmix to mono for FFT analysis + attenuate
-                    static thread_local std::vector<float> mono;
-                    if (mono.size() < framesWritten) mono.resize(framesWritten);
-                    for (size_t i = 0; i < framesWritten; ++i) {
-                        mono[i] = (interleaved[(offsetFrames + i)*2] + interleaved[(offsetFrames + i)*2+1]) * 0.5f * localPlaybackAttenuation;
-                    }
-                    mBuffer->write(mono.data(), framesWritten);
-                } else {
-                    // Mono track: attenuate for FFT
-                    static thread_local std::vector<float> monoAttenuated;
-                    if (monoAttenuated.size() < framesWritten) monoAttenuated.resize(framesWritten);
-                    for (size_t i = 0; i < framesWritten; ++i) {
-                        monoAttenuated[i] = interleaved[offsetFrames + i] * localPlaybackAttenuation;
-                    }
-                    mBuffer->write(monoAttenuated.data(), framesWritten);
-                    
-                    // Upmix to stereo for stereo visualizers (unattenuated)
-                    static thread_local std::vector<float> stereo;
-                    if (stereo.size() < framesWritten * 2) stereo.resize(framesWritten * 2);
-                    for (size_t i = 0; i < framesWritten; ++i) {
-                        stereo[i*2] = interleaved[offsetFrames + i];
-                        stereo[i*2+1] = interleaved[offsetFrames + i];
-                    }
-                    mStereoBuffer->write(stereo.data(), framesWritten * 2);
-                }
-                
-                offsetFrames += framesWritten;
-                framesRemaining -= framesWritten;
-            } else {
-                break; // Stream disconnected or timeout
-            }
+    size_t offset = 0;
+    while (offset < numFrames) {
+        const size_t chunk = std::min(numFrames - offset, kChunkFrames);
+        auto result = mPlaybackStream->write(interleaved + offset * channels,
+                                             static_cast<int32_t>(chunk), kWriteTimeoutNanos);
+        if (!result) {
+            LOGW("Playback write failed: %s", oboe::convertToText(result.error()));
+            return false;   // disconnected / closed — caller stops decoding
         }
+        const auto written = static_cast<size_t>(result.value());
+        if (written == 0) {
+            LOGW("Playback write timed out — stream stalled.");
+            return false;
+        }
+        mirrorToVisualRings(interleaved + offset * channels, written, channels);
+        offset += written;
     }
+    return true;
+}
+
+void AudioEngine::mirrorToVisualRings(const float *interleaved, size_t frames,
+                                      int channels) noexcept {
+    // Kotlin downmixes anything exotic before pushing, so channels is 1 or 2.
+    if (channels == 2) {
+        mStereoBuffer->write(interleaved, frames * 2);
+        static thread_local std::vector<float> mono;
+        if (mono.size() < frames) mono.resize(frames);
+        for (size_t i = 0; i < frames; ++i) {
+            mono[i] = (interleaved[i * 2] + interleaved[i * 2 + 1]) * 0.5f;
+        }
+        mBuffer->write(mono.data(), frames);
+    } else {
+        mBuffer->write(interleaved, frames);
+        static thread_local std::vector<float> stereo;
+        if (stereo.size() < frames * 2) stereo.resize(frames * 2);
+        for (size_t i = 0; i < frames; ++i) {
+            stereo[i * 2] = interleaved[i];
+            stereo[i * 2 + 1] = interleaved[i];
+        }
+        mStereoBuffer->write(stereo.data(), frames * 2);
+    }
+}
+
+void AudioEngine::clearVisualRings() noexcept {
+    mBuffer->clear();
+    mStereoBuffer->clear();
 }
 
 void AudioEngine::copyLatest(float *out, size_t numSamples) const noexcept {
@@ -248,18 +270,26 @@ void AudioEngine::copyLatestStereo(float *outInterleaved, size_t numSamples) con
     mStereoBuffer->readLatest(outInterleaved, numSamples * 2);
 }
 
-void AudioEngine::computeBands(float *outBands) noexcept {
+void AudioEngine::readAnalysisWindow() noexcept {
     mBuffer->readLatest(mFftScratch.data(), FftProcessor::kFftSize);
+    const float gain = mAnalysisGain.load(std::memory_order_relaxed);
+    if (gain != 1.0f) {
+        for (int i = 0; i < FftProcessor::kFftSize; ++i) mFftScratch[i] *= gain;
+    }
+}
+
+void AudioEngine::computeBands(float *outBands) noexcept {
+    readAnalysisWindow();
     mFft->process(mFftScratch.data(), sampleRate(), outBands);
 }
 
 void AudioEngine::computeFullSpectrum(float *outMagnitudes, float *outPeaks, float dt) noexcept {
-    mBuffer->readLatest(mFftScratch.data(), FftProcessor::kFftSize);
+    readAnalysisWindow();
     mFft->processFullSpectrum(mFftScratch.data(), sampleRate(), outMagnitudes, outPeaks, dt);
 }
 
 void AudioEngine::computeAll(float *outBands, float *outMagnitudes, float *outPeaks, float dt) noexcept {
-    mBuffer->readLatest(mFftScratch.data(), FftProcessor::kFftSize);
+    readAnalysisWindow();
     mFft->processAll(mFftScratch.data(), sampleRate(), outBands, outMagnitudes, outPeaks, dt);
 }
 

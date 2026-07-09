@@ -26,29 +26,37 @@ import com.lowlatency.visualizer.NativeBridge
 import com.lowlatency.visualizer.R
 
 /**
- * Audio-source switching: the mic ⇄ internal-audio segmented control plus all of
- * the engine and permission plumbing behind it.
+ * Audio-source switching: the mic / internal-audio / local-file segmented
+ * control plus all of the engine and permission plumbing behind it.
  *
- * Two capture paths feed the same native ring buffer: a low-latency microphone
- * stream, and system/internal audio via the screen-capture API (which Android
- * gates behind a MediaProjection consent dialog + a foreground service). This
- * controller owns the runtime-permission launcher, the projection launcher, the
- * "capture stopped" broadcast receiver, the toggle UI, and the deferred-permission
- * handshake (held back until the GL intro finishes on first launch).
+ * Three source paths feed the same native ring buffers, one at a time — this
+ * controller is the single owner of which one is live ([source]):
  *
- * Anything that merely *reacts* to the source — the lighting tab's availability,
- * beat haptics, the About dialog's engine line — observes [systemAudioMode] and is
- * refreshed via the [onSourceChanged] callback; this controller never reaches into
- * those concerns itself.
+ *   - MIC: a low-latency native Oboe input stream.
+ *   - SYSTEM: internal audio via the screen-capture API (MediaProjection
+ *     consent dialog + a foreground service pushing PCM down to the engine).
+ *   - LOCAL: file playback decoded by [LocalAudioPlayer]; the host owns the
+ *     player and calls [enterLocalPlayback]/[exitLocalPlayback] around it.
+ *
+ * This controller owns the runtime-permission launcher, the projection
+ * launcher, the "capture stopped" broadcast receiver, the toggle UI, and the
+ * deferred-permission handshake (held back until the GL intro finishes on
+ * first launch). Anything that merely *reacts* to the source — the lighting
+ * tab's availability, beat haptics, the About dialog's engine line — observes
+ * [systemAudioMode]/[isLocalPlayback] and is refreshed via [onSourceChanged];
+ * this controller never reaches into those concerns itself.
  *
  * The two `registerForActivityResult` launchers are registered in property
  * initialisers, so this controller must be constructed before the activity is
  * STARTED (it is — the host builds it in `onCreate`/`initControllers`).
  *
  * @param onSourceChanged invoked after every source transition so the host can
- *   refresh source-dependent UI (it reads [systemAudioMode]).
+ *   refresh source-dependent UI.
  * @param onMicStarted invoked after the mic stream successfully starts (every time).
- * @param onLocalFileRequested invoked when the user selects the Local File source.
+ * @param onLocalFileRequested invoked when the user taps the Local File segment
+ *   (the host launches its file picker, then calls [enterLocalPlayback] on pick).
+ * @param onExternalSourceRequested invoked before switching to mic/system so the
+ *   host can stop any live local playback session first.
  */
 class AudioSourceController(
     private val activity: AppCompatActivity,
@@ -58,8 +66,23 @@ class AudioSourceController(
     private val onLocalFileRequested: () -> Unit = {},
     private val onExternalSourceRequested: () -> Unit = {},
 ) {
-    var systemAudioMode = false
-        private set
+    enum class Source { MIC, SYSTEM, LOCAL }
+
+    /** The live audio source — the single source of truth for the app. */
+    var source = Source.MIC
+        private set(value) {
+            field = value
+            NativeBridge.nativeSetInputSource(
+                when (value) {
+                    Source.MIC -> NativeBridge.SOURCE_MIC
+                    Source.SYSTEM -> NativeBridge.SOURCE_SYSTEM
+                    Source.LOCAL -> NativeBridge.SOURCE_LOCAL
+                }
+            )
+        }
+
+    val systemAudioMode: Boolean get() = source == Source.SYSTEM
+    val isLocalPlayback: Boolean get() = source == Source.LOCAL
 
     private var deferredPermissionRequest = false
 
@@ -70,7 +93,7 @@ class AudioSourceController(
 
     private val captureStopReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            if (systemAudioMode) selectMicrophone()
+            if (source == Source.SYSTEM) selectMicrophone()
         }
     }
 
@@ -104,10 +127,12 @@ class AudioSourceController(
             activity.startForegroundService(
                 AudioCaptureService.newIntent(activity, result.resultCode, data)
             )
-            systemAudioMode = true
+            source = Source.SYSTEM
         } else {
             Toast.makeText(activity, "System-audio capture denied.", Toast.LENGTH_SHORT).show()
-            systemAudioMode = false
+            // Fall back to the mic (also covers arriving here from local playback).
+            source = Source.MIC
+            evaluateMicState()
         }
         refreshSelection()
     }
@@ -130,27 +155,55 @@ class AudioSourceController(
     }
 
     /** Refresh the segment toggle to match the live source, then notify observers. */
-    fun refreshSelection(isLocalPlaying: Boolean = false) {
-        segMic.isSelected = !systemAudioMode && !isLocalPlaying
-        segInternal.isSelected = systemAudioMode && !isLocalPlaying
-        segLocal.isSelected = isLocalPlaying
-        internalAudioWarning.visibility = if (systemAudioMode) View.VISIBLE else View.GONE
+    fun refreshSelection() {
+        segMic.isSelected = source == Source.MIC
+        segInternal.isSelected = source == Source.SYSTEM
+        segLocal.isSelected = source == Source.LOCAL
+        internalAudioWarning.visibility = if (source == Source.SYSTEM) View.VISIBLE else View.GONE
         onSourceChanged()
+    }
+
+    /**
+     * Switches the live source to LOCAL: stops whichever capture path is
+     * running so the playback session is the ring buffers' only producer.
+     * Called by the host once a file has actually been picked.
+     */
+    fun enterLocalPlayback() {
+        when (source) {
+            Source.MIC -> NativeBridge.nativeStop()
+            Source.SYSTEM ->
+                activity.stopService(Intent(activity, AudioCaptureService::class.java))
+            Source.LOCAL -> Unit   // replacing the current track
+        }
+        source = Source.LOCAL
+        refreshSelection()
+    }
+
+    /**
+     * Ends LOCAL mode. Playback always hands back to the microphone — a
+     * stopped MediaProjection can't be resumed without re-consent, so falling
+     * back to SYSTEM would just re-prompt the user out of nowhere.
+     */
+    fun exitLocalPlayback() {
+        if (source != Source.LOCAL) return
+        source = Source.MIC
+        refreshSelection()
+        evaluateMicState()
     }
 
     private fun selectMicrophone() {
         onExternalSourceRequested()
-        if (systemAudioMode) {
+        if (source == Source.SYSTEM) {
             activity.stopService(Intent(activity, AudioCaptureService::class.java))
-            systemAudioMode = false
         }
+        source = Source.MIC
         ensureMicAndStart()
         refreshSelection()
     }
 
     private fun selectInternalAudio() {
+        if (source == Source.SYSTEM) return
         onExternalSourceRequested()
-        if (systemAudioMode) return
         // First time: explain why Android will ask for screen-capture permission
         // (internal audio is routed through the screen-capture API).
         if (prefs.getBoolean(KEY_SCREENSHARE_RATIONALE, false)) {
@@ -165,7 +218,10 @@ class AudioSourceController(
                 requestSystemAudioCapture()
             }
             .setNegativeButton(android.R.string.cancel) { _, _ ->
-                refreshSelection()   // stay on the mic toggle
+                // Any live local session was already stopped, so land on the mic.
+                source = Source.MIC
+                evaluateMicState()
+                refreshSelection()
             }
             .show()
     }
@@ -203,7 +259,7 @@ class AudioSourceController(
 
     /** Re-evaluate the mic stream after an external display attaches/detaches. */
     fun evaluateMicState() {
-        if (!systemAudioMode) {
+        if (source == Source.MIC) {
             if (activity.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
                 ensureMicAndStart()
             } else {
@@ -252,11 +308,13 @@ class AudioSourceController(
     }
 
     fun onResume() {
-        if (!systemAudioMode) ensureMicAndStart()
+        // LOCAL owns its own stream (the host pauses/resumes the player);
+        // SYSTEM keeps capturing via its foreground service.
+        if (source == Source.MIC) ensureMicAndStart()
     }
 
     fun onPause() {
-        if (!systemAudioMode) NativeBridge.nativeStop()
+        if (source == Source.MIC) NativeBridge.nativeStop()
     }
 
     fun onDestroy() {

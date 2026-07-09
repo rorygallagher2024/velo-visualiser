@@ -119,66 +119,78 @@ class NanoleafController(context: Context) {
         isSearching = true
 
         val nsdManager = appContext.getSystemService(Context.NSD_SERVICE) as NsdManager
-        discoveryListener?.let { 
-            try { nsdManager.stopServiceDiscovery(it) } catch (_: Exception) {} 
+        discoveryListener?.let {
+            try { nsdManager.stopServiceDiscovery(it) } catch (_: Exception) {}
         }
         try {
             nsdManager.discoverServices(
                 "_nanoleafapi._tcp",
                 NsdManager.PROTOCOL_DNS_SD,
-                object : NsdManager.DiscoveryListener {
-                    override fun onDiscoveryStarted(regType: String) {}
-                    override fun onServiceFound(service: NsdServiceInfo) {
-                        nsdManager.resolveService(service, object : NsdManager.ResolveListener {
-                        override fun onResolveFailed(srv: NsdServiceInfo, errorCode: Int) {}
-                        override fun onServiceResolved(srv: NsdServiceInfo) {
-                            val host = srv.host.hostAddress ?: return
-                            discoveredIp = host
-                            discoveredPort = srv.port
-                            nsdManager.stopServiceDiscovery(this@NanoleafController.discoveryListener)
-                            
-                            val creds = store.loadCredentials()
-                            if (creds != null) {
-                                if (creds.ip == host && creds.port == srv.port) {
-                                    currentState = State.PAIRED
-                                } else {
-                                    thread {
-                                        try {
-                                            val url = URL("http://$host:${srv.port}/api/v1/${creds.authToken}/")
-                                            val conn = url.openConnection() as HttpURLConnection
-                                            conn.connectTimeout = 2000
-                                            conn.readTimeout = 2000
-                                            val code = conn.responseCode
-                                            if (code == 200) {
-                                                store.saveCredentials(NanoleafCredentials(host, creds.authToken, srv.port))
-                                                currentState = State.PAIRED
-                                            } else if (code == 401 || code == 403) {
-                                                currentState = State.FOUND_UNPAIRED
-                                                startAutoPairing()
-                                            } else {
-                                                currentState = State.UNREACHABLE
-                                            }
-                                            conn.disconnect()
-                                        } catch (_: Exception) {
-                                            currentState = State.UNREACHABLE
-                                        }
-                                    }
-                                }
-                            } else {
-                                currentState = State.FOUND_UNPAIRED
-                                startAutoPairing()
-                            }
-                        }
-                    })
-                }
-                override fun onServiceLost(service: NsdServiceInfo) {}
-                override fun onDiscoveryStopped(serviceType: String) { isSearching = false }
-                override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) { isSearching = false }
-                override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) { isSearching = false }
-            }.also { discoveryListener = it }
-        )
+                newDiscoveryListener(nsdManager).also { discoveryListener = it }
+            )
         } catch (e: Exception) {
             isSearching = false
+        }
+    }
+
+    private fun newDiscoveryListener(nsdManager: NsdManager) =
+        object : NsdManager.DiscoveryListener {
+            override fun onDiscoveryStarted(regType: String) {}
+            override fun onServiceFound(service: NsdServiceInfo) {
+                nsdManager.resolveService(service, newResolveListener(nsdManager))
+            }
+            override fun onServiceLost(service: NsdServiceInfo) {}
+            override fun onDiscoveryStopped(serviceType: String) { isSearching = false }
+            override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) { isSearching = false }
+            override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) { isSearching = false }
+        }
+
+    private fun newResolveListener(nsdManager: NsdManager) =
+        object : NsdManager.ResolveListener {
+            override fun onResolveFailed(srv: NsdServiceInfo, errorCode: Int) {}
+            override fun onServiceResolved(srv: NsdServiceInfo) {
+                val host = srv.host.hostAddress ?: return
+                discoveredIp = host
+                discoveredPort = srv.port
+                nsdManager.stopServiceDiscovery(this@NanoleafController.discoveryListener)
+                onPanelResolved(host, srv.port)
+            }
+        }
+
+    /** A panel answered mDNS — reconcile it with any stored credentials. */
+    private fun onPanelResolved(host: String, port: Int) {
+        val creds = store.loadCredentials()
+        when {
+            creds == null -> {
+                currentState = State.FOUND_UNPAIRED
+                startAutoPairing()
+            }
+            creds.ip == host && creds.port == port -> currentState = State.PAIRED
+            else -> thread { validateStoredToken(host, port, creds) }
+        }
+    }
+
+    /** Off-thread: probe the panel with the stored token; re-home or re-pair. */
+    private fun validateStoredToken(host: String, port: Int, creds: NanoleafCredentials) {
+        try {
+            val url = URL("http://$host:$port/api/v1/${creds.authToken}/")
+            val conn = url.openConnection() as HttpURLConnection
+            conn.connectTimeout = 2000
+            conn.readTimeout = 2000
+            when (conn.responseCode) {
+                200 -> {
+                    store.saveCredentials(NanoleafCredentials(host, creds.authToken, port))
+                    currentState = State.PAIRED
+                }
+                401, 403 -> {
+                    currentState = State.FOUND_UNPAIRED
+                    startAutoPairing()
+                }
+                else -> currentState = State.UNREACHABLE
+            }
+            conn.disconnect()
+        } catch (_: Exception) {
+            currentState = State.UNREACHABLE
         }
     }
 

@@ -115,7 +115,7 @@ class LissajousScopeScene : GlScene {
     }
 
     // Unused for stereo scene, but required by interface
-    override fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {}
+    override fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) = Unit
 
     fun drawStereo(pcmStereo: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
         val totalPairs = pcmStereo.size / 2

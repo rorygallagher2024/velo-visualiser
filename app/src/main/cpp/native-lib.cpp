@@ -43,6 +43,29 @@ Java_com_lowlatency_visualizer_NativeBridge_nativeStartPlayback(JNIEnv *, jobjec
 }
 
 JNIEXPORT void JNICALL
+Java_com_lowlatency_visualizer_NativeBridge_nativePausePlayback(JNIEnv *, jobject) {
+    AudioEngine::instance().pausePlayback();
+}
+
+JNIEXPORT void JNICALL
+Java_com_lowlatency_visualizer_NativeBridge_nativeResumePlayback(JNIEnv *, jobject) {
+    AudioEngine::instance().resumePlayback();
+}
+
+JNIEXPORT void JNICALL
+Java_com_lowlatency_visualizer_NativeBridge_nativeStopPlayback(JNIEnv *, jobject) {
+    AudioEngine::instance().stopPlayback();
+}
+
+JNIEXPORT void JNICALL
+Java_com_lowlatency_visualizer_NativeBridge_nativeSetInputSource(JNIEnv *, jobject, jint source) {
+    auto engineSource = AudioEngine::InputSource::Microphone;
+    if (source == 1) engineSource = AudioEngine::InputSource::SystemAudio;
+    else if (source == 2) engineSource = AudioEngine::InputSource::LocalPlayback;
+    AudioEngine::instance().setInputSource(engineSource);
+}
+
+JNIEXPORT void JNICALL
 Java_com_lowlatency_visualizer_NativeBridge_nativeStop(JNIEnv *, jobject) {
     AudioEngine::instance().stop();
 }
@@ -244,16 +267,17 @@ Java_com_lowlatency_visualizer_NativeBridge_nativePushPcm(JNIEnv *env, jobject,
     gSystemAudioConvTimeUs.store(std::chrono::duration_cast<std::chrono::microseconds>(end - start).count());
 }
 
-JNIEXPORT void JNICALL
+JNIEXPORT jboolean JNICALL
 Java_com_lowlatency_visualizer_NativeBridge_nativePushPlaybackAudio(JNIEnv *env, jobject, jfloatArray pcm, jint frames) {
-    if (pcm == nullptr || frames <= 0) return;
-    
+    if (pcm == nullptr || frames <= 0) return JNI_FALSE;
+
     jfloat *src = env->GetFloatArrayElements(pcm, nullptr);
-    if (src == nullptr) return;
-    
-    AudioEngine::instance().pushPlaybackAudio(src, static_cast<size_t>(frames));
-    
+    if (src == nullptr) return JNI_FALSE;
+
+    const bool ok = AudioEngine::instance().pushPlaybackAudio(src, static_cast<size_t>(frames));
+
     env->ReleaseFloatArrayElements(pcm, src, JNI_ABORT);
+    return ok ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT jfloatArray JNICALL

@@ -279,9 +279,10 @@ class VisualizerSurfaceView @JvmOverloads constructor(
                         gestureDecided = true
                         // Upward drag from the bottom region (and not during the
                         // intro) becomes an interactive menu pull.
-                        if (!isMenuOpen && startedLow && dy < 0 && abs(dy) > abs(dx) &&
-                            onMenuDragStart != null && !renderer.introActive
-                        ) {
+                        val upwardFromBottom = startedLow && dy < 0 && abs(dy) > abs(dx)
+                        val menuPullAllowed =
+                            !isMenuOpen && onMenuDragStart != null && !renderer.introActive
+                        if (upwardFromBottom && menuPullAllowed) {
                             menuDragging = true
                             onMenuDragStart?.invoke()
                         }

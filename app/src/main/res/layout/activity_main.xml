@@ -1566,7 +1566,7 @@
             android:background="?android:attr/selectableItemBackgroundBorderless"
             android:src="@drawable/ic_play"
             android:scaleType="centerInside"
-            android:tint="#FFFFFFFF" />
+            app:tint="#FFFFFFFF" />
 
         <ImageView
             android:id="@+id/btn_media_close"
@@ -1576,7 +1576,7 @@
             android:background="?android:attr/selectableItemBackgroundBorderless"
             android:src="@drawable/ic_close"
             android:scaleType="centerInside"
-            android:tint="#88FFFFFF" />
+            app:tint="#88FFFFFF" />
     </LinearLayout>
 
 </FrameLayout>
