@@ -12,21 +12,18 @@ import android.util.Log
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
-import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
-import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.text.HtmlCompat
-import com.lowlatency.visualizer.audio.LocalAudioPlayer
 import com.lowlatency.visualizer.ui.AudioSourceController
 import com.lowlatency.visualizer.ui.DisplayModeController
 import com.lowlatency.visualizer.ui.FeelTheSpeedController
 import com.lowlatency.visualizer.ui.LightingController
 import com.lowlatency.visualizer.ui.LinkSyncController
+import com.lowlatency.visualizer.ui.LocalPlaybackController
 import com.lowlatency.visualizer.ui.MenuDiscoveryController
 import com.lowlatency.visualizer.ui.MenuSheetController
 import com.lowlatency.visualizer.ui.PerfOverlayController
@@ -95,70 +92,9 @@ class MainActivity : AppCompatActivity() {
     private var micStarted = false          // has the mic stream gone live this session?
     private var introSequenceDone = false   // intro/hint finished — safe to show the menu cue
     
-    // --- Local playback (media bar + player; the *source* state lives in
-    // AudioSourceController — single source of truth) ---
-    private lateinit var localAudioPlayer: LocalAudioPlayer
-    private lateinit var mediaControlsOverlay: View
-    private lateinit var btnMediaPlayPause: ImageView
-    private lateinit var btnMediaClose: ImageView
-
-    private val isLocalSessionActive: Boolean
-        get() = ::audioSourceController.isInitialized && audioSourceController.isLocalPlayback
-
-    private val hideMediaControlsRunnable = Runnable { hideMediaControls() }
-
-    /** Y offset that parks the media bar fully above the screen edge. */
-    private fun mediaControlsOffscreenY(): Float {
-        val bottom = mediaControlsOverlay.bottom
-        return if (bottom > 0) -bottom.toFloat()
-        else -MEDIA_BAR_FALLBACK_OFFSET_DP * resources.displayMetrics.density
-    }
-
-    private fun hideMediaControls() {
-        mediaControlsOverlay.removeCallbacks(hideMediaControlsRunnable)
-        if (mediaControlsOverlay.visibility != View.VISIBLE) return
-        mediaControlsOverlay.animate()
-            .translationY(mediaControlsOffscreenY())
-            .setDuration(MEDIA_BAR_ANIM_MS)
-            .withEndAction {
-                mediaControlsOverlay.visibility = View.GONE
-                if (::scenesController.isInitialized) scenesController.repositionSceneLabel()
-            }
-            .start()
-    }
-
-    private fun showMediaControlsTemporarily() {
-        if (!isLocalSessionActive) return
-        mediaControlsOverlay.removeCallbacks(hideMediaControlsRunnable)
-        if (mediaControlsOverlay.visibility != View.VISIBLE) {
-            mediaControlsOverlay.visibility = View.VISIBLE
-            mediaControlsOverlay.translationY = mediaControlsOffscreenY()
-        }
-        mediaControlsOverlay.animate().translationY(0f).setDuration(MEDIA_BAR_ANIM_MS).start()
-        mediaControlsOverlay.post {
-            if (::scenesController.isInitialized) scenesController.repositionSceneLabel()
-        }
-        mediaControlsOverlay.postDelayed(hideMediaControlsRunnable, MEDIA_BAR_HIDE_DELAY_MS)
-    }
-
-    /** Tears down the local session: player, media bar, and source hand-back. */
-    private fun endLocalPlaybackSession() {
-        localAudioPlayer.stop()
-        hideMediaControls()
-        audioSourceController.exitLocalPlayback()
-    }
-
-    private val localFilePicker = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) {
-            audioSourceController.enterLocalPlayback()   // stops mic/system capture first
-            localAudioPlayer.play(uri)
-            updateMediaControls()
-            showMediaControlsTemporarily()
-            menuSheetController.close()
-        } else {
-            audioSourceController.refreshSelection()     // stayed on the previous source
-        }
-    }
+    // Local playback lives in its own controller; the *source* state lives in
+    // AudioSourceController — single source of truth.
+    private lateinit var localPlaybackController: LocalPlaybackController
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -220,10 +156,6 @@ class MainActivity : AppCompatActivity() {
         btnCastDisplay = findViewById(R.id.btn_cast_display)
         castOverlay = findViewById(R.id.cast_overlay)
         
-        mediaControlsOverlay = findViewById(R.id.media_controls_overlay)
-        btnMediaPlayPause = findViewById(R.id.btn_media_play_pause)
-        btnMediaClose = findViewById(R.id.btn_media_close)
-
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
     }
 
@@ -235,47 +167,33 @@ class MainActivity : AppCompatActivity() {
             onSourceChanged = {
                 if (::scenesController.isInitialized) onAudioSourceChanged()
                 if (::linkSyncController.isInitialized) {
-                    linkSyncController.setLocalPlaybackActive(isLocalSessionActive)
+                    linkSyncController.setLocalPlaybackActive(audioSourceController.isLocalPlayback)
                 }
             },
             onMicStarted = {
                 micStarted = true
                 if (::feelTheSpeedController.isInitialized) feelTheSpeedController.onMicStarted()
             },
-            onLocalFileRequested = { localFilePicker.launch("audio/*") },
+            onLocalFileRequested = { localPlaybackController.openFilePicker() },
             onExternalSourceRequested = {
                 // Switching to mic/system: silence the player before the new
                 // source starts producing (the controller flips the state).
-                localAudioPlayer.stop()
-                hideMediaControls()
+                localPlaybackController.stopSession()
             }
         )
         audioSourceController.bind()
 
-        localAudioPlayer = LocalAudioPlayer(
-            context = this,
-            onCompletion = { if (isLocalSessionActive) endLocalPlaybackSession() },
-            onError = { message ->
-                if (isLocalSessionActive) {
-                    endLocalPlaybackSession()
-                    Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
-                }
+        localPlaybackController = LocalPlaybackController(
+            activity = this,
+            prefs = prefs,
+            audioSource = audioSourceController,
+            isMenuOpen = { menuSheetController.isOpen },
+            closeMenu = { menuSheetController.close() },
+            onBarLayoutChanged = {
+                if (::scenesController.isInitialized) scenesController.repositionSceneLabel()
             },
         )
-
-        btnMediaPlayPause.setOnClickListener {
-            if (isLocalSessionActive) {
-                if (localAudioPlayer.isActivePlaying) {
-                    localAudioPlayer.pause()
-                } else {
-                    localAudioPlayer.resume()
-                }
-                updateMediaControls()
-                showMediaControlsTemporarily() // reset timer on interaction
-            }
-        }
-
-        btnMediaClose.setOnClickListener { endLocalPlaybackSession() }
+        localPlaybackController.bind()
 
         feelTheSpeedController = FeelTheSpeedController(
             activity = this,
@@ -348,12 +266,14 @@ class MainActivity : AppCompatActivity() {
                 var maxBottom = 0
                 if (perfOverlayController.enabled && perfOverlayController.overlayView.height > 0)
                     maxBottom = perfOverlayController.overlayView.bottom
-                if (mediaControlsOverlay.visibility == View.VISIBLE && mediaControlsOverlay.height > 0)
-                    maxBottom = kotlin.math.max(maxBottom, mediaControlsOverlay.bottom)
+                if (::localPlaybackController.isInitialized)
+                    maxBottom = kotlin.math.max(maxBottom, localPlaybackController.barBottom())
                 maxBottom
             },
             onManualSceneChange = { shuffleController.onSceneChanged() },
-            isStereoAudio = { audioSourceController.systemAudioMode || isLocalSessionActive },
+            isStereoAudio = {
+                audioSourceController.systemAudioMode || audioSourceController.isLocalPlayback
+            },
             onScrubPreview = { active -> menuSheetController.setScrubPreview(active) },
             onCloseMenu = { menuSheetController.close() },
         )
@@ -370,7 +290,7 @@ class MainActivity : AppCompatActivity() {
             glView = glView,
             onBeforeOpen = {
                 syncMenuState()
-                hideMediaControls()
+                if (::localPlaybackController.isInitialized) localPlaybackController.hideBar()
                 if (::menuDiscoveryController.isInitialized) menuDiscoveryController.onMenuOpened()
                 if (::scenesController.isInitialized) scenesController.onMenuOpened()
             },
@@ -469,25 +389,7 @@ class MainActivity : AppCompatActivity() {
             }
         })
         
-        glView.onTap = {
-            // Canvas tap toggles the media bar — but never over the open menu,
-            // which hides it deliberately in onBeforeOpen.
-            if (isLocalSessionActive && !menuSheetController.isOpen) {
-                if (mediaControlsOverlay.visibility == View.VISIBLE) {
-                    hideMediaControls()
-                } else {
-                    showMediaControlsTemporarily()
-                }
-            }
-        }
-    }
-    
-    private fun updateMediaControls() {
-        if (localAudioPlayer.isActivePlaying) {
-            btnMediaPlayPause.setImageResource(R.drawable.ic_pause)
-        } else {
-            btnMediaPlayPause.setImageResource(R.drawable.ic_play)
-        }
+        glView.onTap = { localPlaybackController.onCanvasTap() }
     }
 
     // ----- Settings tabs: Visuals | Lighting | Settings -----
@@ -924,10 +826,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
-        if (isLocalSessionActive && localAudioPlayer.isActivePlaying) {
-            localAudioPlayer.pause()
-            updateMediaControls()
-        }
+        if (::localPlaybackController.isInitialized) localPlaybackController.onPause()
         glView.onPause()
         if (::audioSourceController.isInitialized) audioSourceController.onPause()
         backgroundedAtMs = SystemClock.elapsedRealtime()
@@ -952,7 +851,7 @@ class MainActivity : AppCompatActivity() {
         if (::menuDiscoveryController.isInitialized) menuDiscoveryController.onDestroy()
         // Join the decode thread before tearing the engine down — the playback
         // stream is owned by that thread and must not be closed under it.
-        if (::localAudioPlayer.isInitialized) localAudioPlayer.stop()
+        if (::localPlaybackController.isInitialized) localPlaybackController.onDestroy()
         NativeBridge.nativeStop()
         super.onDestroy()
     }
@@ -960,9 +859,6 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private const val TAG = "MainActivity"
         private const val PREFS = "visualizer_prefs"
-        private const val MEDIA_BAR_ANIM_MS = 300L
-        private const val MEDIA_BAR_HIDE_DELAY_MS = 3000L
-        private const val MEDIA_BAR_FALLBACK_OFFSET_DP = 160f   // pre-layout park distance
         private const val KEY_BURNIN = "burn_in_enabled"
         private const val KEY_GLOW = "glow_strength"   // string preset (was a boolean key)
         private const val KEY_HAPTICS = "haptics_enabled"

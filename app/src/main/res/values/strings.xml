@@ -8,6 +8,20 @@
     <string name="source_label">Audio Source</string>
     <string name="source_mic">Microphone</string>
     <string name="source_internal">System Audio</string>
+    <string name="source_local">Local File</string>
+
+    <!-- Local playback media bar -->
+    <string name="cd_media_play_pause">Play or pause</string>
+    <string name="cd_media_loop">Loop track</string>
+    <string name="cd_media_close">Stop playback</string>
+    <string name="cd_media_seek">Seek</string>
+    <string name="media_focus_denied">Another app is using audio right now</string>
+    <string name="playback_error_no_audio">No audio track in this file</string>
+    <string name="playback_error_unsupported">This audio format isn\'t supported</string>
+    <string name="playback_error_output">Couldn\'t open the audio output</string>
+    <string name="playback_error_output_lost">Audio output lost</string>
+    <string name="playback_error_generic">Couldn\'t play this file</string>
+    <string name="link_disabled_local_playback">Disabled during local playback</string>
     <string name="vis_oscilloscope">Hardware Oscilloscope</string>
     <string name="vis_tunnel">Deep Tunnel</string>
     <string name="vis_fluid">Fluid Dynamics</string>

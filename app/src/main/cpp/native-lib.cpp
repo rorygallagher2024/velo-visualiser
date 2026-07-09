@@ -53,6 +53,11 @@ Java_com_lowlatency_visualizer_NativeBridge_nativeResumePlayback(JNIEnv *, jobje
 }
 
 JNIEXPORT void JNICALL
+Java_com_lowlatency_visualizer_NativeBridge_nativeFlushPlayback(JNIEnv *, jobject) {
+    AudioEngine::instance().flushPlayback();
+}
+
+JNIEXPORT void JNICALL
 Java_com_lowlatency_visualizer_NativeBridge_nativeStopPlayback(JNIEnv *, jobject) {
     AudioEngine::instance().stopPlayback();
 }
@@ -75,42 +80,6 @@ Java_com_lowlatency_visualizer_NativeBridge_nativeGetSampleRate(JNIEnv *, jobjec
     return AudioEngine::instance().sampleRate();
 }
 
-// ---------------------------------------------------------------------------
-// The single high-frequency consumer method (spec): returns the latest PCM
-// window as a fresh jfloatArray. Convenient, but allocates a Java array each
-// call — see fillLatestAudioBuffer() below for the zero-GC render-loop path.
-// ---------------------------------------------------------------------------
-JNIEXPORT jfloatArray JNICALL
-Java_com_lowlatency_visualizer_NativeBridge_getLatestAudioBuffer(JNIEnv *env, jobject) {
-    jfloatArray result = env->NewFloatArray(kRenderWindow);
-    if (result == nullptr) return nullptr;   // OOM
-
-    // Pull samples into a stack/thread-local scratch then publish in one copy.
-    static thread_local std::vector<float> scratch(kRenderWindow);
-    AudioEngine::instance().copyLatest(scratch.data(), kRenderWindow);
-    env->SetFloatArrayRegion(result, 0, kRenderWindow, scratch.data());
-    return result;
-}
-
-// ---------------------------------------------------------------------------
-// Zero-allocation variant for the 120 Hz render loop. The caller owns a
-// persistent FloatArray and we fill it in place — no per-frame GC pressure.
-// Returns the number of samples written.
-// ---------------------------------------------------------------------------
-JNIEXPORT jint JNICALL
-Java_com_lowlatency_visualizer_NativeBridge_fillLatestAudioBuffer(JNIEnv *env, jobject,
-                                                                  jfloatArray out) {
-    if (out == nullptr) return 0;
-    const jsize len = env->GetArrayLength(out);
-
-    // Pin the Java array and write directly into it.
-    jfloat *dst = env->GetFloatArrayElements(out, nullptr);
-    if (dst == nullptr) return 0;
-    AudioEngine::instance().copyLatest(dst, static_cast<size_t>(len));
-    env->ReleaseFloatArrayElements(out, dst, 0); // commit + unpin
-    return len;
-}
-
 JNIEXPORT jint JNICALL
 Java_com_lowlatency_visualizer_NativeBridge_fillLatestStereoAudioBuffer(JNIEnv *env, jobject,
                                                                         jfloatArray outInterleaved) {
@@ -125,47 +94,9 @@ Java_com_lowlatency_visualizer_NativeBridge_fillLatestStereoAudioBuffer(JNIEnv *
 }
 
 // ---------------------------------------------------------------------------
-// Frequency bands. Runs the windowed FFT over the latest PCM window and returns
-// 3 normalized energies: [0]=Lows, [1]=Mids, [2]=Highs. Spec method (allocates).
+// Single-FFT render-loop path: bands + full spectrum from one transform,
+// filling caller-owned arrays in place (no per-frame GC pressure).
 // ---------------------------------------------------------------------------
-JNIEXPORT jfloatArray JNICALL
-Java_com_lowlatency_visualizer_NativeBridge_getLatestFrequencyBands(JNIEnv *env, jobject) {
-    float bands[3];
-    AudioEngine::instance().computeBands(bands);
-    jfloatArray result = env->NewFloatArray(3);
-    if (result == nullptr) return nullptr;
-    env->SetFloatArrayRegion(result, 0, 3, bands);
-    return result;
-}
-
-// Zero-allocation render-loop variant: fills the caller-owned 3-element array.
-JNIEXPORT jint JNICALL
-Java_com_lowlatency_visualizer_NativeBridge_fillLatestFrequencyBands(JNIEnv *env, jobject,
-                                                                     jfloatArray out) {
-    if (out == nullptr || env->GetArrayLength(out) < 3) return 0;
-    float bands[3];
-    AudioEngine::instance().computeBands(bands);
-    env->SetFloatArrayRegion(out, 0, 3, bands);
-    return 3;
-}
-
-JNIEXPORT jint JNICALL
-Java_com_lowlatency_visualizer_NativeBridge_fillLatestSpectrum(JNIEnv *env, jobject,
-                                                               jfloatArray magnitudes,
-                                                               jfloatArray peaks,
-                                                               jfloat dt) {
-    if (magnitudes == nullptr || peaks == nullptr) return 0;
-    jfloat *m = env->GetFloatArrayElements(magnitudes, nullptr);
-    jfloat *p = env->GetFloatArrayElements(peaks, nullptr);
-    if (!m || !p) return 0;
-
-    AudioEngine::instance().computeFullSpectrum(m, p, dt);
-
-    env->ReleaseFloatArrayElements(magnitudes, m, 0);
-    env->ReleaseFloatArrayElements(peaks, p, 0);
-    return 128;
-}
-
 JNIEXPORT jint JNICALL
 Java_com_lowlatency_visualizer_NativeBridge_fillLatestAll(JNIEnv *env, jobject,
                                                           jfloatArray bandsOut,

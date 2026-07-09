@@ -44,8 +44,8 @@ Velo Visualiser listens to the **actual sound** in the room and moves with it in
 
 ## Core Features
 * **High-FPS, HDR-Capable 3D Visuals:** Targets 120+ fps for fluid, tear-free rendering (device and preset dependent).
-* **Zero-Latency Local Playback:** Bypass Android's audio framework entirely. Play local audio files directly through the app using a custom low-level MediaCodec to C++ Oboe pipeline, ensuring the visuals react to the music with absolutely zero latency, frame drops, or drift.
-* **True Stereo Oscilloscope Rendering:** Includes a specialised X/Y "Stereo Scope" visual for rendering mathematical vector audio art (Oscilloscope Music). Requires System Audio capture and lossless audio files for perfect phase alignment.
+* **Phase-Locked Local Playback:** Play audio files through the app's own MediaCodec → C++ Oboe pipeline. The exact PCM written to the audio device is mirrored straight into the visualiser, so the visuals track playback sample-accurately — no capture round-trip, no drift. Includes seek, loop and full stereo delivery to the scope visuals.
+* **True Stereo Oscilloscope Rendering:** Includes a specialised X/Y "Stereo Scope" visual for rendering mathematical vector audio art (Oscilloscope Music). Fed by Local File playback (recommended — perfect phase alignment) or System Audio capture; lossless files give the cleanest traces.
 * **Ableton Link Integration:** Supplement the microphone input with perfect phase-synchronization and predictive beat detection broadcast directly from your DJ software (Traktor, Live, Serato).
 * **Smart Home Room Lighting Control:** Drive your physical room lighting with the exact same zero-lag transient detection used for the on-screen visuals. Supports Philips Hue, Lifx bulbs, and Nanoleaf panels.
 * **No Nonsense:** 100% local processing. No data collection. No ads. I don't want your data, and nobody wants ads.
@@ -56,7 +56,7 @@ Velo Visualiser listens to the **actual sound** in the room and moves with it in
 - **HDR Effects**: Including post-processing for real luminous glow on capable HDR displays and a selectable glow strength.
 - **Ableton Link sync**: Lock beat-driven effects to Traktor, Ableton Live, and other Link software over Wi-Fi; the mic still drives the visuals while Link sets the beat.
 - **Real-time Room Lighting Control with Philips Hue, LIFX & Nanoleaf Integration**: Direct local UDP streaming over the Hue Entertainment API, LIFX LAN Protocol, and Nanoleaf ExtControl. Also works in co-ordination with Ableton Link to drive a synchronised beat to the bulbs. Includes advanced controls for calibration and the ability to send Ableton Link beats early for perfect synchronisation.
-- **Three audio sources**: Raw low-latency microphone capture, high-fidelity local file playback via an internal zero-latency pipeline, or internal/system audio via screen-share (Warning: Low latency not supported via screen-sharing).
+- **Three audio sources**: Raw low-latency microphone capture, local file playback through the app's internal decode pipeline (visuals phase-locked to the audio device), or internal/system audio via screen-share (Warning: Low latency not supported via screen-sharing).
 - **Global colour themes**: Re-tint visuals to your desired colour scheme (Neon, Warm, Cool, Mono…).
 - **Vibrate-on-beat haptics**: Bass-onset detection triggers physical pulses.
 - **Supports External Displays**: Plug an external display into your android device to display visuals on a large display.

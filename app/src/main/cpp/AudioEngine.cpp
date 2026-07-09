@@ -145,6 +145,12 @@ void AudioEngine::resumePlayback() noexcept {
     if (mPlaybackStream) mPlaybackStream->requestStart();
 }
 
+void AudioEngine::flushPlayback() noexcept {
+    // Valid only while paused/stopped — used when a seek lands mid-pause so
+    // resume doesn't replay the stale tail still queued in the stream.
+    if (mPlaybackStream) mPlaybackStream->requestFlush();
+}
+
 void AudioEngine::stopPlayback() {
     if (mPlaybackStream) {
         mPlaybackStream->stop();
@@ -282,16 +288,6 @@ void AudioEngine::readAnalysisWindow() noexcept {
     if (gain != 1.0f) {
         for (int i = 0; i < FftProcessor::kFftSize; ++i) mFftScratch[i] *= gain;
     }
-}
-
-void AudioEngine::computeBands(float *outBands) noexcept {
-    readAnalysisWindow();
-    mFft->process(mFftScratch.data(), sampleRate(), outBands);
-}
-
-void AudioEngine::computeFullSpectrum(float *outMagnitudes, float *outPeaks, float dt) noexcept {
-    readAnalysisWindow();
-    mFft->processFullSpectrum(mFftScratch.data(), sampleRate(), outMagnitudes, outPeaks, dt);
 }
 
 void AudioEngine::computeAll(float *outBands, float *outMagnitudes, float *outPeaks, float dt) noexcept {

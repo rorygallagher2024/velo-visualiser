@@ -79,6 +79,7 @@ public:
     bool pushPlaybackAudio(const float *interleaved, size_t numFrames) noexcept;
     void pausePlayback() noexcept;
     void resumePlayback() noexcept;
+    void flushPlayback() noexcept;
     void stopPlayback();
 
     // --- consumer side (GL render thread) ---
@@ -89,10 +90,8 @@ public:
     // samples. If the source is mono, L and R are identical.
     void copyLatestStereo(float *outInterleaved, size_t numSamples) const noexcept;
 
-    // FFT pipeline over the latest window; band energies / spectrum in [0, 1].
-    // GL thread only.
-    void computeBands(float *outBands) noexcept;
-    void computeFullSpectrum(float *outMagnitudes, float *outPeaks, float dt) noexcept;
+    // Single-FFT pipeline over the latest window: 3 band energies + 128-bin
+    // spectrum (magnitudes + falling peaks), all in [0, 1]. GL thread only.
     void computeAll(float *outBands, float *outMagnitudes, float *outPeaks, float dt) noexcept;
 
     int sampleRate() const { return mSampleRate.load(std::memory_order_relaxed); }

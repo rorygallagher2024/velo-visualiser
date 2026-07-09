@@ -11,8 +11,10 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import com.lowlatency.visualizer.NativeBridge
+import com.lowlatency.visualizer.R
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.concurrent.thread
 import kotlin.math.min
 
@@ -57,7 +59,11 @@ class LocalAudioPlayer(
     private var running = false                     // guarded by lock
     private var pauseRequested = false              // guarded by lock
     @Volatile private var session = 0               // bumped by play()/stop(); stales old callbacks
+    private val pendingSeekUs = AtomicLong(NO_SEEK)
     private val mainHandler = Handler(Looper.getMainLooper())
+
+    /** Repeat the track seamlessly instead of completing (oscilloscope loops). */
+    @Volatile var looping: Boolean = false
 
     /** Current position / total duration in microseconds (0 while unknown). */
     @Volatile var positionUs: Long = 0L
@@ -67,6 +73,9 @@ class LocalAudioPlayer(
 
     val isActivePlaying: Boolean
         get() = synchronized(lock) { running && !pauseRequested }
+
+    val isSessionRunning: Boolean
+        get() = synchronized(lock) { running }
 
     /** Starts a new playback session, replacing any current one. */
     fun play(uri: Uri) {
@@ -79,6 +88,7 @@ class LocalAudioPlayer(
         }
         positionUs = 0L
         durationUs = 0L
+        pendingSeekUs.set(NO_SEEK)
         playbackThread = thread(name = "LocalAudioPlayback") { runSession(uri, mySession) }
     }
 
@@ -93,6 +103,14 @@ class LocalAudioPlayer(
                 lock.notifyAll()
             }
         }
+    }
+
+    /** Jumps to [targetUs]; applied on the decode thread (works while paused). */
+    fun seekTo(targetUs: Long) {
+        val clamped = targetUs.coerceIn(0L, if (durationUs > 0) durationUs else Long.MAX_VALUE)
+        pendingSeekUs.set(clamped)
+        positionUs = clamped   // optimistic, so the UI doesn't snap back mid-poll
+        synchronized(lock) { lock.notifyAll() }
     }
 
     /**
@@ -124,7 +142,7 @@ class LocalAudioPlayer(
         try {
             extractor = MediaExtractor().apply { setDataSource(context, uri, null) }
             val format = selectAudioTrack(extractor)
-                ?: throw PlaybackFailedException("No audio track in this file")
+                ?: throw PlaybackFailedException(context.getString(R.string.playback_error_no_audio))
             if (format.containsKey(MediaFormat.KEY_DURATION)) {
                 durationUs = format.getLong(MediaFormat.KEY_DURATION)
             }
@@ -135,7 +153,7 @@ class LocalAudioPlayer(
             error = e.message
         } catch (e: Exception) {
             Log.e(TAG, "Playback failed", e)
-            error = "Couldn't play this file"
+            error = context.getString(R.string.playback_error_generic)
         } finally {
             runCatching { codec?.stop() }
             runCatching { codec?.release() }
@@ -152,17 +170,34 @@ class LocalAudioPlayer(
         val stream = StreamState()
         var inputDone = false
         while (isRunning()) {
-            awaitWhilePaused()
+            awaitWhilePaused(extractor, codec)
             if (!isRunning()) break
+            if (applyPendingSeek(extractor, codec)) inputDone = false
             if (!inputDone) inputDone = feedInput(extractor, codec)
             when (val outIndex = codec.dequeueOutputBuffer(info, DEQUEUE_TIMEOUT_US)) {
                 MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> stream.reconfigure(codec.outputFormat)
                 else -> if (outIndex >= 0 && deliverOutput(codec, outIndex, info, stream)) {
-                    return true   // EOS rendered (including any final samples)
+                    if (!looping) return true   // EOS rendered (incl. final samples)
+                    applySeek(extractor, codec, 0L)
+                    inputDone = false
                 }
             }
         }
         return false
+    }
+
+    /** Applies a UI-requested seek, if one is pending. Returns true if it seeked. */
+    private fun applyPendingSeek(extractor: MediaExtractor, codec: MediaCodec): Boolean {
+        val target = pendingSeekUs.getAndSet(NO_SEEK)
+        if (target == NO_SEEK) return false
+        applySeek(extractor, codec, target)
+        return true
+    }
+
+    private fun applySeek(extractor: MediaExtractor, codec: MediaCodec, targetUs: Long) {
+        extractor.seekTo(targetUs, MediaExtractor.SEEK_TO_CLOSEST_SYNC)
+        codec.flush()   // drop in-flight buffers (also re-arms the codec after EOS)
+        positionUs = extractor.sampleTime.coerceAtLeast(0L)
     }
 
     /** Feeds one encoded sample to the codec. Returns true once input hits EOS. */
@@ -201,7 +236,7 @@ class LocalAudioPlayer(
                     val frames = stream.decodeToFloat(buffer, info)
                     positionUs = info.presentationTimeUs
                     if (frames > 0 && !NativeBridge.nativePushPlaybackAudio(stream.pushArray, frames)) {
-                        throw PlaybackFailedException("Audio output lost")
+                        throw PlaybackFailedException(context.getString(R.string.playback_error_output_lost))
                     }
                 }
             }
@@ -212,11 +247,16 @@ class LocalAudioPlayer(
     }
 
     /** Parks the decode thread (with the stream paused) until resumed/stopped. */
-    private fun awaitWhilePaused() {
+    private fun awaitWhilePaused(extractor: MediaExtractor, codec: MediaCodec) {
         synchronized(lock) {
             if (!pauseRequested || !running) return
             NativeBridge.nativePausePlayback()
-            while (pauseRequested && running) lock.wait()
+            while (pauseRequested && running) {
+                lock.wait()
+                // Scrubbing while paused: land the seek now and drop the stale
+                // ~35 ms still queued in the stream, so resume starts cleanly.
+                if (applyPendingSeek(extractor, codec)) NativeBridge.nativeFlushPlayback()
+            }
             if (running) NativeBridge.nativeResumePlayback()
         }
     }
@@ -240,7 +280,7 @@ class LocalAudioPlayer(
             format.setInteger(MediaFormat.KEY_MAX_OUTPUT_CHANNEL_COUNT, 2)
         }
         val mime = format.getString(MediaFormat.KEY_MIME)
-            ?: throw PlaybackFailedException("Unrecognised audio format")
+            ?: throw PlaybackFailedException(context.getString(R.string.playback_error_unsupported))
         return MediaCodec.createDecoderByType(mime).apply {
             configure(format, null, null, 0)
             start()
@@ -281,7 +321,7 @@ class LocalAudioPlayer(
                 AudioFormat.ENCODING_PCM_16BIT
             }
             if (enc != AudioFormat.ENCODING_PCM_16BIT && enc != AudioFormat.ENCODING_PCM_FLOAT) {
-                throw PlaybackFailedException("Unsupported audio encoding")
+                throw PlaybackFailedException(context.getString(R.string.playback_error_unsupported))
             }
             val unchanged = rate == sampleRate && ch == channels && enc == pcmEncoding
             if (open && unchanged) return
@@ -291,7 +331,7 @@ class LocalAudioPlayer(
             // nativeStartPlayback closes any previous stream first, so a
             // mid-track format change is just a reopen at the new rate.
             open = NativeBridge.nativeStartPlayback(sampleRate, min(channels, 2))
-            if (!open) throw PlaybackFailedException("Couldn't open audio output")
+            if (!open) throw PlaybackFailedException(context.getString(R.string.playback_error_output))
         }
 
         /** Converts one codec buffer into [pushArray]; returns the frame count. */
@@ -348,6 +388,7 @@ class LocalAudioPlayer(
 
     companion object {
         private const val TAG = "LocalAudioPlayer"
+        private const val NO_SEEK = Long.MIN_VALUE
         private const val DEQUEUE_TIMEOUT_US = 10_000L
         private const val JOIN_GRACE_MS = 2_000L
         private const val SHORT_TO_FLOAT = 1f / 32768f

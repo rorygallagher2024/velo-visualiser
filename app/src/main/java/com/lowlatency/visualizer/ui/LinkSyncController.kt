@@ -144,7 +144,7 @@ class LinkSyncController(
         }
         
         if (active) {
-            linkStatus.text = "Disabled during local playback"
+            linkStatus.setText(R.string.link_disabled_local_playback)
             linkStatus.alpha = 0.5f
         } else {
             linkStatus.alpha = 1.0f

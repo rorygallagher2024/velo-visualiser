@@ -393,7 +393,7 @@
                 android:layout_weight="1"
                 android:layout_marginStart="2dp"
                 android:background="@drawable/segment_button_bg"
-                android:text="Local File"
+                android:text="@string/source_local"
                 android:textColor="@color/btn_text"
                 android:textAllCaps="false"
                 android:textSize="12sp"
@@ -477,8 +477,6 @@
                 android:stateListAnimator="@null" />
         </LinearLayout>
 
-
-    <!-- Interactive Options Sheet (Bottom-anchored layer) -->
         <!-- Vibrate-on-beat haptics toggle -->
         <Button
             android:id="@+id/btn_haptics"
@@ -1543,40 +1541,99 @@
         android:alpha="0"
         android:visibility="gone" />
 
-    <!-- Media Controls Overlay (Top) -->
+    <!-- Media Controls Overlay (Top): title · time / transport · seek · loop -->
     <LinearLayout
         android:id="@+id/media_controls_overlay"
-        android:layout_width="wrap_content"
+        android:layout_width="320dp"
         android:layout_height="wrap_content"
         android:layout_gravity="top|center_horizontal"
         android:layout_marginTop="64dp"
         android:background="@drawable/media_bar_bg"
-        android:orientation="horizontal"
-        android:paddingHorizontal="24dp"
-        android:paddingVertical="12dp"
+        android:orientation="vertical"
+        android:paddingHorizontal="20dp"
+        android:paddingTop="10dp"
+        android:paddingBottom="6dp"
         android:elevation="12dp"
         android:translationY="-200dp"
-        android:visibility="gone"
-        android:gravity="center_vertical">
+        android:visibility="gone">
 
-        <ImageView
-            android:id="@+id/btn_media_play_pause"
-            android:layout_width="32dp"
-            android:layout_height="32dp"
-            android:background="?android:attr/selectableItemBackgroundBorderless"
-            android:src="@drawable/ic_play"
-            android:scaleType="centerInside"
-            app:tint="#FFFFFFFF" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="4dp">
 
-        <ImageView
-            android:id="@+id/btn_media_close"
-            android:layout_width="32dp"
-            android:layout_height="32dp"
-            android:layout_marginStart="32dp"
-            android:background="?android:attr/selectableItemBackgroundBorderless"
-            android:src="@drawable/ic_close"
-            android:scaleType="centerInside"
-            app:tint="#88FFFFFF" />
+            <TextView
+                android:id="@+id/media_title"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textSize="11sp"
+                android:textColor="#B3FFFFFF"
+                android:letterSpacing="0.02"
+                android:singleLine="true"
+                android:ellipsize="end" />
+
+            <TextView
+                android:id="@+id/media_time"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:textSize="11sp"
+                android:textColor="#66FFFFFF" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <ImageView
+                android:id="@+id/btn_media_play_pause"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/cd_media_play_pause"
+                android:src="@drawable/ic_play"
+                android:scaleType="centerInside"
+                app:tint="#FFFFFFFF" />
+
+            <SeekBar
+                android:id="@+id/media_seek"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginHorizontal="6dp"
+                android:contentDescription="@string/cd_media_seek"
+                android:progressTint="#FFFFFFFF"
+                android:thumbTint="#FFFFFFFF"
+                android:progressBackgroundTint="#33FFFFFF"
+                android:splitTrack="false" />
+
+            <ImageView
+                android:id="@+id/btn_media_loop"
+                android:layout_width="26dp"
+                android:layout_height="26dp"
+                android:layout_marginEnd="10dp"
+                android:alpha="0.4"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/cd_media_loop"
+                android:src="@drawable/ic_loop"
+                android:scaleType="centerInside"
+                app:tint="#FFFFFFFF" />
+
+            <ImageView
+                android:id="@+id/btn_media_close"
+                android:layout_width="26dp"
+                android:layout_height="26dp"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/cd_media_close"
+                android:src="@drawable/ic_close"
+                android:scaleType="centerInside"
+                app:tint="#88FFFFFF" />
+        </LinearLayout>
     </LinearLayout>
 
 </FrameLayout>
