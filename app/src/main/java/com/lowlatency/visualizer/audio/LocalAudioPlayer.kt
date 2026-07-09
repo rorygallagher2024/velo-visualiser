@@ -138,10 +138,41 @@ class LocalAudioPlayer(
     private fun runSession(uri: Uri, mySession: Int) {
         // Audio-priority scheduling shields the feeder from GL/UI load spikes.
         runCatching { Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO) }
-        var extractor: MediaExtractor? = null
-        var codec: MediaCodec? = null
         var completed = false
         var error: String? = null
+        try {
+            completed = playUri(uri)
+        } catch (e: PlaybackFailedException) {
+            Log.e(TAG, "Playback failed: ${e.message}")
+            error = e.message
+        } catch (e: UnsupportedAiffException) {
+            Log.e(TAG, "Playback failed: ${e.message}")
+            error = context.getString(R.string.playback_error_unsupported)
+        } catch (e: Exception) {
+            Log.e(TAG, "Playback failed", e)
+            error = context.getString(R.string.playback_error_generic)
+        } finally {
+            NativeBridge.nativeStopPlayback()
+            synchronized(lock) { if (session == mySession) running = false }
+        }
+        notifyResult(mySession, completed, error)
+    }
+
+    /** Routes to the right decoder: our own AIFF reader, else MediaCodec. */
+    private fun playUri(uri: Uri): Boolean {
+        openAiffSource(uri)?.use { return aiffLoop(it) }
+        return decodeSession(uri)
+    }
+
+    /** Non-null when the file is AIFF — a container MediaExtractor can't read. */
+    private fun openAiffSource(uri: Uri): AiffSource? {
+        val pfd = context.contentResolver.openFileDescriptor(uri, "r") ?: return null
+        return AiffSource.probe(pfd)
+    }
+
+    private fun decodeSession(uri: Uri): Boolean {
+        var extractor: MediaExtractor? = null
+        var codec: MediaCodec? = null
         try {
             extractor = MediaExtractor().apply { setDataSource(context, uri, null) }
             val format = selectAudioTrack(extractor)
@@ -150,21 +181,39 @@ class LocalAudioPlayer(
                 durationUs = format.getLong(MediaFormat.KEY_DURATION)
             }
             codec = createDecoder(format)
-            completed = decodeLoop(extractor, codec)
-        } catch (e: PlaybackFailedException) {
-            Log.e(TAG, "Playback failed: ${e.message}")
-            error = e.message
-        } catch (e: Exception) {
-            Log.e(TAG, "Playback failed", e)
-            error = context.getString(R.string.playback_error_generic)
+            return decodeLoop(extractor, codec)
         } finally {
             runCatching { codec?.stop() }
             runCatching { codec?.release() }
             runCatching { extractor?.release() }
-            NativeBridge.nativeStopPlayback()
-            synchronized(lock) { if (session == mySession) running = false }
         }
-        notifyResult(mySession, completed, error)
+    }
+
+    /** Plays raw AIFF PCM: read → convert → blocking push, no MediaCodec. */
+    private fun aiffLoop(src: AiffSource): Boolean {
+        durationUs = src.durationUs
+        if (!NativeBridge.nativeStartPlayback(src.sampleRate, src.channels)) {
+            throw PlaybackFailedException(context.getString(R.string.playback_error_output))
+        }
+        val pcm = FloatArray(AIFF_CHUNK_FRAMES * src.channels)
+        val seeker = { targetUs: Long ->
+            src.seekTo(targetUs)
+            positionUs = src.positionUs
+        }
+        while (isRunning()) {
+            awaitWhilePaused(seeker)
+            if (!isRunning()) break
+            consumePendingSeek(seeker)
+            val frames = src.readFrames(pcm, AIFF_CHUNK_FRAMES)
+            if (frames <= 0) {
+                if (!looping) return true
+                seeker(0L)
+                continue
+            }
+            positionUs = src.positionUs
+            pushWithReopen(pcm, frames, src.sampleRate, src.channels)
+        }
+        return false
     }
 
     /** Runs the decode/render loop. Returns true on natural end-of-stream. */
@@ -172,10 +221,11 @@ class LocalAudioPlayer(
         val info = MediaCodec.BufferInfo()
         val stream = StreamState()
         var inputDone = false
+        val seeker = { targetUs: Long -> applySeek(extractor, codec, targetUs) }
         while (isRunning()) {
-            awaitWhilePaused(extractor, codec)
+            awaitWhilePaused(seeker)
             if (!isRunning()) break
-            if (applyPendingSeek(extractor, codec)) inputDone = false
+            if (consumePendingSeek(seeker)) inputDone = false
             if (!inputDone) inputDone = feedInput(extractor, codec)
             when (val outIndex = codec.dequeueOutputBuffer(info, DEQUEUE_TIMEOUT_US)) {
                 MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> stream.reconfigure(codec.outputFormat)
@@ -190,10 +240,10 @@ class LocalAudioPlayer(
     }
 
     /** Applies a UI-requested seek, if one is pending. Returns true if it seeked. */
-    private fun applyPendingSeek(extractor: MediaExtractor, codec: MediaCodec): Boolean {
+    private fun consumePendingSeek(applySeekTo: (Long) -> Unit): Boolean {
         val target = pendingSeekUs.getAndSet(NO_SEEK)
         if (target == NO_SEEK) return false
-        applySeek(extractor, codec, target)
+        applySeekTo(target)
         return true
     }
 
@@ -248,7 +298,7 @@ class LocalAudioPlayer(
     }
 
     /** Parks the decode thread (with the stream paused) until resumed/stopped. */
-    private fun awaitWhilePaused(extractor: MediaExtractor, codec: MediaCodec) {
+    private fun awaitWhilePaused(applySeekTo: (Long) -> Unit) {
         synchronized(lock) {
             if (!pauseRequested || !running) return
             NativeBridge.nativePausePlayback()
@@ -256,13 +306,32 @@ class LocalAudioPlayer(
                 lock.wait()
                 // Scrubbing while paused: land the seek now and drop the stale
                 // ~35 ms still queued in the stream, so resume starts cleanly.
-                if (applyPendingSeek(extractor, codec)) NativeBridge.nativeFlushPlayback()
+                if (consumePendingSeek(applySeekTo)) NativeBridge.nativeFlushPlayback()
             }
             if (running) NativeBridge.nativeResumePlayback()
         }
     }
 
     private fun isRunning(): Boolean = synchronized(lock) { running }
+
+    /**
+     * Blocking-writes one converted buffer to the DAC. A failed write usually
+     * means the audio device changed under us (headphones pulled, Bluetooth
+     * connected, resume after an unplugged pause) — reopen on the new default
+     * route and retry once, so a route change is a blip rather than the end
+     * of the session. The retry can replay a few tens of ms already written
+     * before the failure; inaudible next to the route change itself. If the
+     * reopen or the retry also fails, the device is genuinely gone.
+     */
+    private fun pushWithReopen(pcm: FloatArray, frames: Int, sampleRate: Int, channels: Int) {
+        if (NativeBridge.nativePushPlaybackAudio(pcm, frames)) return
+        Log.w(TAG, "Playback stream lost — reopening on the current audio device.")
+        if (!NativeBridge.nativeStartPlayback(sampleRate, channels) ||
+            !NativeBridge.nativePushPlaybackAudio(pcm, frames)
+        ) {
+            throw PlaybackFailedException(context.getString(R.string.playback_error_output_lost))
+        }
+    }
 
     private fun selectAudioTrack(extractor: MediaExtractor): MediaFormat? {
         for (i in 0 until extractor.trackCount) {
@@ -335,24 +404,8 @@ class LocalAudioPlayer(
             if (!open) throw PlaybackFailedException(context.getString(R.string.playback_error_output))
         }
 
-        /**
-         * Blocking-writes one converted buffer to the DAC. A failed write
-         * usually means the audio device changed under us (headphones pulled,
-         * Bluetooth connected, resume after an unplugged pause) — reopen on
-         * the new default route and retry once, so a route change is a blip
-         * rather than the end of the session. The retry can replay a few tens
-         * of ms already written before the failure; inaudible next to the
-         * route change itself. If the reopen or the retry also fails, the
-         * device is genuinely gone and the session ends.
-         */
-        fun push(frames: Int) {
-            if (NativeBridge.nativePushPlaybackAudio(pushArray, frames)) return
-            Log.w(TAG, "Playback stream lost — reopening on the current audio device.")
-            open = NativeBridge.nativeStartPlayback(sampleRate, min(channels, 2))
-            if (!open || !NativeBridge.nativePushPlaybackAudio(pushArray, frames)) {
-                throw PlaybackFailedException(context.getString(R.string.playback_error_output_lost))
-            }
-        }
+        /** Blocking write with route-change reopen-retry — see [pushWithReopen]. */
+        fun push(frames: Int) = pushWithReopen(pushArray, frames, sampleRate, min(channels, 2))
 
         /** Converts one codec buffer into [pushArray]; returns the frame count. */
         fun decodeToFloat(buffer: ByteBuffer, info: MediaCodec.BufferInfo): Int {
@@ -409,6 +462,7 @@ class LocalAudioPlayer(
     companion object {
         private const val TAG = "LocalAudioPlayer"
         private const val NO_SEEK = Long.MIN_VALUE
+        private const val AIFF_CHUNK_FRAMES = 2048   // ~46 ms @ 44.1k per push
         private const val DEQUEUE_TIMEOUT_US = 10_000L
         private const val JOIN_GRACE_MS = 2_000L
         private const val SHORT_TO_FLOAT = 1f / 32768f

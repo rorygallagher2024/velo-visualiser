@@ -63,14 +63,6 @@ Java_com_lowlatency_visualizer_NativeBridge_nativeStopPlayback(JNIEnv *, jobject
 }
 
 JNIEXPORT void JNICALL
-Java_com_lowlatency_visualizer_NativeBridge_nativeSetInputSource(JNIEnv *, jobject, jint source) {
-    auto engineSource = AudioEngine::InputSource::Microphone;
-    if (source == 1) engineSource = AudioEngine::InputSource::SystemAudio;
-    else if (source == 2) engineSource = AudioEngine::InputSource::LocalPlayback;
-    AudioEngine::instance().setInputSource(engineSource);
-}
-
-JNIEXPORT void JNICALL
 Java_com_lowlatency_visualizer_NativeBridge_nativeStop(JNIEnv *, jobject) {
     AudioEngine::instance().stop();
 }

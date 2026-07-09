@@ -160,10 +160,6 @@ void AudioEngine::stopPlayback() {
     }
 }
 
-void AudioEngine::setInputSource(InputSource source) noexcept {
-    const float gain = source == InputSource::Microphone ? 1.0f : kDigitalAnalysisGain;
-    mAnalysisGain.store(gain, std::memory_order_relaxed);
-}
 
 void AudioEngine::stop() {
     std::lock_guard<std::mutex> lock(mLifecycleLock);
@@ -211,9 +207,9 @@ oboe::DataCallbackResult AudioEngine::onAudioReady(oboe::AudioStream *stream,
 
 void AudioEngine::pushExternalPcm(const float *data, size_t numSamples) noexcept {
     // System-audio path: same real-time-safe ring write as the mic callback.
-    // Source level differences are handled at the FFT boundary (see
-    // kDigitalAnalysisGain) so the ring stays truthful for the scope scenes
-    // and the beat gate.
+    // The caller (nativePushPcm) has already applied SYSTEM_AUDIO_GAIN to
+    // this mono feed — the digital-source calibration lives at the producers,
+    // never here.
     noteDeliveryPeriod();
     mBuffer->write(data, numSamples);
 }
@@ -259,16 +255,25 @@ bool AudioEngine::pushPlaybackAudio(const float *interleaved, size_t numFrames) 
 void AudioEngine::mirrorToVisualRings(const float *interleaved, size_t frames,
                                       int channels) noexcept {
     // Kotlin downmixes anything exotic before pushing, so channels is 1 or 2.
+    // The mono (analysis) ring gets kDigitalMonoGain so local playback drives
+    // the FFT / beat gate / reactive visuals at exactly the level the
+    // system-audio path always has; the stereo ring stays full-scale for the
+    // phase-accurate scope scenes — mirroring nativePushPcm()'s convention.
     if (channels == 2) {
         mStereoBuffer->write(interleaved, frames * 2);
         static thread_local std::vector<float> mono;
         if (mono.size() < frames) mono.resize(frames);
         for (size_t i = 0; i < frames; ++i) {
-            mono[i] = (interleaved[i * 2] + interleaved[i * 2 + 1]) * 0.5f;
+            mono[i] = (interleaved[i * 2] + interleaved[i * 2 + 1]) * 0.5f * kDigitalMonoGain;
         }
         mBuffer->write(mono.data(), frames);
     } else {
-        mBuffer->write(interleaved, frames);
+        static thread_local std::vector<float> mono;
+        if (mono.size() < frames) mono.resize(frames);
+        for (size_t i = 0; i < frames; ++i) {
+            mono[i] = interleaved[i] * kDigitalMonoGain;
+        }
+        mBuffer->write(mono.data(), frames);
         static thread_local std::vector<float> stereo;
         if (stereo.size() < frames * 2) stereo.resize(frames * 2);
         for (size_t i = 0; i < frames; ++i) {
@@ -292,16 +297,8 @@ void AudioEngine::copyLatestStereo(float *outInterleaved, size_t numSamples) con
     mStereoBuffer->readLatest(outInterleaved, numSamples * 2);
 }
 
-void AudioEngine::readAnalysisWindow() noexcept {
-    mBuffer->readLatest(mFftScratch.data(), FftProcessor::kFftSize);
-    const float gain = mAnalysisGain.load(std::memory_order_relaxed);
-    if (gain != 1.0f) {
-        for (int i = 0; i < FftProcessor::kFftSize; ++i) mFftScratch[i] *= gain;
-    }
-}
-
 void AudioEngine::computeAll(float *outBands, float *outMagnitudes, float *outPeaks, float dt) noexcept {
-    readAnalysisWindow();
+    mBuffer->readLatest(mFftScratch.data(), FftProcessor::kFftSize);
     mFft->processAll(mFftScratch.data(), sampleRate(), outBands, outMagnitudes, outPeaks, dt);
 }
 

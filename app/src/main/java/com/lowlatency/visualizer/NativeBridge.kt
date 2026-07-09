@@ -19,12 +19,6 @@ object NativeBridge {
     /** Stops and closes the capture (mic) stream. Does not touch playback. */
     external fun nativeStop()
 
-    /**
-     * Tells the engine which source is live so analysis can apply a per-source
-     * gain. Values: [SOURCE_MIC], [SOURCE_SYSTEM], [SOURCE_LOCAL].
-     */
-    external fun nativeSetInputSource(source: Int)
-
     // --- Local playback ---------------------------------------------------
     // The playback stream is owned by LocalAudioPlayer's decode thread; every
     // function in this block must be called from that thread only.
@@ -128,9 +122,4 @@ object NativeBridge {
 
     /** Number of connected Ableton Link peers on the network. UI-thread. */
     external fun nativeLinkPeers(): Int
-
-    /** [nativeSetInputSource] values — keep in sync with AudioEngine::InputSource. */
-    const val SOURCE_MIC = 0
-    const val SOURCE_SYSTEM = 1
-    const val SOURCE_LOCAL = 2
 }

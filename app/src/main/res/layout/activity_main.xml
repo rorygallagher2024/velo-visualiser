@@ -1541,18 +1541,19 @@
         android:alpha="0"
         android:visibility="gone" />
 
-    <!-- Media Controls Overlay (Top): title · time / transport · seek · loop -->
+    <!-- Media Controls Overlay (Top): title · time / transport · seek · loop.
+         Every control sits in a 44dp touch box; glyphs stay 22-24dp inside. -->
     <LinearLayout
         android:id="@+id/media_controls_overlay"
-        android:layout_width="320dp"
+        android:layout_width="340dp"
         android:layout_height="wrap_content"
         android:layout_gravity="top|center_horizontal"
         android:layout_marginTop="64dp"
         android:background="@drawable/media_bar_bg"
         android:orientation="vertical"
-        android:paddingHorizontal="20dp"
-        android:paddingTop="10dp"
-        android:paddingBottom="6dp"
+        android:paddingHorizontal="16dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="4dp"
         android:elevation="12dp"
         android:translationY="-200dp"
         android:visibility="gone">
@@ -1562,7 +1563,7 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:paddingHorizontal="4dp">
+            android:paddingHorizontal="10dp">
 
             <TextView
                 android:id="@+id/media_title"
@@ -1592,20 +1593,22 @@
 
             <ImageView
                 android:id="@+id/btn_media_play_pause"
-                android:layout_width="30dp"
-                android:layout_height="30dp"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:padding="10dp"
                 android:background="?android:attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/cd_media_play_pause"
                 android:src="@drawable/ic_play"
-                android:scaleType="centerInside"
+                android:scaleType="fitCenter"
                 app:tint="#FFFFFFFF" />
 
             <SeekBar
                 android:id="@+id/media_seek"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="44dp"
                 android:layout_weight="1"
-                android:layout_marginHorizontal="6dp"
+                android:minHeight="3dp"
+                android:maxHeight="3dp"
                 android:contentDescription="@string/cd_media_seek"
                 android:progressTint="#FFFFFFFF"
                 android:thumbTint="#FFFFFFFF"
@@ -1614,24 +1617,25 @@
 
             <ImageView
                 android:id="@+id/btn_media_loop"
-                android:layout_width="26dp"
-                android:layout_height="26dp"
-                android:layout_marginEnd="10dp"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:padding="11dp"
                 android:alpha="0.4"
                 android:background="?android:attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/cd_media_loop"
                 android:src="@drawable/ic_loop"
-                android:scaleType="centerInside"
+                android:scaleType="fitCenter"
                 app:tint="#FFFFFFFF" />
 
             <ImageView
                 android:id="@+id/btn_media_close"
-                android:layout_width="26dp"
-                android:layout_height="26dp"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:padding="11dp"
                 android:background="?android:attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/cd_media_close"
                 android:src="@drawable/ic_close"
-                android:scaleType="centerInside"
+                android:scaleType="fitCenter"
                 app:tint="#88FFFFFF" />
         </LinearLayout>
     </LinearLayout>

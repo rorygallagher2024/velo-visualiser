@@ -70,16 +70,7 @@ class AudioSourceController(
 
     /** The live audio source — the single source of truth for the app. */
     var source = Source.MIC
-        private set(value) {
-            field = value
-            NativeBridge.nativeSetInputSource(
-                when (value) {
-                    Source.MIC -> NativeBridge.SOURCE_MIC
-                    Source.SYSTEM -> NativeBridge.SOURCE_SYSTEM
-                    Source.LOCAL -> NativeBridge.SOURCE_LOCAL
-                }
-            )
-        }
+        private set
 
     val systemAudioMode: Boolean get() = source == Source.SYSTEM
     val isLocalPlayback: Boolean get() = source == Source.LOCAL

@@ -47,25 +47,12 @@
 class AudioEngine : public oboe::AudioStreamDataCallback,
                     public oboe::AudioStreamErrorCallback {
 public:
-    enum class InputSource {
-        Microphone,
-        SystemAudio,
-        LocalPlayback
-    };
-
     static AudioEngine &instance();
 
     // --- capture lifecycle (called from the JNI / main thread) ---
     bool startMicrophone();
     void stop();
     bool isRunning() const { return mRunning.load(std::memory_order_acquire); }
-
-    /**
-     * Selects the active source so analysis can apply a per-source gain
-     * (digitally mastered sources run ~12 dB hotter than the mic — see
-     * kDigitalAnalysisGain). Callable from any thread.
-     */
-    void setInputSource(InputSource source) noexcept;
 
     // System-audio push path. Real-time safe; forwards to the ring buffers.
     void pushExternalPcm(const float *data, size_t numSamples) noexcept;
@@ -117,18 +104,18 @@ private:
     void mirrorToVisualRings(const float *interleaved, size_t frames, int channels) noexcept;
     // Zeroes both rings so visuals decay to silence (pause / end of playback).
     void clearVisualRings() noexcept;
-    // Copies the latest FFT window into mFftScratch with the analysis gain applied.
-    void readAnalysisWindow() noexcept;
 
     // Ring buffer sized for ~the most recent slice of audio we ever display.
     static constexpr size_t kBufferCapacity = 8192;
 
-    // Analysis gain for digitally mastered sources (system audio / local
-    // files), which sit near 0 dBFS while mic input averages far lower. This
-    // keeps the FFT's fixed dB window from saturating. Applied at the FFT
-    // boundary ONLY — the rings always hold truthful full-scale samples for
-    // the waveform/scope scenes and the beat gate.
-    static constexpr float kDigitalAnalysisGain = 0.25f;
+    // Mono-ring gain for local playback's visual mirror. Digitally mastered
+    // audio sits near 0 dBFS while the mic averages far lower, so the mono
+    // (analysis) ring — which feeds the FFT, the beat gate and the reactive
+    // visuals — takes this attenuation, while the stereo ring stays full
+    // scale for the scope scenes. MUST match the system-audio path's
+    // AudioCaptureService.SYSTEM_AUDIO_GAIN so all digital sources drive the
+    // visuals identically.
+    static constexpr float kDigitalMonoGain = 0.30f;
 
     // Capture stream (mic). Guarded by mLifecycleLock for open/close.
     std::shared_ptr<oboe::AudioStream> mStream;
@@ -145,7 +132,6 @@ private:
     std::mutex mLifecycleLock;        // guards mic open/close only — never the hot path
     std::atomic<bool> mRunning{false};
     std::atomic<int> mSampleRate{48000};
-    std::atomic<float> mAnalysisGain{1.0f};
     std::atomic<float> mCallbackPeriodMs{0};
 };
 
