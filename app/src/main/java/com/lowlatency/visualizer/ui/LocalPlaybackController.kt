@@ -12,6 +12,7 @@ import android.net.Uri
 import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import android.view.View
+import android.widget.Button
 import android.widget.ImageView
 import android.widget.SeekBar
 import android.widget.TextView
@@ -59,6 +60,7 @@ class LocalPlaybackController(
     private lateinit var btnLoop: ImageView
     private lateinit var btnClose: ImageView
     private lateinit var seek: SeekBar
+    private lateinit var btnCurrentTrack: Button
 
     private var currentUri: Uri? = null
     private var scrubbing = false
@@ -102,10 +104,13 @@ class LocalPlaybackController(
         btnClose = activity.findViewById(R.id.btn_media_close)
         seek = activity.findViewById(R.id.media_seek)
 
+        btnCurrentTrack = activity.findViewById(R.id.btn_current_track)
+
         player.looping = prefs.getBoolean(KEY_LOOP, false)
         btnPlayPause.setOnClickListener { togglePlayPause() }
         btnLoop.setOnClickListener { toggleLoop() }
         btnClose.setOnClickListener { endSession() }
+        btnCurrentTrack.setOnClickListener { openFilePicker() }
         seek.max = SEEK_MAX
         seek.setOnSeekBarChangeListener(seekListener)
         updateControls()
@@ -168,6 +173,7 @@ class LocalPlaybackController(
         currentUri = uri
         audioSource.enterLocalPlayback()   // stops mic / system capture first
         player.play(uri)
+        btnCurrentTrack.visibility = View.VISIBLE
         resolveTitle(uri)
         setNoisyReceiverEnabled(true)
         updateControls()
@@ -187,6 +193,7 @@ class LocalPlaybackController(
         abandonAudioFocus()
         setNoisyReceiverEnabled(false)
         currentUri = null
+        if (::btnCurrentTrack.isInitialized) btnCurrentTrack.visibility = View.GONE
     }
 
     private fun togglePlayPause() {
@@ -311,9 +318,15 @@ class LocalPlaybackController(
 
     private fun resolveTitle(uri: Uri) {
         title.text = ""
+        btnCurrentTrack.setText(R.string.btn_current_track_unknown)
         thread(name = "MediaTitleQuery") {
             val name = queryDisplayName(uri)
-            title.post { if (uri == currentUri && name != null) title.text = name }
+            title.post {
+                if (uri == currentUri && name != null) {
+                    title.text = name
+                    btnCurrentTrack.text = activity.getString(R.string.btn_current_track, name)
+                }
+            }
         }
     }
 

@@ -11,6 +11,8 @@
     <string name="source_local">Local File</string>
 
     <!-- Local playback media bar -->
+    <string name="btn_current_track">Track: %1$s</string>
+    <string name="btn_current_track_unknown">Change Track</string>
     <string name="cd_media_play_pause">Play or pause</string>
     <string name="cd_media_loop">Loop track</string>
     <string name="cd_media_close">Stop playback</string>
