@@ -90,9 +90,12 @@ bool AudioEngine::startPlayback(int sampleRate, int channelCount) {
             ->setFormat(oboe::AudioFormat::Float)
             ->setChannelCount(channelCount)
             ->setSampleRate(sampleRate)
-            // Let Oboe resample when the device won't run the file's rate
-            // natively (44.1k material on 48k-only hardware).
-            ->setSampleRateConversionQuality(oboe::SampleRateConversionQuality::Medium)
+            // Conversion quality must stay None: with SRC enabled Oboe wraps
+            // the stream in FilterAudioStream, whose blocking write() path
+            // broke playback outright on-device (and reports device-rate frame
+            // counts). AAudio accepts the file's rate directly and the
+            // framework resamples downstream when the device runs another rate.
+            ->setSampleRateConversionQuality(oboe::SampleRateConversionQuality::None)
             ->setAudioApi(oboe::AudioApi::AAudio);
             // No DataCallback for playback — the decoder paces itself against
             // blocking write().
@@ -228,8 +231,11 @@ bool AudioEngine::pushPlaybackAudio(const float *interleaved, size_t numFrames) 
             LOGW("Playback write timed out — stream stalled.");
             return false;
         }
-        mirrorToVisualRings(interleaved + offset * channels, written, channels);
-        offset += written;
+        // Oboe's SRC wrapper reports device-rate counts; never advance past
+        // the chunk we actually handed over.
+        const size_t consumed = std::min(written, chunk);
+        mirrorToVisualRings(interleaved + offset * channels, consumed, channels);
+        offset += consumed;
     }
     return true;
 }

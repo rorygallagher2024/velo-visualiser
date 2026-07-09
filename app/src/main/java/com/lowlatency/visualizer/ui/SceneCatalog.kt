@@ -53,7 +53,6 @@ object SceneCatalog {
         SceneEntry(18, R.string.vis_beat_pulse, SceneCategory.REACTIVE),
         SceneEntry(10, R.string.vis_fireworks, SceneCategory.REACTIVE),
         SceneEntry(42, R.string.vis_chromatic_dots, SceneCategory.REACTIVE),
-        SceneEntry(43, R.string.vis_substrate, SceneCategory.REACTIVE),
         // ----- Immersive (rich generative, heavier GPU) -----
         SceneEntry(6, R.string.vis_bloom, SceneCategory.IMMERSIVE),
         SceneEntry(13, R.string.vis_mandala, SceneCategory.IMMERSIVE),
