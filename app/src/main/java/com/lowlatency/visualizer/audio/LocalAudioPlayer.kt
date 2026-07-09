@@ -9,6 +9,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.Process
 import android.util.Log
 import com.lowlatency.visualizer.NativeBridge
 import com.lowlatency.visualizer.R
@@ -135,6 +136,8 @@ class LocalAudioPlayer(
     // ----- decode thread ---------------------------------------------------
 
     private fun runSession(uri: Uri, mySession: Int) {
+        // Audio-priority scheduling shields the feeder from GL/UI load spikes.
+        runCatching { Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO) }
         var extractor: MediaExtractor? = null
         var codec: MediaCodec? = null
         var completed = false
@@ -235,9 +238,7 @@ class LocalAudioPlayer(
                 if (buffer != null) {
                     val frames = stream.decodeToFloat(buffer, info)
                     positionUs = info.presentationTimeUs
-                    if (frames > 0 && !NativeBridge.nativePushPlaybackAudio(stream.pushArray, frames)) {
-                        throw PlaybackFailedException(context.getString(R.string.playback_error_output_lost))
-                    }
+                    if (frames > 0) stream.push(frames)
                 }
             }
         } finally {
@@ -332,6 +333,25 @@ class LocalAudioPlayer(
             // mid-track format change is just a reopen at the new rate.
             open = NativeBridge.nativeStartPlayback(sampleRate, min(channels, 2))
             if (!open) throw PlaybackFailedException(context.getString(R.string.playback_error_output))
+        }
+
+        /**
+         * Blocking-writes one converted buffer to the DAC. A failed write
+         * usually means the audio device changed under us (headphones pulled,
+         * Bluetooth connected, resume after an unplugged pause) — reopen on
+         * the new default route and retry once, so a route change is a blip
+         * rather than the end of the session. The retry can replay a few tens
+         * of ms already written before the failure; inaudible next to the
+         * route change itself. If the reopen or the retry also fails, the
+         * device is genuinely gone and the session ends.
+         */
+        fun push(frames: Int) {
+            if (NativeBridge.nativePushPlaybackAudio(pushArray, frames)) return
+            Log.w(TAG, "Playback stream lost — reopening on the current audio device.")
+            open = NativeBridge.nativeStartPlayback(sampleRate, min(channels, 2))
+            if (!open || !NativeBridge.nativePushPlaybackAudio(pushArray, frames)) {
+                throw PlaybackFailedException(context.getString(R.string.playback_error_output_lost))
+            }
         }
 
         /** Converts one codec buffer into [pushArray]; returns the frame count. */

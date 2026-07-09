@@ -110,6 +110,9 @@ private:
     AudioEngine(const AudioEngine &) = delete;
     AudioEngine &operator=(const AudioEngine &) = delete;
 
+    // Publishes the interval between audio deliveries on the calling thread
+    // (mic callback / system push / playback push) for the perf HUD.
+    void noteDeliveryPeriod() noexcept;
     // Mirrors one written chunk into the mono + stereo visualizer rings.
     void mirrorToVisualRings(const float *interleaved, size_t frames, int channels) noexcept;
     // Zeroes both rings so visuals decay to silence (pause / end of playback).
@@ -144,7 +147,6 @@ private:
     std::atomic<int> mSampleRate{48000};
     std::atomic<float> mAnalysisGain{1.0f};
     std::atomic<float> mCallbackPeriodMs{0};
-    std::chrono::steady_clock::time_point mLastCallbackTime{};
 };
 
 #endif // LLV_AUDIO_ENGINE_H

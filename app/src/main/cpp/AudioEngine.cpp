@@ -175,16 +175,24 @@ void AudioEngine::stop() {
     }
 }
 
+void AudioEngine::noteDeliveryPeriod() noexcept {
+    // Per-producer-thread timestamps: whichever source is live (mic callback,
+    // system-audio push, playback push) publishes its delivery period, so the
+    // perf HUD's "Buffer" readout stays truthful across sources.
+    static thread_local std::chrono::steady_clock::time_point last{};
+    const auto now = std::chrono::steady_clock::now();
+    if (last.time_since_epoch().count() != 0) {
+        const auto dt = std::chrono::duration<float, std::milli>(now - last);
+        mCallbackPeriodMs.store(dt.count(), std::memory_order_relaxed);
+    }
+    last = now;
+}
+
 oboe::DataCallbackResult AudioEngine::onAudioReady(oboe::AudioStream *stream,
                                                    void *audioData,
                                                    int32_t numFrames) {
     // HOT PATH — runs on the real-time audio thread.
-    auto now = std::chrono::steady_clock::now();
-    if (mLastCallbackTime.time_since_epoch().count() != 0) {
-        auto dt = std::chrono::duration<float, std::milli>(now - mLastCallbackTime);
-        mCallbackPeriodMs.store(dt.count(), std::memory_order_relaxed);
-    }
-    mLastCallbackTime = now;
+    noteDeliveryPeriod();
 
     const auto *samples = static_cast<const float *>(audioData);
     
@@ -206,6 +214,7 @@ void AudioEngine::pushExternalPcm(const float *data, size_t numSamples) noexcept
     // Source level differences are handled at the FFT boundary (see
     // kDigitalAnalysisGain) so the ring stays truthful for the scope scenes
     // and the beat gate.
+    noteDeliveryPeriod();
     mBuffer->write(data, numSamples);
 }
 
@@ -215,6 +224,7 @@ void AudioEngine::pushExternalPcmStereo(const float *interleaved, size_t numSamp
 
 bool AudioEngine::pushPlaybackAudio(const float *interleaved, size_t numFrames) noexcept {
     if (!mPlaybackStream) return false;
+    noteDeliveryPeriod();
     const int channels = mPlaybackStream->getChannelCount();
     // Generous per-chunk timeout — a healthy buffer drains a chunk in ~5 ms,
     // so this only trips when the stream is stalled or disconnected.
