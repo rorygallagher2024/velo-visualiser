@@ -220,7 +220,6 @@ void AudioEngine::pushExternalPcmStereo(const float *interleaved, size_t numSamp
 
 bool AudioEngine::pushPlaybackAudio(const float *interleaved, size_t numFrames) noexcept {
     if (!mPlaybackStream) return false;
-    noteDeliveryPeriod();
     const int channels = mPlaybackStream->getChannelCount();
     // Generous per-chunk timeout — a healthy buffer drains a chunk in ~5 ms,
     // so this only trips when the stream is stalled or disconnected.
@@ -254,6 +253,9 @@ bool AudioEngine::pushPlaybackAudio(const float *interleaved, size_t numFrames) 
 
 void AudioEngine::mirrorToVisualRings(const float *interleaved, size_t frames,
                                       int channels) noexcept {
+    // Runs once per ~256-frame chunk (paced by the blocking write), so this —
+    // not the decoder's buffer size — is the visuals' true refresh cadence.
+    noteDeliveryPeriod();
     // Kotlin downmixes anything exotic before pushing, so channels is 1 or 2.
     // The mono (analysis) ring gets kDigitalMonoGain so local playback drives
     // the FFT / beat gate / reactive visuals at exactly the level the

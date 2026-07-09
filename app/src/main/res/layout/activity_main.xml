@@ -1570,8 +1570,8 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:textSize="11sp"
-                android:textColor="#B3FFFFFF"
+                android:textSize="13sp"
+                android:textColor="#CCFFFFFF"
                 android:letterSpacing="0.02"
                 android:singleLine="true"
                 android:ellipsize="end" />
@@ -1581,8 +1581,9 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="12dp"
-                android:textSize="11sp"
-                android:textColor="#66FFFFFF" />
+                android:textSize="12sp"
+                android:textColor="#80FFFFFF"
+                android:fontFeatureSettings="tnum" />
         </LinearLayout>
 
         <LinearLayout
