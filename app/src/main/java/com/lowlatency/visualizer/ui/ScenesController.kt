@@ -30,12 +30,12 @@ class ScenesController(
     private val isMenuOpen: () -> Boolean,
     private val perfOverlayBottom: () -> Int,
     private val onManualSceneChange: () -> Unit,
-    private val isSystemAudio: () -> Boolean,
+    private val isStereoAudio: () -> Boolean,
     private val onScrubPreview: (Boolean) -> Unit = {},
     private val onCloseMenu: () -> Unit = {},
 ) {
     private val allEntries = SceneCatalog.ENTRIES
-    private val entries get() = allEntries.filter { !it.requiresSystemAudio || isSystemAudio() }
+    private val entries get() = allEntries.filter { !it.requiresStereoAudio || isStereoAudio() }
 
     private lateinit var wheel: SceneWheelView
     private lateinit var counter: TextView
@@ -246,14 +246,7 @@ class ScenesController(
         val name = activeSceneName
         if (name.isBlank()) return
         sceneLabel.text = name
-        val d = activity.resources.displayMetrics.density
-        val lp = sceneLabel.layoutParams as android.view.ViewGroup.MarginLayoutParams
-        val overlayBottom = perfOverlayBottom()
-        lp.topMargin = if (overlayBottom > 0)
-            overlayBottom + (d * 12).toInt()
-        else
-            (d * 72).toInt()
-        sceneLabel.layoutParams = lp
+        repositionSceneLabel()
         sceneLabelRunnable?.let { sceneLabel.removeCallbacks(it) }
         sceneLabel.animate().cancel()
         sceneLabel.visibility = View.VISIBLE
@@ -265,6 +258,17 @@ class ScenesController(
         }
         sceneLabelRunnable = hide
         sceneLabel.postDelayed(hide, 1100L)
+    }
+
+    fun repositionSceneLabel() {
+        val d = activity.resources.displayMetrics.density
+        val lp = sceneLabel.layoutParams as android.view.ViewGroup.MarginLayoutParams
+        val overlayBottom = perfOverlayBottom()
+        lp.topMargin = if (overlayBottom > 0)
+            overlayBottom + (d * 12).toInt()
+        else
+            (d * 72).toInt()
+        sceneLabel.layoutParams = lp
     }
 
     fun onConfigurationChanged() {

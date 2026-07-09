@@ -23,6 +23,7 @@ import com.lowlatency.visualizer.ui.DisplayModeController
 import com.lowlatency.visualizer.ui.FeelTheSpeedController
 import com.lowlatency.visualizer.ui.LightingController
 import com.lowlatency.visualizer.ui.LinkSyncController
+import com.lowlatency.visualizer.ui.LocalPlaybackController
 import com.lowlatency.visualizer.ui.MenuDiscoveryController
 import com.lowlatency.visualizer.ui.MenuSheetController
 import com.lowlatency.visualizer.ui.PerfOverlayController
@@ -90,6 +91,10 @@ class MainActivity : AppCompatActivity() {
     private var backgroundedAtMs = 0L
     private var micStarted = false          // has the mic stream gone live this session?
     private var introSequenceDone = false   // intro/hint finished — safe to show the menu cue
+    
+    // Local playback lives in its own controller; the *source* state lives in
+    // AudioSourceController — single source of truth.
+    private lateinit var localPlaybackController: LocalPlaybackController
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -150,8 +155,7 @@ class MainActivity : AppCompatActivity() {
         tabSettings = findViewById(R.id.tab_settings)
         btnCastDisplay = findViewById(R.id.btn_cast_display)
         castOverlay = findViewById(R.id.cast_overlay)
-        // Lighting views (Hue/LIFX/Nanoleaf) are bound inside LightingController.
-
+        
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
     }
 
@@ -160,13 +164,36 @@ class MainActivity : AppCompatActivity() {
         audioSourceController = AudioSourceController(
             activity = this,
             prefs = prefs,
-            onSourceChanged = { onAudioSourceChanged() },
+            onSourceChanged = {
+                if (::scenesController.isInitialized) onAudioSourceChanged()
+                if (::linkSyncController.isInitialized) {
+                    linkSyncController.setLocalPlaybackActive(audioSourceController.isLocalPlayback)
+                }
+            },
             onMicStarted = {
                 micStarted = true
                 if (::feelTheSpeedController.isInitialized) feelTheSpeedController.onMicStarted()
             },
+            onLocalFileRequested = { localPlaybackController.openFilePicker() },
+            onExternalSourceRequested = {
+                // Switching to mic/system: silence the player before the new
+                // source starts producing (the controller flips the state).
+                localPlaybackController.stopSession()
+            }
         )
         audioSourceController.bind()
+
+        localPlaybackController = LocalPlaybackController(
+            activity = this,
+            prefs = prefs,
+            audioSource = audioSourceController,
+            isMenuOpen = { menuSheetController.isOpen },
+            closeMenu = { menuSheetController.close() },
+            onBarLayoutChanged = {
+                if (::scenesController.isInitialized) scenesController.repositionSceneLabel()
+            },
+        )
+        localPlaybackController.bind()
 
         feelTheSpeedController = FeelTheSpeedController(
             activity = this,
@@ -236,12 +263,17 @@ class MainActivity : AppCompatActivity() {
             prefs = prefs,
             isMenuOpen = { menuSheetController.isOpen },
             perfOverlayBottom = {
+                var maxBottom = 0
                 if (perfOverlayController.enabled && perfOverlayController.overlayView.height > 0)
-                    perfOverlayController.overlayView.bottom
-                else 0
+                    maxBottom = perfOverlayController.overlayView.bottom
+                if (::localPlaybackController.isInitialized)
+                    maxBottom = kotlin.math.max(maxBottom, localPlaybackController.barBottom())
+                maxBottom
             },
             onManualSceneChange = { shuffleController.onSceneChanged() },
-            isSystemAudio = { audioSourceController.systemAudioMode },
+            isStereoAudio = {
+                audioSourceController.systemAudioMode || audioSourceController.isLocalPlayback
+            },
             onScrubPreview = { active -> menuSheetController.setScrubPreview(active) },
             onCloseMenu = { menuSheetController.close() },
         )
@@ -258,6 +290,7 @@ class MainActivity : AppCompatActivity() {
             glView = glView,
             onBeforeOpen = {
                 syncMenuState()
+                if (::localPlaybackController.isInitialized) localPlaybackController.hideBar()
                 if (::menuDiscoveryController.isInitialized) menuDiscoveryController.onMenuOpened()
                 if (::scenesController.isInitialized) scenesController.onMenuOpened()
             },
@@ -355,6 +388,8 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         })
+        
+        glView.onTap = { localPlaybackController.onCanvasTap() }
     }
 
     // ----- Settings tabs: Visuals | Lighting | Settings -----
@@ -615,8 +650,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateStatus() {
         val systemAudio = audioSourceController.systemAudioMode
-        // Beat detection is hotter on internal audio — tell the shared sensitivity.
-        BeatSettings.systemAudio = systemAudio
+        // Beat detection is hotter on digitally mastered sources — local files
+        // arrive at the same full-scale level as captured system audio, so the
+        // shared sensitivity uses the raised floor for both.
+        BeatSettings.systemAudio = systemAudio || audioSourceController.isLocalPlayback
 
         // Beat-haptics are mic-only (system-audio capture is buffered → off-beat).
         // Gate the controller and grey the toggle when on internal audio.
@@ -789,6 +826,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
+        if (::localPlaybackController.isInitialized) localPlaybackController.onPause()
         glView.onPause()
         if (::audioSourceController.isInitialized) audioSourceController.onPause()
         backgroundedAtMs = SystemClock.elapsedRealtime()
@@ -811,6 +849,9 @@ class MainActivity : AppCompatActivity() {
         if (::audioSourceController.isInitialized) audioSourceController.onDestroy()
         if (::feelTheSpeedController.isInitialized) feelTheSpeedController.onDestroy()
         if (::menuDiscoveryController.isInitialized) menuDiscoveryController.onDestroy()
+        // Join the decode thread before tearing the engine down — the playback
+        // stream is owned by that thread and must not be closed under it.
+        if (::localPlaybackController.isInitialized) localPlaybackController.onDestroy()
         NativeBridge.nativeStop()
         super.onDestroy()
     }

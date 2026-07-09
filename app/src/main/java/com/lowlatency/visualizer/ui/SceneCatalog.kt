@@ -10,7 +10,7 @@ enum class SceneCategory(val label: String) {
 }
 
 /** One scene: its renderer [index], display-name resource, and category. */
-data class SceneEntry(val index: Int, val nameRes: Int, val category: SceneCategory, val requiresSystemAudio: Boolean = false)
+data class SceneEntry(val index: Int, val nameRes: Int, val category: SceneCategory, val requiresStereoAudio: Boolean = false)
 
 /**
  * The fixed catalogue of scenes — the single source of truth for the Visuals
@@ -32,7 +32,7 @@ object SceneCatalog {
         SceneEntry(28, R.string.vis_led_matrix_3d, SceneCategory.INSTRUMENTS),
         SceneEntry(17, R.string.vis_mechanical_meter, SceneCategory.INSTRUMENTS),
         SceneEntry(33, R.string.vis_phase_scope, SceneCategory.INSTRUMENTS),
-        SceneEntry(41, R.string.vis_lissajous_scope, SceneCategory.INSTRUMENTS, requiresSystemAudio = true),
+        SceneEntry(41, R.string.vis_lissajous_scope, SceneCategory.INSTRUMENTS, requiresStereoAudio = true),
         // ----- Reactive (beat / energy driven) -----
         SceneEntry(38, R.string.vis_veil, SceneCategory.REACTIVE),
         SceneEntry(40, R.string.vis_veil_topdown, SceneCategory.REACTIVE),

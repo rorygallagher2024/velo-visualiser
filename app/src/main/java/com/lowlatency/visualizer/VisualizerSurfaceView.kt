@@ -65,7 +65,7 @@ class VisualizerSurfaceView @JvmOverloads constructor(
      */
     var onMenuDragStart: (() -> Unit)? = null
     var onMenuDrag: ((Float) -> Unit)? = null
-    var onMenuDragRelease: ((Float) -> Unit)? = null
+    var onMenuDragRelease: ((upwardVelocity: Float) -> Unit)? = null
 
     /** Long-press on the canvas (menu closed) → open the menu — an edge-independent
      *  alternative to the swipe-up, which can clash with the system nav gesture. */
@@ -130,12 +130,12 @@ class VisualizerSurfaceView @JvmOverloads constructor(
             ): Boolean {
                 if (isMenuOpen) return false
 
-                // Horizontal fling => change scene. The vertical (menu) gesture is
-                // handled interactively in onTouchEvent, not here.
+                // Horizontal fling => change scene.
                 if (abs(velocityX) > abs(velocityY) && abs(velocityX) > SWIPE_VELOCITY) {
                     swipeScene(if (velocityX < 0) 1 else -1)
                     return true
                 }
+                
                 return false
             }
         }
@@ -279,9 +279,10 @@ class VisualizerSurfaceView @JvmOverloads constructor(
                         gestureDecided = true
                         // Upward drag from the bottom region (and not during the
                         // intro) becomes an interactive menu pull.
-                        if (!isMenuOpen && startedLow && dy < 0 && abs(dy) > abs(dx) &&
-                            onMenuDragStart != null && !renderer.introActive
-                        ) {
+                        val upwardFromBottom = startedLow && dy < 0 && abs(dy) > abs(dx)
+                        val menuPullAllowed =
+                            !isMenuOpen && onMenuDragStart != null && !renderer.introActive
+                        if (upwardFromBottom && menuPullAllowed) {
                             menuDragging = true
                             onMenuDragStart?.invoke()
                         }

@@ -53,6 +53,8 @@ class AudioCaptureService : Service() {
         // internal audio saturates every scene. Attenuate it here, at the shared
         // ring-buffer source, so the waveform, the native FFT bands, and the
         // Kotlin spectrum analyzer all scale down together. ~ -10 dBFS.
+        // MUST match AudioEngine::kDigitalMonoGain (local playback's mirror)
+        // so every digital source drives the visuals identically.
         private const val SYSTEM_AUDIO_GAIN = 0.30f
 
         fun newIntent(context: Context, resultCode: Int, data: Intent): Intent =

@@ -69,6 +69,15 @@ public:
                     (numSamples - firstChunk) * sizeof(float));
     }
 
+    /**
+     * Producer side: zero the contents so consumers see silence (used when
+     * playback pauses/ends, letting visuals decay instead of freezing on the
+     * last window). Same benign torn-read tolerance as write().
+     */
+    void clear() noexcept {
+        std::fill(mBuffer.begin(), mBuffer.end(), 0.0f);
+    }
+
     size_t capacity() const noexcept { return mCapacity; }
 
 private:

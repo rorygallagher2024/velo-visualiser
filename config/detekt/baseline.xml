@@ -14,7 +14,6 @@
     <ID>CognitiveComplexMethod:VisualizerRenderer.kt$VisualizerRenderer$override fun onDrawFrame(gl: GL10?)</ID>
     <ID>CognitiveComplexMethod:WledController.kt$WledController$private fun calculateLinkColor(): RGB</ID>
     <ID>CognitiveComplexMethod:WledController.kt$WledController$private fun startSender()</ID>
-    <ID>ComplexCondition:VisualizerSurfaceView.kt$VisualizerSurfaceView$startedLow &amp;&amp; dy &lt; 0 &amp;&amp; abs(dy) &gt; abs(dx) &amp;&amp; onMenuDragStart != null &amp;&amp; !renderer.introActive</ID>
     <ID>CyclomaticComplexMethod:HueLightController.kt$HueLightController$private fun startSender( creds: HueCredentials, area: HueEntertainmentArea, onResult: (Boolean, String?) -&gt; Unit, )</ID>
     <ID>CyclomaticComplexMethod:HueSetupManager.kt$HueSetupManager$fun listEntertainmentAreas( creds: HueCredentials, onResult: (List&lt;HueEntertainmentArea&gt;) -&gt; Unit, onError: (String) -&gt; Unit, onAuthError: (() -&gt; Unit)? = null, )</ID>
     <ID>CyclomaticComplexMethod:LightingController.kt$LightingController$fun bind()</ID>

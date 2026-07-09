@@ -133,6 +133,27 @@ class LinkSyncController(
         }
     }
 
+    fun setLocalPlaybackActive(active: Boolean) {
+        btnLinkSync.isEnabled = !active
+        btnLinkSync.alpha = if (active) 0.5f else 1.0f
+        
+        if (active && LinkSync.enabled) {
+            setLinkSync(false, persist = false)
+        } else if (!active && !LinkSync.enabled && prefs.getBoolean(KEY_LINK, false)) {
+            setLinkSync(true, persist = false)
+        }
+        
+        if (active) {
+            linkStatus.setText(R.string.link_disabled_local_playback)
+            linkStatus.alpha = 0.5f
+        } else {
+            linkStatus.alpha = 1.0f
+            if (!LinkSync.enabled) {
+                linkStatus.setText(R.string.link_status_off)
+            }
+        }
+    }
+
     /** Enable/disable Ableton Link: native session + multicast lock + status poll. */
     private fun setLinkSync(enabled: Boolean, persist: Boolean) {
         LinkSync.enabled = enabled

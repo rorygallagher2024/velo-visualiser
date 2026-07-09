@@ -144,42 +144,45 @@ class LightingController(
     private val lifxPingPoller = object : Runnable {
         override fun run() {
             if (!lifxPingPollerRunning) return
-            
-            if (::tvLifxState.isInitialized) {
-                if (!isWifiConnected()) {
-                    if (tvLifxState.text != "Disconnected") {
-                        tvLifxState.text = "Disconnected"
-                        tvLifxState.setTextColor(activity.getColor(R.color.text_dim))
-                        imgLifxState.imageTintList = android.content.res.ColorStateList.valueOf(activity.getColor(R.color.hue_disconnected))
-                        btnLifxSync.isEnabled = false
-                    }
-                } else {
-                    if (tvLifxState.text == "Disconnected") {
-                        val bulbCount = lifxBulbContainer.childCount
-                        if (bulbCount == 0) {
-                            tvLifxState.text = "Not Scanned"
-                            tvLifxState.setTextColor(activity.getColor(R.color.hue_pending))
-                            imgLifxState.imageTintList = android.content.res.ColorStateList.valueOf(activity.getColor(R.color.hue_pending))
-                            btnLifxSync.isEnabled = false
-                        } else {
-                            if (lifxSyncing) {
-                                tvLifxState.text = "Streaming Active"
-                                tvLifxState.setTextColor(activity.getColor(R.color.hue_connected))
-                                imgLifxState.imageTintList = android.content.res.ColorStateList.valueOf(activity.getColor(R.color.hue_connected))
-                            } else {
-                                tvLifxState.text = "Ready"
-                                tvLifxState.setTextColor(activity.getColor(R.color.hue_connected))
-                                imgLifxState.imageTintList = android.content.res.ColorStateList.valueOf(activity.getColor(R.color.hue_connected))
-                            }
-                            btnLifxSync.isEnabled = true
-                        }
-                    }
-                }
-                tvLifxHint.visibility = if (tvLifxState.text == "Ready" || tvLifxState.text == "Streaming Active") View.GONE else View.VISIBLE
-                lifxLightControlSection.visibility = if (tvLifxState.text == "Ready") View.VISIBLE else View.GONE
-            }
+            if (::tvLifxState.isInitialized) refreshLifxPingState()
             if (lifxPingPollerRunning) huePingHandler.postDelayed(this, 3000L)
         }
+    }
+
+    /** One poller tick: reflect wifi / scan / sync state in the LIFX status row. */
+    private fun refreshLifxPingState() {
+        if (!isWifiConnected()) {
+            if (tvLifxState.text != "Disconnected") {
+                setLifxPingState("Disconnected", R.color.hue_disconnected,
+                    syncEnabled = false, textColorRes = R.color.text_dim)
+            }
+        } else if (tvLifxState.text == "Disconnected") {
+            // Wifi came back — restore the state the bulb list implies.
+            when {
+                lifxBulbContainer.childCount == 0 ->
+                    setLifxPingState("Not Scanned", R.color.hue_pending, syncEnabled = false)
+                lifxSyncing ->
+                    setLifxPingState("Streaming Active", R.color.hue_connected, syncEnabled = true)
+                else ->
+                    setLifxPingState("Ready", R.color.hue_connected, syncEnabled = true)
+            }
+        }
+        val idle = tvLifxState.text != "Ready" && tvLifxState.text != "Streaming Active"
+        tvLifxHint.visibility = if (idle) View.VISIBLE else View.GONE
+        lifxLightControlSection.visibility = if (tvLifxState.text == "Ready") View.VISIBLE else View.GONE
+    }
+
+    private fun setLifxPingState(
+        label: String,
+        tintRes: Int,
+        syncEnabled: Boolean,
+        textColorRes: Int = tintRes,
+    ) {
+        tvLifxState.text = label
+        tvLifxState.setTextColor(activity.getColor(textColorRes))
+        imgLifxState.imageTintList =
+            android.content.res.ColorStateList.valueOf(activity.getColor(tintRes))
+        btnLifxSync.isEnabled = syncEnabled
     }
 
     // ----- Public API used by MainActivity -----
