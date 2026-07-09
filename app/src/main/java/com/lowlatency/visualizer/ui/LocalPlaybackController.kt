@@ -11,6 +11,7 @@ import android.media.AudioManager
 import android.net.Uri
 import android.provider.DocumentsContract
 import android.provider.OpenableColumns
+import android.util.TypedValue
 import android.view.View
 import android.widget.Button
 import android.widget.ImageView
@@ -116,6 +117,45 @@ class LocalPlaybackController(
         seek.max = SEEK_MAX
         seek.setOnSeekBarChangeListener(seekListener)
         updateControls()
+        onConfigurationChanged()
+    }
+
+    /**
+     * Fits the bar to the live window: ~2/3 of its width, clamped for small
+     * phones and huge tablets, with the hero type, time labels, transport
+     * boxes and seek lane scaling along the same curve. Called on fold/unfold
+     * and rotation — resource buckets alone can't do this because the activity
+     * survives configuration changes without re-inflating.
+     */
+    fun onConfigurationChanged() {
+        val density = activity.resources.displayMetrics.density
+        val windowDp = activity.resources.configuration.screenWidthDp.toFloat()
+        val barDp = (windowDp * BAR_WIDTH_FRACTION).coerceIn(BAR_MIN_DP, BAR_MAX_DP)
+        val f = (barDp - BAR_MIN_DP) / (BAR_MAX_DP - BAR_MIN_DP)
+
+        bar.layoutParams = bar.layoutParams.apply { width = (barDp * density).toInt() }
+        val heroMaxSp = (HERO_MIN_SP + (HERO_MAX_SP - HERO_MIN_SP) * f).toInt()
+        title.setAutoSizeTextTypeUniformWithConfiguration(
+            HERO_FLOOR_SP, heroMaxSp, 1, TypedValue.COMPLEX_UNIT_SP
+        )
+        val timeSp = TIME_MIN_SP + (TIME_MAX_SP - TIME_MIN_SP) * f
+        time.setTextSize(TypedValue.COMPLEX_UNIT_SP, timeSp)
+        duration.setTextSize(TypedValue.COMPLEX_UNIT_SP, timeSp)
+
+        val box = ((BOX_MIN_DP + (BOX_MAX_DP - BOX_MIN_DP) * f) * density).toInt()
+        sizeTransportButton(btnPlayPause, box, PLAY_PAD_RATIO)
+        sizeTransportButton(btnLoop, box, GLYPH_PAD_RATIO)
+        sizeTransportButton(btnClose, box, GLYPH_PAD_RATIO)
+        seek.layoutParams = seek.layoutParams.apply { height = box }
+    }
+
+    private fun sizeTransportButton(button: ImageView, box: Int, padRatio: Float) {
+        button.layoutParams = button.layoutParams.apply {
+            width = box
+            height = box
+        }
+        val pad = (box * padRatio).toInt()
+        button.setPadding(pad, pad, pad, pad)
     }
 
     // ----- public surface (host wiring) -------------------------------------
@@ -423,5 +463,19 @@ class LocalPlaybackController(
         private const val PROGRESS_POLL_MS = 500L
         private const val BAR_FALLBACK_OFFSET_DP = 160f   // pre-layout park distance
         private const val LOOP_OFF_ALPHA = 0.4f
+
+        // Responsive sizing curve: small phone floor → tablet ceiling.
+        private const val BAR_WIDTH_FRACTION = 0.66f
+        private const val BAR_MIN_DP = 340f
+        private const val BAR_MAX_DP = 600f
+        private const val HERO_FLOOR_SP = 12            // autosize lower bound
+        private const val HERO_MIN_SP = 21f
+        private const val HERO_MAX_SP = 30f
+        private const val TIME_MIN_SP = 12f
+        private const val TIME_MAX_SP = 14f
+        private const val BOX_MIN_DP = 48f               // transport touch boxes
+        private const val BOX_MAX_DP = 58f
+        private const val PLAY_PAD_RATIO = 11f / 48f     // glyph inset ratios
+        private const val GLYPH_PAD_RATIO = 14f / 48f
     }
 }

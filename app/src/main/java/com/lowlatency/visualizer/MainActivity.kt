@@ -807,6 +807,8 @@ class MainActivity : AppCompatActivity() {
         // The settings sheet re-fits its content column (width cap on wide displays).
         if (::menuSheetController.isInitialized) menuSheetController.onConfigurationChanged()
         if (::scenesController.isInitialized) scenesController.onConfigurationChanged()
+        // The media bar re-fits to the live window width (fold/unfold, rotation).
+        if (::localPlaybackController.isInitialized) localPlaybackController.onConfigurationChanged()
         
         activeDialog?.let { configureDialogWindow(it) }
     }
