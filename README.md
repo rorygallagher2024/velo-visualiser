@@ -44,7 +44,7 @@ Velo Visualiser listens to the **actual sound** in the room and moves with it in
 
 ## Core Features
 * **High-FPS, HDR-Capable 3D Visuals:** Targets 120+ fps for fluid, tear-free rendering (device and preset dependent).
-* **Phase-Locked Local Playback:** Play audio files through the app's own MediaCodec → C++ Oboe pipeline. The exact PCM written to the audio device is mirrored straight into the visualiser, so the visuals track playback sample-accurately — no capture round-trip, no drift. Includes seek, loop and full stereo delivery to the scope visuals.
+* **Phase-Locked Local Playback:** Play audio files through the app's own MediaCodec → C++ Oboe pipeline. The exact PCM written to the audio device is mirrored straight into the visualiser, so the visuals track playback sample-accurately — no capture round-trip, no drift. Includes seek, loop and full stereo delivery to the scope visuals. Plays everything Android decodes (MP3, AAC, FLAC, WAV, OGG…) plus native AIFF support for oscilloscope-music releases.
 * **True Stereo Oscilloscope Rendering:** Includes a specialised X/Y "Stereo Scope" visual for rendering mathematical vector audio art (Oscilloscope Music). Fed by Local File playback (recommended — perfect phase alignment) or System Audio capture; lossless files give the cleanest traces.
 * **Ableton Link Integration:** Supplement the microphone input with perfect phase-synchronization and predictive beat detection broadcast directly from your DJ software (Traktor, Live, Serato).
 * **Smart Home Room Lighting Control:** Drive your physical room lighting with the exact same zero-lag transient detection used for the on-screen visuals. Supports Philips Hue, Lifx bulbs, and Nanoleaf panels.

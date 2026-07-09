@@ -11,6 +11,7 @@ import android.media.AudioManager
 import android.net.Uri
 import android.provider.DocumentsContract
 import android.provider.OpenableColumns
+import android.util.TypedValue
 import android.view.View
 import android.widget.Button
 import android.widget.ImageView
@@ -56,6 +57,7 @@ class LocalPlaybackController(
     private lateinit var bar: View
     private lateinit var title: TextView
     private lateinit var time: TextView
+    private lateinit var duration: TextView
     private lateinit var btnPlayPause: ImageView
     private lateinit var btnLoop: ImageView
     private lateinit var btnClose: ImageView
@@ -99,6 +101,7 @@ class LocalPlaybackController(
         bar = activity.findViewById(R.id.media_controls_overlay)
         title = activity.findViewById(R.id.media_title)
         time = activity.findViewById(R.id.media_time)
+        duration = activity.findViewById(R.id.media_duration)
         btnPlayPause = activity.findViewById(R.id.btn_media_play_pause)
         btnLoop = activity.findViewById(R.id.btn_media_loop)
         btnClose = activity.findViewById(R.id.btn_media_close)
@@ -114,6 +117,45 @@ class LocalPlaybackController(
         seek.max = SEEK_MAX
         seek.setOnSeekBarChangeListener(seekListener)
         updateControls()
+        onConfigurationChanged()
+    }
+
+    /**
+     * Fits the bar to the live window: ~2/3 of its width, clamped for small
+     * phones and huge tablets, with the hero type, time labels, transport
+     * boxes and seek lane scaling along the same curve. Called on fold/unfold
+     * and rotation — resource buckets alone can't do this because the activity
+     * survives configuration changes without re-inflating.
+     */
+    fun onConfigurationChanged() {
+        val density = activity.resources.displayMetrics.density
+        val windowDp = activity.resources.configuration.screenWidthDp.toFloat()
+        val barDp = (windowDp * BAR_WIDTH_FRACTION).coerceIn(BAR_MIN_DP, BAR_MAX_DP)
+        val f = (barDp - BAR_MIN_DP) / (BAR_MAX_DP - BAR_MIN_DP)
+
+        bar.layoutParams = bar.layoutParams.apply { width = (barDp * density).toInt() }
+        val heroMaxSp = (HERO_MIN_SP + (HERO_MAX_SP - HERO_MIN_SP) * f).toInt()
+        title.setAutoSizeTextTypeUniformWithConfiguration(
+            HERO_FLOOR_SP, heroMaxSp, 1, TypedValue.COMPLEX_UNIT_SP
+        )
+        val timeSp = TIME_MIN_SP + (TIME_MAX_SP - TIME_MIN_SP) * f
+        time.setTextSize(TypedValue.COMPLEX_UNIT_SP, timeSp)
+        duration.setTextSize(TypedValue.COMPLEX_UNIT_SP, timeSp)
+
+        val box = ((BOX_MIN_DP + (BOX_MAX_DP - BOX_MIN_DP) * f) * density).toInt()
+        sizeTransportButton(btnPlayPause, box, PLAY_PAD_RATIO)
+        sizeTransportButton(btnLoop, box, GLYPH_PAD_RATIO)
+        sizeTransportButton(btnClose, box, GLYPH_PAD_RATIO)
+        seek.layoutParams = seek.layoutParams.apply { height = box }
+    }
+
+    private fun sizeTransportButton(button: ImageView, box: Int, padRatio: Float) {
+        button.layoutParams = button.layoutParams.apply {
+            width = box
+            height = box
+        }
+        val pad = (box * padRatio).toInt()
+        button.setPadding(pad, pad, pad, pad)
     }
 
     // ----- public surface (host wiring) -------------------------------------
@@ -238,15 +280,16 @@ class LocalPlaybackController(
     private val progressPoller = object : Runnable {
         override fun run() {
             if (bar.visibility != View.VISIBLE) return
-            val duration = player.durationUs
+            val durationUs = player.durationUs
             if (!scrubbing) {
-                seek.isEnabled = duration > 0
-                seek.progress = if (duration > 0) {
-                    ((player.positionUs * SEEK_MAX) / max(duration, 1L)).toInt()
+                seek.isEnabled = durationUs > 0
+                seek.progress = if (durationUs > 0) {
+                    ((player.positionUs * SEEK_MAX) / max(durationUs, 1L)).toInt()
                 } else {
                     0
                 }
-                time.text = formatTime(player.positionUs, duration)
+                time.text = formatClock(player.positionUs)
+                duration.text = if (durationUs > 0) formatClock(durationUs) else ""
             }
             bar.postDelayed(this, PROGRESS_POLL_MS)
         }
@@ -283,7 +326,7 @@ class LocalPlaybackController(
 
     private val seekListener = object : SeekBar.OnSeekBarChangeListener {
         override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
-            if (fromUser) time.text = formatTime(progressToUs(progress), player.durationUs)
+            if (fromUser) time.text = formatClock(progressToUs(progress))
         }
 
         override fun onStartTrackingTouch(seekBar: SeekBar) {
@@ -300,11 +343,6 @@ class LocalPlaybackController(
 
     private fun progressToUs(progress: Int): Long =
         (player.durationUs * progress) / SEEK_MAX
-
-    private fun formatTime(positionUs: Long, durationUs: Long): String {
-        val pos = formatClock(positionUs)
-        return if (durationUs > 0) "$pos / ${formatClock(durationUs)}" else pos
-    }
 
     private fun formatClock(us: Long): String {
         val totalSec = (us / 1_000_000L).coerceAtLeast(0L)
@@ -425,5 +463,19 @@ class LocalPlaybackController(
         private const val PROGRESS_POLL_MS = 500L
         private const val BAR_FALLBACK_OFFSET_DP = 160f   // pre-layout park distance
         private const val LOOP_OFF_ALPHA = 0.4f
+
+        // Responsive sizing curve: small phone floor → tablet ceiling.
+        private const val BAR_WIDTH_FRACTION = 0.66f
+        private const val BAR_MIN_DP = 340f
+        private const val BAR_MAX_DP = 600f
+        private const val HERO_FLOOR_SP = 12            // autosize lower bound
+        private const val HERO_MIN_SP = 21f
+        private const val HERO_MAX_SP = 30f
+        private const val TIME_MIN_SP = 12f
+        private const val TIME_MAX_SP = 14f
+        private const val BOX_MIN_DP = 48f               // transport touch boxes
+        private const val BOX_MAX_DP = 58f
+        private const val PLAY_PAD_RATIO = 11f / 48f     // glyph inset ratios
+        private const val GLYPH_PAD_RATIO = 14f / 48f
     }
 }

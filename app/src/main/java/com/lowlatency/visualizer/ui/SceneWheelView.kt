@@ -264,11 +264,21 @@ class SceneWheelView @JvmOverloads constructor(
      *  changes (canvas swipe, shuffle) so the wheel follows without re-selecting. */
     fun centerOn(sceneIndex: Int) {
         val pos = items.indexOfFirst { it.index == sceneIndex }
-        if (pos < 0 || pos == activePos) return
+        if (pos < 0) return
+        // Check actual alignment, not just the index: closing the menu mid-settle
+        // freezes the scroller between rows (hidden views stop getting draw
+        // passes) while activePos already reads the resting row — an index-only
+        // guard would then skip the correction and reopen slightly off-centre.
+        val target = pos * rowH
+        if (pos == activePos && abs(scrollPx - target) < 1f) return
         scroller.forceFinished(true)
         flinging = false
         activePos = pos
-        scroller.startScroll(0, scrollPx.toInt(), 0, (pos * rowH - scrollPx).toInt(), 300)
+        if (abs(scrollPx - target) < rowH * 0.5f) {
+            scrollPx = target   // residue from an interrupted settle: fix instantly
+        } else {
+            scroller.startScroll(0, scrollPx.toInt(), 0, (target - scrollPx).toInt(), 300)
+        }
         invalidate()
     }
 
