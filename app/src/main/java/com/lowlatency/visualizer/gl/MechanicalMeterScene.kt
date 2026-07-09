@@ -1,6 +1,7 @@
 package com.lowlatency.visualizer.gl
 
 import android.opengl.GLES20
+import com.lowlatency.visualizer.BeatSettings
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
@@ -226,7 +227,12 @@ class MechanicalMeterScene : GlScene {
         for (s in pcm) sumSq += s * s
         val rms = sqrt(sumSq / pcm.size)
 
-        val gain = 175f
+        // The Unprocessed mic averages far quieter than the 0.30-scaled digital
+        // ring (system audio / local files), whose mastered material would pin
+        // the needle at this mic calibration — digital gets VU-style headroom:
+        // sustained club-loud sections ride ~80-90% with peaks kissing the red,
+        // and breakdowns visibly fall away.
+        val gain = if (BeatSettings.systemAudio) 9f else 175f
         val targetLevel = (rms * gain).let { if (it < 0.01f) 0f else sqrt(it) }.coerceIn(0f, 1.2f)
         val normalizedTarget = targetLevel / 1.2f
 
