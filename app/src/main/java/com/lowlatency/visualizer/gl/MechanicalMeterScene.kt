@@ -33,11 +33,13 @@ class MechanicalMeterScene : GlScene {
     private var program = 0
     private var aPos = 0
     private var uRes = 0
+    private var uTime = 0
     private var uDim = 0
     private var uNeedle = 0
     private var uPeak = 0
     private var uWakeLo = 0
     private var uWakeHi = 0
+    private var uWakeEnergy = 0
     private var uSheen = 0
 
     private var width = 1f
@@ -50,6 +52,9 @@ class MechanicalMeterScene : GlScene {
     private var peakHold = 0f
     private var wakeLo = 0f
     private var wakeHi = 0f
+    private var wakeEnergy = 0f
+    private var silentSec = 0f
+    private var idleGlow = 1f
     private var lastTime = -1f
 
     private val quad: FloatBuffer = ByteBuffer
@@ -60,11 +65,13 @@ class MechanicalMeterScene : GlScene {
         program = ShaderUtil.buildProgram(VS, FS)
         aPos = GLES20.glGetAttribLocation(program, "aPos")
         uRes = GLES20.glGetUniformLocation(program, "u_res")
+        uTime = GLES20.glGetUniformLocation(program, "u_time")
         uDim = GLES20.glGetUniformLocation(program, "u_dim")
         uNeedle = GLES20.glGetUniformLocation(program, "u_needle")
         uPeak = GLES20.glGetUniformLocation(program, "u_peak")
         uWakeLo = GLES20.glGetUniformLocation(program, "u_wakeLo")
         uWakeHi = GLES20.glGetUniformLocation(program, "u_wakeHi")
+        uWakeEnergy = GLES20.glGetUniformLocation(program, "u_wakeEnergy")
         uSheen = GLES20.glGetUniformLocation(program, "u_sheen")
     }
 
@@ -90,11 +97,13 @@ class MechanicalMeterScene : GlScene {
 
         GLES20.glUseProgram(program)
         GLES20.glUniform2f(uRes, width, height)
-        GLES20.glUniform1f(uDim, dim)
+        GLES20.glUniform1f(uTime, timeSec)
+        GLES20.glUniform1f(uDim, dim * idleGlow)
         GLES20.glUniform1f(uNeedle, needleLevel)
         GLES20.glUniform1f(uPeak, peakLevel)
         GLES20.glUniform1f(uWakeLo, wakeLo)
         GLES20.glUniform1f(uWakeHi, wakeHi)
+        GLES20.glUniform1f(uWakeEnergy, wakeEnergy)
         GLES20.glUniform1f(uSheen, min(abs(velocity) * 0.35f, 0.5f))
 
         GLES20.glEnableVertexAttribArray(aPos)
@@ -131,6 +140,17 @@ class MechanicalMeterScene : GlScene {
             peakLevel = max(shown, peakLevel - peakVelocity * dt)
         }
 
+        // The wake remembers how HARD the needle swept, not just where: fast
+        // swings burn bright, slow drift barely marks the fan.
+        wakeEnergy = max(wakeEnergy - dt * WAKE_ENERGY_DECAY, min(abs(velocity) * 0.5f, 1f))
+
+        // Idle: a few seconds of true silence and the instrument dims to a
+        // resting glow, snapping awake on the first signal.
+        silentSec = if (target < IDLE_SILENCE_LEVEL) silentSec + dt else 0f
+        val glowTarget = if (silentSec > IDLE_AFTER_SEC) IDLE_GLOW else 1f
+        val glowRate = if (glowTarget > idleGlow) IDLE_WAKE_RATE else IDLE_FALL_RATE
+        idleGlow += (glowTarget - idleGlow) * min(glowRate * dt, 1f)
+
         needleLevel = shown
     }
 
@@ -138,8 +158,14 @@ class MechanicalMeterScene : GlScene {
         private const val STIFFNESS = 550f            // VU ballistics: ~300 ms rise
         private const val DAMPING = 30f               // zeta ≈ 0.64 — slight overshoot
         private const val WAKE_RELAX_PER_SEC = 3.2f
+        private const val WAKE_ENERGY_DECAY = 1.2f    // sweep-brightness fade, per second
         private const val PEAK_HOLD_SEC = 0.6f
         private const val PEAK_GRAVITY = 1.6f         // dial-units per second²
+        private const val IDLE_SILENCE_LEVEL = 0.02f  // dial fraction that counts as silence
+        private const val IDLE_AFTER_SEC = 3f
+        private const val IDLE_GLOW = 0.4f            // resting brightness while idle
+        private const val IDLE_FALL_RATE = 1.2f       // ease into idle (~1.5 s)
+        private const val IDLE_WAKE_RATE = 9f         // snap awake (~0.15 s)
         private const val VU_FLOOR_ABS = 20f          // scale spans -20…+3 VU
         private const val VU_CEIL = 3f
         private const val MIC_REF_DB = -45f           // Unprocessed mic, loud room
@@ -153,7 +179,8 @@ class MechanicalMeterScene : GlScene {
         private const val FS = """#version 300 es
             precision highp float;
             uniform vec2  u_res;
-            uniform float u_dim, u_needle, u_peak, u_wakeLo, u_wakeHi, u_sheen;
+            uniform float u_time, u_dim, u_needle, u_peak, u_wakeLo, u_wakeHi;
+            uniform float u_wakeEnergy, u_sheen;
             out vec4 fragColor;
 
             const float PIVOT_DEPTH = 0.45;   // pivot this far below the bottom edge
@@ -181,6 +208,12 @@ class MechanicalMeterScene : GlScene {
                 // Units of screen height; origin at bottom-centre, y up.
                 vec2 q = vec2((gl_FragCoord.x - 0.5 * u_res.x) / u_res.y,
                               gl_FragCoord.y / u_res.y);
+                // OLED burn-in protection: the whole instrument (pivot, tick,
+                // blade) drifts a few pixels on a slow orbit, like the scopes.
+                q += vec2(
+                    sin(u_time * 0.31) + 0.5 * sin(u_time * 0.13 + 1.7),
+                    cos(u_time * 0.27) + 0.5 * cos(u_time * 0.19 + 0.9)
+                ) * 0.0015;
                 float halfW = 0.5 * u_res.x / u_res.y;
 
                 float L = PIVOT_DEPTH + TIP_Y;              // needle length
@@ -205,7 +238,9 @@ class MechanicalMeterScene : GlScene {
                         : (u_wakeHi - lvl) / max(u_wakeHi - u_needle, 1e-4);
                     t = clamp(t, 0.0, 1.0);
                     float radial = smoothstep(0.02, 0.45, r) * (1.0 - smoothstep(L * 0.97, L, r));
-                    col += vec3(0.085) * t * t * radial;
+                    // Lit by sweep speed: a violent swing burns a bright fan,
+                    // slow drift barely marks it.
+                    col += vec3(0.03 + 0.10 * u_wakeEnergy) * t * t * radial;
                 }
 
                 // ----- the one fixed mark: a signal-red tick at 0 VU ------------
