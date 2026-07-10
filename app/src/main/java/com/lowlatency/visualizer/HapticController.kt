@@ -53,6 +53,16 @@ class HapticController(context: Context) {
         Log.i(TAG, "previewPulse fired (220ms, max amplitude)")
     }
 
+    /**
+     * One sharp hit synced to the intro logo's shatter moment. A one-off branding
+     * moment (like [previewPulse]), so it fires regardless of the beat-haptics
+     * toggle. Safe from the GL thread — vibrate is an async binder call.
+     */
+    fun introImpact() {
+        val v = vibrator ?: return
+        emit(v, 60L, 230)
+    }
+
     @Volatile var enabled = false
         set(value) {
             field = value

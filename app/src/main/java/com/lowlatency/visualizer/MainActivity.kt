@@ -326,6 +326,11 @@ class MainActivity : AppCompatActivity() {
         }, SPLASH_MASK_MS)
 
         if (glView.introEnabled) {
+            // Fired on the GL thread; guard because wireSplash runs before
+            // initControllers (same pattern as the feel-the-speed vibrate).
+            glView.onIntroShatter = {
+                if (::hapticController.isInitialized) hapticController.introImpact()
+            }
             glView.onIntroFinished = {
                 audioSourceController.fireDeferredPermissionRequest()
                 afterIntro()

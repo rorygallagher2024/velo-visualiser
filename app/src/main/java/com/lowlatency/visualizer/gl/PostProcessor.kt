@@ -55,6 +55,14 @@ class PostProcessor {
     private var uCompHueShift = 0
     private var uCompSat = 0
     private var uCompTint = 0
+    private var uCompPulse = 0
+    private var uCompAspect = 0
+
+    // Intro shockwave pulse (see setIntroPulse). All zero outside the intro, so
+    // the composite shader's pulse branch never executes on the normal path.
+    private var pulseRadius = 0f
+    private var pulseAmp = 0f
+    private var pulseChroma = 0f
 
     private var ready = false
 
@@ -69,6 +77,9 @@ class PostProcessor {
         ready = false
         allocatedW = 0
         allocatedH = 0
+        pulseRadius = 0f
+        pulseAmp = 0f
+        pulseChroma = 0f
 
         brightProg = ShaderUtil.buildProgram(QUAD_VS, BRIGHT_FS)
         blurProg = ShaderUtil.buildProgram(QUAD_VS, BLUR_FS)
@@ -89,6 +100,19 @@ class PostProcessor {
         uCompHueShift = GLES20.glGetUniformLocation(compositeProg, "u_hueShift")
         uCompSat = GLES20.glGetUniformLocation(compositeProg, "u_saturation")
         uCompTint = GLES20.glGetUniformLocation(compositeProg, "u_tint")
+        uCompPulse = GLES20.glGetUniformLocation(compositeProg, "u_pulse")
+        uCompAspect = GLES20.glGetUniformLocation(compositeProg, "u_aspect")
+    }
+
+    /**
+     * Drive the intro shockwave: a radial refraction ring + chromatic pulse in
+     * the composite pass. [amplitude] 0 disables it entirely (the shader takes
+     * the plain-sample branch), so leave everything at 0 outside the intro.
+     */
+    fun setIntroPulse(radius: Float, amplitude: Float, chroma: Float) {
+        pulseRadius = radius
+        pulseAmp = amplitude
+        pulseChroma = chroma
     }
 
     fun resize(width: Int, height: Int) {
@@ -204,6 +228,8 @@ class PostProcessor {
         GLES20.glUniform1f(uCompHueShift, hueShift)
         GLES20.glUniform1f(uCompSat, saturation)
         GLES20.glUniform3f(uCompTint, tintR, tintG, tintB)
+        GLES20.glUniform3f(uCompPulse, pulseRadius, pulseAmp, pulseChroma)
+        GLES20.glUniform1f(uCompAspect, width.toFloat() / height.toFloat())
         drawTriangle()
     }
 
@@ -322,6 +348,9 @@ class PostProcessor {
             uniform float u_hueShift;     // theme: radians about the luma axis
             uniform float u_saturation;   // theme: saturation scale
             uniform vec3  u_tint;         // theme: rgb tint
+            uniform vec2  u_uvScale;      // valid sub-region of the (over-allocated) FBO
+            uniform vec3  u_pulse;        // intro shockwave: x=radius y=refraction z=chroma
+            uniform float u_aspect;
             in vec2 v_uv;
             out vec4 o;
 
@@ -337,8 +366,31 @@ class PostProcessor {
             }
 
             void main() {
-                vec3 scene = texture(u_scene, v_uv).rgb;
-                vec3 bloom = texture(u_bloom, v_uv).rgb;
+                vec2 uv = v_uv;
+                vec3 scene;
+                if (u_pulse.y > 0.001) {
+                    // Intro shockwave: a gaussian ring that refracts the frame
+                    // radially, with chromatic aberration strongest on the ring.
+                    // The branch is on a uniform (dynamically uniform control
+                    // flow), so the normal path pays one compare and nothing else.
+                    vec2 p = uv / u_uvScale - 0.5;
+                    p.x *= u_aspect;
+                    float r = length(p);
+                    float band = r - u_pulse.x;
+                    float ring = exp(-band * band * 90.0);
+                    vec2 dir = (p / max(r, 1e-4)) * vec2(1.0 / u_aspect, 1.0);
+                    // Displaced UVs must stay inside [0, u_uvScale] — the FP16
+                    // buffer can be over-allocated, and beyond that lies garbage.
+                    uv = clamp(uv - dir * ring * band * u_pulse.y, vec2(0.0), u_uvScale);
+                    vec2 ca = dir * ring * r * u_pulse.z;
+                    scene = vec3(
+                        texture(u_scene, clamp(uv + ca, vec2(0.0), u_uvScale)).r,
+                        texture(u_scene, uv).g,
+                        texture(u_scene, clamp(uv - ca, vec2(0.0), u_uvScale)).b);
+                } else {
+                    scene = texture(u_scene, uv).rgb;
+                }
+                vec3 bloom = texture(u_bloom, uv).rgb;   // glow rides the ripple too
 
                 // Bloom carries the beat punch; scene exposure lifts only gently.
                 vec3 col = scene * u_exposure + bloom * u_bloomIntensity;

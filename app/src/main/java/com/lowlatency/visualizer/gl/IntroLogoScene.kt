@@ -42,11 +42,18 @@ class IntroLogoScene {
     private var uTime = 0
     private var uIntensity = 0
     private var uSizeScale = 0
+    private var uDolly = 0
+    private var uSeed = 0
 
     private var vbo = 0
     private var particleCount = 0
     private var aspect = 1f
     private var sizeScale = 1f
+
+    // Per-launch variation: fresh on every cold start, but stable across
+    // in-process surface recreations, so a mid-intro rotation replays the same
+    // ignite (reads as intentional) while no two launches look alike.
+    private val launchSeed = Random.Default.nextFloat() * 100f
 
     fun onCreated() {
         program = ShaderUtil.buildProgram(VERTEX_SHADER, FRAGMENT_SHADER)
@@ -60,6 +67,12 @@ class IntroLogoScene {
         uTime = GLES20.glGetUniformLocation(program, "u_time")
         uIntensity = GLES20.glGetUniformLocation(program, "u_intensity")
         uSizeScale = GLES20.glGetUniformLocation(program, "u_sizeScale")
+        uDolly = GLES20.glGetUniformLocation(program, "u_dolly")
+        uSeed = GLES20.glGetUniformLocation(program, "u_seed")
+
+        // The seed never changes for the life of the program — upload it once.
+        GLES20.glUseProgram(program)
+        GLES20.glUniform1f(uSeed, launchSeed)
 
         val data = buildParticles()
         particleCount = data.size / FLOATS_PER_PARTICLE
@@ -89,8 +102,12 @@ class IntroLogoScene {
      * @param disperse  0..1 — outward shatter progress
      * @param intensity overall brightness/fade envelope
      * @param timeSec   elapsed seconds (curl-noise animation)
+     * @param dolly     camera travel toward the cloud (0 = rest; push-through on shatter)
      */
-    fun draw(assemble: Float, hold: Float, disperse: Float, intensity: Float, timeSec: Float) {
+    fun draw(
+        assemble: Float, hold: Float, disperse: Float,
+        intensity: Float, timeSec: Float, dolly: Float,
+    ) {
         if (program == 0 || particleCount == 0) return
 
         GLES20.glEnable(GLES20.GL_BLEND)
@@ -104,6 +121,7 @@ class IntroLogoScene {
         GLES20.glUniform1f(uTime, timeSec)
         GLES20.glUniform1f(uIntensity, intensity)
         GLES20.glUniform1f(uSizeScale, sizeScale)
+        GLES20.glUniform1f(uDolly, dolly)
 
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, vbo)
         val stride = FLOATS_PER_PARTICLE * 4
@@ -181,7 +199,10 @@ class IntroLogoScene {
 
         // Stride down to the particle budget for an even spatial spread.
         val stride = (opaque.size / MAX_PARTICLES).coerceAtLeast(1)
-        val rnd = Random(0x7E10)
+        // Seeded from the launch seed so texel jitter/sizes vary per launch too;
+        // the glyph targets stay deterministic from the raster, so the V is
+        // always crisp.
+        val rnd = Random(launchSeed.toRawBits().toLong())
         val pxToNdc = MARK_NDC_HEIGHT / h              // uniform on x & y => no stretch
         val halfW = w * 0.5f
         val halfH = h * 0.5f
@@ -220,9 +241,14 @@ class IntroLogoScene {
             uniform float u_disperse;   // 0..1 shatter
             uniform float u_time;
             uniform float u_sizeScale;
+            uniform float u_dolly;      // camera travel toward the cloud (0 = rest)
+            uniform float u_seed;       // per-launch variation
             out float v_assemble;
             out float v_disperse;
             out float v_gradient;
+            out float v_depth;
+
+            const float CAM_DIST = 2.4; // camera distance to the cloud's rest plane
 
             float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
             vec2 hash2(float n) { return fract(sin(vec2(n, n + 1.0)) * vec2(43758.5453, 22578.1459)); }
@@ -244,20 +270,30 @@ class IntroLogoScene {
 
             void main() {
                 vec2 target = aTarget;
-                vec2 r = hash2(aSeed * 0.097) * 2.0 - 1.0;
+                vec2 r = hash2(aSeed * 0.097 + u_seed * 0.013) * 2.0 - 1.0;
 
                 // Chaos start: scattered wide + swirled by the flow field.
-                vec2 chaos = target + r * 1.7 + curl(target * 1.5 + aSeed) * 0.5;
+                vec2 chaos = target + r * 1.7 + curl(target * 1.5 + aSeed + u_seed) * 0.5;
                 vec2 pos = mix(chaos, target, u_assemble);
 
                 // Breathing micro-jitter once assembled.
-                pos += curl(target * 5.0 + u_time * 0.6) * 0.012 * u_hold;
+                pos += curl(target * 5.0 + u_time * 0.6 + u_seed) * 0.012 * u_hold;
 
                 // Shatter: fly outward (radial + curl) with a touch of gravity.
                 float dsp = u_disperse * u_disperse;
                 vec2 dir = normalize(target + r * 0.3 + vec2(1e-3));
-                pos += (dir * 1.3 + curl(target * 2.0 + u_time * 1.5) * 1.1) * dsp;
+                pos += (dir * 1.3 + curl(target * 2.0 + u_time * 1.5 + u_seed) * 1.1) * dsp;
                 pos.y -= 0.9 * dsp;
+
+                // Per-particle depth: a static spread from the seed, plus a
+                // z-scatter toward the eye on shatter so debris flies past the
+                // camera. Cheap perspective: scaling position + point size by
+                // CAM_DIST/viewZ gives true parallax as the camera dollies.
+                float pz = (hash(vec2(aSeed, 11.0)) - 0.5) * 0.6;
+                pz -= (0.2 + 0.8 * hash(vec2(aSeed, 17.0))) * dsp * 1.2;
+                float viewZ = max(CAM_DIST + pz - u_dolly, 0.35);  // never behind the eye
+                float persp = CAM_DIST / viewZ;                    // 1.0 at rest depth
+                pos *= persp;
 
                 pos.x /= u_aspect;
                 gl_Position = vec4(pos, 0.0, 1.0);
@@ -266,13 +302,18 @@ class IntroLogoScene {
                 sz *= mix(0.4, 1.0, u_assemble);    // grow as they converge
                 sz *= 1.0 + u_hold * 0.15;          // gentle breathe
                 sz *= 1.0 - 0.45 * u_disperse;      // shrink as they fly off
-                gl_PointSize = max(sz, 1.0);
+                sz *= persp;                        // size attenuation with depth
+                gl_PointSize = clamp(sz, 1.0, 64.0);// cap near fly-bys
 
                 v_assemble = u_assemble;
                 v_disperse = u_disperse;
+                v_depth = clamp(persp, 0.7, 1.4);
 
-                // Map target coordinates to the diagonal Velo gradient [0..1]
-                float t = (aTarget.x - aTarget.y) * 0.65 + 0.5;
+                // Map target coordinates to the diagonal Velo gradient [0..1],
+                // with a bounded per-launch phase bias (the gradient is
+                // non-cyclic, so bias rather than wrap).
+                float t = (aTarget.x - aTarget.y) * 0.65 + 0.5
+                        + (fract(u_seed * 0.37) - 0.5) * 0.16;
                 float jitter = (hash(vec2(aSeed, 7.0)) - 0.5) * 0.06;
                 v_gradient = t + jitter + sin(u_time * 2.0) * 0.03
                            + u_disperse * (hash(vec2(aSeed, 3.0)) - 0.5) * 0.5;
@@ -285,6 +326,7 @@ class IntroLogoScene {
             in float v_assemble;
             in float v_disperse;
             in float v_gradient;
+            in float v_depth;
             out vec4 fragColor;
 
             vec3 veloGradient(float t) {
@@ -311,6 +353,7 @@ class IntroLogoScene {
                 col = mix(vec3(dot(col, vec3(0.333))), col, 1.45);   // saturate
                 col *= mix(0.35, 1.0, clamp(v_assemble, 0.0, 1.0));  // ignite up
                 col += col * v_disperse * 0.7;                       // flare on dissolve
+                col *= mix(0.88, 1.1, (v_depth - 0.7) / 0.7);        // near particles run hotter
 
                 // HDR overdrive (>1) so the bloom pass makes the cloud glow.
                 col *= core * u_intensity * 1.9;

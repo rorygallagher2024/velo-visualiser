@@ -104,6 +104,16 @@ class VisualizerSurfaceView @JvmOverloads constructor(
             renderer.onIntroFinished = { post { value?.invoke() } }
         }
 
+    /**
+     * Invoked on the GL thread at the intro's shatter moment — the one-shot
+     * haptic hit. Deliberately NOT posted to the main thread (unlike
+     * [onIntroFinished]): vibrate is an async binder call and render-thread-safe,
+     * and a posted hop would land the buzz a frame after the visual impact.
+     */
+    var onIntroShatter: (() -> Unit)?
+        get() = renderer.onIntroShatter
+        set(value) { renderer.onIntroShatter = value }
+
     /** Fast-forward the intro to its dissolve. Safe to call any time. */
     fun skipIntro() = queueEvent { renderer.skipIntro() }
 

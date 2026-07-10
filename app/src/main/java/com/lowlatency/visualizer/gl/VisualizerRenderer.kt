@@ -44,6 +44,13 @@ class VisualizerRenderer(private val context: Context) : GLSurfaceView.Renderer 
         private const val INTRO_SHATTER_SEC = 1.2f
         private const val INTRO_TOTAL_SEC = INTRO_IGNITE_SEC + INTRO_HOLD_SEC + INTRO_SHATTER_SEC
         private const val INTRO_BLOOM = 1.5f       // forced glow during the intro
+        private const val INTRO_DOLLY_GLIDE = 0.12f // slow dolly-in across ignite+hold
+        private const val INTRO_DOLLY_PUSH = 0.45f  // camera push-through on shatter
+        private const val INTRO_SHOCK_WINDOW = 0.45f// fraction of the shatter the shockwave lives
+        private const val INTRO_SHOCK_AMP = 0.22f   // peak refraction displacement
+        private const val INTRO_SHOCK_CA = 0.3f     // chromatic aberration, as a ratio of amp
+        private const val INTRO_SHOCK_R0 = 0.05f    // shockwave ring start radius
+        private const val INTRO_SHOCK_R1 = 1.4f     // ...and how far it expands
 
         // Process-static: the intro plays once per cold start. It survives surface
         // recreation (warm resume, rotation) so returning to a still-resident app
@@ -240,11 +247,16 @@ class VisualizerRenderer(private val context: Context) : GLSurfaceView.Renderer 
     @Volatile var introEnabled = true
     // Fired once on the GL thread when the intro completes (or is skipped/disabled).
     @Volatile var onIntroFinished: (() -> Unit)? = null
+    // Fired once on the GL thread at the exact shatter frame (the haptic hit).
+    // Vibrator calls are async binder calls, so invoking directly keeps the
+    // buzz frame-synced with the visual impact.
+    @Volatile var onIntroShatter: (() -> Unit)? = null
     @Volatile var introActive = false
         private set
     private val introScene = IntroLogoScene()
     private var introStartSec = -1f
     private var introNotified = false
+    private var shatterNotified = false
 
     /** Number of selectable scenes (for index wrapping by the view). */
     val sceneCount: Int get() = scenes.size
@@ -311,6 +323,7 @@ class VisualizerRenderer(private val context: Context) : GLSurfaceView.Renderer 
         introActive = introEnabled && !introPlayedThisProcess
         introStartSec = -1f
         introNotified = false
+        shatterNotified = false
         if (introActive) {
             // NB: introPlayedThisProcess is set on *completion* (drawIntro), not here,
             // so an intro interrupted by a surface teardown (e.g. backgrounding) replays
@@ -580,15 +593,12 @@ class VisualizerRenderer(private val context: Context) : GLSurfaceView.Renderer 
         val assemble = 1f - inv * inv * inv                       // easeOutCubic
         val disperse = ((e - INTRO_IGNITE_SEC - INTRO_HOLD_SEC) / INTRO_SHATTER_SEC).coerceIn(0f, 1f)
 
-        val holdAmt = when {
-            e < INTRO_IGNITE_SEC -> 0f
-            e < INTRO_IGNITE_SEC + INTRO_HOLD_SEC -> 1f
-            else -> 1f - disperse
-        }
-        val intensity = when {
-            e < INTRO_IGNITE_SEC -> assembleRaw
-            e < INTRO_IGNITE_SEC + INTRO_HOLD_SEC -> 1f + 0.10f * kotlin.math.sin(e * 3.0f)
-            else -> (1f - disperse) * (1f + 0.7f * kotlin.math.exp(-disperse * 5f))  // flash then fade
+        // Shatter onset: disperse crosses 0 here for both the natural timeline
+        // and skipIntro() (which rewinds to the shatter phase), so one detector
+        // covers both. Drives the one-shot haptic hit.
+        if (disperse > 0f && !shatterNotified) {
+            shatterNotified = true
+            onIntroShatter?.invoke()
         }
 
         val usePost = post.isReady
@@ -610,9 +620,13 @@ class VisualizerRenderer(private val context: Context) : GLSurfaceView.Renderer 
         // Background loading is deferred until AFTER intro finishes (handled in tryBackgroundLoad)
         tryBackgroundLoad()
 
-        introScene.draw(assemble, holdAmt, disperse, intensity, t)
+        introScene.draw(
+            assemble, introHoldAmount(e, disperse), disperse,
+            introIntensity(e, assembleRaw, disperse), t, introDolly(e, disperse),
+        )
 
         if (usePost) {
+            introShock(disperse)
             val theme = ThemeSettings.preset
             post.present(
                 INTRO_BLOOM, 1f,
@@ -620,16 +634,55 @@ class VisualizerRenderer(private val context: Context) : GLSurfaceView.Renderer 
             )
         }
 
-        if (e >= INTRO_TOTAL_SEC) {
-            introActive = false
-            introPlayedThisProcess = true       // only now is the intro truly "played"
-            current = DEFAULT_SCENE
-            target = DEFAULT_SCENE
-            introScene.release()
-            if (!introNotified) {
-                introNotified = true
-                onIntroFinished?.invoke()
-            }
+        if (e >= INTRO_TOTAL_SEC) finishIntro()
+    }
+
+    /** Hold envelope: 0 through ignite, 1 across the hold beat, fading out with the shatter. */
+    private fun introHoldAmount(e: Float, disperse: Float): Float = when {
+        e < INTRO_IGNITE_SEC -> 0f
+        e < INTRO_IGNITE_SEC + INTRO_HOLD_SEC -> 1f
+        else -> 1f - disperse
+    }
+
+    /** Brightness envelope: rise on ignite, breathe on hold, flash-then-fade on shatter. */
+    private fun introIntensity(e: Float, assembleRaw: Float, disperse: Float): Float = when {
+        e < INTRO_IGNITE_SEC -> assembleRaw
+        e < INTRO_IGNITE_SEC + INTRO_HOLD_SEC -> 1f + 0.10f * kotlin.math.sin(e * 3.0f)
+        else -> (1f - disperse) * (1f + 0.7f * kotlin.math.exp(-disperse * 5f))  // flash then fade
+    }
+
+    /** Camera travel: a slow smoothstep dolly-in over ignite+hold, then a shatter push-through. */
+    private fun introDolly(e: Float, disperse: Float): Float {
+        val g = (e / (INTRO_IGNITE_SEC + INTRO_HOLD_SEC)).coerceIn(0f, 1f)
+        val glide = g * g * (3f - 2f * g) * INTRO_DOLLY_GLIDE
+        return glide + disperse * disperse * INTRO_DOLLY_PUSH
+    }
+
+    /**
+     * Shockwave envelope: nothing until the shatter onset, then an instant-attack
+     * ring that expands and fades over the first [INTRO_SHOCK_WINDOW] of disperse.
+     */
+    private fun introShock(disperse: Float) {
+        if (disperse <= 0f) {
+            post.setIntroPulse(0f, 0f, 0f)
+            return
+        }
+        val s = (disperse / INTRO_SHOCK_WINDOW).coerceIn(0f, 1f)
+        val fade = 1f - s
+        val amp = fade * fade * INTRO_SHOCK_AMP
+        post.setIntroPulse(INTRO_SHOCK_R0 + s * INTRO_SHOCK_R1, amp, amp * INTRO_SHOCK_CA)
+    }
+
+    private fun finishIntro() {
+        introActive = false
+        introPlayedThisProcess = true       // only now is the intro truly "played"
+        current = DEFAULT_SCENE
+        target = DEFAULT_SCENE
+        introScene.release()
+        post.setIntroPulse(0f, 0f, 0f)      // nothing leaks into the normal path
+        if (!introNotified) {
+            introNotified = true
+            onIntroFinished?.invoke()
         }
     }
 
