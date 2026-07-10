@@ -75,6 +75,9 @@
     <string name="customisation_label">Customisation</string>
     <string name="ambient_mode">Ambient Mode</string>
     <!-- Scene wheel favourites (hold a visual to toggle). -->
+    <string name="fav_hint_toast">Hold a visual to add it to favourites</string>
+    <string name="cd_fav_filter_show">Show favourites only</string>
+    <string name="cd_fav_filter_showing">Showing favourites only — tap for all scenes</string>
     <string name="fav_added_toast">Added to swipe favourites</string>
     <string name="fav_removed_toast">Removed from favourites</string>
     <string name="scene_hint">Tap to select · Hold to favourite</string>

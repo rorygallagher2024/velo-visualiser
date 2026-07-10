@@ -101,7 +101,7 @@ class ScenesController(
         for (e in entries) {
             if (e.category != currentCategory) {
                 currentCategory = e.category
-                items.add(SceneWheelView.Item(-1, "— ${e.category.label} —", isHeader = true))
+                items.add(SceneWheelView.Item(-1, e.category.label, isHeader = true))
             }
             items.add(SceneWheelView.Item(e.index, nameOf(e.index), isHeader = false))
         }
@@ -126,7 +126,7 @@ class ScenesController(
 
     private fun toggleFavFilter() {
         if (!showingFavourites && favourites.isEmpty()) {
-            Toast.makeText(activity, "Hold a visual to add it to favourites", Toast.LENGTH_SHORT).show()
+            Toast.makeText(activity, R.string.fav_hint_toast, Toast.LENGTH_SHORT).show()
             return
         }
         showingFavourites = !showingFavourites
@@ -137,6 +137,9 @@ class ScenesController(
 
     private fun updateFavFilterIcon() {
         favFilter.text = if (showingFavourites) "★" else "☆"
+        favFilter.contentDescription = activity.getString(
+            if (showingFavourites) R.string.cd_fav_filter_showing else R.string.cd_fav_filter_show
+        )
         @Suppress("DEPRECATION")
         favFilter.setTextColor(
             if (showingFavourites) activity.resources.getColor(R.color.accent)

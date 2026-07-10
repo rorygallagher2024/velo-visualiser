@@ -80,7 +80,7 @@ class VisualizerRenderer(private val context: Context) : GLSurfaceView.Renderer 
 
     // Reused per-frame — no allocation in the loop.
     private val pcm = FloatArray(POINTS)
-    private val pcmStereo = FloatArray(8192)
+    private val pcmStereo = FloatArray(16384)   // 8192 frames: 42 ms even at 192 kHz
     private val bands = FloatArray(3)
 
     // Shared buffer for zero-copy audio transfer to scenes/GPU.
@@ -351,9 +351,6 @@ class VisualizerRenderer(private val context: Context) : GLSurfaceView.Renderer 
         sharedAudioFloatBuffer.position(0)
         sharedAudioFloatBuffer.get(pcm, 0, pcm.size)
 
-        // Pull the stereo PCM array for the Lissajous scene.
-        NativeBridge.fillLatestStereoAudioBuffer(pcmStereo)
-
         val t = nowSec()
         val dt = (t - lastFrameSec).coerceIn(0f, 0.1f)
         lastFrameSec = t
@@ -503,6 +500,9 @@ class VisualizerRenderer(private val context: Context) : GLSurfaceView.Renderer 
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
 
         if (scene is LissajousScopeScene) {
+            // Fetched only here: no other scene reads stereo, so the copy is
+            // paid exclusively by the scope.
+            NativeBridge.fillLatestStereoAudioBuffer(pcmStereo)
             scene.drawStereo(pcmStereo, bands, t, dim)
         } else {
             scene.draw(pcm, bands, t, dim)

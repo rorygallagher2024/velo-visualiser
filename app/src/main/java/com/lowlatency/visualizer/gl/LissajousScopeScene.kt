@@ -2,6 +2,7 @@ package com.lowlatency.visualizer.gl
 
 import android.opengl.GLES20
 import android.opengl.GLES30
+import com.lowlatency.visualizer.NativeBridge
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
@@ -23,7 +24,11 @@ class LissajousScopeScene : GlScene {
 
     companion object {
         // The absolute maximum number of points we can draw from the 8192-sample buffer.
-        private const val MAX_POINTS = 4096
+        private const val MAX_POINTS = 8192          // full 42 ms trace at 192 kHz
+        // 40 ms trace: 2 ms shy of the ring's 192 kHz capacity, so the oldest
+        // samples we read are never the ones being overwritten mid-copy.
+        private const val TRACE_SEC = 0.040f
+        private const val TRIGGER_SEARCH_SEC = 0.021f // edge hunt over ~one 48 Hz cycle
 
         private const val SCOPE_VS = """#version 300 es
             layout(location = 0) in vec2 aPos;   // XY from Left/Right audio
@@ -119,12 +124,25 @@ class LissajousScopeScene : GlScene {
 
     fun drawStereo(pcmStereo: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
         val totalPairs = pcmStereo.size / 2
-        var startIndex = 0
+        // The trace is a TIME window, not a point count: oscilloscope-music
+        // masters run at 96/192 kHz, and a fixed point budget would quarter the
+        // drawn geometry exactly on the material this scene exists for. Every
+        // sample in the window is drawn — never decimate XY art.
+        val sampleRate = NativeBridge.nativeGetSampleRate().coerceAtLeast(8000)
+        val drawPoints = (sampleRate * TRACE_SEC).toInt().coerceAtMost(MAX_POINTS)
 
-        // 1. Hardware Oscilloscope Positive-Edge Trigger (Phase Lock)
-        // We keep the trigger to anchor the shapes and prevent frame-rate jitter.
-        val searchLimit = minOf(1000, totalPairs - 1)
-        for (i in 0 until searchLimit) {
+        // 1. Hardware Oscilloscope Positive-Edge Trigger (Phase Lock).
+        // Anchored to the NEWEST samples: the buffer holds far more history
+        // than the trace at low rates, and drawing from its oldest end would
+        // lag the audio by over 100 ms. The trigger hunts just ahead of the
+        // trace so the beam always ends at "now" (within ~one 48 Hz cycle).
+        val searchSpan = minOf(
+            (sampleRate * TRIGGER_SEARCH_SEC).toInt(),
+            totalPairs - drawPoints - 2,
+        ).coerceAtLeast(0)
+        val base = (totalPairs - drawPoints - searchSpan).coerceAtLeast(0)
+        var startIndex = base
+        for (i in base until base + searchSpan) {
             val left1 = pcmStereo[i * 2]
             val left2 = pcmStereo[(i + 1) * 2]
             if (left1 <= 0f && left2 > 0f && pcmStereo[(i + 2) * 2] > 0.01f) {
@@ -133,13 +151,10 @@ class LissajousScopeScene : GlScene {
             }
         }
 
-        // 2. Fixed Continuous Trace
-        // Because the user is now using a lossless WAV, there is no phase drift! 
-        // We no longer need to violently truncate the trace length to 1 cycle.
-        // We can draw a long continuous history buffer (e.g. 2000 points = ~41ms).
-        // This gives the visualizer enough time to draw all the "missing" multiplexed 
-        // shapes and complex geometry that a short 1-cycle trace was cutting off.
-        val drawPoints = 2000
+        // 2. Fixed Continuous Trace (~40 ms of signal at any sample rate).
+        // Long enough to draw the multiplexed shapes and complex geometry that
+        // a short 1-cycle trace would cut off; phase-stable because the source
+        // is lossless.
         val limit = minOf(drawPoints, totalPairs - startIndex).coerceAtMost(MAX_POINTS)
         if (limit <= 1) return
 
