@@ -128,15 +128,16 @@ class SceneWheelView @JvmOverloads constructor(
     )
 
     /** Selection band hairlines framing the centre (hero) row. They live with
-     *  the motion: gone while scrubbing (names fly under them), then drawing
-     *  back outward from the centre as the wheel clicks home. */
+     *  the motion: receding to a whisper while scrubbing — still marking which
+     *  row will win — then stretching to full length and brightness as the
+     *  wheel clicks home. */
     private fun drawSelectionBand(canvas: Canvas, cx: Float, cy: Float) {
         val settle = 1f - scrubFrac
-        if (settle <= 0.02f) return
+        val ease = settle * settle * (3f - 2f * settle)
         val half = rowH * 0.5f
         val fullHalfLen = width * (0.5f - 0.16f)
-        val halfLen = fullHalfLen * (settle * settle * (3f - 2f * settle))
-        tickPaint.alpha = (TICK_ALPHA * settle).toInt()
+        val halfLen = fullHalfLen * (BAND_SCRUB_LEN + (1f - BAND_SCRUB_LEN) * ease)
+        tickPaint.alpha = (TICK_ALPHA * (BAND_SCRUB_ALPHA + (1f - BAND_SCRUB_ALPHA) * ease)).toInt()
         canvas.drawLine(cx - halfLen, cy - half, cx + halfLen, cy - half, tickPaint)
         canvas.drawLine(cx - halfLen, cy + half, cx + halfLen, cy + half, tickPaint)
     }
@@ -335,43 +336,70 @@ class SceneWheelView @JvmOverloads constructor(
             if (fore <= 0.02f) continue
             val y = cy + sin(angle) * radius
             val fav = !items[i].isHeader && favourites.contains(items[i].index)
-            val name = (if (fav) "★  " else "") + items[i].name.uppercase()
-            
+            val name = items[i].name.uppercase()
+
             val isBottom = angle > 0
             val restrictedEdge = if (isBottom) restrictedBottomEdge else restrictedTopEdge
-            
+
             // Restrict visible angle when not scrubbing to prevent extending under buttons/header
             val currentEdge = restrictedEdge + scrubFrac * (EDGE_ANGLE - restrictedEdge)
             val distanceFrac = abs(angle) / currentEdge
             if (distanceFrac >= 1f) continue
-            
+
             val alphaBase = (255f * fore * fore * fore).toInt()
             val fadeOut = (1f - distanceFrac).coerceIn(0f, 1f)
-            var alpha = (alphaBase * fadeOut * fadeOut).toInt().coerceIn(6, 255)
+            val alpha = (alphaBase * fadeOut * fadeOut).toInt().coerceIn(0, 255)
+            if (alpha == 0) continue   // fully melted into the edge
 
-            if (items[i].isHeader) {
-                // Category captions: small, wide-tracked, quiet — labels the
-                // wheel rolls past, not rows competing with the scenes.
-                textPaint.textSize = fittedBase * (0.30f + 0.06f * fore)
-                textPaint.letterSpacing = HEADER_TRACKING
-                textPaint.color = ContextCompat.getColor(context, R.color.text_dim)
-                alpha = (alpha * HEADER_ALPHA_SCALE).toInt()
-            } else {
-                // Focus tracking: a settling row eases from the resting body
-                // tracking out to its hero form — typography as the selection.
-                val focus = (1f - abs(angle) / ANGLE_STEP).coerceIn(0f, 1f)
-                val ease = focus * focus * (3f - 2f * focus)
-                textPaint.textSize = fittedBase * (0.6f + 0.4f * fore)   // one consistent size
-                textPaint.letterSpacing = BASE_TRACKING + (FOCUS_TRACKING - BASE_TRACKING) * ease
-                textPaint.color = primary
-            }
-            
-            textPaint.alpha = alpha
-            // Alpha-matched dark halo keeps names legible when the sheet fades out
-            // during a scrub and they float directly over the live visual.
-            textPaint.setShadowLayer(shadowRadius, 0f, 0f, (alpha * 3 / 4) shl 24)
-            val fm = textPaint.fontMetrics
-            canvas.drawText(name, cx, y - (fm.ascent + fm.descent) / 2f, textPaint)
+            val styled = (alpha * applyRowStyle(items[i].isHeader, fore, angle)).toInt()
+            drawRowText(canvas, name, fav, cx, y, styled)
+        }
+    }
+
+    /** Sets the paint for one row and returns its extra alpha scale.
+     *  Headers render as small, wide-tracked captions — labels the wheel rolls
+     *  past. Scene rows ease from resting tracking out to hero tracking as they
+     *  settle into the centre: typography as the selection. */
+    private fun applyRowStyle(isHeader: Boolean, fore: Float, angle: Float): Float {
+        return if (isHeader) {
+            textPaint.textSize = fittedBase * (0.30f + 0.06f * fore)
+            textPaint.letterSpacing = HEADER_TRACKING
+            textPaint.color = ContextCompat.getColor(context, R.color.text_dim)
+            HEADER_ALPHA_SCALE
+        } else {
+            val focus = (1f - abs(angle) / ANGLE_STEP).coerceIn(0f, 1f)
+            val ease = focus * focus * (3f - 2f * focus)
+            textPaint.textSize = fittedBase * (0.6f + 0.4f * fore)   // one consistent size
+            textPaint.letterSpacing = BASE_TRACKING + (FOCUS_TRACKING - BASE_TRACKING) * ease
+            textPaint.color = primary
+            1f
+        }
+    }
+
+    /** Draws one row's name (paint size/tracking/colour already set) plus its
+     *  favourite mark: a small, dim star hanging in the left gutter — an index
+     *  annotation beside the name, not a character inside it. */
+    private fun drawRowText(canvas: Canvas, name: String, fav: Boolean, cx: Float, y: Float, alpha: Int) {
+        textPaint.alpha = alpha
+        // Alpha-matched dark halo keeps names legible when the sheet fades out
+        // during a scrub and they float directly over the live visual.
+        textPaint.setShadowLayer(shadowRadius, 0f, 0f, (alpha * 3 / 4) shl 24)
+        val fm = textPaint.fontMetrics
+        val baseline = y - (fm.ascent + fm.descent) / 2f
+        canvas.drawText(name, cx, baseline, textPaint)
+
+        if (fav) {
+            val nameHalf = textPaint.measureText(name) / 2f
+            val rowSize = textPaint.textSize
+            textPaint.textSize = rowSize * FAV_STAR_SCALE
+            textPaint.alpha = (alpha * FAV_STAR_ALPHA).toInt()
+            val starHalf = textPaint.measureText("★") / 2f
+            canvas.drawText(
+                "★",
+                cx - nameHalf - starHalf * 2.4f,
+                baseline - rowSize * 0.06f,
+                textPaint,
+            )
         }
     }
 
@@ -388,6 +416,10 @@ class SceneWheelView @JvmOverloads constructor(
         private const val HEADER_TRACKING = 0.30f // category captions, wide + quiet
         private const val HEADER_ALPHA_SCALE = 0.65f
         private const val TICK_ALPHA = 120        // selection hairlines at full settle
+        private const val BAND_SCRUB_LEN = 0.9f   // band length while scrubbing (of full)
+        private const val BAND_SCRUB_ALPHA = 0.35f // band brightness while scrubbing
+        private const val FAV_STAR_SCALE = 0.46f  // favourite mark, relative to row size
+        private const val FAV_STAR_ALPHA = 0.55f
         private const val DETENT_MIN_INTERVAL_MS = 30L
     }
 }

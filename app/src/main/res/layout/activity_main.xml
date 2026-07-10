@@ -230,6 +230,9 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center_horizontal"
+                android:minWidth="48dp"
+                android:minHeight="48dp"
+                android:gravity="center"
                 android:text="☆"
                 android:textSize="32sp"
                 android:textColor="@color/text_dim"
@@ -237,6 +240,7 @@
                 android:paddingEnd="12dp"
                 android:paddingTop="4dp"
                 android:paddingBottom="8dp"
+                android:contentDescription="@string/cd_fav_filter_show"
                 android:clickable="true"
                 android:focusable="true" />
 
@@ -249,6 +253,7 @@
                 android:textColor="@color/text_dim"
                 android:textSize="12sp"
                 android:letterSpacing="0.1"
+                android:fontFeatureSettings="tnum"
                 android:layout_marginBottom="4dp" />
 
             <TextView
