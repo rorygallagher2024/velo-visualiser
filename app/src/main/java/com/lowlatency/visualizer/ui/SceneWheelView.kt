@@ -5,6 +5,7 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Typeface
+import android.os.SystemClock
 import android.util.AttributeSet
 import android.view.GestureDetector
 import android.view.HapticFeedbackConstants
@@ -63,6 +64,7 @@ class SceneWheelView @JvmOverloads constructor(
     private var rowH = 120f
     private var radius = 300f
     private var activePos = -1
+    private var lastDetentMs = 0L
     private var fittedBase = 0f     // one consistent hero text size (fits the longest name)
     private var shadowRadius = 0f
 
@@ -73,7 +75,7 @@ class SceneWheelView @JvmOverloads constructor(
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
         typeface = ResourcesCompat.getFont(context, R.font.clash_display) ?: Typeface.DEFAULT
-        letterSpacing = 0.06f
+        letterSpacing = BASE_TRACKING
     }
     private val tickPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = ContextCompat.getColor(context, R.color.text_dim)
@@ -125,6 +127,20 @@ class SceneWheelView @JvmOverloads constructor(
         },
     )
 
+    /** Selection band hairlines framing the centre (hero) row. They live with
+     *  the motion: gone while scrubbing (names fly under them), then drawing
+     *  back outward from the centre as the wheel clicks home. */
+    private fun drawSelectionBand(canvas: Canvas, cx: Float, cy: Float) {
+        val settle = 1f - scrubFrac
+        if (settle <= 0.02f) return
+        val half = rowH * 0.5f
+        val fullHalfLen = width * (0.5f - 0.16f)
+        val halfLen = fullHalfLen * (settle * settle * (3f - 2f * settle))
+        tickPaint.alpha = (TICK_ALPHA * settle).toInt()
+        canvas.drawLine(cx - halfLen, cy - half, cx + halfLen, cy - half, tickPaint)
+        canvas.drawLine(cx - halfLen, cy + half, cx + halfLen, cy + half, tickPaint)
+    }
+
     /** The scene-row nearest a touch y, inverting the cylinder projection. */
     private fun rowAt(y: Float): Int {
         val s = ((y - height / 2f) / radius).coerceIn(-1f, 1f)
@@ -153,13 +169,16 @@ class SceneWheelView @JvmOverloads constructor(
     }
 
     /** One consistent hero text size that fits even the longest name (measured as
-     *  if starred), so a row's size never varies with the name's length. */
+     *  if starred AND at full focus tracking — the centred row's widest form),
+     *  so a row's size never varies with the name's length. */
     private fun computeFittedBase() {
         val ideal = height * BASE_FRAC
         if (items.isEmpty() || width == 0) { fittedBase = ideal; return }
         textPaint.textSize = ideal
+        textPaint.letterSpacing = FOCUS_TRACKING
         var widest = 1f
         for (it in items) widest = max(widest, textPaint.measureText("★  " + it.name.uppercase()))
+        textPaint.letterSpacing = BASE_TRACKING
         val maxW = width * FIT_FRAC
         fittedBase = if (widest > maxW) ideal * (maxW / widest) else ideal
     }
@@ -242,7 +261,7 @@ class SceneWheelView @JvmOverloads constructor(
         if (p != activePos) {
             val oldPos = activePos
             activePos = p
-            
+
             val minPos = kotlin.math.min(oldPos, p)
             val maxPos = kotlin.math.max(oldPos, p)
             var crossedHeader = false
@@ -252,10 +271,18 @@ class SceneWheelView @JvmOverloads constructor(
                     break
                 }
             }
-            if (crossedHeader && oldPos != -1) {
-                performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+            // Detent feel: a whisper-light tick on every row, a firmer click on
+            // category boundaries — rate-limited so a hard fling hums rather
+            // than buzzes.
+            val now = SystemClock.uptimeMillis()
+            if (oldPos != -1 && now - lastDetentMs >= DETENT_MIN_INTERVAL_MS) {
+                performHapticFeedback(
+                    if (crossedHeader) HapticFeedbackConstants.CLOCK_TICK
+                    else HapticFeedbackConstants.TEXT_HANDLE_MOVE
+                )
+                lastDetentMs = now
             }
-            
+
             items.getOrNull(p)?.takeIf { !it.isHeader }?.let { onCentre?.invoke(it.index) }
         }
     }
@@ -286,11 +313,7 @@ class SceneWheelView @JvmOverloads constructor(
         if (items.isEmpty() || height == 0) return
         val cx = width / 2f
         val cy = height / 2f
-        // Selection band hairlines framing the centre (hero) row.
-        val half = rowH * 0.5f
-        val inset = width * 0.16f
-        canvas.drawLine(inset, cy - half, width - inset, cy - half, tickPaint)
-        canvas.drawLine(inset, cy + half, width - inset, cy + half, tickPaint)
+        drawSelectionBand(canvas, cx, cy)
         
         // Dynamically compute bottom edge to clear the footer (favourites icon)
         // Footer top is ~173dp from the bottom in portrait. Add padding = 185dp.
@@ -324,13 +347,22 @@ class SceneWheelView @JvmOverloads constructor(
             
             val alphaBase = (255f * fore * fore * fore).toInt()
             val fadeOut = (1f - distanceFrac).coerceIn(0f, 1f)
-            val alpha = (alphaBase * fadeOut * fadeOut).toInt().coerceIn(6, 255)
-            
+            var alpha = (alphaBase * fadeOut * fadeOut).toInt().coerceIn(6, 255)
+
             if (items[i].isHeader) {
-                textPaint.textSize = fittedBase * (0.4f + 0.3f * fore)
+                // Category captions: small, wide-tracked, quiet — labels the
+                // wheel rolls past, not rows competing with the scenes.
+                textPaint.textSize = fittedBase * (0.30f + 0.06f * fore)
+                textPaint.letterSpacing = HEADER_TRACKING
                 textPaint.color = ContextCompat.getColor(context, R.color.text_dim)
+                alpha = (alpha * HEADER_ALPHA_SCALE).toInt()
             } else {
+                // Focus tracking: a settling row eases from the resting body
+                // tracking out to its hero form — typography as the selection.
+                val focus = (1f - abs(angle) / ANGLE_STEP).coerceIn(0f, 1f)
+                val ease = focus * focus * (3f - 2f * focus)
                 textPaint.textSize = fittedBase * (0.6f + 0.4f * fore)   // one consistent size
+                textPaint.letterSpacing = BASE_TRACKING + (FOCUS_TRACKING - BASE_TRACKING) * ease
                 textPaint.color = primary
             }
             
@@ -351,5 +383,11 @@ class SceneWheelView @JvmOverloads constructor(
         private const val SHADOW_DP = 5f        // legibility halo behind names
         private const val H_FLING_RATIO = 1.4f  // vx must beat vy by this to count as a section flick
         private const val MIN_FLING_V = 900f    // min velocity (px/s) for a section flick / close
+        private const val BASE_TRACKING = 0.06f   // resting letter-spacing (em)
+        private const val FOCUS_TRACKING = 0.11f  // the centred row's hero tracking
+        private const val HEADER_TRACKING = 0.30f // category captions, wide + quiet
+        private const val HEADER_ALPHA_SCALE = 0.65f
+        private const val TICK_ALPHA = 120        // selection hairlines at full settle
+        private const val DETENT_MIN_INTERVAL_MS = 30L
     }
 }
