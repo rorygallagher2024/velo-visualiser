@@ -45,6 +45,9 @@ class AudioCaptureService : Service() {
         const val ACTION_STOP = "com.lowlatency.visualizer.ACTION_STOP"
         const val ACTION_STOPPED = "com.lowlatency.visualizer.ACTION_STOPPED"
 
+        /** Set on [ACTION_STOPPED] when capture never started (vs a normal stop). */
+        const val EXTRA_FAILED = "capture_failed"
+
         private const val SAMPLE_RATE = 48_000
         private const val CHANNELS = 2 // playback capture is stereo
 
@@ -64,6 +67,7 @@ class AudioCaptureService : Service() {
     }
 
     @Volatile private var capturing = false
+    private var startFailed = false
     private var projection: MediaProjection? = null
     private var record: AudioRecord? = null
     private var readerThread: Thread? = null
@@ -83,6 +87,7 @@ class AudioCaptureService : Service() {
         val data: Intent? = intent?.getParcelableExtra(EXTRA_RESULT_DATA)
         if (resultCode == 0 || data == null) {
             Log.e(TAG, "Missing MediaProjection token; stopping.")
+            startFailed = true
             stopSelf()
             return START_NOT_STICKY
         }
@@ -134,6 +139,7 @@ class AudioCaptureService : Service() {
         val mp = mpm.getMediaProjection(resultCode, data)
         if (mp == null) {
             Log.e(TAG, "Could not obtain MediaProjection; stopping.")
+            startFailed = true
             stopSelf()
             return
         }
@@ -153,8 +159,10 @@ class AudioCaptureService : Service() {
 
         val rec = buildAndStartPlaybackCapture(mp, minBuf)
         if (rec == null) {
-            // stopSelf() → onDestroy() broadcasts ACTION_STOPPED, which flips
-            // the UI back to the microphone instead of a dead SYSTEM segment.
+            // stopSelf() → onDestroy() broadcasts ACTION_STOPPED (+ EXTRA_FAILED),
+            // which flips the UI back to the microphone with an explanation
+            // instead of leaving a dead SYSTEM segment.
+            startFailed = true
             stopSelf()
             return
         }
@@ -231,7 +239,11 @@ class AudioCaptureService : Service() {
         record = null
         projection?.stop()
         projection = null
-        sendBroadcast(Intent(ACTION_STOPPED).setPackage(packageName))
+        sendBroadcast(
+            Intent(ACTION_STOPPED)
+                .setPackage(packageName)
+                .putExtra(EXTRA_FAILED, startFailed)
+        )
         super.onDestroy()
     }
 }

@@ -267,6 +267,7 @@
     <string name="screenshare_message">To visualize sound from other apps (music, video, games), Android routes their audio through its screen-capture API — so the system will ask for screen-recording permission.\n\nThis app only reads the audio that\'s playing. It never records, saves, or transmits your screen.</string>
     <string name="screenshare_continue">Continue</string>
     <string name="internal_audio_latency_warning">Internal audio has higher latency due to system buffering. For the best low-latency experience, use the Microphone. Some apps (e.g. DRM-protected video) block capture and will show no visuals.</string>
+    <string name="system_audio_capture_failed">Couldn\'t capture system audio on this device. Switched back to the microphone.</string>
 
     <!-- Microphone rationale (shown once) -->
     <string name="mic_rationale_title">Microphone Access</string>

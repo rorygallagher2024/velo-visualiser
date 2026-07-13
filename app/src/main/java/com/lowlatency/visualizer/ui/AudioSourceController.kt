@@ -85,6 +85,15 @@ class AudioSourceController(
 
     private val captureStopReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
+            // A failed start deserves an explanation; a normal stop (notification
+            // Stop button, projection revoked) just hands back to the mic quietly.
+            if (intent?.getBooleanExtra(AudioCaptureService.EXTRA_FAILED, false) == true) {
+                Toast.makeText(
+                    activity,
+                    R.string.system_audio_capture_failed,
+                    Toast.LENGTH_LONG
+                ).show()
+            }
             if (source == Source.SYSTEM) selectMicrophone()
         }
     }

@@ -198,11 +198,10 @@ class PerfOverlayController(
         appendRow("  GRAPHICS", "%d MB".format(gfxMb))
 
         // Audio capture. The ms figure is the buffer/callback chunk duration, not
-        // end-to-end latency — split onto its own plainly-named row.
+        // end-to-end latency — split onto its own plainly-named row. In shared
+        // (system-audio) mode the Shared row below measures the same delivery
+        // interval, so show one or the other, never both.
         appendRow("Audio", "%d Hz".format(rate))
-        appendRow("Buffer", "%.1f ms".format(audioMs))
-
-        // System audio / jitter (internal-audio mode only).
         if (isSystemAudioMode()) {
             val metrics = NativeBridge.nativeGetSystemAudioMetrics()
             val jitter = metrics[1]
@@ -210,6 +209,8 @@ class PerfOverlayController(
             // so we describe the state rather than raise an alarmist colour.
             val status = if (jitter > 80f) "bursty" else "buffered"
             appendRow("Shared", "%.1f ms · %s".format(jitter, status))
+        } else {
+            appendRow("Buffer", "%.1f ms".format(audioMs))
         }
 
         // Ableton Link.
