@@ -145,31 +145,20 @@ class AudioCaptureService : Service() {
         }, null)
         projection = mp
 
-        val config = AudioPlaybackCaptureConfiguration.Builder(mp)
-            .addMatchingUsage(AudioAttributes.USAGE_MEDIA)
-            .addMatchingUsage(AudioAttributes.USAGE_GAME)
-            .addMatchingUsage(AudioAttributes.USAGE_UNKNOWN)
-            .build()
-
-        val audioFormat = AudioFormat.Builder()
-            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-            .setSampleRate(SAMPLE_RATE)
-            .setChannelMask(AudioFormat.CHANNEL_IN_STEREO)
-            .build()
-
         val minBuf = AudioRecord.getMinBufferSize(
             SAMPLE_RATE,
             AudioFormat.CHANNEL_IN_STEREO,
             AudioFormat.ENCODING_PCM_16BIT
         )
 
-        record = AudioRecord.Builder()
-            .setAudioFormat(audioFormat)
-            .setBufferSizeInBytes(minBuf * 2)
-            .setAudioPlaybackCaptureConfig(config)
-            .build()
-
-        record?.startRecording()
+        val rec = buildAndStartPlaybackCapture(mp, minBuf)
+        if (rec == null) {
+            // stopSelf() → onDestroy() broadcasts ACTION_STOPPED, which flips
+            // the UI back to the microphone instead of a dead SYSTEM segment.
+            stopSelf()
+            return
+        }
+        record = rec
         capturing = true
 
         // Read on a dedicated high-priority thread; forward to native engine.
@@ -187,6 +176,47 @@ class AudioCaptureService : Service() {
             }
         }
         Log.i(TAG, "System-audio capture started.")
+    }
+
+    /**
+     * Builds and starts the playback-capture AudioRecord, or returns null when
+     * the device rejects it. Both build() and startRecording() throw on some
+     * devices (rejected config, missing RECORD_AUDIO grant), and an uncaught
+     * exception in onStartCommand would take down the whole app.
+     */
+    @RequiresPermission(Manifest.permission.RECORD_AUDIO)
+    private fun buildAndStartPlaybackCapture(mp: MediaProjection, minBuf: Int): AudioRecord? {
+        val config = AudioPlaybackCaptureConfiguration.Builder(mp)
+            .addMatchingUsage(AudioAttributes.USAGE_MEDIA)
+            .addMatchingUsage(AudioAttributes.USAGE_GAME)
+            .addMatchingUsage(AudioAttributes.USAGE_UNKNOWN)
+            .build()
+
+        val audioFormat = AudioFormat.Builder()
+            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+            .setSampleRate(SAMPLE_RATE)
+            .setChannelMask(AudioFormat.CHANNEL_IN_STEREO)
+            .build()
+
+        return try {
+            val rec = AudioRecord.Builder()
+                .setAudioFormat(audioFormat)
+                .setBufferSizeInBytes(minBuf * 2)
+                .setAudioPlaybackCaptureConfig(config)
+                .build()
+            rec.startRecording()
+            if (rec.recordingState != AudioRecord.RECORDSTATE_RECORDING) {
+                Log.e(TAG, "AudioRecord did not enter RECORDING state; giving up.")
+                rec.release()
+                null
+            } else {
+                rec
+            }
+        } catch (e: RuntimeException) {
+            // UnsupportedOperationException / IllegalStateException / SecurityException
+            Log.e(TAG, "Playback-capture AudioRecord failed", e)
+            null
+        }
     }
 
     override fun onDestroy() {

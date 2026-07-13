@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
+import android.media.projection.MediaProjectionConfig
 import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.util.Log
@@ -195,6 +196,14 @@ class AudioSourceController(
     private fun selectInternalAudio() {
         if (source == Source.SYSTEM) return
         onExternalSourceRequested()
+        // AudioPlaybackCapture still needs RECORD_AUDIO — reachable un-granted
+        // on first launch (the mic prompt is deferred until the intro ends).
+        if (!hasMicPermission()) {
+            source = Source.MIC
+            refreshSelection()
+            launchMicPermissionWithRationale()
+            return
+        }
         // First time: explain why Android will ask for screen-capture permission
         // (internal audio is routed through the screen-capture API).
         if (prefs.getBoolean(KEY_SCREENSHARE_RATIONALE, false)) {
@@ -261,7 +270,16 @@ class AudioSourceController(
 
     private fun requestSystemAudioCapture() {
         val mpm = activity.getSystemService(MediaProjectionManager::class.java)
-        projectionLauncher.launch(mpm.createScreenCaptureIntent())
+        // Android 14+ adds an "A single app" option to the consent dialog — and
+        // defaults to it on stock-ish builds. A single-app projection restricts
+        // AudioPlaybackCapture to that app (often yielding pure silence), so
+        // force the entire-screen-only dialog; we only read audio either way.
+        val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            mpm.createScreenCaptureIntent(MediaProjectionConfig.createConfigForDefaultDisplay())
+        } else {
+            mpm.createScreenCaptureIntent()
+        }
+        projectionLauncher.launch(intent)
     }
 
     fun hasMicPermission(): Boolean =
