@@ -43,6 +43,7 @@
     <string name="vis_led_matrix">Pocket LED</string>
     <string name="vis_led_matrix_3d">3D LED</string>
     <string name="vis_mechanical_meter">Mechanical Meter</string>
+    <string name="vis_flywheel">Flywheel</string>
     <string name="vis_beat_pulse">Beat Pulse</string>
     <string name="vis_mandelbox">Fractal Cathedral</string>
     <string name="vis_reaction_diffusion">Reaction Diffusion</string>
