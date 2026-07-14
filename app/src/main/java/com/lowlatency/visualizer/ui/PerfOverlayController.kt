@@ -205,8 +205,10 @@ class PerfOverlayController(
         if (isSystemAudioMode()) {
             val metrics = NativeBridge.nativeGetSystemAudioMetrics()
             val jitter = metrics[1]
-            // System audio is inherently buffered by Android (often ~40ms blocks),
-            // so we describe the state rather than raise an alarmist colour.
+            // System audio is inherently buffered by Android (the capture mixer
+            // delivers in bursts, typically ~10-25 ms with the service's small
+            // reads), so we describe the state rather than raise an alarmist
+            // colour.
             val status = if (jitter > 80f) "bursty" else "buffered"
             appendRow("Shared", "%.1f ms · %s".format(jitter, status))
         } else {
