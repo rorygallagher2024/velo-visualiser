@@ -190,7 +190,11 @@ class MechanicalMeterScene : GlScene {
         private const val IDLE_WAKE_RATE = 9f         // snap awake (~0.15 s)
         private const val VU_FLOOR_ABS = 20f          // scale spans -20…+3 VU
         private const val VU_CEIL = 3f
-        private const val MIC_REF_DB = -45f           // Unprocessed mic, loud room
+        // Unprocessed phone mics put ordinary speech around -30 dBFS RMS, so
+        // that's 0 VU: quiet voices read mid-dial, loud rooms ride the tick
+        // (with the adaptive reference absorbing anything sustained above).
+        // The old -45 base pinned the needle on a whisper.
+        private const val MIC_REF_DB = -30f
         private const val DIGITAL_REF_DB = -19f       // 0.30-scaled mastered music
         private const val REF_ATTACK_SEC = 2f         // chase loud level up (~2 s)
         private const val REF_RELEASE_SEC = 20f       // relax back down (slow)
