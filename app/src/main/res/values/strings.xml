@@ -77,7 +77,7 @@
     <!-- Scene wheel favourites (hold a visual to toggle). -->
     <string name="fav_hint_toast">Hold a visual to add it to favourites</string>
     <string name="cd_fav_filter_show">Show favourites only</string>
-    <string name="cd_fav_filter_showing">Showing favourites only — tap for all scenes</string>
+    <string name="cd_fav_filter_showing">Showing favourites only. Tap for all scenes</string>
     <string name="fav_added_toast">Added to swipe favourites</string>
     <string name="fav_removed_toast">Removed from favourites</string>
     <string name="scene_hint">Tap to select · Hold to favourite</string>
@@ -132,7 +132,7 @@
         <b>Audio Data (Microphone, System Audio, and Local Files)</b>\n
         • <b>What we collect:</b> The app accesses your device\'s microphone, system audio (via MediaProjection), or audio files you explicitly choose to play, to generate real-time visualisations.\n
         • <b>How we use it:</b> Audio data is processed <b>locally and in real-time</b> on your device. We use this data only to calculate frequency bands and waveforms for visual effects and haptic feedback.\n
-        • <b>Storage and Transmission:</b> We <b>do not record, store, or transmit</b> any audio data. The raw PCM data exists only in temporary volatile memory (RAM) for the duration of the processing (typically less than 100ms) and is immediately overwritten.\n\n        <b>Local File Access</b>\n        • The app only opens audio files you select through the system file picker — it has <b>no broad storage access</b> and cannot browse your files.\n        • The location of your last-opened file is remembered <b>on your device only</b>, so the picker can reopen where you left off. File contents and names are never collected or transmitted.\n\n
+        • <b>Storage and Transmission:</b> We <b>do not record, store, or transmit</b> any audio data. The raw PCM data exists only in temporary volatile memory (RAM) for the duration of the processing (typically less than 100ms) and is immediately overwritten.\n\n        <b>Local File Access</b>\n        • The app only opens audio files you select through the system file picker. It has <b>no broad storage access</b> and cannot browse your files.\n        • The location of your last-opened file is remembered <b>on your device only</b>, so the picker can reopen where you left off. File contents and names are never collected or transmitted.\n\n
         <b>Network Information</b>\n
         • <b>Local Network Access:</b> The app requests access to your local network to discover and communicate with Philips Hue Bridges, LIFX smart bulbs, and Nanoleaf light panels.\n
         • <b>Usage:</b> This access is used solely for local UDP/REST communication with your smart lighting hardware. No data is sent to external servers or the cloud.\n\n
@@ -156,15 +156,15 @@
     <string name="react_reactive">Reactive</string>
     <string name="react_strobe">Strobe</string>
     <string name="beat_sens_label">Beat Sensitivity</string>
-    <string name="beat_sens_caption">How readily a beat triggers — affects the visuals, lights and haptics together.</string>
+    <string name="beat_sens_caption">How readily a beat triggers. Affects the visuals, lights and haptics together.</string>
     <string name="beat_sens_low">Low</string>
     <string name="beat_sens_standard">Standard</string>
     <string name="beat_sens_high">High</string>
     <string name="link_label">Ableton Link</string>
-    <string name="link_caption">Locks the beat to music apps on your network (Ableton Live, Traktor…) instead of the mic — for dead-on, on-grid visuals.</string>
+    <string name="link_caption">Locks the beat to music apps on your network (Ableton Live, Traktor…) instead of the mic, for dead-on, on-grid visuals.</string>
     <string name="link_sync_on">Ableton Link: Enabled</string>
     <string name="link_sync_off">Ableton Link: Disabled</string>
-    <string name="link_help">Locks the beat to Ableton Link software on your Wi-Fi (Traktor, Ableton Live, and more) for perfectly-timed bloom and haptics. The microphone still drives the visuals — Link only sets the beat. Both devices must be on the same network.</string>
+    <string name="link_help">Locks the beat to Ableton Link software on your Wi-Fi (Traktor, Ableton Live, and more) for perfectly-timed bloom and haptics. The microphone still drives the visuals; Link only sets the beat. Both devices must be on the same network.</string>
     <string name="link_beat_label">Beat</string>
     <string name="link_drop_label">Drop</string>
     <string name="adv_lights_label">Beat → lights</string>
@@ -175,19 +175,19 @@
     <string name="link_notifications_off">Link Notifications: Disabled</string>
     <string name="link_anticipate_on">Beat Anticipation: On</string>
     <string name="link_anticipate_off">Beat Anticipation: Off</string>
-    <string name="link_anticipate_help">With Link on, the visuals swell into each beat and snap on the hit — an anticipatory punch only a shared clock can time.</string>
+    <string name="link_anticipate_help">With Link on, the visuals swell into each beat and snap on the hit: an anticipatory punch only a shared clock can time.</string>
     <string name="link_enrich_help">Link adds an anticipatory punch and bloom to the Reactive &amp; Immersive visuals. The Instrument visuals stay a pure readout of the sound.</string>
     <string name="link_downbeat_nudge">Downbeat nudge: +%1$d</string>
     <string name="link_downbeat_help">Link knows the beat grid but not where the bar\'s “1” is. If the lit dot above lands on the wrong beat, tap to nudge it onto your downbeat (beats stay aligned).</string>
     <string name="link_extras_on">Bar &amp; Drop FX: On</string>
     <string name="link_extras_off">Bar &amp; Drop FX: Off</string>
-    <string name="link_extras_help">⚠ Experimental. Adds bar-synced glow and drop surges on top of the beat. These depend on your Ableton Link bar alignment and the track\'s dynamics, so they can misfire on some setups — leave off to keep the visuals on the beat only.</string>
+    <string name="link_extras_help">⚠ Experimental. Adds bar-synced glow and drop surges on top of the beat. These depend on your Ableton Link bar alignment and the track\'s dynamics, so they can misfire on some setups. Leave off to keep the visuals on the beat only.</string>
     <string name="adv_button">Advanced…</string>
     <string name="adv_title">Advanced</string>
-    <string name="adv_title_link">Advanced — Link Beat Sync</string>
-    <string name="adv_title_audio">Advanced — Light Show</string>
-    <string name="adv_hint_link">The line on each bar is the trigger point: beats fire when the level bar pushes past its line, and bass-heavy beats turn blue/purple when the bass bar is past its line (red below). How readily beats fire is shared with the visuals — set it under Settings ▸ Beat Sensitivity.</string>
-    <string name="adv_hint_audio">Tune the audio-reactive light show. The lights follow the music\'s spectrum; adjust how bright they are and how hard beats flash. How readily a beat registers is shared with the visuals — set it under Settings ▸ Beat Sensitivity.</string>
+    <string name="adv_title_link">Advanced: Link Beat Sync</string>
+    <string name="adv_title_audio">Advanced: Light Show</string>
+    <string name="adv_hint_link">The line on each bar is the trigger point: beats fire when the level bar pushes past its line, and bass-heavy beats turn blue/purple when the bass bar is past its line (red below). How readily beats fire is shared with the visuals; set it under Settings ▸ Beat Sensitivity.</string>
+    <string name="adv_hint_audio">Tune the audio-reactive light show. The lights follow the music\'s spectrum; adjust how bright they are and how hard beats flash. How readily a beat registers is shared with the visuals; set it under Settings ▸ Beat Sensitivity.</string>
     <string name="adv_link_beat_on">Light Beat Flash: On</string>
     <string name="adv_link_beat_off">Light Beat Flash: Off</string>
     <string name="adv_audio_brightness">Brightness</string>
@@ -234,7 +234,7 @@
     <string name="hue_sync_off">Light Sync: Off</string>
     <string name="wled_scan">Scan for WLED Devices</string>
     <string name="wled_blurb">WLED runs on DIY ESP32/ESP8266 LED controllers on your Wi-Fi. Make sure your phone is on the same network, then scan to find and sync your devices.</string>
-    <string name="hue_local_note">Works over your local Wi-Fi only — your phone and Hue Bridge must be on the same network. No Hue cloud account is used. Light sync uses the Microphone source.</string>
+    <string name="hue_local_note">Works over your local Wi-Fi only: your phone and Hue Bridge must be on the same network. No Hue cloud account is used. Light sync uses the Microphone source.</string>
     <string name="hue_mic_only">Light sync works with the Microphone source. Switch the audio source to Microphone.</string>
     <string name="hue_status_idle"></string>
     <string name="hue_status_searching"></string>
@@ -259,25 +259,25 @@
     <string name="hue_conn_searching">Searching…</string>
     <string name="hue_conn_paired">Bridge paired · not reachable</string>
     <string name="hue_conn_reachable">Ready</string>
-    <string name="hue_conn_streaming">Connected — syncing lights</string>
+    <string name="hue_conn_streaming">Connected · syncing lights</string>
     <string name="hue_conn_checking">Connecting…</string>
 
     <!-- Internal-audio screen-capture rationale (shown once) -->
     <string name="screenshare_title">Why screen capture?</string>
-    <string name="screenshare_message">To visualize sound from other apps (music, video, games), Android routes their audio through its screen-capture API — so the system will ask for screen-recording permission.\n\nThis app only reads the audio that\'s playing. It never records, saves, or transmits your screen.</string>
+    <string name="screenshare_message">To visualize sound from other apps (music, video, games), Android routes their audio through its screen-capture API, so the system will ask for screen-recording permission.\n\nThis app only reads the audio that\'s playing. It never records, saves, or transmits your screen.</string>
     <string name="screenshare_continue">Continue</string>
     <string name="internal_audio_latency_warning">Internal audio has higher latency due to system buffering. For the best low-latency experience, use the Microphone. Some apps (e.g. DRM-protected video) block capture and will show no visuals.</string>
     <string name="system_audio_capture_failed">Couldn\'t capture system audio on this device. Switched back to the microphone.</string>
 
     <!-- Microphone input-device picker (wired/USB external inputs) -->
     <string name="input_device_row">Input: %1$s</string>
-    <string name="input_device_row_empty">Input: Auto — connect a USB or wired device for more options</string>
+    <string name="input_device_row_empty">Input: Auto. Connect a USB or wired device for more options</string>
     <string name="input_device_title">Input device</string>
     <string name="input_device_auto">Auto (system default)</string>
     <string name="input_device_wired">Wired headset mic</string>
     <string name="input_device_line">Line in</string>
     <string name="input_device_usb">USB audio device</string>
-    <string name="input_device_lost">Input device disconnected — using system default.</string>
+    <string name="input_device_lost">Input device disconnected. Using the system default.</string>
 
     <!-- System-audio capture foreground-service notification -->
     <string name="capture_channel_name">Audio Capture</string>
