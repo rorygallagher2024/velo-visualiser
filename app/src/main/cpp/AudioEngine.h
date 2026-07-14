@@ -111,6 +111,9 @@ private:
     // Attenuation-only AGC for the local-playback analysis feed: the mono-ring
     // gain for this chunk, at most kDigitalMonoGain. Decode thread only.
     float localAnalysisGain(const float *mono, size_t frames) noexcept;
+    // Shared AGC step; meanSqState must be owned by a single producer thread.
+    float adaptiveGainStep(float &meanSqState, const float *mono, size_t frames,
+                           float baseGain) noexcept;
     // Zeroes both rings so visuals decay to silence (pause / end of playback).
     void clearVisualRings() noexcept;
 
@@ -126,17 +129,24 @@ private:
     // visuals identically.
     static constexpr float kDigitalMonoGain = 0.30f;
 
-    // Local-playback analysis AGC (decode thread only). Loudness-war masters
-    // decoded at full scale pin FftProcessor's fixed dB windows and wash the
-    // spectrum scenes white. Attenuation-only: the gain never exceeds
-    // kDigitalMonoGain, so quiet and normally-mastered material keeps today's
-    // calibration — only sustained hot program is pulled down until the
-    // analysis RMS sits at the target. Fast attack so a wash dies within
-    // ~a second; slow release so quiet passages don't pump.
+    // Attenuation-only analysis AGC, shared by local playback (base gain
+    // kDigitalMonoGain, decode thread) and explicitly selected external
+    // inputs (base gain 1.0, RT callback thread). Hot sources — loudness-war
+    // masters, line-level USB feeds — would otherwise pin FftProcessor's
+    // fixed dB windows and wash the spectrum scenes white. The gain never
+    // exceeds the base, so quiet/normal material keeps its calibration —
+    // only sustained hot program is pulled down until the analysis RMS sits
+    // at the target. Fast attack so a wash dies within ~a second; slow
+    // release so quiet passages don't pump.
     static constexpr float kLocalAgcTargetRms  = 0.06f;  // post-gain, ~-24 dBFS
     static constexpr float kLocalAgcAttackSec  = 1.0f;
     static constexpr float kLocalAgcReleaseSec = 8.0f;
     float mLocalMeanSq = 0.0f;  // EMA of the pre-gain mono mean-square
+
+    // Same AGC, external-input path (explicitly selected USB/wired devices,
+    // which can carry hot line-level signal). RT input callback thread only;
+    // reset under mLifecycleLock before the stream starts.
+    float mInputMeanSq = 0.0f;
 
     // Capture stream (mic). Guarded by mLifecycleLock for open/close.
     std::shared_ptr<oboe::AudioStream> mStream;

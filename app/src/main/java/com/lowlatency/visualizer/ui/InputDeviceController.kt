@@ -45,9 +45,12 @@ class InputDeviceController(
         override fun onAudioDevicesAdded(added: Array<out AudioDeviceInfo>) = refreshRow()
         override fun onAudioDevicesRemoved(removed: Array<out AudioDeviceInfo>) {
             if (removed.any { it.id == selectedDeviceId }) {
-                // The chosen input vanished (unplugged): back to Auto.
+                // The chosen input vanished (unplugged): back to Auto. Only
+                // worth announcing while the mic is actually the live source.
                 selectedDeviceId = 0
-                Toast.makeText(activity, R.string.input_device_lost, Toast.LENGTH_SHORT).show()
+                if (isMicMode()) {
+                    Toast.makeText(activity, R.string.input_device_lost, Toast.LENGTH_SHORT).show()
+                }
                 onSelectionChanged()
             }
             refreshRow()
