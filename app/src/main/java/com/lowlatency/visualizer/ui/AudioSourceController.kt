@@ -336,6 +336,13 @@ class AudioSourceController(
     }
 
     fun onDestroy() {
+        // The capture service must never outlive the activity that owns this
+        // controller: whether we're finishing or being recreated, the next
+        // activity starts at MIC, so a live service would be an orphaned
+        // second producer feeding the same ring buffers (and burning battery).
+        if (source == Source.SYSTEM) {
+            activity.stopService(Intent(activity, AudioCaptureService::class.java))
+        }
         activity.unregisterReceiver(captureStopReceiver)
     }
 

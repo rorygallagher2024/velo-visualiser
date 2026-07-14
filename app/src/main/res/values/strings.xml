@@ -269,6 +269,11 @@
     <string name="internal_audio_latency_warning">Internal audio has higher latency due to system buffering. For the best low-latency experience, use the Microphone. Some apps (e.g. DRM-protected video) block capture and will show no visuals.</string>
     <string name="system_audio_capture_failed">Couldn\'t capture system audio on this device. Switched back to the microphone.</string>
 
+    <!-- System-audio capture foreground-service notification -->
+    <string name="capture_channel_name">Audio Capture</string>
+    <string name="capture_notification_title">Visualizing system audio</string>
+    <string name="capture_notification_stop">Stop</string>
+
     <!-- Microphone rationale (shown once) -->
     <string name="mic_rationale_title">Microphone Access</string>
     <string name="mic_rationale_message">Velo Visualiser needs microphone access to react to music in the room.\n\nAudio is processed locally in real-time to generate visuals and is never recorded, saved, or transmitted.</string>
