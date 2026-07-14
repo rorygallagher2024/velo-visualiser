@@ -269,6 +269,15 @@
     <string name="internal_audio_latency_warning">Internal audio has higher latency due to system buffering. For the best low-latency experience, use the Microphone. Some apps (e.g. DRM-protected video) block capture and will show no visuals.</string>
     <string name="system_audio_capture_failed">Couldn\'t capture system audio on this device. Switched back to the microphone.</string>
 
+    <!-- Microphone input-device picker (wired/USB external inputs) -->
+    <string name="input_device_row">Input: %1$s</string>
+    <string name="input_device_title">Input device</string>
+    <string name="input_device_auto">Auto (system default)</string>
+    <string name="input_device_wired">Wired headset mic</string>
+    <string name="input_device_line">Line in</string>
+    <string name="input_device_usb">USB audio device</string>
+    <string name="input_device_lost">Input device disconnected — using system default.</string>
+
     <!-- System-audio capture foreground-service notification -->
     <string name="capture_channel_name">Audio Capture</string>
     <string name="capture_notification_title">Visualizing system audio</string>

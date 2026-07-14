@@ -58,6 +58,8 @@ import com.lowlatency.visualizer.R
  *   (the host launches its file picker, then calls [enterLocalPlayback] on pick).
  * @param onExternalSourceRequested invoked before switching to mic/system so the
  *   host can stop any live local playback session first.
+ * @param inputDeviceId supplies the AudioDeviceInfo id to open the mic stream
+ *   on (0 = system default); owned by [InputDeviceController].
  */
 class AudioSourceController(
     private val activity: AppCompatActivity,
@@ -66,6 +68,7 @@ class AudioSourceController(
     private val onMicStarted: () -> Unit = {},
     private val onLocalFileRequested: () -> Unit = {},
     private val onExternalSourceRequested: () -> Unit = {},
+    private val inputDeviceId: () -> Int = { 0 },
 ) {
     enum class Source { MIC, SYSTEM, LOCAL }
 
@@ -249,8 +252,15 @@ class AudioSourceController(
         return perms.toTypedArray()
     }
 
+    /** Restart the input stream after the input-device selection changed. */
+    fun onInputDeviceChanged() {
+        if (source != Source.MIC) return
+        NativeBridge.nativeStop()
+        evaluateMicState()
+    }
+
     private fun startMicrophone() {
-        if (NativeBridge.nativeStartMicrophone()) {
+        if (NativeBridge.nativeStartMicrophone(inputDeviceId())) {
             onMicStarted()
         } else {
             Toast.makeText(activity, "Failed to open audio stream.", Toast.LENGTH_LONG).show()

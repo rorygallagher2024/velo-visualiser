@@ -50,7 +50,10 @@ public:
     static AudioEngine &instance();
 
     // --- capture lifecycle (called from the JNI / main thread) ---
-    bool startMicrophone();
+    // deviceId selects a specific input (AudioDeviceInfo.getId()); 0 follows
+    // the system default route. An explicit device is opened in stereo when
+    // it supports it — true L/R for the phase-accurate scope scenes.
+    bool startMicrophone(int32_t deviceId = 0);
     void stop();
     bool isRunning() const { return mRunning.load(std::memory_order_acquire); }
 
@@ -97,6 +100,9 @@ private:
     AudioEngine(const AudioEngine &) = delete;
     AudioEngine &operator=(const AudioEngine &) = delete;
 
+    // Opens + starts the input stream on the given device/channel config.
+    // Must be called with mLifecycleLock held.
+    bool openInputStream(int32_t deviceId, oboe::ChannelCount channelCount);
     // Publishes the interval between audio deliveries on the calling thread
     // (mic callback / system push / playback push) for the perf HUD.
     void noteDeliveryPeriod() noexcept;
@@ -147,6 +153,9 @@ private:
     std::mutex mLifecycleLock;        // guards mic open/close only — never the hot path
     std::atomic<bool> mRunning{false};
     std::atomic<int> mSampleRate{48000};
+    // Input device of the live/last mic session (0 = default route); read by
+    // the error callback to restart capture on the same device.
+    std::atomic<int32_t> mInputDeviceId{0};
     std::atomic<float> mCallbackPeriodMs{0};
 };
 

@@ -19,25 +19,43 @@ AudioEngine::AudioEngine()
           mFft(std::make_unique<FftProcessor>()),
           mFftScratch(FftProcessor::kFftSize) {}
 
-bool AudioEngine::startMicrophone() {
+bool AudioEngine::startMicrophone(int32_t deviceId) {
     std::lock_guard<std::mutex> lock(mLifecycleLock);
     if (mRunning.load(std::memory_order_acquire)) {
+        // Already live. Switching devices requires a stop() first — the
+        // Kotlin controller does exactly that.
         return true;
     }
+    mInputDeviceId.store(deviceId, std::memory_order_relaxed);
 
+    // An explicitly chosen device (USB interface, line-in) may carry true
+    // stereo — gold for the phase-accurate scope scenes — so try stereo
+    // first and fall back to mono. The default route stays mono: that's the
+    // built-in-mic path every visual was tuned against.
+    if (deviceId != 0 && openInputStream(deviceId, oboe::ChannelCount::Stereo)) {
+        return true;
+    }
+    return openInputStream(deviceId, oboe::ChannelCount::Mono);
+}
+
+// Must be called with mLifecycleLock held (see startMicrophone).
+bool AudioEngine::openInputStream(int32_t deviceId, oboe::ChannelCount channelCount) {
     oboe::AudioStreamBuilder builder;
     builder.setDirection(oboe::Direction::Input)
             ->setPerformanceMode(oboe::PerformanceMode::LowLatency)
             ->setSharingMode(oboe::SharingMode::Exclusive)   // lowest latency path
             ->setInputPreset(oboe::InputPreset::Unprocessed) // raw, uncolored signal
             ->setFormat(oboe::AudioFormat::Float)
-            ->setChannelCount(oboe::ChannelCount::Mono)
+            ->setChannelCount(channelCount)
             ->setSampleRateConversionQuality(oboe::SampleRateConversionQuality::None)
             // Prefer AAudio; Oboe falls back to OpenSL ES automatically on
             // devices / OS versions where AAudio is unavailable.
             ->setAudioApi(oboe::AudioApi::AAudio)
             ->setDataCallback(this)
             ->setErrorCallback(this);
+    if (deviceId != 0) {
+        builder.setDeviceId(deviceId);
+    }
 
     oboe::Result result = builder.openStream(mStream);
     if (result != oboe::Result::OK) {
@@ -67,12 +85,14 @@ bool AudioEngine::startMicrophone() {
         return false;
     }
 
-    LOGI("Mic stream started. API=%s rate=%d burst=%d bufSize=%d sharing=%d",
+    LOGI("Input stream started. API=%s rate=%d ch=%d burst=%d bufSize=%d sharing=%d device=%d",
          oboe::convertToText(mStream->getAudioApi()),
          mStream->getSampleRate(),
+         mStream->getChannelCount(),
          mStream->getFramesPerBurst(),
          mStream->getBufferSizeInFrames(),
-         static_cast<int>(mStream->getSharingMode()));
+         static_cast<int>(mStream->getSharingMode()),
+         deviceId);
 
     mRunning.store(true, std::memory_order_release);
     return true;
@@ -194,8 +214,21 @@ oboe::DataCallbackResult AudioEngine::onAudioReady(oboe::AudioStream *stream,
     noteDeliveryPeriod();
 
     const auto *samples = static_cast<const float *>(audioData);
-    
-    // Mic is always mono.
+
+    if (stream->getChannelCount() == 2) {
+        // Explicit external device opened in stereo: raw interleaved L/R for
+        // the phase-accurate scopes, (L+R)/2 into the analysis ring.
+        mStereoBuffer->write(samples, static_cast<size_t>(numFrames) * 2);
+        static thread_local std::vector<float> mono;
+        if (mono.size() < static_cast<size_t>(numFrames)) mono.resize(numFrames);
+        for (int i = 0; i < numFrames; ++i) {
+            mono[i] = (samples[i * 2] + samples[i * 2 + 1]) * 0.5f;
+        }
+        mBuffer->write(mono.data(), static_cast<size_t>(numFrames));
+        return oboe::DataCallbackResult::Continue;
+    }
+
+    // Mono (built-in mic / default route).
     mBuffer->write(samples, static_cast<size_t>(numFrames));
     static thread_local std::vector<float> stereo;
     if (stereo.size() < static_cast<size_t>(numFrames * 2)) stereo.resize(numFrames * 2);
@@ -335,7 +368,14 @@ void AudioEngine::onErrorAfterClose(oboe::AudioStream * /*stream*/, oboe::Result
     mRunning.store(false, std::memory_order_release);
     mStream.reset();
     
-    // Attempt a simple synchronous restart. If the OS audio HAL is stuck, 
-    // we fail gracefully rather than hammering it in a loop.
-    startMicrophone();
+    // Attempt a simple synchronous restart on the same device. If that fails
+    // (e.g. a selected USB input was unplugged), fall back to the default
+    // route rather than hammering a dead device; the Kotlin device callback
+    // resets the selection in parallel. If the OS audio HAL is stuck, we
+    // fail gracefully rather than looping.
+    const int32_t device = mInputDeviceId.load(std::memory_order_relaxed);
+    if (!startMicrophone(device) && device != 0) {
+        LOGW("Selected input device gone — falling back to the default input.");
+        startMicrophone(0);
+    }
 }

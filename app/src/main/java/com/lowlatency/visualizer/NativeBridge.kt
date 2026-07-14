@@ -13,8 +13,13 @@ object NativeBridge {
         System.loadLibrary("native-lib")
     }
 
-    /** Opens + starts the low-latency Oboe input stream (mic, Unprocessed). */
-    external fun nativeStartMicrophone(): Boolean
+    /**
+     * Opens + starts the low-latency Oboe input stream (Unprocessed preset).
+     * [deviceId] selects a specific input (AudioDeviceInfo.getId()); 0 follows
+     * the system default route. An explicitly selected device is opened in
+     * stereo when it supports it (true L/R for the scope scenes).
+     */
+    external fun nativeStartMicrophone(deviceId: Int): Boolean
 
     /** Stops and closes the capture (mic) stream. Does not touch playback. */
     external fun nativeStop()
