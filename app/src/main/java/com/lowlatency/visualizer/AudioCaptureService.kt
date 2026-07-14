@@ -18,6 +18,7 @@ import android.os.IBinder
 import android.os.Process
 import android.util.Log
 import androidx.annotation.RequiresPermission
+import androidx.core.content.IntentCompat
 import kotlin.concurrent.thread
 
 /**
@@ -92,8 +93,9 @@ class AudioCaptureService : Service() {
         startAsForeground()
 
         val resultCode = intent?.getIntExtra(EXTRA_RESULT_CODE, 0) ?: 0
-        @Suppress("DEPRECATION")
-        val data: Intent? = intent?.getParcelableExtra(EXTRA_RESULT_DATA)
+        val data: Intent? = intent?.let {
+            IntentCompat.getParcelableExtra(it, EXTRA_RESULT_DATA, Intent::class.java)
+        }
         if (resultCode == 0 || data == null) {
             Log.e(TAG, "Missing MediaProjection token; stopping.")
             captureFailed = true
@@ -120,10 +122,18 @@ class AudioCaptureService : Service() {
         val stopPendingIntent = android.app.PendingIntent.getService(
             this, 0, stopIntent, android.app.PendingIntent.FLAG_IMMUTABLE
         )
+        // Tapping the notification body brings the visualizer forward
+        // (singleTop launch mode resumes the existing instance).
+        val openAppPendingIntent = android.app.PendingIntent.getActivity(
+            this, 0,
+            Intent(this, MainActivity::class.java),
+            android.app.PendingIntent.FLAG_IMMUTABLE
+        )
 
         val notification: Notification = Notification.Builder(this, CHANNEL_ID)
             .setContentTitle(getString(R.string.capture_notification_title))
             .setSmallIcon(R.drawable.ic_notification)
+            .setContentIntent(openAppPendingIntent)
             .setOngoing(true)
             .addAction(
                 Notification.Action.Builder(
