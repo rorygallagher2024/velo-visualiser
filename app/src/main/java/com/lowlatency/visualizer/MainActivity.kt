@@ -19,6 +19,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.text.HtmlCompat
 import com.lowlatency.visualizer.ui.AudioSourceController
+import com.lowlatency.visualizer.ui.InputDeviceController
 import com.lowlatency.visualizer.ui.DisplayModeController
 import com.lowlatency.visualizer.ui.FeelTheSpeedController
 import com.lowlatency.visualizer.ui.LightingController
@@ -72,6 +73,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var scenesController: ScenesController
     private lateinit var linkSyncController: LinkSyncController
     private lateinit var audioSourceController: AudioSourceController
+    private lateinit var inputDeviceController: InputDeviceController
     private lateinit var feelTheSpeedController: FeelTheSpeedController
     private lateinit var hapticController: HapticController
     private lateinit var prefs: SharedPreferences
@@ -169,6 +171,7 @@ class MainActivity : AppCompatActivity() {
                 if (::linkSyncController.isInitialized) {
                     linkSyncController.setLocalPlaybackActive(audioSourceController.isLocalPlayback)
                 }
+                if (::inputDeviceController.isInitialized) inputDeviceController.refreshRow()
             },
             onMicStarted = {
                 micStarted = true
@@ -179,9 +182,25 @@ class MainActivity : AppCompatActivity() {
                 // Switching to mic/system: silence the player before the new
                 // source starts producing (the controller flips the state).
                 localPlaybackController.stopSession()
-            }
+            },
+            inputDeviceId = {
+                if (::inputDeviceController.isInitialized) {
+                    inputDeviceController.selectedDeviceId
+                } else {
+                    0
+                }
+            },
         )
         audioSourceController.bind()
+
+        inputDeviceController = InputDeviceController(
+            activity = this,
+            isMicMode = {
+                !audioSourceController.systemAudioMode && !audioSourceController.isLocalPlayback
+            },
+            onSelectionChanged = { audioSourceController.onInputDeviceChanged() },
+        )
+        inputDeviceController.bind()
 
         localPlaybackController = LocalPlaybackController(
             activity = this,
@@ -849,6 +868,7 @@ class MainActivity : AppCompatActivity() {
         if (::hapticController.isInitialized) hapticController.release()
         if (::linkSyncController.isInitialized) linkSyncController.onDestroy()
         if (::audioSourceController.isInitialized) audioSourceController.onDestroy()
+        if (::inputDeviceController.isInitialized) inputDeviceController.onDestroy()
         if (::feelTheSpeedController.isInitialized) feelTheSpeedController.onDestroy()
         if (::menuDiscoveryController.isInitialized) menuDiscoveryController.onDestroy()
         // Join the decode thread before tearing the engine down — the playback

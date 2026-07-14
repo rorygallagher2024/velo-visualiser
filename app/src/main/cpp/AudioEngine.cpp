@@ -19,25 +19,56 @@ AudioEngine::AudioEngine()
           mFft(std::make_unique<FftProcessor>()),
           mFftScratch(FftProcessor::kFftSize) {}
 
-bool AudioEngine::startMicrophone() {
+bool AudioEngine::startMicrophone(int32_t deviceId) {
     std::lock_guard<std::mutex> lock(mLifecycleLock);
     if (mRunning.load(std::memory_order_acquire)) {
+        // Already live. Switching devices requires a stop() first — the
+        // Kotlin controller does exactly that.
         return true;
     }
+    mInputDeviceId.store(deviceId, std::memory_order_relaxed);
 
+    mInputMeanSq = 0.0f;   // new session/device: re-adapt the input AGC
+
+    // An explicitly chosen device (USB interface, line-in) may carry true
+    // stereo — gold for the phase-accurate scope scenes — so try stereo
+    // first and fall back to mono. The default route stays mono: that's the
+    // built-in-mic path every visual was tuned against.
+    if (deviceId != 0 && openInputStream(deviceId, oboe::ChannelCount::Stereo)) {
+        return true;
+    }
+    if (openInputStream(deviceId, oboe::ChannelCount::Mono)) {
+        return true;
+    }
+    // The explicit device wouldn't open at all (typically unplugged between
+    // the picker snapshot and the tap): recover on the default route instead
+    // of leaving no input stream running.
+    if (deviceId != 0) {
+        LOGW("Device %d failed to open — recovering on the default input.", deviceId);
+        mInputDeviceId.store(0, std::memory_order_relaxed);
+        return openInputStream(0, oboe::ChannelCount::Mono);
+    }
+    return false;
+}
+
+// Must be called with mLifecycleLock held (see startMicrophone).
+bool AudioEngine::openInputStream(int32_t deviceId, oboe::ChannelCount channelCount) {
     oboe::AudioStreamBuilder builder;
     builder.setDirection(oboe::Direction::Input)
             ->setPerformanceMode(oboe::PerformanceMode::LowLatency)
             ->setSharingMode(oboe::SharingMode::Exclusive)   // lowest latency path
             ->setInputPreset(oboe::InputPreset::Unprocessed) // raw, uncolored signal
             ->setFormat(oboe::AudioFormat::Float)
-            ->setChannelCount(oboe::ChannelCount::Mono)
+            ->setChannelCount(channelCount)
             ->setSampleRateConversionQuality(oboe::SampleRateConversionQuality::None)
             // Prefer AAudio; Oboe falls back to OpenSL ES automatically on
             // devices / OS versions where AAudio is unavailable.
             ->setAudioApi(oboe::AudioApi::AAudio)
             ->setDataCallback(this)
             ->setErrorCallback(this);
+    if (deviceId != 0) {
+        builder.setDeviceId(deviceId);
+    }
 
     oboe::Result result = builder.openStream(mStream);
     if (result != oboe::Result::OK) {
@@ -67,12 +98,14 @@ bool AudioEngine::startMicrophone() {
         return false;
     }
 
-    LOGI("Mic stream started. API=%s rate=%d burst=%d bufSize=%d sharing=%d",
+    LOGI("Input stream started. API=%s rate=%d ch=%d burst=%d bufSize=%d sharing=%d device=%d",
          oboe::convertToText(mStream->getAudioApi()),
          mStream->getSampleRate(),
+         mStream->getChannelCount(),
          mStream->getFramesPerBurst(),
          mStream->getBufferSizeInFrames(),
-         static_cast<int>(mStream->getSharingMode()));
+         static_cast<int>(mStream->getSharingMode()),
+         deviceId);
 
     mRunning.store(true, std::memory_order_release);
     return true;
@@ -194,9 +227,46 @@ oboe::DataCallbackResult AudioEngine::onAudioReady(oboe::AudioStream *stream,
     noteDeliveryPeriod();
 
     const auto *samples = static_cast<const float *>(audioData);
-    
-    // Mic is always mono.
-    mBuffer->write(samples, static_cast<size_t>(numFrames));
+
+    // Explicitly selected external devices (USB interface, line-in) can carry
+    // near-full-scale line-level signal — far hotter than the built-in mic
+    // the visuals were tuned on — so their analysis feed goes through the
+    // attenuation-only AGC. The default route is exempt: unity, as always.
+    const bool external = mInputDeviceId.load(std::memory_order_relaxed) != 0;
+
+    if (stream->getChannelCount() == 2) {
+        // Stereo external device: raw interleaved L/R for the phase-accurate
+        // scopes, (L+R)/2 (AGC-scaled) into the analysis ring.
+        mStereoBuffer->write(samples, static_cast<size_t>(numFrames) * 2);
+        static thread_local std::vector<float> mono;
+        if (mono.size() < static_cast<size_t>(numFrames)) mono.resize(numFrames);
+        for (int i = 0; i < numFrames; ++i) {
+            mono[i] = (samples[i * 2] + samples[i * 2 + 1]) * 0.5f;
+        }
+        const float gain = external ? adaptiveGainStep(mInputMeanSq, mono.data(),
+                                                       static_cast<size_t>(numFrames), 1.0f)
+                                    : 1.0f;
+        for (int i = 0; i < numFrames; ++i) {
+            mono[i] *= gain;
+        }
+        mBuffer->write(mono.data(), static_cast<size_t>(numFrames));
+        return oboe::DataCallbackResult::Continue;
+    }
+
+    if (external) {
+        // Mono external device (USB headset, mono interface): same AGC.
+        static thread_local std::vector<float> scaled;
+        if (scaled.size() < static_cast<size_t>(numFrames)) scaled.resize(numFrames);
+        const float gain = adaptiveGainStep(mInputMeanSq, samples,
+                                            static_cast<size_t>(numFrames), 1.0f);
+        for (int i = 0; i < numFrames; ++i) {
+            scaled[i] = samples[i] * gain;
+        }
+        mBuffer->write(scaled.data(), static_cast<size_t>(numFrames));
+    } else {
+        // Built-in mic / default route: the untouched tuned path.
+        mBuffer->write(samples, static_cast<size_t>(numFrames));
+    }
     static thread_local std::vector<float> stereo;
     if (stereo.size() < static_cast<size_t>(numFrames * 2)) stereo.resize(numFrames * 2);
     for (int i = 0; i < numFrames; ++i) {
@@ -292,7 +362,15 @@ void AudioEngine::mirrorToVisualRings(const float *interleaved, size_t frames,
 }
 
 float AudioEngine::localAnalysisGain(const float *mono, size_t frames) noexcept {
-    if (frames == 0) return kDigitalMonoGain;
+    return adaptiveGainStep(mLocalMeanSq, mono, frames, kDigitalMonoGain);
+}
+
+// Attenuation-only AGC step shared by the local-playback mirror and the
+// external-input path. `meanSqState` must be owned by exactly one producer
+// thread (decode thread / RT input callback respectively).
+float AudioEngine::adaptiveGainStep(float &meanSqState, const float *mono, size_t frames,
+                                    float baseGain) noexcept {
+    if (frames == 0) return baseGain;
     float sumSq = 0.0f;
     for (size_t i = 0; i < frames; ++i) {
         sumSq += mono[i] * mono[i];
@@ -302,11 +380,11 @@ float AudioEngine::localAnalysisGain(const float *mono, size_t frames) noexcept 
     // Chunk-duration-aware EMA so the time constants hold at any chunk size.
     const float rate = static_cast<float>(mSampleRate.load(std::memory_order_relaxed));
     const float dtSec = static_cast<float>(frames) / std::max(rate, 1.0f);
-    const float tau = meanSq > mLocalMeanSq ? kLocalAgcAttackSec : kLocalAgcReleaseSec;
-    mLocalMeanSq += (meanSq - mLocalMeanSq) * std::min(dtSec / tau, 1.0f);
+    const float tau = meanSq > meanSqState ? kLocalAgcAttackSec : kLocalAgcReleaseSec;
+    meanSqState += (meanSq - meanSqState) * std::min(dtSec / tau, 1.0f);
 
-    const float rms = std::sqrt(mLocalMeanSq);
-    if (rms * kDigitalMonoGain <= kLocalAgcTargetRms) return kDigitalMonoGain;
+    const float rms = std::sqrt(meanSqState);
+    if (rms * baseGain <= kLocalAgcTargetRms) return baseGain;
     return kLocalAgcTargetRms / rms;
 }
 
@@ -335,7 +413,10 @@ void AudioEngine::onErrorAfterClose(oboe::AudioStream * /*stream*/, oboe::Result
     mRunning.store(false, std::memory_order_release);
     mStream.reset();
     
-    // Attempt a simple synchronous restart. If the OS audio HAL is stuck, 
-    // we fail gracefully rather than hammering it in a loop.
-    startMicrophone();
+    // Attempt a simple synchronous restart on the same device;
+    // startMicrophone() itself falls back to the default route when an
+    // explicit device is gone (the Kotlin device callback resets the
+    // selection in parallel). If the OS audio HAL is stuck, we fail
+    // gracefully rather than looping.
+    startMicrophone(mInputDeviceId.load(std::memory_order_relaxed));
 }

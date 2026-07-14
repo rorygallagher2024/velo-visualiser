@@ -35,8 +35,8 @@ extern "C" {
 // Lifecycle
 // ---------------------------------------------------------------------------
 JNIEXPORT jboolean JNICALL
-Java_com_lowlatency_visualizer_NativeBridge_nativeStartMicrophone(JNIEnv *, jobject) {
-    return AudioEngine::instance().startMicrophone() ? JNI_TRUE : JNI_FALSE;
+Java_com_lowlatency_visualizer_NativeBridge_nativeStartMicrophone(JNIEnv *, jobject, jint deviceId) {
+    return AudioEngine::instance().startMicrophone(deviceId) ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT jboolean JNICALL

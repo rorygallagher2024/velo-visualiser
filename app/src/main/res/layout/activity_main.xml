@@ -405,6 +405,22 @@
                 android:stateListAnimator="@null" />
         </LinearLayout>
 
+        <!-- Mic input picker: shown in mic mode when a wired/USB input exists -->
+        <Button
+            android:id="@+id/btn_input_device"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginBottom="20dp"
+            android:background="@drawable/segment_button_bg"
+            android:paddingHorizontal="20dp"
+            android:textColor="@color/btn_text"
+            android:textAllCaps="false"
+            android:textSize="14sp"
+            android:singleLine="true"
+            android:ellipsize="end"
+            android:stateListAnimator="@null"
+            android:visibility="gone" />
+
         <!-- Current local track: shown only during a local session; tap to change file -->
         <Button
             android:id="@+id/btn_current_track"
