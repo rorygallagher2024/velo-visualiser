@@ -205,9 +205,10 @@ class PerfOverlayController(
         if (isSystemAudioMode()) {
             val metrics = NativeBridge.nativeGetSystemAudioMetrics()
             // Recent-peak delivery gap (see nativeGetSystemAudioMetrics docs).
-            // System audio is inherently buffered by Android (the capture mixer
-            // delivers in bursts, typically ~10-25 ms), so we describe the
-            // state rather than raise an alarmist colour.
+            // The cadence is hardware-dependent — ~2 ms quanta on devices whose
+            // capture path returns partial reads, ~20 ms bursts on others — and
+            // a constant in-pipe delay sits on top either way, so we describe
+            // the state rather than raise an alarmist colour.
             val gapMs = metrics[1]
             val status = if (gapMs > 80f) "bursty" else "buffered"
             appendRow("Shared", "%.1f ms · %s".format(gapMs, status))
