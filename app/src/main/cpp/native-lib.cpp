@@ -1,4 +1,6 @@
 #include <jni.h>
+#include <algorithm>
+#include <cmath>
 #include <vector>
 #include <android/log.h>
 #include <arm_neon.h>
@@ -146,7 +148,15 @@ Java_com_lowlatency_visualizer_NativeBridge_nativePushPcm(JNIEnv *env, jobject,
     long long nowNs = std::chrono::duration_cast<std::chrono::nanoseconds>(start.time_since_epoch()).count();
     long long lastNs = gSystemAudioLastPushNs.exchange(nowNs);
     if (lastNs > 0) {
-        gSystemAudioLastIntervalMs.store(static_cast<float>(nowNs - lastNs) / 1000000.0f);
+        const float intervalMs = static_cast<float>(nowNs - lastNs) / 1000000.0f;
+        // Small reads drain each capture-mixer burst as a flurry of
+        // back-to-back pushes (~0 ms apart) followed by one real gap, so the
+        // raw last interval reads 0.0 ms. Report a decaying peak instead —
+        // the recent worst gap IS the delivery cadence the visuals see.
+        // τ = 1 s: relaxes to a genuinely improved cadence within a second.
+        const float prev = gSystemAudioLastIntervalMs.load();
+        const float decayed = prev * std::exp(-intervalMs / 1000.0f);
+        gSystemAudioLastIntervalMs.store(std::max(intervalMs, decayed));
     }
 
     jshort *src = env->GetShortArrayElements(pcm, nullptr);
