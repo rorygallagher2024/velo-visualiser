@@ -69,9 +69,18 @@ class InputDeviceController(
     fun refreshRow() {
         if (!::row.isInitialized) return
         val externals = externalInputs()
-        // Only surface the row when there's an actual choice to make.
-        row.visibility = if (isMicMode() && externals.isNotEmpty()) View.VISIBLE else View.GONE
-        row.text = activity.getString(R.string.input_device_row, currentLabel(externals))
+        // Always present in mic mode — greyed out with a hint when no external
+        // input is attached, so the capability is discoverable before the user
+        // ever plugs something in.
+        row.visibility = if (isMicMode()) View.VISIBLE else View.GONE
+        val hasChoice = externals.isNotEmpty()
+        row.isEnabled = hasChoice
+        row.alpha = if (hasChoice) 1f else DISABLED_ALPHA
+        row.text = if (hasChoice) {
+            activity.getString(R.string.input_device_row, currentLabel(externals))
+        } else {
+            activity.getString(R.string.input_device_row_empty)
+        }
     }
 
     private fun currentLabel(externals: List<AudioDeviceInfo>): String =
@@ -112,6 +121,8 @@ class InputDeviceController(
     }
 
     companion object {
+        private const val DISABLED_ALPHA = 0.45f
+
         private val EXTERNAL_TYPES = setOf(
             AudioDeviceInfo.TYPE_WIRED_HEADSET,
             AudioDeviceInfo.TYPE_USB_DEVICE,

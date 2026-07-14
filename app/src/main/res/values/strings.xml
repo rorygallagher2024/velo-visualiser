@@ -271,6 +271,7 @@
 
     <!-- Microphone input-device picker (wired/USB external inputs) -->
     <string name="input_device_row">Input: %1$s</string>
+    <string name="input_device_row_empty">Input: Auto — connect a USB or wired device for more options</string>
     <string name="input_device_title">Input device</string>
     <string name="input_device_auto">Auto (system default)</string>
     <string name="input_device_wired">Wired headset mic</string>
