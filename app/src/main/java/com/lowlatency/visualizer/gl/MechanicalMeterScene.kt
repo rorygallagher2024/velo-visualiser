@@ -24,9 +24,12 @@ import kotlin.math.sqrt
  * One fixed mark exists on the face: a short signal-red tick at 0 VU; the
  * needle blushes red only when it crosses.
  *
- * Calibration is per source (Unprocessed mic vs the 0.30-scaled digital ring)
- * so loud material rides around the red tick and breakdowns fall away —
- * never pinned. The scale spans -20…+3 VU.
+ * Calibration is per source (Unprocessed mic vs the 0.30-scaled digital ring),
+ * then self-adjusts: sustained loud material pulls the 0 VU reference up
+ * (fast) so the needle rides around the red tick instead of pinning at the
+ * end stop, and it relaxes back (slow) so breakdowns still fall away. The
+ * per-source base is the sensitivity ceiling — the meter never becomes MORE
+ * sensitive than its calibration. The scale spans -20…+3 VU.
  */
 class MechanicalMeterScene : GlScene {
 
@@ -46,6 +49,7 @@ class MechanicalMeterScene : GlScene {
     private var height = 1f
 
     private var needleLevel = 0f
+    private var refDb = Float.NaN
     private var velocity = 0f
     private var peakLevel = 0f
     private var peakVelocity = 0f
@@ -88,9 +92,10 @@ class MechanicalMeterScene : GlScene {
         for (s in pcm) sumSq += s * s
         val rms = sqrt(sumSq / pcm.size)
 
-        // dB against a per-source 0 VU reference; the dial spans -20…+3 VU.
+        // dB against a per-source, self-calibrating 0 VU reference; the dial
+        // spans -20…+3 VU.
         val db = 20f * log10(max(rms, 1e-5f))
-        val vu = db - if (BeatSettings.systemAudio) DIGITAL_REF_DB else MIC_REF_DB
+        val vu = db - adaptReference(db, dt)
         val target = ((vu + VU_FLOOR_ABS) / (VU_FLOOR_ABS + VU_CEIL)).coerceIn(0f, 1f)
 
         updateMechanics(target, dt, timeSec)
@@ -110,6 +115,23 @@ class MechanicalMeterScene : GlScene {
         GLES20.glVertexAttribPointer(aPos, 2, GLES20.GL_FLOAT, false, 0, quad)
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
         GLES20.glDisableVertexAttribArray(aPos)
+    }
+
+    /**
+     * Self-calibrating 0 VU: the reference chases sustained loud level quickly
+     * (so a pinned needle settles back onto the red tick within a couple of
+     * seconds) and relaxes down slowly (so a breakdown reads as a real drop,
+     * not a recalibration). Clamped to [base, base + range]: the per-source
+     * calibration remains the sensitivity ceiling, so quiet environments
+     * behave exactly as before.
+     */
+    private fun adaptReference(db: Float, dt: Float): Float {
+        val base = if (BeatSettings.systemAudio) DIGITAL_REF_DB else MIC_REF_DB
+        if (refDb.isNaN()) refDb = base
+        val tau = if (db > refDb) REF_ATTACK_SEC else REF_RELEASE_SEC
+        refDb += (db - refDb) * min(dt / tau, 1f)
+        refDb = refDb.coerceIn(base, base + REF_ADAPT_RANGE_DB)
+        return refDb
     }
 
     /** All the physics: VU-ballistic spring, tremble, phosphor wake, peak fall. */
@@ -170,6 +192,9 @@ class MechanicalMeterScene : GlScene {
         private const val VU_CEIL = 3f
         private const val MIC_REF_DB = -45f           // Unprocessed mic, loud room
         private const val DIGITAL_REF_DB = -19f       // 0.30-scaled mastered music
+        private const val REF_ATTACK_SEC = 2f         // chase loud level up (~2 s)
+        private const val REF_RELEASE_SEC = 20f       // relax back down (slow)
+        private const val REF_ADAPT_RANGE_DB = 30f    // headroom above the base ref
 
         private const val VS = """#version 300 es
             layout(location = 0) in vec2 aPos;

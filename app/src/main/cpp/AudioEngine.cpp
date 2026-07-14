@@ -1,4 +1,6 @@
 #include "AudioEngine.h"
+#include <algorithm>
+#include <cmath>
 #include <android/log.h>
 
 #define LOG_TAG "AudioEngine"
@@ -108,6 +110,7 @@ bool AudioEngine::startPlayback(int sampleRate, int channelCount) {
     }
 
     mSampleRate.store(mPlaybackStream->getSampleRate(), std::memory_order_relaxed);
+    mLocalMeanSq = 0.0f;   // new track: re-adapt the analysis AGC from scratch
 
     // Buffer ~35 ms: enough to absorb decode-thread scheduling / GC jitter,
     // small enough that the visual mirror (fed at enqueue time) stays within
@@ -257,25 +260,22 @@ void AudioEngine::mirrorToVisualRings(const float *interleaved, size_t frames,
     // not the decoder's buffer size — is the visuals' true refresh cadence.
     noteDeliveryPeriod();
     // Kotlin downmixes anything exotic before pushing, so channels is 1 or 2.
-    // The mono (analysis) ring gets kDigitalMonoGain so local playback drives
-    // the FFT / beat gate / reactive visuals at exactly the level the
-    // system-audio path always has; the stereo ring stays full-scale for the
-    // phase-accurate scope scenes — mirroring nativePushPcm()'s convention.
+    // The mono (analysis) ring gets the digital calibration gain — pulled
+    // further down by localAnalysisGain() when a hot master would otherwise
+    // pin the FFT's fixed dB windows — while the stereo ring stays full-scale
+    // for the phase-accurate scope scenes, mirroring nativePushPcm()'s
+    // convention.
+    static thread_local std::vector<float> mono;
+    if (mono.size() < frames) mono.resize(frames);
     if (channels == 2) {
         mStereoBuffer->write(interleaved, frames * 2);
-        static thread_local std::vector<float> mono;
-        if (mono.size() < frames) mono.resize(frames);
         for (size_t i = 0; i < frames; ++i) {
-            mono[i] = (interleaved[i * 2] + interleaved[i * 2 + 1]) * 0.5f * kDigitalMonoGain;
+            mono[i] = (interleaved[i * 2] + interleaved[i * 2 + 1]) * 0.5f;
         }
-        mBuffer->write(mono.data(), frames);
     } else {
-        static thread_local std::vector<float> mono;
-        if (mono.size() < frames) mono.resize(frames);
         for (size_t i = 0; i < frames; ++i) {
-            mono[i] = interleaved[i] * kDigitalMonoGain;
+            mono[i] = interleaved[i];
         }
-        mBuffer->write(mono.data(), frames);
         static thread_local std::vector<float> stereo;
         if (stereo.size() < frames * 2) stereo.resize(frames * 2);
         for (size_t i = 0; i < frames; ++i) {
@@ -284,6 +284,30 @@ void AudioEngine::mirrorToVisualRings(const float *interleaved, size_t frames,
         }
         mStereoBuffer->write(stereo.data(), frames * 2);
     }
+    const float gain = localAnalysisGain(mono.data(), frames);
+    for (size_t i = 0; i < frames; ++i) {
+        mono[i] *= gain;
+    }
+    mBuffer->write(mono.data(), frames);
+}
+
+float AudioEngine::localAnalysisGain(const float *mono, size_t frames) noexcept {
+    if (frames == 0) return kDigitalMonoGain;
+    float sumSq = 0.0f;
+    for (size_t i = 0; i < frames; ++i) {
+        sumSq += mono[i] * mono[i];
+    }
+    const float meanSq = sumSq / static_cast<float>(frames);
+
+    // Chunk-duration-aware EMA so the time constants hold at any chunk size.
+    const float rate = static_cast<float>(mSampleRate.load(std::memory_order_relaxed));
+    const float dtSec = static_cast<float>(frames) / std::max(rate, 1.0f);
+    const float tau = meanSq > mLocalMeanSq ? kLocalAgcAttackSec : kLocalAgcReleaseSec;
+    mLocalMeanSq += (meanSq - mLocalMeanSq) * std::min(dtSec / tau, 1.0f);
+
+    const float rms = std::sqrt(mLocalMeanSq);
+    if (rms * kDigitalMonoGain <= kLocalAgcTargetRms) return kDigitalMonoGain;
+    return kLocalAgcTargetRms / rms;
 }
 
 void AudioEngine::clearVisualRings() noexcept {

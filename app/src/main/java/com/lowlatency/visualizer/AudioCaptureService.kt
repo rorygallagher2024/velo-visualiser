@@ -45,6 +45,9 @@ class AudioCaptureService : Service() {
         const val ACTION_STOP = "com.lowlatency.visualizer.ACTION_STOP"
         const val ACTION_STOPPED = "com.lowlatency.visualizer.ACTION_STOPPED"
 
+        /** Set on [ACTION_STOPPED] when capture never started (vs a normal stop). */
+        const val EXTRA_FAILED = "capture_failed"
+
         private const val SAMPLE_RATE = 48_000
         private const val CHANNELS = 2 // playback capture is stereo
 
@@ -64,6 +67,7 @@ class AudioCaptureService : Service() {
     }
 
     @Volatile private var capturing = false
+    private var startFailed = false
     private var projection: MediaProjection? = null
     private var record: AudioRecord? = null
     private var readerThread: Thread? = null
@@ -83,6 +87,7 @@ class AudioCaptureService : Service() {
         val data: Intent? = intent?.getParcelableExtra(EXTRA_RESULT_DATA)
         if (resultCode == 0 || data == null) {
             Log.e(TAG, "Missing MediaProjection token; stopping.")
+            startFailed = true
             stopSelf()
             return START_NOT_STICKY
         }
@@ -134,6 +139,7 @@ class AudioCaptureService : Service() {
         val mp = mpm.getMediaProjection(resultCode, data)
         if (mp == null) {
             Log.e(TAG, "Could not obtain MediaProjection; stopping.")
+            startFailed = true
             stopSelf()
             return
         }
@@ -145,31 +151,22 @@ class AudioCaptureService : Service() {
         }, null)
         projection = mp
 
-        val config = AudioPlaybackCaptureConfiguration.Builder(mp)
-            .addMatchingUsage(AudioAttributes.USAGE_MEDIA)
-            .addMatchingUsage(AudioAttributes.USAGE_GAME)
-            .addMatchingUsage(AudioAttributes.USAGE_UNKNOWN)
-            .build()
-
-        val audioFormat = AudioFormat.Builder()
-            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-            .setSampleRate(SAMPLE_RATE)
-            .setChannelMask(AudioFormat.CHANNEL_IN_STEREO)
-            .build()
-
         val minBuf = AudioRecord.getMinBufferSize(
             SAMPLE_RATE,
             AudioFormat.CHANNEL_IN_STEREO,
             AudioFormat.ENCODING_PCM_16BIT
         )
 
-        record = AudioRecord.Builder()
-            .setAudioFormat(audioFormat)
-            .setBufferSizeInBytes(minBuf * 2)
-            .setAudioPlaybackCaptureConfig(config)
-            .build()
-
-        record?.startRecording()
+        val rec = buildAndStartPlaybackCapture(mp, minBuf)
+        if (rec == null) {
+            // stopSelf() → onDestroy() broadcasts ACTION_STOPPED (+ EXTRA_FAILED),
+            // which flips the UI back to the microphone with an explanation
+            // instead of leaving a dead SYSTEM segment.
+            startFailed = true
+            stopSelf()
+            return
+        }
+        record = rec
         capturing = true
 
         // Read on a dedicated high-priority thread; forward to native engine.
@@ -189,6 +186,47 @@ class AudioCaptureService : Service() {
         Log.i(TAG, "System-audio capture started.")
     }
 
+    /**
+     * Builds and starts the playback-capture AudioRecord, or returns null when
+     * the device rejects it. Both build() and startRecording() throw on some
+     * devices (rejected config, missing RECORD_AUDIO grant), and an uncaught
+     * exception in onStartCommand would take down the whole app.
+     */
+    @RequiresPermission(Manifest.permission.RECORD_AUDIO)
+    private fun buildAndStartPlaybackCapture(mp: MediaProjection, minBuf: Int): AudioRecord? {
+        val config = AudioPlaybackCaptureConfiguration.Builder(mp)
+            .addMatchingUsage(AudioAttributes.USAGE_MEDIA)
+            .addMatchingUsage(AudioAttributes.USAGE_GAME)
+            .addMatchingUsage(AudioAttributes.USAGE_UNKNOWN)
+            .build()
+
+        val audioFormat = AudioFormat.Builder()
+            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+            .setSampleRate(SAMPLE_RATE)
+            .setChannelMask(AudioFormat.CHANNEL_IN_STEREO)
+            .build()
+
+        return try {
+            val rec = AudioRecord.Builder()
+                .setAudioFormat(audioFormat)
+                .setBufferSizeInBytes(minBuf * 2)
+                .setAudioPlaybackCaptureConfig(config)
+                .build()
+            rec.startRecording()
+            if (rec.recordingState != AudioRecord.RECORDSTATE_RECORDING) {
+                Log.e(TAG, "AudioRecord did not enter RECORDING state; giving up.")
+                rec.release()
+                null
+            } else {
+                rec
+            }
+        } catch (e: RuntimeException) {
+            // UnsupportedOperationException / IllegalStateException / SecurityException
+            Log.e(TAG, "Playback-capture AudioRecord failed", e)
+            null
+        }
+    }
+
     override fun onDestroy() {
         // Stop the loop, then unblock + drain the reader BEFORE releasing the
         // AudioRecord — releasing it while the reader is parked in read() is
@@ -201,7 +239,11 @@ class AudioCaptureService : Service() {
         record = null
         projection?.stop()
         projection = null
-        sendBroadcast(Intent(ACTION_STOPPED).setPackage(packageName))
+        sendBroadcast(
+            Intent(ACTION_STOPPED)
+                .setPackage(packageName)
+                .putExtra(EXTRA_FAILED, startFailed)
+        )
         super.onDestroy()
     }
 }

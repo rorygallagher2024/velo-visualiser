@@ -102,6 +102,9 @@ private:
     void noteDeliveryPeriod() noexcept;
     // Mirrors one written chunk into the mono + stereo visualizer rings.
     void mirrorToVisualRings(const float *interleaved, size_t frames, int channels) noexcept;
+    // Attenuation-only AGC for the local-playback analysis feed: the mono-ring
+    // gain for this chunk, at most kDigitalMonoGain. Decode thread only.
+    float localAnalysisGain(const float *mono, size_t frames) noexcept;
     // Zeroes both rings so visuals decay to silence (pause / end of playback).
     void clearVisualRings() noexcept;
 
@@ -116,6 +119,18 @@ private:
     // AudioCaptureService.SYSTEM_AUDIO_GAIN so all digital sources drive the
     // visuals identically.
     static constexpr float kDigitalMonoGain = 0.30f;
+
+    // Local-playback analysis AGC (decode thread only). Loudness-war masters
+    // decoded at full scale pin FftProcessor's fixed dB windows and wash the
+    // spectrum scenes white. Attenuation-only: the gain never exceeds
+    // kDigitalMonoGain, so quiet and normally-mastered material keeps today's
+    // calibration — only sustained hot program is pulled down until the
+    // analysis RMS sits at the target. Fast attack so a wash dies within
+    // ~a second; slow release so quiet passages don't pump.
+    static constexpr float kLocalAgcTargetRms  = 0.06f;  // post-gain, ~-24 dBFS
+    static constexpr float kLocalAgcAttackSec  = 1.0f;
+    static constexpr float kLocalAgcReleaseSec = 8.0f;
+    float mLocalMeanSq = 0.0f;  // EMA of the pre-gain mono mean-square
 
     // Capture stream (mic). Guarded by mLifecycleLock for open/close.
     std::shared_ptr<oboe::AudioStream> mStream;
