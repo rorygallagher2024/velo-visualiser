@@ -79,7 +79,10 @@ object NativeBridge {
     external fun nativePushPcm(pcm: ShortArray, frames: Int, channels: Int, gain: Float)
 
     /**
-     * Returns [avgConvTimeUs, lastIntervalMs].
+     * Returns [avgConvTimeUs, deliveryGapMs]. The gap is a decaying peak of
+     * the interval between PCM pushes (~1 s time constant) — the burst
+     * cadence the visuals experience, not the raw last interval, which reads
+     * ~0 ms while a burst is being drained by small reads.
      */
     external fun nativeGetSystemAudioMetrics(): FloatArray
 

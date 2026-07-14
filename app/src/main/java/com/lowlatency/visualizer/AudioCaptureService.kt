@@ -15,6 +15,7 @@ import android.media.AudioRecord
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.IBinder
+import android.os.Process
 import android.util.Log
 import androidx.annotation.RequiresPermission
 import kotlin.concurrent.thread
@@ -50,6 +51,14 @@ class AudioCaptureService : Service() {
 
         private const val SAMPLE_RATE = 48_000
         private const val CHANNELS = 2 // playback capture is stereo
+
+        // Read granularity, NOT buffer capacity: a blocking read() only returns
+        // once this many frames have accumulated, so reading minBuf-sized
+        // chunks (~40 ms on some devices) added that much latency on top of
+        // the OS capture path. 256 frames ≈ 5.3 ms keeps delivery tracking the
+        // mixer's own burst cadence instead — matching the local-playback
+        // mirror's chunk convention (AudioEngine::pushPlaybackAudio).
+        private const val CHUNK_FRAMES = 256
 
         // System audio (AudioPlaybackCapture) arrives near full-scale, whereas
         // the UNPROCESSED mic the visuals were tuned for is much quieter — so
@@ -170,9 +179,11 @@ class AudioCaptureService : Service() {
         capturing = true
 
         // Read on a dedicated high-priority thread; forward to native engine.
-        readerThread = thread(name = "PlaybackCaptureReader", priority = Thread.MAX_PRIORITY) {
-            val frames = minBuf / (CHANNELS * 2) // 16-bit => 2 bytes/sample
-            val buf = ShortArray(frames * CHANNELS)
+        readerThread = thread(name = "PlaybackCaptureReader") {
+            // Real audio scheduling class — Thread.MAX_PRIORITY barely moves
+            // the Linux nice value, and 5 ms reads are jitter-sensitive.
+            Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO)
+            val buf = ShortArray(CHUNK_FRAMES * CHANNELS)
             while (capturing) {
                 val read = record?.read(buf, 0, buf.size) ?: -1
                 if (read > 0) {
