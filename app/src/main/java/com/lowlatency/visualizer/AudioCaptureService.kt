@@ -67,7 +67,7 @@ class AudioCaptureService : Service() {
     }
 
     @Volatile private var capturing = false
-    private var startFailed = false
+    @Volatile private var captureFailed = false
     private var projection: MediaProjection? = null
     private var record: AudioRecord? = null
     private var readerThread: Thread? = null
@@ -87,7 +87,7 @@ class AudioCaptureService : Service() {
         val data: Intent? = intent?.getParcelableExtra(EXTRA_RESULT_DATA)
         if (resultCode == 0 || data == null) {
             Log.e(TAG, "Missing MediaProjection token; stopping.")
-            startFailed = true
+            captureFailed = true
             stopSelf()
             return START_NOT_STICKY
         }
@@ -101,7 +101,7 @@ class AudioCaptureService : Service() {
         nm.createNotificationChannel(
             NotificationChannel(
                 CHANNEL_ID,
-                "Audio Capture",
+                getString(R.string.capture_channel_name),
                 NotificationManager.IMPORTANCE_LOW
             )
         )
@@ -113,12 +113,12 @@ class AudioCaptureService : Service() {
         )
 
         val notification: Notification = Notification.Builder(this, CHANNEL_ID)
-            .setContentTitle("Visualizing system audio")
+            .setContentTitle(getString(R.string.capture_notification_title))
             .setSmallIcon(R.drawable.ic_notification)
             .setOngoing(true)
             .addAction(
                 Notification.Action.Builder(
-                    null, "Stop", stopPendingIntent
+                    null, getString(R.string.capture_notification_stop), stopPendingIntent
                 ).build()
             )
             .build()
@@ -139,7 +139,7 @@ class AudioCaptureService : Service() {
         val mp = mpm.getMediaProjection(resultCode, data)
         if (mp == null) {
             Log.e(TAG, "Could not obtain MediaProjection; stopping.")
-            startFailed = true
+            captureFailed = true
             stopSelf()
             return
         }
@@ -162,7 +162,7 @@ class AudioCaptureService : Service() {
             // stopSelf() → onDestroy() broadcasts ACTION_STOPPED (+ EXTRA_FAILED),
             // which flips the UI back to the microphone with an explanation
             // instead of leaving a dead SYSTEM segment.
-            startFailed = true
+            captureFailed = true
             stopSelf()
             return
         }
@@ -178,7 +178,15 @@ class AudioCaptureService : Service() {
                 if (read > 0) {
                     NativeBridge.nativePushPcm(buf, read / CHANNELS, CHANNELS, SYSTEM_AUDIO_GAIN)
                 } else if (read < 0) {
+                    // Mid-session death (route lost, permission revoked, …):
+                    // stop the whole service so the notification clears and the
+                    // UI falls back to the mic with a toast, instead of leaving
+                    // a frozen SYSTEM screen under a live notification.
                     Log.e(TAG, "AudioRecord.read error: $read")
+                    if (capturing) {
+                        captureFailed = true
+                        stopSelf()
+                    }
                     break
                 }
             }
@@ -227,6 +235,13 @@ class AudioCaptureService : Service() {
         }
     }
 
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        // Swiping the app from recents kills the task without the activity's
+        // onDestroy necessarily running — don't keep capturing for nobody.
+        stopSelf()
+        super.onTaskRemoved(rootIntent)
+    }
+
     override fun onDestroy() {
         // Stop the loop, then unblock + drain the reader BEFORE releasing the
         // AudioRecord — releasing it while the reader is parked in read() is
@@ -242,7 +257,7 @@ class AudioCaptureService : Service() {
         sendBroadcast(
             Intent(ACTION_STOPPED)
                 .setPackage(packageName)
-                .putExtra(EXTRA_FAILED, startFailed)
+                .putExtra(EXTRA_FAILED, captureFailed)
         )
         super.onDestroy()
     }
