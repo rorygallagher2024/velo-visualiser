@@ -20,6 +20,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.text.HtmlCompat
 import com.lowlatency.visualizer.ui.AudioSourceController
 import com.lowlatency.visualizer.ui.InputDeviceController
+import com.lowlatency.visualizer.ui.ToneController
 import com.lowlatency.visualizer.ui.DisplayModeController
 import com.lowlatency.visualizer.ui.FeelTheSpeedController
 import com.lowlatency.visualizer.ui.LightingController
@@ -74,6 +75,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var linkSyncController: LinkSyncController
     private lateinit var audioSourceController: AudioSourceController
     private lateinit var inputDeviceController: InputDeviceController
+    private lateinit var toneController: ToneController
     private lateinit var feelTheSpeedController: FeelTheSpeedController
     private lateinit var hapticController: HapticController
     private lateinit var prefs: SharedPreferences
@@ -172,6 +174,7 @@ class MainActivity : AppCompatActivity() {
                     linkSyncController.setLocalPlaybackActive(audioSourceController.isLocalPlayback)
                 }
                 if (::inputDeviceController.isInitialized) inputDeviceController.refreshRow()
+                if (::toneController.isInitialized) toneController.refresh()
             },
             onMicStarted = {
                 micStarted = true
@@ -190,17 +193,27 @@ class MainActivity : AppCompatActivity() {
                     0
                 }
             },
+            onToneRequested = { if (::toneController.isInitialized) toneController.enter() },
+            stopTone = { if (::toneController.isInitialized) toneController.stop() },
         )
         audioSourceController.bind()
 
         inputDeviceController = InputDeviceController(
             activity = this,
             isMicMode = {
-                !audioSourceController.systemAudioMode && !audioSourceController.isLocalPlayback
+                !audioSourceController.systemAudioMode && !audioSourceController.isLocalPlayback &&
+                    !audioSourceController.isToneMode
             },
             onSelectionChanged = { audioSourceController.onInputDeviceChanged() },
         )
         inputDeviceController.bind()
+
+        toneController = ToneController(
+            activity = this,
+            isToneMode = { audioSourceController.isToneMode },
+            onEnterTone = { audioSourceController.enterTone() },
+        )
+        toneController.bind()
 
         localPlaybackController = LocalPlaybackController(
             activity = this,
@@ -293,6 +306,8 @@ class MainActivity : AppCompatActivity() {
             isStereoAudio = {
                 audioSourceController.systemAudioMode ||
                     audioSourceController.isLocalPlayback ||
+                    // The tone generator is stereo (X/Y mode drives real L/R).
+                    audioSourceController.isToneMode ||
                     // A true stereo external input (USB interface, line-in) also
                     // feeds the scope scenes real L/R.
                     NativeBridge.nativeGetInputChannels() >= 2
@@ -673,10 +688,11 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateStatus() {
         val systemAudio = audioSourceController.systemAudioMode
-        // Beat detection is hotter on digitally mastered sources — local files
-        // arrive at the same full-scale level as captured system audio, so the
-        // shared sensitivity uses the raised floor for both.
-        BeatSettings.systemAudio = systemAudio || audioSourceController.isLocalPlayback
+        // Beat detection is hotter on digitally mastered sources — local files,
+        // system capture and the tone generator all arrive full-scale, so the
+        // shared sensitivity uses the raised floor for all of them.
+        BeatSettings.systemAudio = systemAudio ||
+            audioSourceController.isLocalPlayback || audioSourceController.isToneMode
 
         // Beat-haptics are mic-only (system-audio capture is buffered → off-beat).
         // Gate the controller and grey the toggle when on internal audio.
@@ -841,6 +857,7 @@ class MainActivity : AppCompatActivity() {
         glView.onResume()
         updatePeakLuminance(prefs.getBoolean(KEY_PEAK_LUMINANCE, true))
         if (::audioSourceController.isInitialized) audioSourceController.onResume()
+        if (::toneController.isInitialized) toneController.onResume()
         if (::linkSyncController.isInitialized) linkSyncController.onResume()
         if (::perfOverlayController.isInitialized) perfOverlayController.onResume()
         if (::lightingController.isInitialized) lightingController.onResume()
@@ -854,6 +871,7 @@ class MainActivity : AppCompatActivity() {
         if (::localPlaybackController.isInitialized) localPlaybackController.onPause()
         glView.onPause()
         if (::audioSourceController.isInitialized) audioSourceController.onPause()
+        if (::toneController.isInitialized) toneController.onPause()
         backgroundedAtMs = SystemClock.elapsedRealtime()
         if (::perfOverlayController.isInitialized) perfOverlayController.onPause()
         if (::lightingController.isInitialized) lightingController.onPause()
@@ -873,6 +891,7 @@ class MainActivity : AppCompatActivity() {
         if (::linkSyncController.isInitialized) linkSyncController.onDestroy()
         if (::audioSourceController.isInitialized) audioSourceController.onDestroy()
         if (::inputDeviceController.isInitialized) inputDeviceController.onDestroy()
+        if (::toneController.isInitialized) toneController.onDestroy()
         if (::feelTheSpeedController.isInitialized) feelTheSpeedController.onDestroy()
         if (::menuDiscoveryController.isInitialized) menuDiscoveryController.onDestroy()
         // Join the decode thread before tearing the engine down — the playback

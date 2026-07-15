@@ -9,6 +9,12 @@
     <string name="source_mic">Microphone</string>
     <string name="source_internal">System Audio</string>
     <string name="source_local">Local File</string>
+    <string name="source_tone">Tone</string>
+    <string name="tone_freq_label">Frequency: %1$d Hz</string>
+    <string name="tone_freq_right_label">Right channel: %1$d Hz</string>
+    <string name="tone_level_label">Level: %1$d%%</string>
+    <string name="tone_xy_mode">X/Y stereo (Lissajous)</string>
+    <string name="tone_disclaimer">A clean sine tone that also drives the visuals and lights. Indicative only, not a measurement instrument: Bluetooth and speaker processing colour the result.</string>
 
     <!-- Local playback media bar -->
     <string name="btn_current_track">Track: %1$s</string>

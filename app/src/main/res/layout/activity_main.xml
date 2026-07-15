@@ -359,11 +359,12 @@
             android:textSize="12sp"
             android:layout_marginBottom="8dp" />
 
+        <!-- Audio source: two rows of two (Mic / Internal, Local / Tone). -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginBottom="20dp">
+            android:layout_marginBottom="4dp">
 
             <Button
                 android:id="@+id/seg_mic"
@@ -383,22 +384,42 @@
                 android:layout_width="0dp"
                 android:layout_height="48dp"
                 android:layout_weight="1"
-                android:layout_marginHorizontal="2dp"
+                android:layout_marginStart="2dp"
                 android:background="@drawable/segment_button_bg"
                 android:text="@string/source_internal"
                 android:textColor="@color/btn_text"
                 android:textAllCaps="false"
                 android:textSize="12sp"
                 android:stateListAnimator="@null" />
-                
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="20dp">
+
             <Button
                 android:id="@+id/seg_local"
                 android:layout_width="0dp"
                 android:layout_height="48dp"
                 android:layout_weight="1"
-                android:layout_marginStart="2dp"
+                android:layout_marginEnd="2dp"
                 android:background="@drawable/segment_button_bg"
                 android:text="@string/source_local"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="12sp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/seg_tone"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:layout_marginStart="2dp"
+                android:background="@drawable/segment_button_bg"
+                android:text="@string/source_tone"
                 android:textColor="@color/btn_text"
                 android:textAllCaps="false"
                 android:textSize="12sp"
@@ -436,6 +457,97 @@
             android:ellipsize="end"
             android:stateListAnimator="@null"
             android:visibility="gone" />
+
+        <!-- Tone generator panel: shown only in Tone source mode -->
+        <LinearLayout
+            android:id="@+id/tone_panel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginBottom="20dp"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/tone_freq_label"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="@color/text_dim"
+                android:textSize="12sp"
+                android:layout_marginBottom="2dp" />
+
+            <SeekBar
+                android:id="@+id/tone_freq_seek"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:max="1000"
+                android:progressTint="#FFFFFFFF"
+                android:thumb="@drawable/media_seek_thumb"
+                android:progressBackgroundTint="#26FFFFFF"
+                android:splitTrack="false"
+                android:layout_marginBottom="8dp" />
+
+            <!-- Right-channel frequency: only in X/Y (stereo) mode -->
+            <TextView
+                android:id="@+id/tone_freq_right_label"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="@color/text_dim"
+                android:textSize="12sp"
+                android:layout_marginBottom="2dp"
+                android:visibility="gone" />
+
+            <SeekBar
+                android:id="@+id/tone_freq_right_seek"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:max="1000"
+                android:progressTint="#FFFFFFFF"
+                android:thumb="@drawable/media_seek_thumb"
+                android:progressBackgroundTint="#26FFFFFF"
+                android:splitTrack="false"
+                android:layout_marginBottom="8dp"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/tone_level_label"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="@color/text_dim"
+                android:textSize="12sp"
+                android:layout_marginBottom="2dp" />
+
+            <SeekBar
+                android:id="@+id/tone_level_seek"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:max="1000"
+                android:progressTint="#FFFFFFFF"
+                android:thumb="@drawable/media_seek_thumb"
+                android:progressBackgroundTint="#26FFFFFF"
+                android:splitTrack="false"
+                android:layout_marginBottom="12dp" />
+
+            <Button
+                android:id="@+id/tone_xy_toggle"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:background="@drawable/segment_button_bg"
+                android:text="@string/tone_xy_mode"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="14sp"
+                android:stateListAnimator="@null"
+                android:layout_marginBottom="10dp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/tone_disclaimer"
+                android:textColor="@color/text_dim"
+                android:textSize="11sp"
+                android:alpha="0.7"
+                android:lineSpacingMultiplier="1.2" />
+        </LinearLayout>
 
         <!-- Latency disclaimer -->
         <TextView

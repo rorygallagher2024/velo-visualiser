@@ -60,6 +60,10 @@ import com.lowlatency.visualizer.R
  *   host can stop any live local playback session first.
  * @param inputDeviceId supplies the AudioDeviceInfo id to open the mic stream
  *   on (0 = system default); owned by [InputDeviceController].
+ * @param onToneRequested invoked when the user taps the Tone segment; the host
+ *   starts the generator and calls [enterTone].
+ * @param stopTone invoked whenever the source leaves TONE, so the host can stop
+ *   the generator (owned by [ToneController]).
  */
 class AudioSourceController(
     private val activity: AppCompatActivity,
@@ -69,8 +73,10 @@ class AudioSourceController(
     private val onLocalFileRequested: () -> Unit = {},
     private val onExternalSourceRequested: () -> Unit = {},
     private val inputDeviceId: () -> Int = { 0 },
+    private val onToneRequested: () -> Unit = {},
+    private val stopTone: () -> Unit = {},
 ) {
-    enum class Source { MIC, SYSTEM, LOCAL }
+    enum class Source { MIC, SYSTEM, LOCAL, TONE }
 
     /** The live audio source — the single source of truth for the app. */
     var source = Source.MIC
@@ -78,12 +84,19 @@ class AudioSourceController(
 
     val systemAudioMode: Boolean get() = source == Source.SYSTEM
     val isLocalPlayback: Boolean get() = source == Source.LOCAL
+    val isToneMode: Boolean get() = source == Source.TONE
+
+    /** Stop the tone generator if it's live, before leaving TONE. */
+    private fun leaveToneIfActive() {
+        if (source == Source.TONE) stopTone()
+    }
 
     private var deferredPermissionRequest = false
 
     private lateinit var segMic: Button
     private lateinit var segInternal: Button
     private lateinit var segLocal: Button
+    private lateinit var segTone: Button
     private lateinit var internalAudioWarning: TextView
 
     private val captureStopReceiver = object : BroadcastReceiver() {
@@ -145,10 +158,12 @@ class AudioSourceController(
         segMic = activity.findViewById(R.id.seg_mic)
         segInternal = activity.findViewById(R.id.seg_internal)
         segLocal = activity.findViewById(R.id.seg_local)
+        segTone = activity.findViewById(R.id.seg_tone)
         internalAudioWarning = activity.findViewById(R.id.internal_audio_warning)
         segMic.setOnClickListener { selectMicrophone() }
         segInternal.setOnClickListener { selectInternalAudio() }
         segLocal.setOnClickListener { onLocalFileRequested() }
+        segTone.setOnClickListener { if (source != Source.TONE) onToneRequested() }
 
         ContextCompat.registerReceiver(
             activity,
@@ -163,6 +178,7 @@ class AudioSourceController(
         segMic.isSelected = source == Source.MIC
         segInternal.isSelected = source == Source.SYSTEM
         segLocal.isSelected = source == Source.LOCAL
+        segTone.isSelected = source == Source.TONE
         internalAudioWarning.visibility = if (source == Source.SYSTEM) View.VISIBLE else View.GONE
         onSourceChanged()
     }
@@ -177,9 +193,27 @@ class AudioSourceController(
             Source.MIC -> NativeBridge.nativeStop()
             Source.SYSTEM ->
                 activity.stopService(Intent(activity, AudioCaptureService::class.java))
+            Source.TONE -> stopTone()
             Source.LOCAL -> Unit   // replacing the current track
         }
         source = Source.LOCAL
+        refreshSelection()
+    }
+
+    /**
+     * Switches the live source to TONE. The host has already started the tone
+     * generator (which owns the playback stream); here we just silence the
+     * previous producer and flip the state. Mirrors [enterLocalPlayback].
+     */
+    fun enterTone() {
+        onExternalSourceRequested()   // stop any live local playback session
+        when (source) {
+            Source.MIC -> NativeBridge.nativeStop()
+            Source.SYSTEM ->
+                activity.stopService(Intent(activity, AudioCaptureService::class.java))
+            else -> Unit
+        }
+        source = Source.TONE
         refreshSelection()
     }
 
@@ -197,6 +231,7 @@ class AudioSourceController(
 
     private fun selectMicrophone() {
         onExternalSourceRequested()
+        leaveToneIfActive()
         if (source == Source.SYSTEM) {
             activity.stopService(Intent(activity, AudioCaptureService::class.java))
         }
@@ -208,6 +243,7 @@ class AudioSourceController(
     private fun selectInternalAudio() {
         if (source == Source.SYSTEM) return
         onExternalSourceRequested()
+        leaveToneIfActive()
         // AudioPlaybackCapture still needs RECORD_AUDIO — reachable un-granted
         // on first launch (the mic prompt is deferred until the intro ends).
         if (!hasMicPermission()) {
