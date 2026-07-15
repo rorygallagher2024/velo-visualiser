@@ -212,6 +212,8 @@ class MainActivity : AppCompatActivity() {
             activity = this,
             isToneMode = { audioSourceController.isToneMode },
             onEnterTone = { audioSourceController.enterTone() },
+            isMenuOpen = { menuSheetController.isOpen },
+            closeMenu = { menuSheetController.close() },
         )
         toneController.bind()
 
@@ -427,7 +429,15 @@ class MainActivity : AppCompatActivity() {
             }
         })
         
-        glView.onTap = { localPlaybackController.onCanvasTap() }
+        glView.onTap = {
+            // Route the canvas tap to whichever source owns an overlay; each
+            // guards on its own mode, so the other is a no-op.
+            if (::toneController.isInitialized && audioSourceController.isToneMode) {
+                toneController.onCanvasTap()
+            } else {
+                localPlaybackController.onCanvasTap()
+            }
+        }
     }
 
     // ----- Settings tabs: Visuals | Lighting | Settings -----

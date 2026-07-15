@@ -458,97 +458,6 @@
             android:stateListAnimator="@null"
             android:visibility="gone" />
 
-        <!-- Tone generator panel: shown only in Tone source mode -->
-        <LinearLayout
-            android:id="@+id/tone_panel"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:layout_marginBottom="20dp"
-            android:visibility="gone">
-
-            <TextView
-                android:id="@+id/tone_freq_label"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textColor="@color/text_dim"
-                android:textSize="12sp"
-                android:layout_marginBottom="2dp" />
-
-            <SeekBar
-                android:id="@+id/tone_freq_seek"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:max="1000"
-                android:progressTint="#FFFFFFFF"
-                android:thumb="@drawable/media_seek_thumb"
-                android:progressBackgroundTint="#26FFFFFF"
-                android:splitTrack="false"
-                android:layout_marginBottom="8dp" />
-
-            <!-- Right-channel frequency: only in X/Y (stereo) mode -->
-            <TextView
-                android:id="@+id/tone_freq_right_label"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textColor="@color/text_dim"
-                android:textSize="12sp"
-                android:layout_marginBottom="2dp"
-                android:visibility="gone" />
-
-            <SeekBar
-                android:id="@+id/tone_freq_right_seek"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:max="1000"
-                android:progressTint="#FFFFFFFF"
-                android:thumb="@drawable/media_seek_thumb"
-                android:progressBackgroundTint="#26FFFFFF"
-                android:splitTrack="false"
-                android:layout_marginBottom="8dp"
-                android:visibility="gone" />
-
-            <TextView
-                android:id="@+id/tone_level_label"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textColor="@color/text_dim"
-                android:textSize="12sp"
-                android:layout_marginBottom="2dp" />
-
-            <SeekBar
-                android:id="@+id/tone_level_seek"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:max="1000"
-                android:progressTint="#FFFFFFFF"
-                android:thumb="@drawable/media_seek_thumb"
-                android:progressBackgroundTint="#26FFFFFF"
-                android:splitTrack="false"
-                android:layout_marginBottom="12dp" />
-
-            <Button
-                android:id="@+id/tone_xy_toggle"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:background="@drawable/segment_button_bg"
-                android:text="@string/tone_xy_mode"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="14sp"
-                android:stateListAnimator="@null"
-                android:layout_marginBottom="10dp" />
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/tone_disclaimer"
-                android:textColor="@color/text_dim"
-                android:textSize="11sp"
-                android:alpha="0.7"
-                android:lineSpacingMultiplier="1.2" />
-        </LinearLayout>
-
         <!-- Latency disclaimer -->
         <TextView
             android:id="@+id/internal_audio_warning"
@@ -1806,6 +1715,106 @@
                 android:scaleType="fitCenter"
                 app:tint="#88FFFFFF" />
         </LinearLayout>
+    </LinearLayout>
+
+    <!-- Tone generator overlay (Top). Same floating treatment as the media
+         bar; the two are never visible together (each belongs to its own
+         source). Tap the canvas in Tone mode to reveal it. -->
+    <LinearLayout
+        android:id="@+id/tone_controls_overlay"
+        android:layout_width="@dimen/media_bar_width"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|center_horizontal"
+        android:layout_marginTop="64dp"
+        android:background="@drawable/media_bar_bg"
+        android:orientation="vertical"
+        android:paddingHorizontal="24dp"
+        android:paddingTop="16dp"
+        android:paddingBottom="16dp"
+        android:elevation="12dp"
+        android:translationY="-260dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/tone_freq_label"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="@color/text_dim"
+            android:textSize="12sp"
+            android:layout_marginBottom="2dp" />
+
+        <SeekBar
+            android:id="@+id/tone_freq_seek"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:max="1000"
+            android:progressTint="#FFFFFFFF"
+            android:thumb="@drawable/media_seek_thumb"
+            android:progressBackgroundTint="#26FFFFFF"
+            android:splitTrack="false"
+            android:layout_marginBottom="8dp" />
+
+        <!-- Right-channel frequency: only in X/Y (stereo) mode -->
+        <TextView
+            android:id="@+id/tone_freq_right_label"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="@color/text_dim"
+            android:textSize="12sp"
+            android:layout_marginBottom="2dp"
+            android:visibility="gone" />
+
+        <SeekBar
+            android:id="@+id/tone_freq_right_seek"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:max="1000"
+            android:progressTint="#FFFFFFFF"
+            android:thumb="@drawable/media_seek_thumb"
+            android:progressBackgroundTint="#26FFFFFF"
+            android:splitTrack="false"
+            android:layout_marginBottom="8dp"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/tone_level_label"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="@color/text_dim"
+            android:textSize="12sp"
+            android:layout_marginBottom="2dp" />
+
+        <SeekBar
+            android:id="@+id/tone_level_seek"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:max="1000"
+            android:progressTint="#FFFFFFFF"
+            android:thumb="@drawable/media_seek_thumb"
+            android:progressBackgroundTint="#26FFFFFF"
+            android:splitTrack="false"
+            android:layout_marginBottom="12dp" />
+
+        <Button
+            android:id="@+id/tone_xy_toggle"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:background="@drawable/segment_button_bg"
+            android:text="@string/tone_xy_mode"
+            android:textColor="@color/btn_text"
+            android:textAllCaps="false"
+            android:textSize="14sp"
+            android:stateListAnimator="@null"
+            android:layout_marginBottom="10dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/tone_disclaimer"
+            android:textColor="@color/text_dim"
+            android:textSize="11sp"
+            android:alpha="0.7"
+            android:lineSpacingMultiplier="1.2" />
     </LinearLayout>
 
 </FrameLayout>
