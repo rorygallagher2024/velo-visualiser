@@ -36,6 +36,7 @@ class ToneController(
     private val onEnterTone: () -> Unit,
     private val isMenuOpen: () -> Boolean,
     private val closeMenu: () -> Unit,
+    private val onOverlayLayoutChanged: () -> Unit = {},
 ) {
     private val generator = ToneGenerator()
 
@@ -104,6 +105,14 @@ class ToneController(
         if (!isToneMode()) hideOverlay()
     }
 
+    /** Bottom edge of the visible overlay, so transient labels stack below it. */
+    fun overlayBottom(): Int =
+        if (::overlay.isInitialized && overlay.visibility == View.VISIBLE && overlay.height > 0) {
+            overlay.bottom
+        } else {
+            0
+        }
+
     fun onPause() {
         if (isToneMode()) generator.stop()
     }
@@ -123,6 +132,7 @@ class ToneController(
             overlay.translationY = offscreenY()
         }
         overlay.animate().translationY(0f).setDuration(ANIM_MS).start()
+        overlay.post { onOverlayLayoutChanged() }   // let labels stack below it
         scheduleHide()
     }
 
@@ -130,7 +140,10 @@ class ToneController(
         if (!::overlay.isInitialized || overlay.visibility != View.VISIBLE) return
         overlay.removeCallbacks(hideRunnable)
         overlay.animate().translationY(offscreenY()).setDuration(ANIM_MS)
-            .withEndAction { overlay.visibility = View.GONE }
+            .withEndAction {
+                overlay.visibility = View.GONE
+                onOverlayLayoutChanged()
+            }
             .start()
     }
 

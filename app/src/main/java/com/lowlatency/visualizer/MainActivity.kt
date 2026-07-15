@@ -214,6 +214,9 @@ class MainActivity : AppCompatActivity() {
             onEnterTone = { audioSourceController.enterTone() },
             isMenuOpen = { menuSheetController.isOpen },
             closeMenu = { menuSheetController.close() },
+            onOverlayLayoutChanged = {
+                if (::scenesController.isInitialized) scenesController.repositionSceneLabel()
+            },
         )
         toneController.bind()
 
@@ -302,6 +305,8 @@ class MainActivity : AppCompatActivity() {
                     maxBottom = perfOverlayController.overlayView.bottom
                 if (::localPlaybackController.isInitialized)
                     maxBottom = kotlin.math.max(maxBottom, localPlaybackController.barBottom())
+                if (::toneController.isInitialized)
+                    maxBottom = kotlin.math.max(maxBottom, toneController.overlayBottom())
                 maxBottom
             },
             onManualSceneChange = { shuffleController.onSceneChanged() },

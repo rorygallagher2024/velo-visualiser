@@ -24,7 +24,7 @@ class ToneGenerator {
     /** Target frequencies (Hz) and linear amplitude (0..1); read per chunk. */
     @Volatile var leftHz: Float = 440f
     @Volatile var rightHz: Float = 440f
-    @Volatile var level: Float = 0.12f
+    @Volatile var level: Float = 0.10f
 
     private val lock = Object()
     private var worker: Thread? = null          // guarded by lock
@@ -33,21 +33,25 @@ class ToneGenerator {
     val isRunning: Boolean get() = synchronized(lock) { running }
 
     fun start() {
+        // Retire any previous session first, so exactly one worker ever owns
+        // the playback stream and the old stream is fully closed before the
+        // new one opens (the stream is single-thread-owned — overlapping
+        // workers would touch it concurrently).
+        stop()
         synchronized(lock) {
-            if (running) return
             running = true
+            worker = thread(name = "ToneGenerator") { runSession() }
         }
-        worker = thread(name = "ToneGenerator") { runSession() }
     }
 
     fun stop() {
-        val t: Thread?
-        synchronized(lock) {
+        val t = synchronized(lock) {
             running = false
-            t = worker
-            worker = null
+            worker.also { worker = null }
         }
-        // The worker fades out and closes its own playback stream; just wait.
+        // The worker fades out and closes its own playback stream; wait it out.
+        // Grace matches LocalAudioPlayer and comfortably exceeds a healthy
+        // fade-out, so teardown completes before any subsequent start().
         t?.runCatching { join(JOIN_GRACE_MS) }
     }
 
@@ -112,6 +116,6 @@ class ToneGenerator {
         private const val TWO_PI = 2.0 * PI
         private const val GAIN_SMOOTH = 0.002f   // per-sample level ramp (no clicks)
         private const val FADE_FRAMES = 2_048    // ~43 ms fade-out on stop
-        private const val JOIN_GRACE_MS = 500L
+        private const val JOIN_GRACE_MS = 2_000L // matches LocalAudioPlayer
     }
 }
