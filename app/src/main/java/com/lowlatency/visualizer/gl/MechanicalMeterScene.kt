@@ -24,12 +24,16 @@ import kotlin.math.sqrt
  * One fixed mark exists on the face: a short signal-red tick at 0 VU; the
  * needle blushes red only when it crosses.
  *
- * Calibration is per source (Unprocessed mic vs the 0.30-scaled digital ring),
- * then self-adjusts: sustained loud material pulls the 0 VU reference up
- * (fast) so the needle rides around the red tick instead of pinning at the
- * end stop, and it relaxes back (slow) so breakdowns still fall away. The
- * per-source base is the sensitivity ceiling — the meter never becomes MORE
- * sensitive than its calibration. The scale spans -20…+3 VU.
+ * Calibration is per source, because the two source families have opposite
+ * problems. Digital sources (system / local / tone) arrive at a consistent,
+ * loudness-compressed level, so a fixed -20…+3 VU window fits and only needs
+ * to self-raise a touch to tame a hot master. The mic / line input has a
+ * wide, low, room- and distance-dependent dynamic range that no fixed window
+ * fits — too sensitive and a loud voice pins it, too insensitive and a quiet
+ * one floors it — so it auto-ranges: the dial centre follows the recent level
+ * (fast up, slower down) and the scale bottoms out at an absolute silence
+ * floor, so quiet still sweeps the needle, loud rides near (never past) the
+ * red tick, and genuine silence rests.
  */
 class MechanicalMeterScene : GlScene {
 
@@ -49,7 +53,8 @@ class MechanicalMeterScene : GlScene {
     private var height = 1f
 
     private var needleLevel = 0f
-    private var refDb = Float.NaN
+    private var refDb = Float.NaN      // digital-source 0 VU reference
+    private var micRefDb = Float.NaN   // mic auto-range centre
     private var velocity = 0f
     private var peakLevel = 0f
     private var peakVelocity = 0f
@@ -92,11 +97,18 @@ class MechanicalMeterScene : GlScene {
         for (s in pcm) sumSq += s * s
         val rms = sqrt(sumSq / pcm.size)
 
-        // dB against a per-source, self-calibrating 0 VU reference; the dial
-        // spans -20…+3 VU.
         val db = 20f * log10(max(rms, 1e-5f))
-        val vu = db - adaptReference(db, dt)
-        val target = ((vu + VU_FLOOR_ABS) / (VU_FLOOR_ABS + VU_CEIL)).coerceIn(0f, 1f)
+        val target = if (BeatSettings.systemAudio) {
+            // Digital sources (system / local / tone) arrive at a consistent,
+            // loudness-compressed level, so a fixed -20…+3 VU window fits — it
+            // just self-raises to tame a hot master. (Unchanged: these work.)
+            val vu = db - adaptDigitalReference(db, dt)
+            ((vu + VU_FLOOR_ABS) / (VU_FLOOR_ABS + VU_CEIL)).coerceIn(0f, 1f)
+        } else {
+            // Mic / line input has a wide, low, room-dependent dynamic range no
+            // fixed window fits — hence auto-ranging.
+            micTarget(db, dt)
+        }
 
         updateMechanics(target, dt, timeSec)
 
@@ -118,20 +130,37 @@ class MechanicalMeterScene : GlScene {
     }
 
     /**
-     * Self-calibrating 0 VU: the reference chases sustained loud level quickly
-     * (so a pinned needle settles back onto the red tick within a couple of
-     * seconds) and relaxes down slowly (so a breakdown reads as a real drop,
-     * not a recalibration). Clamped to [base, base + range]: the per-source
-     * calibration remains the sensitivity ceiling, so quiet environments
-     * behave exactly as before.
+     * Digital-source 0 VU: fixed calibration that chases sustained loud level
+     * up (so a hot master settles back onto the red tick within a couple of
+     * seconds) and relaxes down slowly. Clamped to [base, base + range] so it
+     * only ever gets *less* sensitive — digital sources never run quiet.
      */
-    private fun adaptReference(db: Float, dt: Float): Float {
-        val base = if (BeatSettings.systemAudio) DIGITAL_REF_DB else MIC_REF_DB
-        if (refDb.isNaN()) refDb = base
+    private fun adaptDigitalReference(db: Float, dt: Float): Float {
+        if (refDb.isNaN()) refDb = DIGITAL_REF_DB
         val tau = if (db > refDb) REF_ATTACK_SEC else REF_RELEASE_SEC
         refDb += (db - refDb) * min(dt / tau, 1f)
-        refDb = refDb.coerceIn(base, base + REF_ADAPT_RANGE_DB)
+        refDb = refDb.coerceIn(DIGITAL_REF_DB, DIGITAL_REF_DB + REF_ADAPT_RANGE_DB)
         return refDb
+    }
+
+    /**
+     * Mic / line-input dial position by auto-ranging. The reference follows the
+     * recent level — up fast to catch loud, down slower to re-centre — so a
+     * quiet room becomes sensitive and a loud one gains headroom; neither the
+     * old fixed window's floor (quiet pinned to minimum) nor its ceiling (loud
+     * pinned to max) can trap the needle. A relative span sets most of the
+     * scale, but the dial floor never rises above an absolute silence level, so
+     * genuine quiet still rests the needle instead of floating mid-dial.
+     */
+    private fun micTarget(db: Float, dt: Float): Float {
+        if (micRefDb.isNaN()) micRefDb = db.coerceIn(MIC_REF_MIN, MIC_REF_MAX)
+        val tau = if (db > micRefDb) MIC_ATTACK_SEC else MIC_RELEASE_SEC
+        micRefDb += (db - micRefDb) * min(dt / tau, 1f)
+        micRefDb = micRefDb.coerceIn(MIC_REF_MIN, MIC_REF_MAX)
+
+        val floorDb = max(micRefDb - MIC_SPAN_BELOW, MIC_SILENCE_DB)
+        val ceilDb = micRefDb + MIC_SPAN_ABOVE
+        return ((db - floorDb) / (ceilDb - floorDb)).coerceIn(0f, 1f)
     }
 
     /** All the physics: VU-ballistic spring, tremble, phosphor wake, peak fall. */
@@ -188,17 +217,24 @@ class MechanicalMeterScene : GlScene {
         private const val IDLE_GLOW = 0.4f            // resting brightness while idle
         private const val IDLE_FALL_RATE = 1.2f       // ease into idle (~1.5 s)
         private const val IDLE_WAKE_RATE = 9f         // snap awake (~0.15 s)
-        private const val VU_FLOOR_ABS = 20f          // scale spans -20…+3 VU
+        private const val VU_FLOOR_ABS = 20f          // digital scale spans -20…+3 VU
         private const val VU_CEIL = 3f
-        // Unprocessed phone mics put ordinary speech around -30 dBFS RMS, so
-        // that's 0 VU: quiet voices read mid-dial, loud rooms ride the tick
-        // (with the adaptive reference absorbing anything sustained above).
-        // The old -45 base pinned the needle on a whisper.
-        private const val MIC_REF_DB = -30f
         private const val DIGITAL_REF_DB = -19f       // 0.30-scaled mastered music
         private const val REF_ATTACK_SEC = 2f         // chase loud level up (~2 s)
         private const val REF_RELEASE_SEC = 20f       // relax back down (slow)
         private const val REF_ADAPT_RANGE_DB = 30f    // headroom above the base ref
+
+        // Mic / line-input auto-range. The reference (dial centre) tracks the
+        // recent level between these bounds; a quiet room drives it toward
+        // MIC_REF_MIN (sensitive), a loud one toward MIC_REF_MAX (headroom).
+        // Tune MIC_REF_MIN / MIC_SILENCE_DB if a given mic reads hot or floors.
+        private const val MIC_REF_MIN = -50f          // most sensitive (quiet room)
+        private const val MIC_REF_MAX = -18f          // least sensitive (loud room)
+        private const val MIC_ATTACK_SEC = 0.8f       // rise toward loud
+        private const val MIC_RELEASE_SEC = 4f        // fall back / re-centre
+        private const val MIC_SPAN_BELOW = 22f        // dB below ref → dial bottom
+        private const val MIC_SPAN_ABOVE = 12f        // dB above ref → dial top
+        private const val MIC_SILENCE_DB = -60f       // dial floor never below this
 
         private const val VS = """#version 300 es
             layout(location = 0) in vec2 aPos;
