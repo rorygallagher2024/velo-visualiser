@@ -18,7 +18,7 @@ import kotlin.math.abs
  * To prevent OLED burn-in, it applies a subtle slow orbital drift just like
  * the RawScopeScene and OscilloscopeScene.
  */
-class LissajousScopeScene : GlScene {
+class LissajousScopeScene : StereoScene {
 
     override val respondsToBeat get() = false
 
@@ -122,7 +122,7 @@ class LissajousScopeScene : GlScene {
     // Unused for stereo scene, but required by interface
     override fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) = Unit
 
-    fun drawStereo(pcmStereo: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
+    override fun drawStereo(pcmStereo: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
         val totalPairs = pcmStereo.size / 2
         // The trace is a TIME window, not a point count: oscilloscope-music
         // masters run at 96/192 kHz, and a fixed point budget would quarter the

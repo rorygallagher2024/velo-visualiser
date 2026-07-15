@@ -54,6 +54,14 @@ object NativeBridge {
     external fun nativeGetSampleRate(): Int
 
     /**
+     * Channel count of the live input stream: 2 only when an explicitly
+     * selected external device opened in stereo, 1 for the mono default route,
+     * 0 when no input stream is running. Lets the UI offer the stereo scopes
+     * for a true stereo line-in the same way it does for system/local audio.
+     */
+    external fun nativeGetInputChannels(): Int
+
+    /**
      * Fills the provided caller-owned [outInterleaved] array with the most recent
      * stereo PCM window (Left, Right, Left, Right...). Size should be 2x the mono window.
      */

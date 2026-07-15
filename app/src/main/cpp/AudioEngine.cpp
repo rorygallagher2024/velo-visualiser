@@ -86,6 +86,7 @@ bool AudioEngine::openInputStream(int32_t deviceId, oboe::ChannelCount channelCo
     }
 
     mSampleRate.store(mStream->getSampleRate(), std::memory_order_relaxed);
+    mInputChannels.store(mStream->getChannelCount(), std::memory_order_relaxed);
 
     // Request the smallest stable burst-aligned buffer for minimal latency.
     mStream->setBufferSizeInFrames(mStream->getFramesPerBurst() * 2);
@@ -200,6 +201,7 @@ void AudioEngine::stopPlayback() {
 void AudioEngine::stop() {
     std::lock_guard<std::mutex> lock(mLifecycleLock);
     mRunning.store(false, std::memory_order_release);
+    mInputChannels.store(0, std::memory_order_relaxed);
     if (mStream) {
         mStream->stop();
         mStream->close();

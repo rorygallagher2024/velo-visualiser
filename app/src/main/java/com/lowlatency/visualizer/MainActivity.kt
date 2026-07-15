@@ -291,7 +291,11 @@ class MainActivity : AppCompatActivity() {
             },
             onManualSceneChange = { shuffleController.onSceneChanged() },
             isStereoAudio = {
-                audioSourceController.systemAudioMode || audioSourceController.isLocalPlayback
+                audioSourceController.systemAudioMode ||
+                    audioSourceController.isLocalPlayback ||
+                    // A true stereo external input (USB interface, line-in) also
+                    // feeds the scope scenes real L/R.
+                    NativeBridge.nativeGetInputChannels() >= 2
             },
             onScrubPreview = { active -> menuSheetController.setScrubPreview(active) },
             onCloseMenu = { menuSheetController.close() },

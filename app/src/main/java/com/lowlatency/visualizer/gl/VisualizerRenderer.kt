@@ -88,7 +88,7 @@ class VisualizerRenderer(private val context: Context) : GLSurfaceView.Renderer 
         .order(java.nio.ByteOrder.nativeOrder())
     val sharedAudioFloatBuffer: java.nio.FloatBuffer = sharedAudioBuffer.asFloatBuffer()
 
-    private val scenes = arrayOfNulls<GlScene>(43)
+    private val scenes = arrayOfNulls<GlScene>(44)
     private val scenesToLoad = mutableListOf<Int>()
     private var loadFrameCounter = 0
 
@@ -137,6 +137,7 @@ class VisualizerRenderer(private val context: Context) : GLSurfaceView.Renderer 
             40 -> VeilTopDownScene()
             41 -> LissajousScopeScene()
             42 -> ChromaticDotsScene()
+            43 -> CrtScopeScene()
             else -> RawScopeScene()
         }
     }
@@ -499,9 +500,9 @@ class VisualizerRenderer(private val context: Context) : GLSurfaceView.Renderer 
         resetGlState()
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
 
-        if (scene is LissajousScopeScene) {
+        if (scene is StereoScene) {
             // Fetched only here: no other scene reads stereo, so the copy is
-            // paid exclusively by the scope.
+            // paid exclusively by the scope family.
             NativeBridge.fillLatestStereoAudioBuffer(pcmStereo)
             scene.drawStereo(pcmStereo, bands, t, dim)
         } else {

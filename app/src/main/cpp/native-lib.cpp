@@ -75,6 +75,11 @@ Java_com_lowlatency_visualizer_NativeBridge_nativeGetSampleRate(JNIEnv *, jobjec
 }
 
 JNIEXPORT jint JNICALL
+Java_com_lowlatency_visualizer_NativeBridge_nativeGetInputChannels(JNIEnv *, jobject) {
+    return AudioEngine::instance().inputChannelCount();
+}
+
+JNIEXPORT jint JNICALL
 Java_com_lowlatency_visualizer_NativeBridge_fillLatestStereoAudioBuffer(JNIEnv *env, jobject,
                                                                         jfloatArray outInterleaved) {
     if (outInterleaved == nullptr) return 0;

@@ -60,6 +60,7 @@
     <string name="vis_waveform_waterfall">Waterfall Scope</string>
     <string name="vis_phase_scope">Phase Scope</string>
     <string name="vis_lissajous_scope">Stereo Scope</string>
+    <string name="vis_crt_scope">CRT Scope</string>
     <string name="vis_meridian">Meridian</string>
     <string name="vis_nebula">Nebula</string>
     <string name="vis_event_horizon">Event Horizon</string>
