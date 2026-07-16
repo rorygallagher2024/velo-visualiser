@@ -263,9 +263,30 @@ class WaveformRollScene : GlScene {
 
                 float x01 = frag.x / u_res.x;                 // 0 left … 1 right
                 float slice = u_head - 1.0 - (1.0 - x01) * VISIBLE;
-                float u = (slice + 0.5) / SLICES;             // REPEAT wraps the ring
-                vec4 hUp = texture(u_hist, vec2(u, 0.25));
-                vec4 hDn = texture(u_hist, vec2(u, 0.75));
+
+                // There can be more history columns than screen pixels, so a
+                // pixel takes the MAX over the slice span it covers (the way
+                // DAWs rasterize waveforms) — otherwise narrow peaks breathe
+                // as their phase drifts across sampling positions.
+                float spp = max(VISIBLE / u_res.x, 1e-3);     // slices per pixel
+                float taps = clamp(ceil(spp), 1.0, 4.0);
+                float upExt = 0.0;
+                float dnExt = 0.0;
+                float rmsRaw = 0.0;
+                vec3 rgbAcc = vec3(0.0);
+                for (int k = 0; k < 4; k++) {
+                    if (float(k) >= taps) { break; }
+                    float sk = slice + spp * ((float(k) + 0.5) / taps - 0.5);
+                    float uk = (sk + 0.5) / SLICES;           // REPEAT wraps the ring
+                    vec4 a = texture(u_hist, vec2(uk, 0.25));
+                    vec4 b = texture(u_hist, vec2(uk, 0.75));
+                    upExt = max(upExt, a.a);
+                    dnExt = max(dnExt, b.a);
+                    rmsRaw = max(rmsRaw, b.r);
+                    rgbAcc += a.rgb;
+                }
+                vec4 hUp = vec4(rgbAcc / taps, upExt);
+                vec4 hDn = vec4(rmsRaw, 0.0, 0.0, dnExt);
 
                 // The wave lives in a centred band (55% of the height) — an
                 // instrument in a space, not wall-to-wall.
