@@ -100,6 +100,10 @@ class PostProcessor {
             this.height = newH
             bloomW = (newW / 4).coerceAtLeast(1)
             bloomH = (newH / 4).coerceAtLeast(1)
+            // The active sub-rect changed: scrub the bloom buffers so blur taps
+            // and linear filtering at the new boundary can't drag in stale
+            // content from outside it (white/coloured patches at the edges).
+            clearBloomBuffers()
             return
         }
 
@@ -123,6 +127,18 @@ class PostProcessor {
         }
         ready = sceneFbo != 0 && bloomFbo[0] != 0 && bloomFbo[1] != 0
         if (!ready) Log.w(TAG, "Post-processing FBOs incomplete; bloom disabled.")
+        // Fresh textures have UNDEFINED contents — scrub before first use.
+        if (ready) clearBloomBuffers()
+    }
+
+    /** Zero both bloom ping-pong buffers (full allocation, not just the sub-rect). */
+    private fun clearBloomBuffers() {
+        GLES20.glClearColor(0f, 0f, 0f, 1f)
+        for (i in 0..1) {
+            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, bloomFbo[i])
+            GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
+        }
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
     }
 
     /** Bind the offscreen scene buffer; the renderer then clears + draws the scene. */
@@ -146,6 +162,7 @@ class PostProcessor {
     fun present(
         bloomIntensity: Float, exposure: Float,
         hueShift: Float, saturation: Float, tintR: Float, tintG: Float, tintB: Float,
+        outWidth: Int = -1, outHeight: Int = -1,
     ) {
         // The scene may have left additive blending / depth on — the post passes
         // must run on a clean state.
@@ -153,20 +170,43 @@ class PostProcessor {
         GLES20.glDisable(GLES20.GL_DEPTH_TEST)
         GLES20.glDisable(GLES20.GL_CULL_FACE)
 
-        // 1) Bright-pass: scene -> bloomTex[0] (quarter res).
+        val scaleX = width.toFloat() / allocatedW
+        val scaleY = height.toFloat() / allocatedH
+        // Skip the bright/blur passes entirely when bloom contributes nothing
+        // (e.g. a neutral present that exists only for the resolution upscale).
+        val finalBloomTex =
+            if (bloomIntensity > 0.001f) renderBloom(scaleX, scaleY) else bloomTex[0]
+
+        // 3) Composite scene + glow -> screen (default framebuffer). The
+        // viewport is the OUTPUT size: with dynamic resolution the scene was
+        // rendered smaller than the window, and this single stretch is the
+        // entire upscale — the window buffer itself never changes size.
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
+        val vw = if (outWidth > 0) outWidth else width
+        val vh = if (outHeight > 0) outHeight else height
+        GLES20.glViewport(0, 0, vw, vh)
+        GLES20.glUseProgram(compositeProg)
+        GLES20.glUniform2f(uUvScaleComp, scaleX, scaleY)
+        bindTex(0, sceneTex, uCompScene)
+        bindTex(1, finalBloomTex, uCompBloom)
+        GLES20.glUniform1f(uCompBloomI, bloomIntensity)
+        GLES20.glUniform1f(uCompExposure, exposure)
+        GLES20.glUniform1f(uCompHueShift, hueShift)
+        GLES20.glUniform1f(uCompSat, saturation)
+        GLES20.glUniform3f(uCompTint, tintR, tintG, tintB)
+        drawTriangle()
+    }
+
+    /** Steps 1+2: bright-pass then separable blur. Returns the final bloom texture. */
+    private fun renderBloom(scaleX: Float, scaleY: Float): Int {
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, bloomFbo[0])
         GLES20.glViewport(0, 0, bloomW, bloomH)
         GLES20.glUseProgram(brightProg)
-        
-        val scaleX = width.toFloat() / allocatedW
-        val scaleY = height.toFloat() / allocatedH
         GLES20.glUniform2f(uUvScaleBright, scaleX, scaleY)
-        
         bindTex(0, sceneTex, uBrightTex)
         GLES20.glUniform1f(uThreshold, BLOOM_THRESHOLD)
         drawTriangle()
 
-        // 2) Separable Gaussian bloom, ping-ponging the two quarter-res buffers.
         GLES20.glUseProgram(blurProg)
         GLES20.glUniform2f(uUvScaleBlur, scaleX, scaleY)
         val texelX = 1f / bloomW
@@ -190,21 +230,7 @@ class PostProcessor {
             srcTex = if (dstFbo == bloomFbo[1]) bloomTex[1] else bloomTex[0]
             dstFbo = if (dstFbo == bloomFbo[1]) bloomFbo[0] else bloomFbo[1]
         }
-        val finalBloomTex = srcTex   // last buffer written
-
-        // 3) Composite scene + glow -> screen (default framebuffer).
-        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
-        GLES20.glViewport(0, 0, width, height)
-        GLES20.glUseProgram(compositeProg)
-        GLES20.glUniform2f(uUvScaleComp, scaleX, scaleY)
-        bindTex(0, sceneTex, uCompScene)
-        bindTex(1, finalBloomTex, uCompBloom)
-        GLES20.glUniform1f(uCompBloomI, bloomIntensity)
-        GLES20.glUniform1f(uCompExposure, exposure)
-        GLES20.glUniform1f(uCompHueShift, hueShift)
-        GLES20.glUniform1f(uCompSat, saturation)
-        GLES20.glUniform3f(uCompTint, tintR, tintG, tintB)
-        drawTriangle()
+        return srcTex   // last buffer written
     }
 
     private fun bindTex(unit: Int, tex: Int, sampler: Int) {
