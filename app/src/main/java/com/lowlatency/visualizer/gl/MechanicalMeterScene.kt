@@ -31,9 +31,9 @@ import kotlin.math.sqrt
  * wide, low, room- and distance-dependent dynamic range that no fixed window
  * fits — too sensitive and a loud voice pins it, too insensitive and a quiet
  * one floors it — so it auto-ranges: the dial centre follows the recent level
- * (fast up, slower down) and the scale bottoms out at an absolute silence
- * floor, so quiet still sweeps the needle, loud rides near (never past) the
- * red tick, and genuine silence rests.
+ * (fast up, slower down) and the dial floor rides a tracked noise floor, so
+ * quiet still sweeps the needle, loud rides near (never past) the red tick,
+ * and whatever this room and mic idle at reads as rest.
  */
 class MechanicalMeterScene : GlScene {
 
@@ -55,6 +55,7 @@ class MechanicalMeterScene : GlScene {
     private var needleLevel = 0f
     private var refDb = Float.NaN      // digital-source 0 VU reference
     private var micRefDb = Float.NaN   // mic auto-range centre
+    private var micNoiseDb = Float.NaN // mic noise-floor estimate (min follower)
     private var velocity = 0f
     private var peakLevel = 0f
     private var peakVelocity = 0f
@@ -154,11 +155,22 @@ class MechanicalMeterScene : GlScene {
      */
     private fun micTarget(db: Float, dt: Float): Float {
         if (micRefDb.isNaN()) micRefDb = db.coerceIn(MIC_REF_MIN, MIC_REF_MAX)
+        if (micNoiseDb.isNaN()) micNoiseDb = db
         val tau = if (db > micRefDb) MIC_ATTACK_SEC else MIC_RELEASE_SEC
         micRefDb += (db - micRefDb) * min(dt / tau, 1f)
         micRefDb = micRefDb.coerceIn(MIC_REF_MIN, MIC_REF_MAX)
 
-        val floorDb = max(micRefDb - MIC_SPAN_BELOW, MIC_SILENCE_DB)
+        // Noise-floor minimum follower: latches onto quiet gaps quickly, creeps
+        // up only under sustained level. The dial floor rides just above it, so
+        // ambient rests the needle (and the idle dim engages) on ANY device —
+        // a fixed dB floor either hovers the needle on a hot mic's room tone or
+        // deadens a quiet one. Capped at the reference so floor < ceiling even
+        // when the reference is pinned at its clamp under prolonged loud input.
+        val nTau = if (db < micNoiseDb) NOISE_FALL_SEC else NOISE_RISE_SEC
+        micNoiseDb += (db - micNoiseDb) * min(dt / nTau, 1f)
+        micNoiseDb = micNoiseDb.coerceAtMost(micRefDb)
+
+        val floorDb = max(micRefDb - MIC_SPAN_BELOW, micNoiseDb + NOISE_MARGIN_DB)
         val ceilDb = micRefDb + MIC_SPAN_ABOVE
         return ((db - floorDb) / (ceilDb - floorDb)).coerceIn(0f, 1f)
     }
@@ -166,9 +178,21 @@ class MechanicalMeterScene : GlScene {
     /** All the physics: VU-ballistic spring, tremble, phosphor wake, peak fall. */
     private fun updateMechanics(target: Float, dt: Float, timeSec: Float) {
         // True VU ballistics: ~300 ms rise with a whisper of overshoot.
-        val force = (target - needleLevel) * STIFFNESS
-        velocity += (force - velocity * DAMPING) * dt
-        needleLevel = (needleLevel + velocity * dt).coerceIn(0f, 1f)
+        // Integrated in sub-steps: explicit Euler at this stiffness is only
+        // stable below ~50 ms steps, so a dropped frame (dt clamps at 100 ms)
+        // would otherwise kick the needle into a divergent oscillation.
+        var remaining = dt
+        while (remaining > 0f) {
+            val h = min(remaining, MAX_STEP_SEC)
+            val force = (target - needleLevel) * STIFFNESS
+            velocity += (force - velocity * DAMPING) * h
+            val unclamped = needleLevel + velocity * h
+            needleLevel = unclamped.coerceIn(0f, 1f)
+            // End stop: a real needle halts dead against the pin rather than
+            // storing phantom velocity that would delay its release.
+            if (needleLevel != unclamped) velocity = 0f
+            remaining -= h
+        }
 
         // A real movement trembles faintly under signal, on top of the spring.
         val tremble = (sin(timeSec * 123f) + 0.6f * sin(timeSec * 287f)) * 0.002f * target
@@ -227,14 +251,18 @@ class MechanicalMeterScene : GlScene {
         // Mic / line-input auto-range. The reference (dial centre) tracks the
         // recent level between these bounds; a quiet room drives it toward
         // MIC_REF_MIN (sensitive), a loud one toward MIC_REF_MAX (headroom).
-        // Tune MIC_REF_MIN / MIC_SILENCE_DB if a given mic reads hot or floors.
+        // Tune MIC_REF_MIN / NOISE_MARGIN_DB if a given mic reads hot or floors.
         private const val MIC_REF_MIN = -50f          // most sensitive (quiet room)
         private const val MIC_REF_MAX = -18f          // least sensitive (loud room)
         private const val MIC_ATTACK_SEC = 0.8f       // rise toward loud
         private const val MIC_RELEASE_SEC = 4f        // fall back / re-centre
         private const val MIC_SPAN_BELOW = 22f        // dB below ref → dial bottom
         private const val MIC_SPAN_ABOVE = 12f        // dB above ref → dial top
-        private const val MIC_SILENCE_DB = -60f       // dial floor never below this
+        private const val NOISE_FALL_SEC = 0.6f       // noise floor: latch onto quiet gaps
+        private const val NOISE_RISE_SEC = 25f        // noise floor: creep up when loud persists
+        private const val NOISE_MARGIN_DB = 3f        // dial floor sits this far above it
+
+        private const val MAX_STEP_SEC = 0.016f       // spring integrator sub-step
 
         private const val VS = """#version 300 es
             layout(location = 0) in vec2 aPos;
