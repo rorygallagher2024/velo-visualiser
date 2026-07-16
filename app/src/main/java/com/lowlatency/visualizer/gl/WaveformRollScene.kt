@@ -264,28 +264,35 @@ class WaveformRollScene : GlScene {
                 float x01 = frag.x / u_res.x;                 // 0 left … 1 right
                 float slice = u_head - 1.0 - (1.0 - x01) * VISIBLE;
 
-                // There can be more history columns than screen pixels, so a
-                // pixel takes the MAX over the slice span it covers (the way
-                // DAWs rasterize waveforms) — otherwise narrow peaks breathe
-                // as their phase drifts across sampling positions.
-                float spp = max(VISIBLE / u_res.x, 1e-3);     // slices per pixel
-                float taps = clamp(ceil(spp), 1.0, 4.0);
+                // A pixel takes the MAX over the exact texels whose centres
+                // fall in its span (texelFetch bypasses filtering — the way
+                // DAWs rasterize waveforms). Max of FILTERED taps is not the
+                // same thing: an interpolated read of a narrow peak varies
+                // with sub-texel phase, which made peaks breathe as they
+                // scrolled. Exact fetches make every column's height a
+                // constant of its committed data.
+                float spp = max(VISIBLE / u_res.x, 1.0);      // slices per pixel
+                int iLo = int(floor(slice - 0.5 * spp + 0.5));
+                int iHi = int(floor(slice + 0.5 * spp + 0.5));
                 float upExt = 0.0;
                 float dnExt = 0.0;
                 float rmsRaw = 0.0;
                 vec3 rgbAcc = vec3(0.0);
-                for (int k = 0; k < 4; k++) {
-                    if (float(k) >= taps) { break; }
-                    float sk = slice + spp * ((float(k) + 0.5) / taps - 0.5);
-                    float uk = (sk + 0.5) / SLICES;           // REPEAT wraps the ring
-                    vec4 a = texture(u_hist, vec2(uk, 0.25));
-                    vec4 b = texture(u_hist, vec2(uk, 0.75));
+                float count = 0.0;
+                for (int k = 0; k < 6; k++) {
+                    int si = iLo + k;
+                    if (si > iHi) { break; }
+                    int tx = si % 2048;
+                    if (tx < 0) { tx += 2048; }
+                    vec4 a = texelFetch(u_hist, ivec2(tx, 0), 0);
+                    vec4 b = texelFetch(u_hist, ivec2(tx, 1), 0);
                     upExt = max(upExt, a.a);
                     dnExt = max(dnExt, b.a);
                     rmsRaw = max(rmsRaw, b.r);
                     rgbAcc += a.rgb;
+                    count += 1.0;
                 }
-                vec4 hUp = vec4(rgbAcc / taps, upExt);
+                vec4 hUp = vec4(rgbAcc / max(count, 1.0), upExt);
                 vec4 hDn = vec4(rmsRaw, 0.0, 0.0, dnExt);
 
                 // The wave lives in a centred band (55% of the height) — an
