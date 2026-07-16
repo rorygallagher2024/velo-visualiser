@@ -197,7 +197,10 @@ class WaveformRollScene : GlScene {
         val wl = (bands[0] / m).pow(3)
         val wm = (bands[1] / m).pow(3)
         val wh = (bands[2] / m).pow(3)
-        val ws = wl + wm + wh
+        // Floored: true silence (paused playback clears the rings) yields all-
+        // zero bands, and dividing by a zero weight sum mints NaN — which the
+        // GPU paints WHITE and which poisons the colour smoother forever.
+        val ws = (wl + wm + wh).coerceAtLeast(1e-4f)
         var r = (wl * 1.00f + wm * 0.16f + wh * 0.25f) / ws
         var g = (wl * 0.20f + wm * 0.95f + wh * 0.55f) / ws
         var b = (wl * 0.08f + wm * 0.22f + wh * 1.00f) / ws
@@ -207,6 +210,9 @@ class WaveformRollScene : GlScene {
         g += (1f - g) * whiten
         b += (1f - b) * whiten
         // ~80 ms colour smoothing: hues sweep like a deck, never flicker.
+        if (!smR.isFinite() || !smG.isFinite() || !smB.isFinite()) {
+            smR = 0.3f; smG = 0.6f; smB = 0.4f
+        }
         smR += (r - smR) * COLOR_SMOOTH
         smG += (g - smG) * COLOR_SMOOTH
         smB += (b - smB) * COLOR_SMOOTH
