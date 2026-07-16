@@ -100,6 +100,10 @@ class PostProcessor {
             this.height = newH
             bloomW = (newW / 4).coerceAtLeast(1)
             bloomH = (newH / 4).coerceAtLeast(1)
+            // The active sub-rect changed: scrub the bloom buffers so blur taps
+            // and linear filtering at the new boundary can't drag in stale
+            // content from outside it (white/coloured patches at the edges).
+            clearBloomBuffers()
             return
         }
 
@@ -123,6 +127,18 @@ class PostProcessor {
         }
         ready = sceneFbo != 0 && bloomFbo[0] != 0 && bloomFbo[1] != 0
         if (!ready) Log.w(TAG, "Post-processing FBOs incomplete; bloom disabled.")
+        // Fresh textures have UNDEFINED contents — scrub before first use.
+        if (ready) clearBloomBuffers()
+    }
+
+    /** Zero both bloom ping-pong buffers (full allocation, not just the sub-rect). */
+    private fun clearBloomBuffers() {
+        GLES20.glClearColor(0f, 0f, 0f, 1f)
+        for (i in 0..1) {
+            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, bloomFbo[i])
+            GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
+        }
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
     }
 
     /** Bind the offscreen scene buffer; the renderer then clears + draws the scene. */
