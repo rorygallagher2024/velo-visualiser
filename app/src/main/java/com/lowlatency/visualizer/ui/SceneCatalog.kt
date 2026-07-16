@@ -28,6 +28,7 @@ object SceneCatalog {
         SceneEntry(36, R.string.vis_obsidian, SceneCategory.INSTRUMENTS),
         SceneEntry(4, R.string.vis_circular, SceneCategory.INSTRUMENTS),
         SceneEntry(9, R.string.vis_spectrogram, SceneCategory.INSTRUMENTS),
+        SceneEntry(44, R.string.vis_waveform, SceneCategory.INSTRUMENTS),
         SceneEntry(16, R.string.vis_led_matrix, SceneCategory.INSTRUMENTS),
         SceneEntry(28, R.string.vis_led_matrix_3d, SceneCategory.INSTRUMENTS),
         SceneEntry(17, R.string.vis_mechanical_meter, SceneCategory.INSTRUMENTS),
