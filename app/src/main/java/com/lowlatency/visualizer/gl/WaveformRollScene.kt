@@ -16,7 +16,7 @@ import kotlin.math.pow
  * the way DJ software paints its decks (bass reds, mid greens, treble blues,
  * whitening when the highs dominate).
  *
- * What makes it read like a real DAW/MiniMeters waveform rather than a blob:
+ * What makes it read like a real DAW waveform rather than a blob:
  *
  *  - Slices are built from the actual SAMPLE STREAM (the newest dt worth of
  *    the PCM window each frame), storing signed min and max per ~4.7 ms
