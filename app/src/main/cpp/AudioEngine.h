@@ -85,6 +85,9 @@ public:
     void computeAll(float *outBands, float *outMagnitudes, float *outPeaks, float dt) noexcept;
 
     int sampleRate() const { return mSampleRate.load(std::memory_order_relaxed); }
+    // Channel count of the live input stream (1 or 2); 2 only when an explicit
+    // external device opened in stereo. 0 when no input stream is running.
+    int inputChannelCount() const { return mInputChannels.load(std::memory_order_relaxed); }
     float callbackPeriodMs() const { return mCallbackPeriodMs.load(std::memory_order_relaxed); }
 
     // --- Oboe callbacks (mic input stream only) ---
@@ -166,6 +169,9 @@ private:
     // Input device of the live/last mic session (0 = default route); read by
     // the error callback to restart capture on the same device.
     std::atomic<int32_t> mInputDeviceId{0};
+    // Channel count of the live input stream (1/2, or 0 when stopped); lets the
+    // UI offer the stereo scopes only when a true stereo input is running.
+    std::atomic<int> mInputChannels{0};
     std::atomic<float> mCallbackPeriodMs{0};
 };
 

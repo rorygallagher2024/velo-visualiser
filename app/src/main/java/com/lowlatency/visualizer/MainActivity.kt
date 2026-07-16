@@ -20,6 +20,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.text.HtmlCompat
 import com.lowlatency.visualizer.ui.AudioSourceController
 import com.lowlatency.visualizer.ui.InputDeviceController
+import com.lowlatency.visualizer.ui.ToneController
 import com.lowlatency.visualizer.ui.DisplayModeController
 import com.lowlatency.visualizer.ui.FeelTheSpeedController
 import com.lowlatency.visualizer.ui.LightingController
@@ -74,6 +75,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var linkSyncController: LinkSyncController
     private lateinit var audioSourceController: AudioSourceController
     private lateinit var inputDeviceController: InputDeviceController
+    private lateinit var toneController: ToneController
     private lateinit var feelTheSpeedController: FeelTheSpeedController
     private lateinit var hapticController: HapticController
     private lateinit var prefs: SharedPreferences
@@ -162,17 +164,48 @@ class MainActivity : AppCompatActivity() {
     }
 
     /** Audio-source switching + the first-run "feel the speed" reveal (built first). */
+    /** The two floating canvas overlays (tone controls, media bar). */
+    private fun initCanvasOverlayControllers() {
+        toneController = ToneController(
+            activity = this,
+            isToneMode = { audioSourceController.isToneMode },
+            onEnterTone = { audioSourceController.enterTone() },
+            isMenuOpen = { menuSheetController.isOpen },
+            closeMenu = { menuSheetController.close() },
+            onOverlayLayoutChanged = {
+                if (::scenesController.isInitialized) scenesController.repositionSceneLabel()
+            },
+        )
+        toneController.bind()
+
+        localPlaybackController = LocalPlaybackController(
+            activity = this,
+            prefs = prefs,
+            audioSource = audioSourceController,
+            isMenuOpen = { menuSheetController.isOpen },
+            closeMenu = { menuSheetController.close() },
+            onBarLayoutChanged = {
+                if (::scenesController.isInitialized) scenesController.repositionSceneLabel()
+            },
+        )
+        localPlaybackController.bind()
+    }
+
+    /** Fan-out after every source transition (guards: controllers init in order). */
+    private fun handleSourceChanged() {
+        if (::scenesController.isInitialized) onAudioSourceChanged()
+        if (::linkSyncController.isInitialized) {
+            linkSyncController.setLocalPlaybackActive(audioSourceController.isLocalPlayback)
+        }
+        if (::inputDeviceController.isInitialized) inputDeviceController.refreshRow()
+        if (::toneController.isInitialized) toneController.refresh()
+    }
+
     private fun initAudioControllers() {
         audioSourceController = AudioSourceController(
             activity = this,
             prefs = prefs,
-            onSourceChanged = {
-                if (::scenesController.isInitialized) onAudioSourceChanged()
-                if (::linkSyncController.isInitialized) {
-                    linkSyncController.setLocalPlaybackActive(audioSourceController.isLocalPlayback)
-                }
-                if (::inputDeviceController.isInitialized) inputDeviceController.refreshRow()
-            },
+            onSourceChanged = { handleSourceChanged() },
             onMicStarted = {
                 micStarted = true
                 if (::feelTheSpeedController.isInitialized) feelTheSpeedController.onMicStarted()
@@ -190,29 +223,22 @@ class MainActivity : AppCompatActivity() {
                     0
                 }
             },
+            onToneRequested = { if (::toneController.isInitialized) toneController.enter() },
+            stopTone = { if (::toneController.isInitialized) toneController.stop() },
         )
         audioSourceController.bind()
 
         inputDeviceController = InputDeviceController(
             activity = this,
             isMicMode = {
-                !audioSourceController.systemAudioMode && !audioSourceController.isLocalPlayback
+                !audioSourceController.systemAudioMode && !audioSourceController.isLocalPlayback &&
+                    !audioSourceController.isToneMode
             },
             onSelectionChanged = { audioSourceController.onInputDeviceChanged() },
         )
         inputDeviceController.bind()
 
-        localPlaybackController = LocalPlaybackController(
-            activity = this,
-            prefs = prefs,
-            audioSource = audioSourceController,
-            isMenuOpen = { menuSheetController.isOpen },
-            closeMenu = { menuSheetController.close() },
-            onBarLayoutChanged = {
-                if (::scenesController.isInitialized) scenesController.repositionSceneLabel()
-            },
-        )
-        localPlaybackController.bind()
+        initCanvasOverlayControllers()
 
         feelTheSpeedController = FeelTheSpeedController(
             activity = this,
@@ -226,6 +252,28 @@ class MainActivity : AppCompatActivity() {
         )
         feelTheSpeedController.bind()
     }
+
+    /** Bottom edge of whichever top overlay is visible — transient labels
+     *  (scene name flash) stack themselves below it. */
+    private fun transientLabelAnchor(): Int {
+        var maxBottom = 0
+        if (perfOverlayController.enabled && perfOverlayController.overlayView.height > 0)
+            maxBottom = perfOverlayController.overlayView.bottom
+        if (::localPlaybackController.isInitialized)
+            maxBottom = kotlin.math.max(maxBottom, localPlaybackController.barBottom())
+        if (::toneController.isInitialized)
+            maxBottom = kotlin.math.max(maxBottom, toneController.overlayBottom())
+        return maxBottom
+    }
+
+    /** True when the live source carries real L/R for the stereo scope scenes:
+     *  system capture, local playback, the tone generator (X/Y drives true
+     *  stereo), or a genuine stereo external input (USB interface / line-in). */
+    private fun hasStereoSource(): Boolean =
+        audioSourceController.systemAudioMode ||
+            audioSourceController.isLocalPlayback ||
+            audioSourceController.isToneMode ||
+            NativeBridge.nativeGetInputChannels() >= 2
 
     private fun initControllers() {
         initAudioControllers()
@@ -281,18 +329,9 @@ class MainActivity : AppCompatActivity() {
             glView = glView,
             prefs = prefs,
             isMenuOpen = { menuSheetController.isOpen },
-            perfOverlayBottom = {
-                var maxBottom = 0
-                if (perfOverlayController.enabled && perfOverlayController.overlayView.height > 0)
-                    maxBottom = perfOverlayController.overlayView.bottom
-                if (::localPlaybackController.isInitialized)
-                    maxBottom = kotlin.math.max(maxBottom, localPlaybackController.barBottom())
-                maxBottom
-            },
+            perfOverlayBottom = { transientLabelAnchor() },
             onManualSceneChange = { shuffleController.onSceneChanged() },
-            isStereoAudio = {
-                audioSourceController.systemAudioMode || audioSourceController.isLocalPlayback
-            },
+            isStereoAudio = { hasStereoSource() },
             onScrubPreview = { active -> menuSheetController.setScrubPreview(active) },
             onCloseMenu = { menuSheetController.close() },
         )
@@ -408,7 +447,15 @@ class MainActivity : AppCompatActivity() {
             }
         })
         
-        glView.onTap = { localPlaybackController.onCanvasTap() }
+        glView.onTap = {
+            // Route the canvas tap to whichever source owns an overlay; each
+            // guards on its own mode, so the other is a no-op.
+            if (::toneController.isInitialized && audioSourceController.isToneMode) {
+                toneController.onCanvasTap()
+            } else {
+                localPlaybackController.onCanvasTap()
+            }
+        }
     }
 
     // ----- Settings tabs: Visuals | Lighting | Settings -----
@@ -669,10 +716,11 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateStatus() {
         val systemAudio = audioSourceController.systemAudioMode
-        // Beat detection is hotter on digitally mastered sources — local files
-        // arrive at the same full-scale level as captured system audio, so the
-        // shared sensitivity uses the raised floor for both.
-        BeatSettings.systemAudio = systemAudio || audioSourceController.isLocalPlayback
+        // Beat detection is hotter on digitally mastered sources — local files,
+        // system capture and the tone generator all arrive full-scale, so the
+        // shared sensitivity uses the raised floor for all of them.
+        BeatSettings.systemAudio = systemAudio ||
+            audioSourceController.isLocalPlayback || audioSourceController.isToneMode
 
         // Beat-haptics are mic-only (system-audio capture is buffered → off-beat).
         // Gate the controller and grey the toggle when on internal audio.
@@ -826,8 +874,9 @@ class MainActivity : AppCompatActivity() {
         // The settings sheet re-fits its content column (width cap on wide displays).
         if (::menuSheetController.isInitialized) menuSheetController.onConfigurationChanged()
         if (::scenesController.isInitialized) scenesController.onConfigurationChanged()
-        // The media bar re-fits to the live window width (fold/unfold, rotation).
+        // The floating overlays re-fit to the live window width (fold/unfold, rotation).
         if (::localPlaybackController.isInitialized) localPlaybackController.onConfigurationChanged()
+        if (::toneController.isInitialized) toneController.onConfigurationChanged()
         
         activeDialog?.let { configureDialogWindow(it) }
     }
@@ -837,6 +886,7 @@ class MainActivity : AppCompatActivity() {
         glView.onResume()
         updatePeakLuminance(prefs.getBoolean(KEY_PEAK_LUMINANCE, true))
         if (::audioSourceController.isInitialized) audioSourceController.onResume()
+        if (::toneController.isInitialized) toneController.onResume()
         if (::linkSyncController.isInitialized) linkSyncController.onResume()
         if (::perfOverlayController.isInitialized) perfOverlayController.onResume()
         if (::lightingController.isInitialized) lightingController.onResume()
@@ -850,6 +900,7 @@ class MainActivity : AppCompatActivity() {
         if (::localPlaybackController.isInitialized) localPlaybackController.onPause()
         glView.onPause()
         if (::audioSourceController.isInitialized) audioSourceController.onPause()
+        if (::toneController.isInitialized) toneController.onPause()
         backgroundedAtMs = SystemClock.elapsedRealtime()
         if (::perfOverlayController.isInitialized) perfOverlayController.onPause()
         if (::lightingController.isInitialized) lightingController.onPause()
@@ -869,6 +920,7 @@ class MainActivity : AppCompatActivity() {
         if (::linkSyncController.isInitialized) linkSyncController.onDestroy()
         if (::audioSourceController.isInitialized) audioSourceController.onDestroy()
         if (::inputDeviceController.isInitialized) inputDeviceController.onDestroy()
+        if (::toneController.isInitialized) toneController.onDestroy()
         if (::feelTheSpeedController.isInitialized) feelTheSpeedController.onDestroy()
         if (::menuDiscoveryController.isInitialized) menuDiscoveryController.onDestroy()
         // Join the decode thread before tearing the engine down — the playback

@@ -1,6 +1,6 @@
 plugins {
+    // Kotlin is provided by AGP's built-in Kotlin (no org.jetbrains.kotlin.android).
     id 'com.android.application'
-    id 'org.jetbrains.kotlin.android'
     id 'io.gitlab.arturbosch.detekt'
 }
 
@@ -22,8 +22,8 @@ android {
         minSdk 29            // AudioPlaybackCapture (MediaProjection audio) requires API 29
         targetSdk 37         // Android 17 — latest target
         // Bump the minor version on each change; shown at the bottom of the menu.
-        versionCode 107
-        versionName "1.119"
+        versionCode 115
+        versionName "1.127"
 
         // --- NDK / native build ---
         ndk {
