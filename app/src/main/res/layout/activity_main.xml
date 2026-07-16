@@ -1534,34 +1534,50 @@
         android:background="#FF000000"
         android:importantForAccessibility="no" />
 
-    <!-- Brief intro hint (fades out after a few seconds) -->
+    <!-- Brief intro hint (fades out after a few seconds). Same floating-pill
+         family as the media bar / tone overlay; width is set at show time
+         from OverlayMetrics so it fits every screen and matches its siblings. -->
     <LinearLayout
         android:id="@+id/intro_hint"
-        android:layout_width="wrap_content"
+        android:layout_width="340dp"
         android:layout_height="wrap_content"
         android:layout_gravity="center_horizontal|bottom"
         android:layout_marginBottom="64dp"
         android:orientation="vertical"
         android:gravity="center"
-        android:padding="16dp"
-        android:background="@drawable/sheet_background"
+        android:paddingHorizontal="24dp"
+        android:paddingVertical="18dp"
+        android:background="@drawable/media_bar_bg"
+        android:elevation="12dp"
         android:alpha="0"
         android:visibility="gone">
 
         <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:gravity="center_horizontal"
+            android:fontFamily="@font/satoshi" app:fontFamily="@font/satoshi"
             android:text="@string/hint_swipe_sides"
-            android:textColor="@color/text_primary"
-            android:textSize="14sp"
-            android:layout_marginBottom="4dp" />
+            android:textColor="#CCFFFFFF"
+            android:textAllCaps="true"
+            android:letterSpacing="0.08"
+            android:maxLines="1"
+            app:autoSizeTextType="uniform"
+            app:autoSizeMinTextSize="9sp"
+            app:autoSizeMaxTextSize="13sp"
+            app:autoSizeStepGranularity="1sp"
+            android:layout_marginBottom="6dp" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:fontFamily="@font/satoshi" app:fontFamily="@font/satoshi"
             android:text="@string/hint_swipe_up"
-            android:textColor="@color/text_dim"
-            android:textSize="13sp" />
+            android:textColor="#80FFFFFF"
+            android:textAllCaps="true"
+            android:letterSpacing="0.08"
+            android:maxLines="1"
+            android:textSize="11sp" />
     </LinearLayout>
 
     <!-- First-run "feel the speed" reveal: a single transient line in the brand's

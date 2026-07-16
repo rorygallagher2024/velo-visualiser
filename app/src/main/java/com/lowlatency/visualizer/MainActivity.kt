@@ -28,6 +28,7 @@ import com.lowlatency.visualizer.ui.LinkSyncController
 import com.lowlatency.visualizer.ui.LocalPlaybackController
 import com.lowlatency.visualizer.ui.MenuDiscoveryController
 import com.lowlatency.visualizer.ui.MenuSheetController
+import com.lowlatency.visualizer.ui.OverlayMetrics
 import com.lowlatency.visualizer.ui.PerfOverlayController
 import com.lowlatency.visualizer.ui.ScenesController
 import com.lowlatency.visualizer.ui.ShuffleController
@@ -348,6 +349,7 @@ class MainActivity : AppCompatActivity() {
             glView = glView,
             onBeforeOpen = {
                 syncMenuState()
+                hideIntroHintNow()
                 if (::localPlaybackController.isInitialized) localPlaybackController.hideBar()
                 if (::menuDiscoveryController.isInitialized) menuDiscoveryController.onMenuOpened()
                 if (::scenesController.isInitialized) scenesController.onMenuOpened()
@@ -408,6 +410,10 @@ class MainActivity : AppCompatActivity() {
 
     /** Show a brief, non-blocking gesture hint after the splash fades. */
     private fun showIntroHint() {
+        // Same width family as the media bar / tone overlay, fit to this screen.
+        introHint.layoutParams = introHint.layoutParams.apply {
+            width = OverlayMetrics.widthPx(resources)
+        }
         introHint.visibility = View.VISIBLE
         introHint.animate().alpha(1f).setDuration(600).start()
         
@@ -424,8 +430,21 @@ class MainActivity : AppCompatActivity() {
         }, INTRO_HINT_DURATION_MS)
     }
 
+    /** The menu owns the screen: opening it dismisses the gesture hint early
+     *  (whoever opened the menu has already discovered the gestures). */
+    private fun hideIntroHintNow() {
+        if (introSequenceDone || introHint.visibility != View.VISIBLE) return
+        introHint.animate().alpha(0f).setDuration(200)
+            .withEndAction {
+                introHint.visibility = View.GONE
+                onIntroHintDone()
+            }
+            .start()
+    }
+
     /** Gesture hint has run its course — now it's safe to surface the persistent menu cue. */
     private fun onIntroHintDone() {
+        if (introSequenceDone) return   // timeout + early-dismiss can both land here
         introSequenceDone = true
         if (::menuDiscoveryController.isInitialized) menuDiscoveryController.reveal()
     }
