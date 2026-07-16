@@ -146,7 +146,7 @@ class VisualizerRenderer(private val context: Context) : GLSurfaceView.Renderer 
         val idx = index.coerceIn(0, scenes.size - 1)
         return scenes[idx] ?: createScene(idx).also {
             it.onCreated()
-            it.onResize(surfaceW, surfaceH, aspect)
+            it.onResize(logicalW, logicalH, aspect)
             scenes[idx] = it
             scenesToLoad.remove(idx)
         }
@@ -163,7 +163,7 @@ class VisualizerRenderer(private val context: Context) : GLSurfaceView.Renderer 
         if (scenes[idx] == null) {
             scenes[idx] = createScene(idx).also {
                 it.onCreated()
-                it.onResize(surfaceW, surfaceH, aspect)
+                it.onResize(logicalW, logicalH, aspect)
             }
         }
     }
@@ -174,6 +174,10 @@ class VisualizerRenderer(private val context: Context) : GLSurfaceView.Renderer 
 
     private var surfaceW = 1
     private var surfaceH = 1
+    private var logicalW = -1      // render resolution (surface * renderScale)
+    private var logicalH = -1
+    /** Render-resolution scale, settable from the UI thread (menu open = 0.5). */
+    @Volatile var renderScale = 1f
     private var aspect = 1f
 
     private var startNanos = 0L
@@ -322,28 +326,46 @@ class VisualizerRenderer(private val context: Context) : GLSurfaceView.Renderer 
     }
 
     override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
-        // Foldable resize: reset viewport and recompute aspect for every scene
-        // so geometry never stretches when the device folds/unfolds.
+        if (width <= 0 || height <= 0) return
         surfaceW = width
         surfaceH = height
-        aspect = width.toFloat() / height.toFloat()
         GLES20.glViewport(0, 0, width, height)
-        post.resize(width, height)
-        
-        // Re-populate background load queue on surface reset
+        // Re-populate background load queue on surface reset.
         scenesToLoad.clear()
-        for (i in scenes.indices) {
-            if (scenes[i] == null) scenesToLoad.add(i)
-            else scenes[i]?.onResize(width, height, aspect)
-        }
+        for (i in scenes.indices) if (scenes[i] == null) scenesToLoad.add(i)
+        logicalW = -1   // force ensureRenderResolution to (re)size scenes + post
+        Log.i(TAG, "Surface resized to ${width}x$height")
+    }
 
-        introScene.onResize(width, height, aspect)
-        Log.i(TAG, "Surface resized to ${width}x$height (aspect=$aspect)")
+    /**
+     * Sizes the scenes and post pipeline to the RENDER resolution: the window
+     * size times [renderScale]. Dynamic resolution lives entirely in here —
+     * the window buffer itself is NEVER resized (SurfaceFlinger applies
+     * buffer-size and geometry transactions on separate vsyncs, which flashed
+     * the scene small-in-corner for a frame). Scenes render offscreen at the
+     * scaled size and present() stretches to the full window in one pass.
+     */
+    private fun ensureRenderResolution() {
+        // Without a working post pipeline there is no upscale pass, so scaling
+        // must stay off rather than draw a half-size scene to a full window.
+        val scale = if (post.isReady) renderScale else 1f
+        val targetW = (surfaceW * scale).toInt().coerceAtLeast(1)
+        val targetH = (surfaceH * scale).toInt().coerceAtLeast(1)
+        if (targetW == logicalW && targetH == logicalH) return
+        logicalW = targetW
+        logicalH = targetH
+        aspect = targetW.toFloat() / targetH.toFloat()
+        post.resize(targetW, targetH)
+        for (i in scenes.indices) scenes[i]?.onResize(targetW, targetH, aspect)
+        introScene.onResize(targetW, targetH, aspect)
+        Log.i(TAG, "Render resolution ${targetW}x$targetH (scale=$scale)")
     }
 
     override fun onDrawFrame(gl: GL10?) {
         val frameStartNanos = System.nanoTime()
         cpuThreadTimeStart = android.os.SystemClock.currentThreadTimeMillis()
+
+        ensureRenderResolution()
 
         // Pull the freshest audio data from the native ring buffer.
         NativeBridge.fillSharedAudioBuffer()
@@ -484,8 +506,12 @@ class VisualizerRenderer(private val context: Context) : GLSurfaceView.Renderer 
 
         val glow = GlowSettings.strength
         val theme = ThemeSettings.preset
-        val usePost = post.isReady && !scene.bypassPostProcessing &&
+        val effectsOn = !scene.bypassPostProcessing &&
             (glow.enabled || ThemeSettings.isGraded)
+        // Dynamic resolution routes EVERY scene through the offscreen buffer
+        // (that's where the downscale lives); effect-less scenes get a neutral
+        // present so they still look untouched.
+        val usePost = post.isReady && (effectsOn || renderScale < 0.999f)
         if (usePost) {
             post.beginScene()                    // render into the offscreen HDR buffer
         } else {
@@ -527,13 +553,20 @@ class VisualizerRenderer(private val context: Context) : GLSurfaceView.Renderer 
                 (0.5f + 0.5f * cos(barPhaseNow * TWO_PI)) * BAR_BREATH_AMOUNT * BeatBus.loudness
             else 0f
             // Bloom carries the punch (0 when glow is off); exposure lifts gently.
-            val bloomI = if (glow.enabled)
+            // A scene that only came through here for the downscale renders with
+            // everything neutral — the present is then a pure upscale blit.
+            val bloomI = if (effectsOn && glow.enabled)
                 (1.0f + punch * 1.8f + breath + surge * SURGE_BLOOM) * glow.intensity else 0f
-            val exposure = 1.0f + punch * 0.3f + surge * SURGE_EXPOSURE
-            post.present(
-                bloomI, exposure,
-                theme.hueShift, theme.saturation, theme.tintR, theme.tintG, theme.tintB,
-            )
+            val exposure = if (effectsOn) 1.0f + punch * 0.3f + surge * SURGE_EXPOSURE else 1f
+            if (effectsOn) {
+                post.present(
+                    bloomI, exposure,
+                    theme.hueShift, theme.saturation, theme.tintR, theme.tintG, theme.tintB,
+                    surfaceW, surfaceH,
+                )
+            } else {
+                post.present(0f, 1f, 0f, 1f, 1f, 1f, 1f, surfaceW, surfaceH)
+            }
         }
 
         // Finalise load measurements. (GPU timer queries were tried here and
@@ -618,6 +651,7 @@ class VisualizerRenderer(private val context: Context) : GLSurfaceView.Renderer 
             post.present(
                 INTRO_BLOOM, 1f,
                 theme.hueShift, theme.saturation, theme.tintR, theme.tintG, theme.tintB,
+                surfaceW, surfaceH,
             )
         }
 
