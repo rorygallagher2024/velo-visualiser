@@ -51,7 +51,12 @@ class WaveformRollScene : GlScene {
     // Sample-accurate slice accumulators.
     private var sliceMax = -1f
     private var sliceMin = 1f
+    private var sliceSumSq = 0f
     private var samplesInSlice = 0
+    // Temporally smoothed colour so hues flow instead of flickering per slice.
+    private var smR = 0.3f
+    private var smG = 0.6f
+    private var smB = 0.4f
     private var head = 0
     private var lastTime = -1f
 
@@ -93,8 +98,10 @@ class WaveformRollScene : GlScene {
             GLES20.GL_TEXTURE_2D, 0, GLES30.GL_RGBA16F, SLICES, 2, 0,
             GLES20.GL_RGBA, GLES20.GL_FLOAT, zeros,
         )
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_NEAREST)
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_NEAREST)
+        // LINEAR across slices: contours flow (the DAW look) and the scroll
+        // interpolates sub-slice instead of snapping — the shimmer's root.
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_REPEAT)
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0)
@@ -151,23 +158,26 @@ class WaveformRollScene : GlScene {
             val s = pcm[i]
             if (s > sliceMax) sliceMax = s
             if (s < sliceMin) sliceMin = s
+            sliceSumSq += s * s
             samplesInSlice++
             if (samplesInSlice >= samplesPerSlice) {
-                commitSlice(bands)
+                commitSlice(bands, samplesInSlice)
                 samplesInSlice = 0
                 sliceMax = -1f
                 sliceMin = 1f
+                sliceSumSq = 0f
             }
             i++
         }
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0)
     }
 
-    /** Writes one finished column: auto-gained extents + dominance colour. */
-    private fun commitSlice(bands: FloatArray) {
+    /** Writes one finished column: auto-gained extents, RMS body, colour. */
+    private fun commitSlice(bands: FloatArray, sampleCount: Int) {
         val up = max(sliceMax, 0f)
         val down = max(-sliceMin, 0f)
         val peak = max(up, down)
+        val rms = kotlin.math.sqrt(sliceSumSq / sampleCount.coerceAtLeast(1))
 
         // Auto-gain: rise fast so loud material settles inside the frame,
         // fall slowly so breakdowns stay visibly smaller than drops.
@@ -180,6 +190,7 @@ class WaveformRollScene : GlScene {
         // Soft knee fattens quiet detail without letting peaks clip the frame.
         val dispUp = (up * norm * AMP_TARGET).coerceAtMost(1f).pow(AMP_KNEE)
         val dispDown = (down * norm * AMP_TARGET).coerceAtMost(1f).pow(AMP_KNEE)
+        val dispRms = (rms * norm * AMP_TARGET).coerceAtMost(1f).pow(AMP_KNEE)
 
         // Power-sharpened dominance: the winning band takes the hue.
         val m = max(bands[0], max(bands[1], bands[2])).coerceAtLeast(1e-3f)
@@ -195,12 +206,16 @@ class WaveformRollScene : GlScene {
         r += (1f - r) * whiten
         g += (1f - g) * whiten
         b += (1f - b) * whiten
+        // ~80 ms colour smoothing: hues sweep like a deck, never flicker.
+        smR += (r - smR) * COLOR_SMOOTH
+        smG += (g - smG) * COLOR_SMOOTH
+        smB += (b - smB) * COLOR_SMOOTH
         // Loud columns carry HDR headroom so bloom picks out transients.
         val lift = 1f + 0.4f * dispUp * dispUp
 
         texelStaging.clear()
-        texelStaging.put(r * lift).put(g * lift).put(b * lift).put(dispUp)
-        texelStaging.put(r * lift).put(g * lift).put(b * lift).put(dispDown)
+        texelStaging.put(smR * lift).put(smG * lift).put(smB * lift).put(dispUp)
+        texelStaging.put(dispRms).put(0f).put(0f).put(dispDown)
         texelStaging.position(0)
         // One column, both rows.
         GLES20.glTexSubImage2D(
@@ -221,6 +236,7 @@ class WaveformRollScene : GlScene {
         private const val AGC_RISE = 0.20f          // per-slice attack toward new peaks
         private const val AGC_FALL_PER_SLICE = 0.99987f  // ~25 s half-life
         private const val AGC_FLOOR = 0.02f         // never amplify the noise floor
+        private const val COLOR_SMOOTH = 0.06f      // per-slice hue easing (~80 ms)
 
         private const val VS = """#version 300 es
             layout(location = 0) in vec2 aPos;
@@ -251,21 +267,32 @@ class WaveformRollScene : GlScene {
                 vec4 hUp = texture(u_hist, vec2(u, 0.25));
                 vec4 hDn = texture(u_hist, vec2(u, 0.75));
 
-                float yc = (frag.y - 0.5 * u_res.y) / (0.5 * u_res.y);
-                float ext = yc >= 0.0 ? hUp.a : hDn.a;        // signed extents
+                // The wave lives in a centred band (55% of the height) — an
+                // instrument in a space, not wall-to-wall.
+                float halfBand = 0.5 * u_res.y * 0.55;
+                float yc = (frag.y - 0.5 * u_res.y) / halfBand;
+                float ext = yc >= 0.0 ? hUp.a : hDn.a;        // signed peak extents
+                float rmsExt = hDn.r;                          // RMS body extent
                 float d = abs(yc);
+                float aaPx = 1.25 / halfBand;
 
-                // Anti-aliased fill with a slightly generous feather (kills
-                // single-pixel tip flicker), brighter core, sparkling tips.
-                float aaPx = 1.25 / (0.5 * u_res.y);
-                float fill = smoothstep(ext + aaPx * 2.0, ext - aaPx, d);
-                float core = 1.0 + 0.18 * (1.0 - d / max(ext, 1e-3));
-                float tip = 0.22 * smoothstep(ext * 0.7, ext, d);
-                vec3 col = hUp.rgb * fill * (core + tip);
+                // Two-layer body, the DAW look: a translucent peak envelope
+                // with a brighter, whiter RMS core inside it.
+                float peakFill = smoothstep(ext + aaPx * 2.0, ext - aaPx, d);
+                float bodyFill = smoothstep(rmsExt + aaPx * 2.0, rmsExt - aaPx, d);
+                vec3 bodyCol = mix(hUp.rgb, vec3(1.0), 0.22) * 1.18;
+                vec3 col = hUp.rgb * peakFill * 0.52
+                         + bodyCol * bodyFill * 0.75;
+
+                // A faint halo just past the peak edge keeps tips soft even
+                // with bloom off.
+                float halo = smoothstep(ext + 14.0 * aaPx, ext, d)
+                           * (1.0 - peakFill);
+                col += hUp.rgb * halo * 0.10;
 
                 // Zero axis: a dim whisper, feathered to nothing at the ends —
                 // it rides the orbit and stays far below burn-in territory.
-                float axisPx = d * 0.5 * u_res.y;
+                float axisPx = d * halfBand;
                 float ends = smoothstep(0.0, 0.12, x01) * smoothstep(1.0, 0.88, x01);
                 col += vec3(0.10) * smoothstep(1.6, 0.4, axisPx) * ends;
 
