@@ -324,6 +324,14 @@ class WaveformRollScene : GlScene {
                            * (1.0 - peakFill);
                 col += hUp.rgb * halo * 0.10;
 
+                // The live edge: columns are born hot and cool to archival
+                // brightness over ~1.2 s of travel — the right edge writes
+                // like a chart recorder's pen, and with bloom on each beat
+                // visibly lands, then settles as it becomes history. Lighting
+                // only: the stored waveform stays an honest record.
+                float age = max(u_head - 1.0 - slice, 0.0);
+                col *= 1.0 + 0.45 * exp(-age / 256.0);
+
                 // Zero axis: a dim whisper, feathered to nothing at the ends —
                 // it rides the orbit and stays far below burn-in territory.
                 float axisPx = d * halfBand;
