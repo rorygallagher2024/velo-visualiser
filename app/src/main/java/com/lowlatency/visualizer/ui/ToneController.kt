@@ -55,6 +55,7 @@ class ToneController(
 
     fun bind() {
         overlay = activity.findViewById(R.id.tone_controls_overlay)
+        onConfigurationChanged()
         freqLabel = activity.findViewById(R.id.tone_freq_label)
         freqSeek = activity.findViewById(R.id.tone_freq_seek)
         freqRightLabel = activity.findViewById(R.id.tone_freq_right_label)
@@ -97,6 +98,14 @@ class ToneController(
     fun onCanvasTap() {
         if (!isToneMode() || isMenuOpen()) return
         if (overlay.visibility == View.VISIBLE) hideOverlay() else showOverlayTemporarily()
+    }
+
+    /** Fits the overlay to the live window (fold/unfold, rotation). */
+    fun onConfigurationChanged() {
+        if (!::overlay.isInitialized) return
+        overlay.layoutParams = overlay.layoutParams.apply {
+            width = OverlayMetrics.widthPx(activity.resources)
+        }
     }
 
     /** Hide the overlay if the source is no longer Tone (menu source switch). */

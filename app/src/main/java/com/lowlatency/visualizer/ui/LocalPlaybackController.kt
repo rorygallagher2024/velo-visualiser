@@ -121,19 +121,19 @@ class LocalPlaybackController(
     }
 
     /**
-     * Fits the bar to the live window: ~2/3 of its width, clamped for small
-     * phones and huge tablets, with the hero type, time labels, transport
-     * boxes and seek lane scaling along the same curve. Called on fold/unfold
-     * and rotation — resource buckets alone can't do this because the activity
-     * survives configuration changes without re-inflating.
+     * Fits the bar to the live window: full width minus edge margins, capped
+     * for tablets (see [OverlayMetrics]), with the hero type, time labels,
+     * transport boxes and seek lane scaling along the same curve. Called on
+     * fold/unfold and rotation — resource buckets alone can't do this because
+     * the activity survives configuration changes without re-inflating.
      */
     fun onConfigurationChanged() {
         val density = activity.resources.displayMetrics.density
-        val windowDp = activity.resources.configuration.screenWidthDp.toFloat()
-        val barDp = (windowDp * BAR_WIDTH_FRACTION).coerceIn(BAR_MIN_DP, BAR_MAX_DP)
-        val f = (barDp - BAR_MIN_DP) / (BAR_MAX_DP - BAR_MIN_DP)
+        val f = OverlayMetrics.scale(activity.resources)
 
-        bar.layoutParams = bar.layoutParams.apply { width = (barDp * density).toInt() }
+        bar.layoutParams = bar.layoutParams.apply {
+            width = OverlayMetrics.widthPx(activity.resources)
+        }
         val heroMaxSp = (HERO_MIN_SP + (HERO_MAX_SP - HERO_MIN_SP) * f).toInt()
         title.setAutoSizeTextTypeUniformWithConfiguration(
             HERO_FLOOR_SP, heroMaxSp, 1, TypedValue.COMPLEX_UNIT_SP
@@ -464,10 +464,7 @@ class LocalPlaybackController(
         private const val BAR_FALLBACK_OFFSET_DP = 160f   // pre-layout park distance
         private const val LOOP_OFF_ALPHA = 0.4f
 
-        // Responsive sizing curve: small phone floor → tablet ceiling.
-        private const val BAR_WIDTH_FRACTION = 0.66f
-        private const val BAR_MIN_DP = 340f
-        private const val BAR_MAX_DP = 600f
+        // Responsive sizing curve (width comes from OverlayMetrics).
         private const val HERO_FLOOR_SP = 12            // autosize lower bound
         private const val HERO_MIN_SP = 21f
         private const val HERO_MAX_SP = 30f

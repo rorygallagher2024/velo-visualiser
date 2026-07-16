@@ -164,18 +164,48 @@ class MainActivity : AppCompatActivity() {
     }
 
     /** Audio-source switching + the first-run "feel the speed" reveal (built first). */
+    /** The two floating canvas overlays (tone controls, media bar). */
+    private fun initCanvasOverlayControllers() {
+        toneController = ToneController(
+            activity = this,
+            isToneMode = { audioSourceController.isToneMode },
+            onEnterTone = { audioSourceController.enterTone() },
+            isMenuOpen = { menuSheetController.isOpen },
+            closeMenu = { menuSheetController.close() },
+            onOverlayLayoutChanged = {
+                if (::scenesController.isInitialized) scenesController.repositionSceneLabel()
+            },
+        )
+        toneController.bind()
+
+        localPlaybackController = LocalPlaybackController(
+            activity = this,
+            prefs = prefs,
+            audioSource = audioSourceController,
+            isMenuOpen = { menuSheetController.isOpen },
+            closeMenu = { menuSheetController.close() },
+            onBarLayoutChanged = {
+                if (::scenesController.isInitialized) scenesController.repositionSceneLabel()
+            },
+        )
+        localPlaybackController.bind()
+    }
+
+    /** Fan-out after every source transition (guards: controllers init in order). */
+    private fun handleSourceChanged() {
+        if (::scenesController.isInitialized) onAudioSourceChanged()
+        if (::linkSyncController.isInitialized) {
+            linkSyncController.setLocalPlaybackActive(audioSourceController.isLocalPlayback)
+        }
+        if (::inputDeviceController.isInitialized) inputDeviceController.refreshRow()
+        if (::toneController.isInitialized) toneController.refresh()
+    }
+
     private fun initAudioControllers() {
         audioSourceController = AudioSourceController(
             activity = this,
             prefs = prefs,
-            onSourceChanged = {
-                if (::scenesController.isInitialized) onAudioSourceChanged()
-                if (::linkSyncController.isInitialized) {
-                    linkSyncController.setLocalPlaybackActive(audioSourceController.isLocalPlayback)
-                }
-                if (::inputDeviceController.isInitialized) inputDeviceController.refreshRow()
-                if (::toneController.isInitialized) toneController.refresh()
-            },
+            onSourceChanged = { handleSourceChanged() },
             onMicStarted = {
                 micStarted = true
                 if (::feelTheSpeedController.isInitialized) feelTheSpeedController.onMicStarted()
@@ -208,29 +238,7 @@ class MainActivity : AppCompatActivity() {
         )
         inputDeviceController.bind()
 
-        toneController = ToneController(
-            activity = this,
-            isToneMode = { audioSourceController.isToneMode },
-            onEnterTone = { audioSourceController.enterTone() },
-            isMenuOpen = { menuSheetController.isOpen },
-            closeMenu = { menuSheetController.close() },
-            onOverlayLayoutChanged = {
-                if (::scenesController.isInitialized) scenesController.repositionSceneLabel()
-            },
-        )
-        toneController.bind()
-
-        localPlaybackController = LocalPlaybackController(
-            activity = this,
-            prefs = prefs,
-            audioSource = audioSourceController,
-            isMenuOpen = { menuSheetController.isOpen },
-            closeMenu = { menuSheetController.close() },
-            onBarLayoutChanged = {
-                if (::scenesController.isInitialized) scenesController.repositionSceneLabel()
-            },
-        )
-        localPlaybackController.bind()
+        initCanvasOverlayControllers()
 
         feelTheSpeedController = FeelTheSpeedController(
             activity = this,
@@ -244,6 +252,28 @@ class MainActivity : AppCompatActivity() {
         )
         feelTheSpeedController.bind()
     }
+
+    /** Bottom edge of whichever top overlay is visible — transient labels
+     *  (scene name flash) stack themselves below it. */
+    private fun transientLabelAnchor(): Int {
+        var maxBottom = 0
+        if (perfOverlayController.enabled && perfOverlayController.overlayView.height > 0)
+            maxBottom = perfOverlayController.overlayView.bottom
+        if (::localPlaybackController.isInitialized)
+            maxBottom = kotlin.math.max(maxBottom, localPlaybackController.barBottom())
+        if (::toneController.isInitialized)
+            maxBottom = kotlin.math.max(maxBottom, toneController.overlayBottom())
+        return maxBottom
+    }
+
+    /** True when the live source carries real L/R for the stereo scope scenes:
+     *  system capture, local playback, the tone generator (X/Y drives true
+     *  stereo), or a genuine stereo external input (USB interface / line-in). */
+    private fun hasStereoSource(): Boolean =
+        audioSourceController.systemAudioMode ||
+            audioSourceController.isLocalPlayback ||
+            audioSourceController.isToneMode ||
+            NativeBridge.nativeGetInputChannels() >= 2
 
     private fun initControllers() {
         initAudioControllers()
@@ -299,26 +329,9 @@ class MainActivity : AppCompatActivity() {
             glView = glView,
             prefs = prefs,
             isMenuOpen = { menuSheetController.isOpen },
-            perfOverlayBottom = {
-                var maxBottom = 0
-                if (perfOverlayController.enabled && perfOverlayController.overlayView.height > 0)
-                    maxBottom = perfOverlayController.overlayView.bottom
-                if (::localPlaybackController.isInitialized)
-                    maxBottom = kotlin.math.max(maxBottom, localPlaybackController.barBottom())
-                if (::toneController.isInitialized)
-                    maxBottom = kotlin.math.max(maxBottom, toneController.overlayBottom())
-                maxBottom
-            },
+            perfOverlayBottom = { transientLabelAnchor() },
             onManualSceneChange = { shuffleController.onSceneChanged() },
-            isStereoAudio = {
-                audioSourceController.systemAudioMode ||
-                    audioSourceController.isLocalPlayback ||
-                    // The tone generator is stereo (X/Y mode drives real L/R).
-                    audioSourceController.isToneMode ||
-                    // A true stereo external input (USB interface, line-in) also
-                    // feeds the scope scenes real L/R.
-                    NativeBridge.nativeGetInputChannels() >= 2
-            },
+            isStereoAudio = { hasStereoSource() },
             onScrubPreview = { active -> menuSheetController.setScrubPreview(active) },
             onCloseMenu = { menuSheetController.close() },
         )
@@ -861,8 +874,9 @@ class MainActivity : AppCompatActivity() {
         // The settings sheet re-fits its content column (width cap on wide displays).
         if (::menuSheetController.isInitialized) menuSheetController.onConfigurationChanged()
         if (::scenesController.isInitialized) scenesController.onConfigurationChanged()
-        // The media bar re-fits to the live window width (fold/unfold, rotation).
+        // The floating overlays re-fit to the live window width (fold/unfold, rotation).
         if (::localPlaybackController.isInitialized) localPlaybackController.onConfigurationChanged()
+        if (::toneController.isInitialized) toneController.onConfigurationChanged()
         
         activeDialog?.let { configureDialogWindow(it) }
     }
