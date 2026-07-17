@@ -19,9 +19,15 @@ import kotlin.math.pow
  * What makes it read like a real DAW waveform rather than a blob:
  *
  *  - Slices are built from the actual SAMPLE STREAM (the newest dt worth of
- *    the PCM window each frame), storing signed min and max per ~4.7 ms
+ *    the stereo window each frame), storing signed min and max per ~4.7 ms
  *    column — so the wave is asymmetric and finely striated, and a slice can
  *    never commit empty (columns only complete ON sample boundaries).
+ *  - STEREO SPLIT: when the source carries real stereo (detected from the
+ *    data — upmixed rings are bit-identical L==R), the upper half becomes the
+ *    LEFT channel and the lower half the RIGHT, eased over ~a second so the
+ *    mode never pops. Stereo width turns visible as asymmetry: mono kicks are
+ *    symmetric spikes, wide pads bloom unevenly, ping-pong delays alternate
+ *    sides. Mono sources keep the classic min/max waveform.
  *  - Display amplitude is auto-gained against a rolling loudness reference
  *    (fast to rise, ~25 s to fall, floored above the mic noise floor), so the
  *    quiet Unprocessed mic and full-scale local files both ride ~85% of the
@@ -32,7 +38,7 @@ import kotlin.math.pow
  *  - The whole instrument rides the family's slow burn-in orbit, and the zero
  *    axis is a dim, end-feathered whisper rather than a hard hairline.
  */
-class WaveformRollScene : GlScene {
+class WaveformRollScene : StereoScene {
 
     override val respondsToBeat get() = false   // instrument: honest readout
 
@@ -48,11 +54,16 @@ class WaveformRollScene : GlScene {
     private var width = 1f
     private var height = 1f
 
-    // Sample-accurate slice accumulators.
+    // Sample-accurate slice accumulators (mid = (L+R)/2 for the mono shape).
     private var sliceMax = -1f
     private var sliceMin = 1f
     private var sliceSumSq = 0f
+    private var sliceL = 0f
+    private var sliceR = 0f
+    private var sliceDiff = 0f
     private var samplesInSlice = 0
+    // 0 = mono min/max wave, 1 = L-up / R-down split; eased, data-detected.
+    private var stereoMix = 0f
     // Temporally smoothed colour so hues flow instead of flickering per slice.
     private var smR = 0.3f
     private var smG = 0.6f
@@ -112,13 +123,16 @@ class WaveformRollScene : GlScene {
         this.height = height.toFloat()
     }
 
-    override fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
+    // Unused: the renderer dispatches StereoScenes through drawStereo.
+    override fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) = Unit
+
+    override fun drawStereo(pcmStereo: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
         val dt = if (lastTime < 0f) 0.016f else (timeSec - lastTime).coerceIn(0f, 0.25f)
         lastTime = timeSec
 
         val sampleRate = NativeBridge.nativeGetSampleRate().coerceAtLeast(8000)
-        val samplesPerSlice = (SLICE_SEC * sampleRate).toInt().coerceAtLeast(8)
-        consumeSamples(pcm, bands, dt, sampleRate, samplesPerSlice)
+        val framesPerSlice = (SLICE_SEC * sampleRate).toInt().coerceAtLeast(8)
+        consumeFrames(pcmStereo, bands, dt, sampleRate, framesPerSlice)
 
         GLES20.glDisable(GLES20.GL_BLEND)
         GLES20.glUseProgram(program)
@@ -129,7 +143,7 @@ class WaveformRollScene : GlScene {
         GLES20.glUniform1f(uTime, timeSec)
         GLES20.glUniform1f(uDim, dim)
         // Fractional head keeps the scroll continuous between slice commits.
-        GLES20.glUniform1f(uHead, head + samplesInSlice.toFloat() / samplesPerSlice)
+        GLES20.glUniform1f(uHead, head + samplesInSlice.toFloat() / framesPerSlice)
 
         GLES20.glEnableVertexAttribArray(aPos)
         GLES20.glVertexAttribPointer(aPos, 2, GLES20.GL_FLOAT, false, 0, quad)
@@ -139,43 +153,68 @@ class WaveformRollScene : GlScene {
     }
 
     /**
-     * Feeds the newest [dt]-worth of the PCM window through the slice
+     * Feeds the newest [dt]-worth of the stereo window through the slice
      * accumulators, committing a column exactly when it fills — a slice can
      * therefore never be written from empty accumulators (the old glimmer).
      */
-    private fun consumeSamples(
-        pcm: FloatArray,
+    private fun consumeFrames(
+        pcmStereo: FloatArray,
         bands: FloatArray,
         dt: Float,
         sampleRate: Int,
-        samplesPerSlice: Int,
+        framesPerSlice: Int,
     ) {
-        val fresh = min(pcm.size, (dt * sampleRate).toInt() + 1)
+        val total = pcmStereo.size / 2
+        val fresh = min(total, (dt * sampleRate).toInt() + 1)
         if (fresh <= 0) return
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, historyTex)
-        var i = pcm.size - fresh
-        while (i < pcm.size) {
-            val s = pcm[i]
-            if (s > sliceMax) sliceMax = s
-            if (s < sliceMin) sliceMin = s
-            sliceSumSq += s * s
+        var i = total - fresh
+        while (i < total) {
+            accumulateFrame(pcmStereo[i * 2], pcmStereo[i * 2 + 1])
             samplesInSlice++
-            if (samplesInSlice >= samplesPerSlice) {
+            if (samplesInSlice >= framesPerSlice) {
                 commitSlice(bands, samplesInSlice)
-                samplesInSlice = 0
-                sliceMax = -1f
-                sliceMin = 1f
-                sliceSumSq = 0f
+                resetSliceAccumulators()
             }
             i++
         }
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0)
     }
 
+    private fun accumulateFrame(l: Float, r: Float) {
+        val mid = (l + r) * 0.5f
+        if (mid > sliceMax) sliceMax = mid
+        if (mid < sliceMin) sliceMin = mid
+        sliceSumSq += mid * mid
+        val la = if (l < 0f) -l else l
+        val ra = if (r < 0f) -r else r
+        if (la > sliceL) sliceL = la
+        if (ra > sliceR) sliceR = ra
+        val diff = if (l - r < 0f) r - l else l - r
+        if (diff > sliceDiff) sliceDiff = diff
+    }
+
+    private fun resetSliceAccumulators() {
+        samplesInSlice = 0
+        sliceMax = -1f
+        sliceMin = 1f
+        sliceSumSq = 0f
+        sliceL = 0f
+        sliceR = 0f
+        sliceDiff = 0f
+    }
+
     /** Writes one finished column: auto-gained extents, RMS body, colour. */
     private fun commitSlice(bands: FloatArray, sampleCount: Int) {
-        val up = max(sliceMax, 0f)
-        val down = max(-sliceMin, 0f)
+        // Real stereo shows a genuine L/R difference; upmixed rings are
+        // bit-identical, so silence and mono sources stay in min/max mode.
+        val stereoTarget = if (sliceDiff > 1e-4f) 1f else 0f
+        stereoMix += (stereoTarget - stereoMix) * STEREO_EASE
+
+        val monoUp = max(sliceMax, 0f)
+        val monoDown = max(-sliceMin, 0f)
+        val up = monoUp + (sliceL - monoUp) * stereoMix
+        val down = monoDown + (sliceR - monoDown) * stereoMix
         val peak = max(up, down)
         val rms = kotlin.math.sqrt(sliceSumSq / sampleCount.coerceAtLeast(1))
 
@@ -243,6 +282,7 @@ class WaveformRollScene : GlScene {
         private const val AGC_FALL_PER_SLICE = 0.99987f  // ~25 s half-life
         private const val AGC_FLOOR = 0.02f         // never amplify the noise floor
         private const val COLOR_SMOOTH = 0.06f      // per-slice hue easing (~80 ms)
+        private const val STEREO_EASE = 0.02f       // mono-to-stereo mode blend (~1 s)
 
         private const val VS = """#version 300 es
             layout(location = 0) in vec2 aPos;
