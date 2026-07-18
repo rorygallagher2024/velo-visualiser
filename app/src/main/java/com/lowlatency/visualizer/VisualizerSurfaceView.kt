@@ -99,6 +99,9 @@ class VisualizerSurfaceView @JvmOverloads constructor(
     /** Fast-forward the intro to its dissolve. Safe to call any time. */
     fun skipIntro() = queueEvent { renderer.skipIntro() }
 
+    /** Propagate audio source change to the renderer on the GL thread. */
+    fun onAudioSourceChanged() = queueEvent { renderer.onAudioSourceChanged() }
+
     private val gestureDetector = GestureDetector(
         context,
         object : GestureDetector.SimpleOnGestureListener() {

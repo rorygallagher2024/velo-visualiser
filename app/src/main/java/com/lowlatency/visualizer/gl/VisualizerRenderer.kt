@@ -732,5 +732,12 @@ class VisualizerRenderer(private val context: Context) : GLSurfaceView.Renderer 
         }
     }
 
+    /** Notify all loaded scenes that the audio source has changed. */
+    fun onAudioSourceChanged() {
+        for (scene in scenes) {
+            scene?.onAudioSourceChanged()
+        }
+    }
+
     private fun nowSec(): Float = (System.nanoTime() - startNanos) / 1_000_000_000f
 }
