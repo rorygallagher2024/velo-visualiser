@@ -163,8 +163,20 @@ class ScenesController(
     fun sceneList(): List<Pair<Int, String>> = entries.map { it.index to nameOf(it.index) }
 
     fun updateSelection() {
+        ensureActiveSceneInWheel()
         wheel.centerOn(glView.sceneIndex)
         updateCounter(glView.sceneIndex)
+    }
+
+    /** The wheel must open centred on the live scene. Canvas swipes and shuffle
+     *  roam the full catalog, so with the favourites filter on the active scene
+     *  may not be in the wheel at all — centerOn would bail and the menu would
+     *  open pointing at a stale row. Drop the filter rather than lie. */
+    private fun ensureActiveSceneInWheel() {
+        if (!showingFavourites || favourites.contains(glView.sceneIndex)) return
+        showingFavourites = false
+        updateFavFilterIcon()
+        rebuildWheel()
     }
 
     /** Fade the counter (and the sheet chrome via [onScrubPreview]) away while

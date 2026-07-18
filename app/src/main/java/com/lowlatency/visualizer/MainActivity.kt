@@ -351,6 +351,7 @@ class MainActivity : AppCompatActivity() {
                 syncMenuState()
                 hideIntroHintNow()
                 if (::localPlaybackController.isInitialized) localPlaybackController.hideBar()
+                if (::toneController.isInitialized) toneController.hideOverlay()
                 if (::menuDiscoveryController.isInitialized) menuDiscoveryController.onMenuOpened()
                 if (::scenesController.isInitialized) scenesController.onMenuOpened()
             },

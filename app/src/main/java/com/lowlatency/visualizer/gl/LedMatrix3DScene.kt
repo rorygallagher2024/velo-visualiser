@@ -19,6 +19,8 @@ class LedMatrix3DScene : GlScene {
     companion object {
         private const val COLS = 24
         private const val ROWS = 14
+        private const val RELEASE_TAU = 0.09f   // LED glow-down time constant
+        private const val ROW_HYST = 0.15f      // Schmitt band around each LED (rows)
 
         private const val VERTEX_SHADER = """#version 300 es
             layout(location = 0) in vec2 aPos;
@@ -54,12 +56,21 @@ class LedMatrix3DScene : GlScene {
                             clamp(floor(p.y + 0.5), 0.0, ROWS - 1.0));
             }
 
+            // The device body: a rounded slab sitting just behind the LEDs,
+            // sized with a bezel margin — the grid reads as a built object,
+            // not cubes floating in a void. LEDs protrude through its face.
+            float sdChassis(vec3 p) {
+                vec3 c = vec3((COLS - 1.0) * 0.5, (ROWS - 1.0) * 0.5, 1.05);
+                return sdRoundBox(p - c, vec3(COLS * 0.5 + 0.9, ROWS * 0.5 + 0.9, 0.35), 0.30);
+            }
+
             // Map the world
             float map(vec3 p) {
                 vec3 q = p;
                 q.xy -= getCubeID(p);
                 // Box size 0.35, roundness 0.05 => total size 0.4 => gap is 0.2 between centers
-                return sdRoundBox(q, vec3(0.35), 0.08);
+                float leds = sdRoundBox(q, vec3(0.35), 0.08);
+                return min(leds, sdChassis(p));
             }
 
             // Calculate Normal
@@ -85,10 +96,13 @@ class LedMatrix3DScene : GlScene {
                 vec3 ro = center + vec3(18.0 * sin(u_time * 0.15), 12.0 + 4.0 * cos(u_time * 0.2), -26.0);
                 vec3 ta = center;
                 
-                // Build Camera Ray
+                // Build Camera Ray. Right-handed basis (right = up x fwd,
+                // up = fwd x right): with the camera on the -Z side this puts
+                // +X on screen-right, so column 0 (bass) sits on the LEFT and
+                // treble on the right — cross(ww, up) mirrored the spectrum.
                 vec3 ww = normalize(ta - ro);
-                vec3 uu = normalize(cross(ww, vec3(0.0, 1.0, 0.0)));
-                vec3 vv = normalize(cross(uu, ww));
+                vec3 uu = normalize(cross(vec3(0.0, 1.0, 0.0), ww));
+                vec3 vv = normalize(cross(ww, uu));
                 vec3 rd = normalize(uv.x*uu + uv.y*vv + 1.6*ww); // 1.6 FOV
 
                 // Raymarch Loop
@@ -113,6 +127,9 @@ class LedMatrix3DScene : GlScene {
                 if(t < 100.0) {
                     vec2 id = getCubeID(p);
                     vec3 n = calcNormal(p);
+                    // Which object did we hit? Compare the two SDFs here.
+                    vec3 qh = p; qh.xy -= id;
+                    bool onChassis = sdChassis(p) < sdRoundBox(qh, vec3(0.35), 0.08);
                     
                     // Main directional light
                     vec3 l = normalize(vec3(0.5, 1.0, -0.8));
@@ -129,10 +146,12 @@ class LedMatrix3DScene : GlScene {
                     bool isPeak = abs(id.y - peakRow) < 0.1 && peak > 0.02;
 
                     // Material Definitions
-                    vec3 matColor = vec3(0.02); // Unlit dark glass
+                    vec3 matColor = vec3(0.045); // Unlit dark lens — visible hardware
                     float emission = 0.0;
 
-                    if(isPeak) {
+                    if(onChassis) {
+                        matColor = vec3(0.05);   // matte housing
+                    } else if(isPeak) {
                         // Stark white hot peaks
                         matColor = vec3(1.0, 0.95, 0.9);
                         emission = 2.0; // Subtle bloom triggering HDR
@@ -151,8 +170,9 @@ class LedMatrix3DScene : GlScene {
                     float amb = 0.15;
                     
                     // Sharp specular highlights for "glass/plastic" feel
+                    // (dialed down on the matte housing so it doesn't glare)
                     vec3 h = normalize(l - rd);
-                    float spec = pow(max(dot(n, h), 0.0), 64.0);
+                    float spec = pow(max(dot(n, h), 0.0), 64.0) * (onChassis ? 0.25 : 1.0);
 
                     // Combine Diffuse, Specular, and Ambient
                     col = matColor * (diff + amb) + spec * 0.6;
@@ -192,6 +212,12 @@ class LedMatrix3DScene : GlScene {
     private var width = 1f
     private var height = 1f
 
+    // LED physics: analog level per column (instant attack, RC-style release)
+    // and a Schmitt-latched lit-row count so LEDs never strobe at a threshold.
+    private val colLevel = FloatArray(COLS)
+    private val litRows = FloatArray(COLS)
+    private var lastT = -1f
+
     override fun onCreated() {
         program = ShaderUtil.buildProgram(VERTEX_SHADER, FRAGMENT_SHADER)
         aPos = GLES20.glGetAttribLocation(program, "aPos")
@@ -225,16 +251,29 @@ class LedMatrix3DScene : GlScene {
 
         val magnitudes = SpectrumData.magnitudes
         val peaks = SpectrumData.peaks
+        val dt = if (lastT < 0f) 0.016f else (timeSec - lastT).coerceIn(0f, 0.1f)
+        lastT = timeSec
+        val release = kotlin.math.exp(-dt / RELEASE_TAU)
         upload.clear()
-        
-        // Group raw 128-bin spectrum into 24 distinct columns
+
+        // Group raw 128-bin spectrum into 24 distinct columns, then run each
+        // through the LED physics: instant attack, ~90 ms glow-down, and a
+        // Schmitt latch per row so an LED clicks on/off instead of strobing
+        // while the level dances at its threshold.
         for (i in 0 until COLS) {
             val lo = i * 128 / COLS
             val hi = (i + 1) * 128 / COLS
             val n = (hi - lo).coerceAtLeast(1)
             var sum = 0f
             for (j in lo until lo + n) sum += magnitudes[j.coerceAtMost(127)]
-            upload.put(sum / n)
+            val target = sum / n
+            colLevel[i] = if (target > colLevel[i]) target else colLevel[i] * release
+            val level = colLevel[i] * ROWS
+            var lit = litRows[i]
+            while (lit < ROWS && level >= lit + 0.5f + ROW_HYST) lit += 1f
+            while (lit > 0f && level <= lit - 0.5f - ROW_HYST) lit -= 1f
+            litRows[i] = lit
+            upload.put(lit / ROWS)
         }
         for (i in 0 until COLS) {
             val lo = i * 128 / COLS
