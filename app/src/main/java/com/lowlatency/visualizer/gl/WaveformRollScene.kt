@@ -2,6 +2,7 @@ package com.lowlatency.visualizer.gl
 
 import android.opengl.GLES20
 import android.opengl.GLES30
+import com.lowlatency.visualizer.BeatPulse
 import com.lowlatency.visualizer.NativeBridge
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -35,6 +36,10 @@ import kotlin.math.pow
  *  - Colour uses power-sharpened band dominance — real music holds all three
  *    bands in similar ranges, so a linear blend is permanently green; cubing
  *    the normalized weights lets the winner take the hue.
+ *  - With Ableton Link connected, every beat is etched into the history as a
+ *    small axis tick (downbeats taller), so the last nine seconds read as a
+ *    bar ruler. Link only: an etched mark is a PERMANENT record, and onset
+ *    detection is not reliable enough to write lies into a timeline.
  *  - The whole instrument rides the family's slow burn-in orbit, and the zero
  *    axis is a dim, end-feathered whisper rather than a hard hairline.
  */
@@ -73,6 +78,10 @@ class WaveformRollScene : StereoScene {
 
     // Rolling loudness reference for display auto-gain.
     private var agcRef = AGC_FLOOR
+
+    // Link phase trackers: a wrap between commits means this slice holds a beat.
+    private var prevBeatPhase = 0.0
+    private var prevBarPhase = 0.0
 
     private val texelStaging: FloatBuffer = ByteBuffer
         .allocateDirect(2 * 4 * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
@@ -181,6 +190,27 @@ class WaveformRollScene : StereoScene {
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0)
     }
 
+    /**
+     * 0 = no mark, 0.6 = Link beat, 1.0 = Link downbeat — detected as a phase
+     * wrap between slice commits. Etching is Link-ONLY by design: marks are a
+     * permanent record, and onset detection would write lies into it.
+     */
+    private fun linkEtchMark(): Float {
+        if (!BeatPulse.linkActive) {
+            prevBeatPhase = 0.0
+            prevBarPhase = 0.0
+            return 0f
+        }
+        val beatPhase = NativeBridge.nativeLinkBeatPhase()
+        val barPhase = NativeBridge.nativeLinkBarPhase()
+        var mark = 0f
+        if (beatPhase < prevBeatPhase) mark = 0.6f
+        if (barPhase < prevBarPhase) mark = 1f
+        prevBeatPhase = beatPhase
+        prevBarPhase = barPhase
+        return mark
+    }
+
     private fun accumulateFrame(l: Float, r: Float) {
         val mid = (l + r) * 0.5f
         if (mid > sliceMax) sliceMax = mid
@@ -260,7 +290,7 @@ class WaveformRollScene : StereoScene {
 
         texelStaging.clear()
         texelStaging.put(smR * lift).put(smG * lift).put(smB * lift).put(dispUp)
-        texelStaging.put(dispRms).put(0f).put(0f).put(dispDown)
+        texelStaging.put(dispRms).put(linkEtchMark()).put(0f).put(dispDown)
         texelStaging.position(0)
         // One column, both rows.
         GLES20.glTexSubImage2D(
@@ -323,6 +353,7 @@ class WaveformRollScene : StereoScene {
                 float upExt = 0.0;
                 float dnExt = 0.0;
                 float rmsRaw = 0.0;
+                float beatMark = 0.0;
                 vec3 rgbAcc = vec3(0.0);
                 float count = 0.0;
                 for (int k = 0; k < 6; k++) {
@@ -335,6 +366,7 @@ class WaveformRollScene : StereoScene {
                     upExt = max(upExt, a.a);
                     dnExt = max(dnExt, b.a);
                     rmsRaw = max(rmsRaw, b.r);
+                    beatMark = max(beatMark, b.g);
                     rgbAcc += a.rgb;
                     count += 1.0;
                 }
@@ -363,6 +395,15 @@ class WaveformRollScene : StereoScene {
                 float halo = smoothstep(ext + 14.0 * aaPx, ext, d)
                            * (1.0 - peakFill);
                 col += hUp.rgb * halo * 0.10;
+
+                // Link bar ruler: beats etched as small axis ticks, downbeats
+                // taller — the history reads as bars. Added before the live-edge
+                // multiply below, so fresh etches are born hot like the wave.
+                if (beatMark > 0.05) {
+                    float tickH = mix(0.05, 0.105, step(0.8, beatMark));
+                    float tick = smoothstep(tickH, tickH * 0.55, d);
+                    col += vec3(0.55) * tick * beatMark;
+                }
 
                 // The live edge: columns are born hot and cool to archival
                 // brightness over ~1.2 s of travel — the right edge writes
