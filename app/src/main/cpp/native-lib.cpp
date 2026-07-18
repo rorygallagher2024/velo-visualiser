@@ -3,7 +3,6 @@
 #include <cmath>
 #include <vector>
 #include <android/log.h>
-#include <arm_neon.h>
 #include "AudioEngine.h"
 #include "LinkController.h"
 
@@ -139,7 +138,8 @@ Java_com_lowlatency_visualizer_NativeBridge_fillSharedAudioBuffer(JNIEnv *, jobj
 // System-audio (AudioPlaybackCapture) push path. Kotlin reads 16-bit PCM from
 // an AudioRecord backed by a MediaProjection token and forwards it here. We
 // downmix to mono float and feed the same ring buffer the renderer consumes.
-// Optimized with ARM NEON for common stereo downmixing and gain scaling.
+// Conversion cost is measured (gSystemAudioConvTimeUs) and sits in the
+// microseconds, so this path never gates the render loop.
 // ---------------------------------------------------------------------------
 JNIEXPORT void JNICALL
 Java_com_lowlatency_visualizer_NativeBridge_nativePushPcm(JNIEnv *env, jobject,

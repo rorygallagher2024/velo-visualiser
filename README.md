@@ -6,12 +6,11 @@
 
 Velo Visualiser is an Android audio visualiser engineered around one primary objective: **low latency**. 
 
-When you open the app, you'll see the default oscilloscope visualisation which responds to microphone input in **less than 10ms**. That is faster than:
+When you open the app, the default oscilloscope starts moving with the sound in the room. The app itself hears, analyses and draws in **under 10 ms**; the finished frame then rides the screen's normal refresh pipeline (which no app can skip), reaching your eyes in roughly **15–25 ms** end to end on a 120 Hz display. That is faster than:
 * **The blink of an eye** (which takes 100–400 ms).
-* **Human tactile perception** (the 20–30 ms it takes your brain to register touching a drum pad).
-* **The physical speed of sound** travelling from speakers on one side of the room to another (3.4 metres in 10 ms).
+* **The sound itself, across a big room**: sound covers only about 7 metres in 20 ms, so from the far side of the room the picture can move before the music reaches your ears.
 
-A bare-metal C++/Oboe audio engine and custom OpenGL ES 3.1 shaders bypass standard Android bottlenecks to deliver sub-10 ms audio-to-pixel response, whilst also capable of driving smart home lighting and device haptics in real-time.
+A bare-metal C++/Oboe audio engine and custom OpenGL ES 3.1 shaders bypass standard Android bottlenecks to keep the app's own share of that delay under 10 ms, whilst also driving smart home lighting and device haptics in real-time.
 
 ## What's the app for
 
@@ -19,7 +18,7 @@ A bare-metal C++/Oboe audio engine and custom OpenGL ES 3.1 shaders bypass stand
    
 2. A live performance tool: That is ideal for home DJs: The visualiser is well suited for use on android based projectors, or large secondary displays as a live performance tool. Its low latency smart home lighting control additionally offers beat synchronised lighting in time with your set.
 
-3. Playing Oscilloscope Music: Features dedicated, true stereo "Stereo Scope" and phosphor "CRT Scope" modes designed to perfectly render the mathematical audio-visual vector art of oscilloscope music (Like Jerobeam Fenderson). *(These visuals need a stereo source — Local File playback, a stereo USB/line-in input, the tone generator's X/Y mode, or System Audio. We highly recommend a lossless file like WAV or FLAC, as MP3 or YouTube compression will permanently destroy the shape geometries!)*
+3. Playing Oscilloscope Music: Features dedicated, true stereo "Stereo Scope" and phosphor "CRT Scope" modes designed to perfectly render the mathematical audio-visual vector art of oscilloscope music (Like Jerobeam Fenderson). *(These visuals need a stereo source: Local File playback, a stereo USB/line-in input, the tone generator's X/Y mode, or System Audio. We highly recommend a lossless file like WAV or FLAC, as MP3 or YouTube compression will permanently destroy the shape geometries!)*
 
 ## Demo
 **Velo Visualiser: Low Latency Music Visualiser Demo Video**
@@ -38,16 +37,16 @@ Velo Visualiser is available for free on the Google Play Store:
 
 ## Reacts to the sound. Locks to the set.
 
-Velo Visualiser listens to the **actual sound** in the room and moves with it instantly. The sub-10 ms reaction is what the visuals are built on. Switch on **[Ableton Link](https://www.ableton.com/en/link/)** (Works with Traktor, Ableton Live, Serato and more) and Velo Visualiser also locks onto your set's tempo, layering a tightly-timed **extra punch and bloom** over the top — even *anticipating* each beat a hair before it lands, the way only a shared musical clock can. The faithful "instrument" visuals (oscilloscope, spectrum, meters) stay a pure readout of the sound, while the reactive scenes get that grid-locked accent. Sound drives the picture; Link adds the polish.
+Velo Visualiser listens to the **actual sound** in the room and moves with it instantly. The sub-10 ms reaction is what the visuals are built on. Switch on **[Ableton Link](https://www.ableton.com/en/link/)** (Works with Traktor, Ableton Live, Serato and more) and Velo Visualiser also locks onto your set's tempo, layering a tightly-timed **extra punch and bloom** over the top, even *anticipating* each beat a hair before it lands, the way only a shared musical clock can. The faithful "instrument" visuals (oscilloscope, spectrum, meters) stay a pure readout of the sound, while the reactive scenes get that grid-locked accent. Sound drives the picture; Link adds the polish.
 
 *(And as experimental extras: Bar-synced glow and drop-triggered surges - for when you want the visuals to follow the arrangement, not just the beat.)*
 
 ## Core Features
 * **High-FPS, HDR-Capable 3D Visuals:** Targets 120+ fps for fluid, tear-free rendering (device and preset dependent).
-* **Phase-Locked Local Playback:** Play audio files through the app's own MediaCodec → C++ Oboe pipeline. The exact PCM written to the audio device is mirrored straight into the visualiser, so the visuals track playback sample-accurately — no capture round-trip, no drift. Includes seek, loop and full stereo delivery to the scope visuals. Plays everything Android decodes (MP3, AAC, FLAC, WAV, OGG…) plus native AIFF support for oscilloscope-music releases.
-* **True Stereo Oscilloscope Rendering:** Includes specialised X/Y "Stereo Scope" and phosphor "CRT Scope" visuals for rendering mathematical vector audio art (Oscilloscope Music). Fed by Local File playback (recommended — perfect phase alignment), a stereo USB/line-in input, the built-in tone generator's X/Y mode, or System Audio capture; lossless files give the cleanest traces.
+* **Phase-Locked Local Playback:** Play audio files through the app's own MediaCodec → C++ Oboe pipeline. The exact PCM written to the audio device is mirrored straight into the visualiser, so the visuals track playback sample-accurately: no capture round-trip, no drift. Includes seek, loop and full stereo delivery to the scope visuals. Plays everything Android decodes (MP3, AAC, FLAC, WAV, OGG…) plus native AIFF support for oscilloscope-music releases.
+* **True Stereo Oscilloscope Rendering:** Includes specialised X/Y "Stereo Scope" and phosphor "CRT Scope" visuals for rendering mathematical vector audio art (Oscilloscope Music). Fed by Local File playback (recommended for perfect phase alignment), a stereo USB/line-in input, the built-in tone generator's X/Y mode, or System Audio capture; lossless files give the cleanest traces.
 * **Ableton Link Integration:** Supplement the microphone input with perfect phase-synchronization and predictive beat detection broadcast directly from your DJ software (Traktor, Live, Serato).
-* **Smart Home Room Lighting Control:** Drive your physical room lighting with the exact same zero-lag transient detection used for the on-screen visuals. Supports Philips Hue, Lifx bulbs, and Nanoleaf panels.
+* **Smart Home Room Lighting Control:** Drive your physical room lighting with the same low-latency beat detection used for the on-screen visuals. Supports Philips Hue, Lifx bulbs, and Nanoleaf panels.
 * **No Nonsense:** 100% local processing. No data collection. No ads. I don't want your data, and nobody wants ads.
 
 ## The full feature list
@@ -56,41 +55,42 @@ Velo Visualiser listens to the **actual sound** in the room and moves with it in
 - **HDR Effects**: Including post-processing for real luminous glow on capable HDR displays and a selectable glow strength.
 - **Ableton Link sync**: Lock beat-driven effects to Traktor, Ableton Live, and other Link software over Wi-Fi; the mic still drives the visuals while Link sets the beat.
 - **Real-time Room Lighting Control with Philips Hue, LIFX & Nanoleaf Integration**: Direct local UDP streaming over the Hue Entertainment API, LIFX LAN Protocol, and Nanoleaf ExtControl. Also works in co-ordination with Ableton Link to drive a synchronised beat to the bulbs. Includes advanced controls for calibration and the ability to send Ableton Link beats early for perfect synchronisation.
-- **Five audio sources**: Raw low-latency microphone capture; external USB or wired inputs (audio interfaces, USB mics, line-in) with true stereo capture where the device supports it (pick the input under the Microphone source); local file playback through the app's internal decode pipeline (visuals phase-locked to the audio device); internal/system audio via screen-share (Warning: Low latency not supported via screen-sharing); and a built-in tone generator — a clean sine (log-scale frequency + level, with an X/Y stereo mode for Lissajous figures) that drives the visuals and lights, handy for demos and testing speakers.
+- **Five audio sources**: Raw low-latency microphone capture; external USB or wired inputs (audio interfaces, USB mics, line-in) with true stereo capture where the device supports it (pick the input under the Microphone source); local file playback through the app's internal decode pipeline (visuals phase-locked to the audio device); internal/system audio via screen-share (DRM-protected video can't be captured); and a built-in tone generator, a clean sine (log-scale frequency + level, with an X/Y stereo mode for Lissajous figures) that drives the visuals and lights, handy for demos and testing speakers.
 - **Global colour themes**: Re-tint visuals to your desired colour scheme (Neon, Warm, Cool, Mono…).
 - **Vibrate-on-beat haptics**: Bass-onset detection triggers physical pulses.
 - **Supports External Displays**: Plug an external display into your android device to display visuals on a large display.
-- **Ambient Mode**: A burn-in-safe standby screen featuring an  clock, live BPM, and an audio-presence meter over the dimmed visuals so you can use turn a propped-up phone into a desk/shelf piece. Swipe to browse visuals without leaving.
+- **Ambient Mode**: A burn-in-safe standby screen featuring a clock, live BPM, and an audio-presence meter over the dimmed visuals so you can turn a propped-up phone into a desk/shelf piece. Swipe to browse visuals without leaving.
 - **Foldable & Tablet Support**: Open a foldable phone and the render loop will survive the screen state changes without recreating.
-- **Diagnostics Overlay Toggle**: Displays FPS, audio latency, Ableton link status, Hue drop rates and more.
+- **Diagnostics Overlay Toggle**: Displays FPS, audio buffer health, Ableton Link status, Hue drop rates and more.
 
 ## Why Velo Visualiser is Fast
 
 ### 1. The Simple Breakdown
-By bypassing the Android system mixer and utilizing C++ zero-copy memory transfers, Velo Visualier processes the sound, calculates the frequencies, and paints the pixels on your screen in **~8.0 ms**.
+By capturing the microphone on Android's fastest exclusive audio path and handing the sound straight to the GPU with zero-copy memory transfers, Velo Visualiser hears, analyses, and draws the sound in **under 10 ms**. The finished frame then travels the phone's display pipeline just like every app's frames do, reaching your eyes roughly **15–25 ms** after the sound hit the microphone.
 
 ### 2. The Detailed Breakdown (Hardware-to-Retina)
 Here is the end-to-end latency estimate for Velo Visualiser's gold-standard path (Microphone to Screen) on a modern Android device:
 
 | Stage | Component | Est. Latency |
 |---|---|---|
-| **Capture** | Microphone Hardware + Oboe exclusive path | ~2.0 ms |
+| **Capture** | Microphone Hardware + Oboe exclusive path | ~2–4 ms |
 | **Ingest** | Native Engine Ring Buffer write | < 0.1 ms |
-| **Analysis** | Native C++ 128-bin FFT (KissFFT) | ~0.3 ms |
+| **Analysis** | 1024-point FFT into 128 bands (KissFFT, C++) | ~0.3 ms |
 | **Transfer** | Shared DirectBuffer (Zero-Copy) | < 0.1 ms |
-| **Render** | GPU Shader execution (120Hz frame budget) | ~4.0 ms |
-| **Display** | OLED Panel Scan-out response | ~1.5 ms |
-| **TOTAL** | **Hardware-to-Retina** | **~8.0 ms** |
+| **Render** | GPU Shader execution | ~2–4 ms |
+| **App total** | **Microphone to finished frame** | **~5–8 ms** |
+| **Display** | Vsync + compositor + panel scan-out (120 Hz) | ~8–16 ms |
+| **TOTAL** | **Hardware-to-Retina** | **~15–25 ms** |
 
-Many visualisers suffer from inherent 100ms+ delays due to their reliance on high-level Java APIs like `AudioFlinger` or `android.media.audiofx.Visualizer`. Velo Visualiser eliminates these bottlenecks by operating at the OS hardware floor.
+The display stage is the same vsync-and-compositor pipeline every Android app renders through; no app can skip it. What sets Velo Visualiser apart is everything above that line: many visualisers add **100 ms+** on top because they read audio through high-level APIs like `android.media.audiofx.Visualizer`, which buffer heavily before the app ever sees the sound. Velo Visualiser captures at the OS hardware floor instead.
 
 ### 3. System Audio Latency (The Shared Path)
-Velo Visualiser allows you to visualize internal device audio (like Spotify or YouTube) using screen-capture APIs, but the latency profile is fundamentally different:
+Velo Visualiser can also visualise internal device audio (like Spotify or YouTube) through Android's screen-capture audio API. This path is slower than the microphone (Android only hands shared audio to apps in buffered bursts, and that part is out of any app's control), but it's much quicker than a naive implementation:
 
-* **Inherent OS Buffer:** ~40–80 ms
-* **Total End-to-End:** ~60–100 ms
+* **Capture to visuals:** ~10–25 ms
+* **Total, to the screen:** ~20–45 ms (including the display pipeline)
 
-This higher latency is an unavoidable Android OS limitation when intercepting shared system audio. However, Velo Visualiser utilizes NEON CPU optimizations for this path. While NEON cannot lower the OS buffer delay, it ensures the CPU footprint remains microscopic during the 60ms capture window, guaranteeing the visualizer never stutters or drops frames while waiting for the system audio buffer.
+Velo Visualiser drains that shared audio in tiny ~5 ms slices instead of waiting for one big chunk to fill, so the picture tracks the music as closely as the OS allows, roughly half the delay of the obvious approach. And because capture runs fully decoupled from rendering, with each chunk converted in microseconds, the visuals stay perfectly smooth on this path too.
 
 ### 4. Smart Lighting Latency (Philips Hue)
 While the app's internal beat calculation is near-instant (< 1 ms), the physical time required to change a lightbulb is bottlenecked by your local network and the Hue Bridge's Zigbee mesh. Total time from beat-detection to physical light change is **~40–70 ms**:
@@ -156,7 +156,7 @@ If you want to compile yourself, open the project in Android Studio (Meerkat 202
 * **CMake:** 3.22.1
 * **Architecture:** `arm64-v8a` only.
 
-**Validation:** run `./gradlew check` before submitting changes — it runs detekt, Android lint, and the unit tests, including headless GLSL shader validation. (`assembleDebug` alone runs none of these.) Optionally `brew install glslang` for full shader compile-checking. See [CONTRIBUTING.md](CONTRIBUTING.md).
+**Validation:** run `./gradlew check` before submitting changes: it runs detekt, Android lint, and the unit tests, including headless GLSL shader validation. (`assembleDebug` alone runs none of these.) Optionally `brew install glslang` for full shader compile-checking. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Contributing
 
@@ -176,15 +176,15 @@ Velo Visualiser stands on excellent open source work:
 ## License
 
 Velo Visualiser is **free and open source software**, licensed under the
-**GNU General Public License v3.0** — see [LICENSE](LICENSE).
+**GNU General Public License v3.0**. See [LICENSE](LICENSE).
 
 You're free to use, study, modify, and redistribute it. Any distributed
 derivative must also remain GPLv3.
 
 The **Velo Visualiser name, logo, and icons are trademarks and are not covered by the GPL**
-— see [TRADEMARKS.md](TRADEMARKS.md). Forks must rebrand.
+(see [TRADEMARKS.md](TRADEMARKS.md)). Forks must rebrand.
 
-No data collection, no ads, no tracking — local-only, and it'll stay that way.
+No data collection, no ads, no tracking: local-only, and it'll stay that way.
 
 ## Support
 
