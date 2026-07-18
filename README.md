@@ -34,7 +34,7 @@ Velo Visualiser is available for free on the Google Play Store:
   <img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Get it on Google Play" height="60">
 </a>
 
-*(Alternatively, prebuilt APKs for direct sideloading are available in the **Releases** tab. Note: Android will show an "Unverified Developer" warning on install — tap "More details" → "Install anyway.")*
+*Alternatively, prebuilt APKs for direct sideloading are available in the **Releases** tab.*
 
 ## Reacts to the sound. Locks to the set.
 
