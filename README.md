@@ -17,7 +17,7 @@ A bare-metal C++/Oboe audio engine and custom OpenGL ES 3.1 shaders bypass stand
 
 1. Primarily visualising music: This offers a modern take on the classic PC visualisers from the 2000s. Except now with 120fps HDR visuals. The visuals are a great showcase for modern Android hardware and supports dynamic scaling so will look great on large tablets and foldables too.
    
-2. A live performance tool: That is ideal for home DJs: The visualiser is well suited for use on android based projectors, or large secondary displays as a live performance tool. Its low latency smart home lighting control additionally offers beat synchronised lighting in time with your set 
+2. A live performance tool: That is ideal for home DJs: The visualiser is well suited for use on android based projectors, or large secondary displays as a live performance tool. Its low latency smart home lighting control additionally offers beat synchronised lighting in time with your set.
 
 3. Playing Oscilloscope Music: Features dedicated, true stereo "Stereo Scope" and phosphor "CRT Scope" modes designed to perfectly render the mathematical audio-visual vector art of oscilloscope music (Like Jerobeam Fenderson). *(These visuals need a stereo source — Local File playback, a stereo USB/line-in input, the tone generator's X/Y mode, or System Audio. We highly recommend a lossless file like WAV or FLAC, as MP3 or YouTube compression will permanently destroy the shape geometries!)*
 
