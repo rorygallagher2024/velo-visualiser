@@ -274,7 +274,7 @@
     <string name="screenshare_title">Why screen capture?</string>
     <string name="screenshare_message">To visualize sound from other apps (music, video, games), Android routes their audio through its screen-capture API, so the system will ask for screen-recording permission.\n\nThis app only reads the audio that\'s playing. It never records, saves, or transmits your screen.</string>
     <string name="screenshare_continue">Continue</string>
-    <string name="internal_audio_latency_warning">Some apps, like DRM-protected video (e.g. Netflix), block audio capture and will show no visuals. Internal audio also runs slightly behind the microphone\'s instant response, but stays fast and smooth.</string>
+    <string name="internal_audio_capture_note">Some apps, like DRM-protected video (e.g. Netflix), block audio capture and will show no visuals. Music and most other apps work fine.</string>
     <string name="system_audio_capture_failed">Couldn\'t capture system audio on this device. Switched back to the microphone.</string>
 
     <!-- Microphone input-device picker (wired/USB external inputs) -->

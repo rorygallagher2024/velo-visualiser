@@ -464,7 +464,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="20dp"
-            android:text="@string/internal_audio_latency_warning"
+            android:text="@string/internal_audio_capture_note"
             android:textColor="@color/text_dim"
             android:textSize="12sp"
             android:lineSpacingMultiplier="1.2"
