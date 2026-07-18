@@ -161,6 +161,10 @@ class WaveformRollScene : StereoScene {
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0)
     }
 
+    override fun onAudioSourceChanged() {
+        agcRef = AGC_FLOOR
+    }
+
     /**
      * Feeds the newest [dt]-worth of the stereo window through the slice
      * accumulators, committing a column exactly when it fills — a slice can

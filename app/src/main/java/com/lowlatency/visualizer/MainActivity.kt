@@ -723,6 +723,7 @@ class MainActivity : AppCompatActivity() {
         val systemAudio = audioSourceController.systemAudioMode
         sectionTabs.disabled = if (systemAudio) setOf(TAB_LIGHTING) else emptySet()
         
+        glView.onAudioSourceChanged()
         scenesController.onAudioSourceChanged()
 
         if (systemAudio) {

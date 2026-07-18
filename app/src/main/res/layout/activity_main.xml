@@ -496,43 +496,22 @@
 
             <Button
                 android:id="@+id/btn_sens_low"
-                android:layout_width="0dp"
-                android:layout_height="48dp"
-                android:layout_weight="1"
+                style="@style/SegmentButton"
                 android:layout_marginEnd="4dp"
-                android:background="@drawable/segment_button_bg"
-                android:text="@string/beat_sens_low"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="14sp"
-                android:stateListAnimator="@null" />
+                android:text="@string/beat_sens_low" />
 
             <Button
                 android:id="@+id/btn_sens_standard"
-                android:layout_width="0dp"
-                android:layout_height="48dp"
-                android:layout_weight="1"
+                style="@style/SegmentButton"
                 android:layout_marginEnd="4dp"
                 android:layout_marginStart="4dp"
-                android:background="@drawable/segment_button_bg"
-                android:text="@string/beat_sens_standard"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="14sp"
-                android:stateListAnimator="@null" />
+                android:text="@string/beat_sens_standard" />
 
             <Button
                 android:id="@+id/btn_sens_high"
-                android:layout_width="0dp"
-                android:layout_height="48dp"
-                android:layout_weight="1"
+                style="@style/SegmentButton"
                 android:layout_marginStart="4dp"
-                android:background="@drawable/segment_button_bg"
-                android:text="@string/beat_sens_high"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="14sp"
-                android:stateListAnimator="@null" />
+                android:text="@string/beat_sens_high" />
         </LinearLayout>
 
         <!-- Vibrate-on-beat haptics toggle -->
@@ -956,71 +935,36 @@
 
             <Button
                 android:id="@+id/btn_theme_default"
-                android:layout_width="0dp"
-                android:layout_height="48dp"
-                android:layout_weight="1"
+                style="@style/SegmentButton"
                 android:layout_marginEnd="4dp"
-                android:background="@drawable/segment_button_bg"
-                android:text="@string/theme_default"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="11sp"
-                android:stateListAnimator="@null" />
+                android:text="@string/theme_default" />
 
             <Button
                 android:id="@+id/btn_theme_neon"
-                android:layout_width="0dp"
-                android:layout_height="48dp"
-                android:layout_weight="1"
+                style="@style/SegmentButton"
                 android:layout_marginStart="4dp"
                 android:layout_marginEnd="4dp"
-                android:background="@drawable/segment_button_bg"
-                android:text="@string/theme_neon"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="11sp"
-                android:stateListAnimator="@null" />
+                android:text="@string/theme_neon" />
 
             <Button
                 android:id="@+id/btn_theme_warm"
-                android:layout_width="0dp"
-                android:layout_height="48dp"
-                android:layout_weight="1"
+                style="@style/SegmentButton"
                 android:layout_marginStart="4dp"
                 android:layout_marginEnd="4dp"
-                android:background="@drawable/segment_button_bg"
-                android:text="@string/theme_warm"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="11sp"
-                android:stateListAnimator="@null" />
+                android:text="@string/theme_warm" />
 
             <Button
                 android:id="@+id/btn_theme_cool"
-                android:layout_width="0dp"
-                android:layout_height="48dp"
-                android:layout_weight="1"
+                style="@style/SegmentButton"
                 android:layout_marginStart="4dp"
                 android:layout_marginEnd="4dp"
-                android:background="@drawable/segment_button_bg"
-                android:text="@string/theme_cool"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="11sp"
-                android:stateListAnimator="@null" />
+                android:text="@string/theme_cool" />
 
             <Button
                 android:id="@+id/btn_theme_mono"
-                android:layout_width="0dp"
-                android:layout_height="48dp"
-                android:layout_weight="1"
+                style="@style/SegmentButton"
                 android:layout_marginStart="4dp"
-                android:background="@drawable/segment_button_bg"
-                android:text="@string/theme_mono"
-                android:textColor="@color/btn_text"
-                android:textAllCaps="false"
-                android:textSize="11sp"
-                android:stateListAnimator="@null" />
+                android:text="@string/theme_mono" />
         </LinearLayout>
 
         <!-- ───── divider: Visuals / Display ───── -->

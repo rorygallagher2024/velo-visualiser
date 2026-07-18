@@ -5,6 +5,7 @@ import android.opengl.GLES30
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
+import kotlin.math.tanh
 
 /**
  * "Hardware Oscilloscope" — a single continuous trace rendered as a CRT
@@ -32,6 +33,17 @@ class OscilloscopeScene : GlScene {
 
     companion object {
         private const val POINTS = 1024            // matches native render window
+
+        // Adaptive gain control — lifts quiet mic input so the trace fills the
+        // display, transparent on loud system-audio / local-file sources.
+        // SHADER_SENSITIVITY must match the fragment shader's SENSITIVITY constant.
+        private const val SHADER_SENSITIVITY = 5.0
+        private const val AGC_TARGET = 0.65f         // aim for ~65% of half-screen height
+        private const val AGC_FLOOR = 0.85f          // never attenuate below original gain
+        private const val AGC_CEIL = 3.0f            // don't amplify noise excessively
+        private const val AGC_ATTACK = 0.3f          // fast: catch transients in ~2 frames
+        private const val AGC_RELEASE = 0.015f       // slow: ~500ms prevents visible pumping
+        private const val AGC_NOISE_FLOOR = 0.001f   // suppress gain explosion in silence
 
         private const val VERTEX_SHADER = """
             attribute vec2 aPos;
@@ -202,6 +214,9 @@ class OscilloscopeScene : GlScene {
     private var height = 1f
     private var aspect = 1f
 
+    // Smoothed adaptive gain (starts at the original fixed value).
+    private var smoothGain = AGC_FLOOR
+
     override fun onCreated() {
         program = ShaderUtil.buildProgram(VERTEX_SHADER, FRAGMENT_SHADER)
         aPos = GLES20.glGetAttribLocation(program, "aPos")
@@ -270,7 +285,19 @@ class OscilloscopeScene : GlScene {
         GLES20.glUniform1f(uAspect, aspect)
         GLES20.glUniform1f(uLow, bands[0])
         GLES20.glUniform1f(uDim, dim)
-        GLES20.glUniform1f(uGain, 0.85f)
+        // ---- Adaptive gain ------------------------------------------------
+        // Track the peak of the raw PCM window and compute the gain needed to
+        // bring the post-softclip amplitude up to AGC_TARGET.  Fast attack
+        // catches a sudden clap; slow release prevents visible pumping.
+        var peak = 0f
+        for (s in pcm) { val a = if (s < 0f) -s else s; if (a > peak) peak = a }
+        peak = peak.coerceAtLeast(AGC_NOISE_FLOOR)
+        val postClip = tanh(peak.toDouble() * SHADER_SENSITIVITY).toFloat()
+        val target = (AGC_TARGET / postClip).coerceIn(AGC_FLOOR, AGC_CEIL)
+        val alpha = if (target < smoothGain) AGC_ATTACK else AGC_RELEASE
+        smoothGain += alpha * (target - smoothGain)
+
+        GLES20.glUniform1f(uGain, smoothGain)
         GLES20.glUniform1f(uTime, timeSec)
 
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, vbo[0])
