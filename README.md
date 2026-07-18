@@ -85,12 +85,12 @@ Here is the end-to-end latency estimate for Velo Visualiser's gold-standard path
 The display stage is the same vsync-and-compositor pipeline every Android app renders through; no app can skip it. What sets Velo Visualiser apart is everything above that line: many visualisers add **100 ms+** on top because they read audio through high-level APIs like `android.media.audiofx.Visualizer`, which buffer heavily before the app ever sees the sound. Velo Visualiser captures at the OS hardware floor instead.
 
 ### 3. System Audio Latency (The Shared Path)
-Velo Visualiser allows you to visualize internal device audio (like Spotify or YouTube) using screen-capture APIs, but the latency profile is fundamentally different:
+Velo Visualiser can also visualise internal device audio (like Spotify or YouTube) through Android's screen-capture audio API. This path is slower than the microphone — Android only hands shared audio to apps in buffered bursts, and that part is out of any app's control — but it's much quicker than a naive implementation:
 
-* **Inherent OS Buffer:** ~40–80 ms
-* **Total End-to-End:** ~60–100 ms
+* **Capture to visuals:** ~10–25 ms
+* **Total, to the screen:** ~20–45 ms (including the display pipeline)
 
-This higher latency is an unavoidable Android OS limitation when intercepting shared system audio. The app can't shrink that buffer, but it is built so you never feel it in the frame rate: capture runs fully decoupled from rendering, and converting each audio chunk costs microseconds, so the visuals stay perfectly smooth even on this slower path.
+Velo Visualiser drains that shared audio in tiny ~5 ms slices instead of waiting for one big chunk to fill, so the picture tracks the music as closely as the OS allows — roughly half the delay of the obvious approach. And because capture runs fully decoupled from rendering, with each chunk converted in microseconds, the visuals stay perfectly smooth on this path too.
 
 ### 4. Smart Lighting Latency (Philips Hue)
 While the app's internal beat calculation is near-instant (< 1 ms), the physical time required to change a lightbulb is bottlenecked by your local network and the Hue Bridge's Zigbee mesh. Total time from beat-detection to physical light change is **~40–70 ms**:
