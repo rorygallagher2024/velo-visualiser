@@ -145,7 +145,8 @@ class ToneController(
         scheduleHide()
     }
 
-    private fun hideOverlay() {
+    /** Slide the controls away (also called when the settings sheet opens over them). */
+    fun hideOverlay() {
         if (!::overlay.isInitialized || overlay.visibility != View.VISIBLE) return
         overlay.removeCallbacks(hideRunnable)
         overlay.animate().translationY(offscreenY()).setDuration(ANIM_MS)

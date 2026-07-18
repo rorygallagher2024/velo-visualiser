@@ -151,10 +151,21 @@ class SceneWheelView @JvmOverloads constructor(
     fun setScenes(list: List<Item>, activeIndex: Int) {
         items = list
         val pos = list.indexOfFirst { it.index == activeIndex }.coerceAtLeast(0)
+        haltScroll()
         activePos = pos
         scrollPx = pos * rowH
         computeFittedBase()
         invalidate()
+    }
+
+    /** Kill any in-flight scroll/fling before hard-setting [scrollPx]. The
+     *  OverScroller runs on wall-clock time, so a fling interrupted by closing
+     *  the menu (hidden views stop getting draw passes) stays "active" and
+     *  would overwrite a freshly synced position on the reopened wheel's first
+     *  draw — landing on whatever row the stale fling was headed for. */
+    private fun haltScroll() {
+        scroller.forceFinished(true)
+        flinging = false
     }
 
     private fun lastIndex() = max(items.size - 1, 0)
@@ -165,6 +176,7 @@ class SceneWheelView @JvmOverloads constructor(
         // Row height set so a finger-drag near the centre tracks roughly 1:1 on screen.
         rowH = radius * ANGLE_STEP
         shadowRadius = SHADOW_DP * resources.displayMetrics.density
+        haltScroll()
         scrollPx = max(activePos, 0) * rowH
         computeFittedBase()
     }
@@ -293,14 +305,16 @@ class SceneWheelView @JvmOverloads constructor(
     fun centerOn(sceneIndex: Int) {
         val pos = items.indexOfFirst { it.index == sceneIndex }
         if (pos < 0) return
+        // Halt BEFORE the aligned early-return: even a wheel resting on the
+        // right row can carry a stale wall-clock fling (see haltScroll) that
+        // would drag it off again on the next draw pass.
+        haltScroll()
         // Check actual alignment, not just the index: closing the menu mid-settle
         // freezes the scroller between rows (hidden views stop getting draw
         // passes) while activePos already reads the resting row — an index-only
         // guard would then skip the correction and reopen slightly off-centre.
         val target = pos * rowH
         if (pos == activePos && abs(scrollPx - target) < 1f) return
-        scroller.forceFinished(true)
-        flinging = false
         activePos = pos
         if (abs(scrollPx - target) < rowH * 0.5f) {
             scrollPx = target   // residue from an interrupted settle: fix instantly
