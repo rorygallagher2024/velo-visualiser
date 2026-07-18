@@ -55,7 +55,11 @@ class TopographicRidgeScene : GlScene {
                 // Camera: deeper recession, higher horizon, taller + wider spread.
                 float depth = mix(1.0, 7.5, zt);
                 float persp = 1.0 / depth;
-                float px = (x * 2.1 * persp) / u_aspectRatio;
+                // Below square (portrait), hold the ridge at a fixed NDC width
+                // instead of a fixed world width: a tall screen is otherwise a
+                // narrow window onto the terrain, cropping the edge spikes that
+                // define the silhouette. Landscape keeps true world proportions.
+                float px = (x * 2.1 * persp) / max(u_aspectRatio, 1.0);
                 float py = -0.30 + h * 1.8 * persp;
 
                 gl_Position = vec4(px, py, 0.0, 1.0);
