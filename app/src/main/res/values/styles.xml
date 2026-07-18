@@ -15,6 +15,20 @@
         <item name="android:stateListAnimator">@null</item>
     </style>
 
+    <!-- Shared look for segmented (multi-button row) controls in the settings
+         sheet.  Each button only needs an id + text; override margins per-use.
+         Text is 12sp so it fits 3–5 buttons in a row on small screens. -->
+    <style name="SegmentButton">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">48dp</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:background">@drawable/segment_button_bg</item>
+        <item name="android:textColor">@color/btn_text</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:stateListAnimator">@null</item>
+    </style>
+
     <!-- Settings-sheet section/category label (e.g. "INSTRUMENTS", "AUDIO").
          Defaults to a left-aligned wrap_content label; the full-width category
          headers override layout_width + layout_marginBottom. -->
