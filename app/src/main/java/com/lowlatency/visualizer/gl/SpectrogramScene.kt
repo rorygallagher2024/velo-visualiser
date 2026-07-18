@@ -24,8 +24,8 @@ class SpectrogramScene : GlScene {
     override val respondsToBeat get() = false
 
     companion object {
-        private const val BINS = 128
-        private const val COLS = 320          // time history (columns)
+        private const val BINS = 128          // mirrored as BIN_ROWS in the fragment shader
+        private const val COLS = 640          // time history; one column per frame (~5 s at 120 Hz)
 
         private const val VERTEX_SHADER = """#version 300 es
             out vec2 v_uv;
@@ -45,6 +45,8 @@ class SpectrogramScene : GlScene {
             in vec2 v_uv;
             out vec4 fragColor;
 
+            const float BIN_ROWS = 128.0;   // must match BINS on the Kotlin side
+
             vec3 fire(float m) {
                 // black -> deep red -> orange -> yellow -> white (HDR top for bloom)
                 return clamp(vec3(m * 1.6, m * 1.6 - 0.5, m * 2.3 - 1.6), 0.0, 2.2);
@@ -53,8 +55,18 @@ class SpectrogramScene : GlScene {
             void main() {
                 // Newest column on the right (uv.x = 1), scrolling left over time.
                 float col = (u_write - 1.0) - (1.0 - v_uv.x) * (u_cols - 1.0);
-                float texX = (mod(col, u_cols) + 0.5) / u_cols;
-                float m = texture(u_tex, vec2(texX, v_uv.y)).r;
+                // Snap time to column centres: the sampler is LINEAR (for the
+                // frequency axis) but must never blend across the ring seam,
+                // where the newest column sits beside the oldest. Discrete
+                // columns also keep the time axis an honest instrument read.
+                float texX = (floor(mod(col, u_cols)) + 0.5) / u_cols;
+                // Frequency axis: interpolate between bins, with a smoothstep
+                // on the fraction so gradients are kink-free, not tent-shaped.
+                float fy = v_uv.y * BIN_ROWS - 0.5;
+                float row = floor(fy);
+                float fr = fy - row;
+                fr = fr * fr * (3.0 - 2.0 * fr);
+                float m = texture(u_tex, vec2(texX, (row + 0.5 + fr) / BIN_ROWS)).r;
                 vec3 c = fire(m) * (0.4 + m * 1.4);
                 fragColor = vec4(c * u_dim, 1.0);
             }
@@ -85,13 +97,15 @@ class SpectrogramScene : GlScene {
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, tex)
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_REPEAT)
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE)
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_NEAREST)
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_NEAREST)
-        // Initialise to zero (silence) so the history starts black.
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
+        // Initialise to zero (silence) so the history starts black. R16F, not
+        // R32F: half float is texture-filterable in core ES 3.0 (32-bit float
+        // needs OES_texture_float_linear), and magnitudes are tone-mapped 0..1.
         val zero = ByteBuffer.allocateDirect(COLS * BINS * 4)
             .order(ByteOrder.nativeOrder()).asFloatBuffer()
         GLES20.glTexImage2D(
-            GLES20.GL_TEXTURE_2D, 0, GLES30.GL_R32F,
+            GLES20.GL_TEXTURE_2D, 0, GLES30.GL_R16F,
             COLS, BINS, 0, GLES30.GL_RED, GLES20.GL_FLOAT, zero
         )
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0)
