@@ -85,10 +85,13 @@ class LedMatrix3DScene : GlScene {
                 vec3 ro = center + vec3(18.0 * sin(u_time * 0.15), 12.0 + 4.0 * cos(u_time * 0.2), -26.0);
                 vec3 ta = center;
                 
-                // Build Camera Ray
+                // Build Camera Ray. Right-handed basis (right = up x fwd,
+                // up = fwd x right): with the camera on the -Z side this puts
+                // +X on screen-right, so column 0 (bass) sits on the LEFT and
+                // treble on the right — cross(ww, up) mirrored the spectrum.
                 vec3 ww = normalize(ta - ro);
-                vec3 uu = normalize(cross(ww, vec3(0.0, 1.0, 0.0)));
-                vec3 vv = normalize(cross(uu, ww));
+                vec3 uu = normalize(cross(vec3(0.0, 1.0, 0.0), ww));
+                vec3 vv = normalize(cross(ww, uu));
                 vec3 rd = normalize(uv.x*uu + uv.y*vv + 1.6*ww); // 1.6 FOV
 
                 // Raymarch Loop
