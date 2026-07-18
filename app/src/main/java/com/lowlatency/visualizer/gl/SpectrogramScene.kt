@@ -10,8 +10,8 @@ import java.nio.FloatBuffer
  * Visual 11 — "Spectrogram".
  *
  * A scrolling time-frequency heatmap: vertical axis = frequency (log-binned),
- * horizontal axis = time, color = magnitude (fire palette). The one visual with
- * *memory* — you watch a beat's structure scroll across the screen.
+ * horizontal axis = time, color = magnitude (perceptual inferno ramp). The one
+ * visual with *memory* — you watch a beat's structure scroll across the screen.
  *
  * Implemented cheaply with a ring-buffer texture: each frame writes ONE new
  * column (the latest spectrum) at a moving write index via glTexSubImage2D, and
@@ -47,9 +47,23 @@ class SpectrogramScene : GlScene {
 
             const float BIN_ROWS = 128.0;   // must match BINS on the Kotlin side
 
-            vec3 fire(float m) {
-                // black -> deep red -> orange -> yellow -> white (HDR top for bloom)
-                return clamp(vec3(m * 1.6, m * 1.6 - 0.5, m * 2.3 - 1.6), 0.0, 2.2);
+            // Perceptual "inferno" ramp (polynomial fit of the matplotlib
+            // colormap): black -> deep violet -> crimson -> orange -> pale
+            // yellow. Equal loudness steps read as equal colour steps, and
+            // quiet detail gets its own hue (violet) instead of sinking into
+            // murky dark red. max() guards the fit's tiny negative overshoots
+            // so no negative light reaches the HDR post buffers.
+            vec3 inferno(float t) {
+                t = clamp(t, 0.0, 1.0);
+                const vec3 c0 = vec3(0.00022, 0.00165, -0.01948);
+                const vec3 c1 = vec3(0.10651, 0.56396, 3.93271);
+                const vec3 c2 = vec3(11.60249, -3.97285, -15.94239);
+                const vec3 c3 = vec3(-41.70400, 17.43640, 44.35415);
+                const vec3 c4 = vec3(77.16294, -33.40236, -81.80731);
+                const vec3 c5 = vec3(-71.31943, 32.62606, 73.20952);
+                const vec3 c6 = vec3(25.13113, -12.24267, -23.07033);
+                vec3 c = c0 + t * (c1 + t * (c2 + t * (c3 + t * (c4 + t * (c5 + t * c6)))));
+                return max(c, 0.0);
             }
 
             void main() {
@@ -67,7 +81,10 @@ class SpectrogramScene : GlScene {
                 float fr = fy - row;
                 fr = fr * fr * (3.0 - 2.0 * fr);
                 float m = texture(u_tex, vec2(texX, (row + 0.5 + fr) / BIN_ROWS)).r;
-                vec3 c = fire(m) * (0.4 + m * 1.4);
+                // The ramp carries its own luminance design; no brightness
+                // multiplier below the knee. Only the loudest material gets an
+                // HDR kicker past 1.0 so it feeds the bloom pass.
+                vec3 c = inferno(m) * (1.0 + 1.3 * smoothstep(0.82, 1.0, m));
                 fragColor = vec4(c * u_dim, 1.0);
             }
         """
