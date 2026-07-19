@@ -54,6 +54,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnShowBeats: Button
     private lateinit var btnHaptics: Button
     private lateinit var btnFourFour: Button
+    private lateinit var fourFourCaption: TextView
     private lateinit var btnSensLow: Button
     private lateinit var btnSensStandard: Button
     private lateinit var btnSensHigh: Button
@@ -145,6 +146,7 @@ class MainActivity : AppCompatActivity() {
         btnShowBeats = findViewById(R.id.btn_show_beats)
         btnHaptics = findViewById(R.id.btn_haptics)
         btnFourFour = findViewById(R.id.btn_four_four)
+        fourFourCaption = findViewById(R.id.four_four_caption)
         btnSensLow = findViewById(R.id.btn_sens_low)
         btnSensStandard = findViewById(R.id.btn_sens_standard)
         btnSensHigh = findViewById(R.id.btn_sens_high)
@@ -648,6 +650,9 @@ class MainActivity : AppCompatActivity() {
     private fun updateFourFourButton(enabled: Boolean) {
         btnFourFour.isSelected = enabled
         btnFourFour.setText(if (enabled) R.string.four_four_on else R.string.four_four_off)
+        // The long explainer only clutters the sheet when the mode is off; show it
+        // when the user actually engages the feature.
+        fourFourCaption.visibility = if (enabled) View.VISIBLE else View.GONE
     }
 
     private fun updateShowBeatsButton(enabled: Boolean) {

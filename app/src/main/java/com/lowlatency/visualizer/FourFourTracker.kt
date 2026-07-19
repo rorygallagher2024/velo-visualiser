@@ -244,7 +244,7 @@ class FourFourTracker {
 
     companion object {
         private const val TAG = "FourFour"
-        private const val DEBUG_LOG = true       // temporary: BPM/confidence logging for tuning
+        private const val DEBUG_LOG = false      // BPM/confidence logging (enable only for tuning)
 
         private const val BIN_SEC = 0.01         // 10 ms envelope bins (100 Hz)
         private const val ENV_LEN = 512          // ~5.1 s of history
