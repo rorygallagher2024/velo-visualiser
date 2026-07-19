@@ -59,6 +59,7 @@ class PerfOverlayController(
     private var shownFps = -1          // last integer drawn (snap/hysteresis state)
     private var lastHuePackets = 0L
     private var smoothedHuePps = 0f
+    private var menuOpen = false
     private var lastHuePpsTimeNs = 0L
 
     var enabled = false
@@ -106,13 +107,25 @@ class PerfOverlayController(
         btnPerfOverlay.isSelected = enable
         btnPerfOverlay.setText(if (enable) R.string.perf_overlay_on else R.string.perf_overlay_off)
         if (enable) {
-            perfOverlay.visibility = View.VISIBLE
             lastHuePackets = hueStats().packetsSent
             lastHuePpsTimeNs = System.nanoTime()
             smoothedHuePps = 0f
             displayedFps = 0f          // count up from zero — a small flourish on open
             shownFps = -1
             sparkline.reset()
+        }
+        applyVisibility()
+    }
+
+    fun setMenuOpen(isOpen: Boolean) {
+        if (menuOpen == isOpen) return
+        menuOpen = isOpen
+        applyVisibility()
+    }
+
+    private fun applyVisibility() {
+        if (enabled && !menuOpen) {
+            perfOverlay.visibility = View.VISIBLE
             perfHandler.removeCallbacks(perfPoller)
             perfHandler.removeCallbacks(perfFpsTicker)
             perfHandler.post(perfPoller)
@@ -125,10 +138,7 @@ class PerfOverlayController(
     }
 
     fun onResume() {
-        if (enabled) {
-            perfHandler.post(perfPoller)
-            perfHandler.post(perfFpsTicker)
-        }
+        applyVisibility()
     }
 
     fun onPause() {

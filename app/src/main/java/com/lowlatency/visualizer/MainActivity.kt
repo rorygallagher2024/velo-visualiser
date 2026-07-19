@@ -362,6 +362,9 @@ class MainActivity : AppCompatActivity() {
                 if (::menuDiscoveryController.isInitialized) menuDiscoveryController.onMenuOpened()
                 if (::scenesController.isInitialized) scenesController.onMenuOpened()
             },
+            onStateChanged = { isOpen ->
+                if (::perfOverlayController.isInitialized) perfOverlayController.setMenuOpen(isOpen)
+            }
         )
         menuSheetController.bind()
 
