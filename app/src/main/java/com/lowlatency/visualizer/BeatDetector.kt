@@ -28,6 +28,7 @@ class BeatDetector(
     private val fluxFloor: Float = 0.0015f,  // + absolute onset floor
     private val bassFloor: Float = 0.006f,   // ignore near-silence (bass RMS)
     private val minGapMs: Long = 120L,       // refractory period
+    private val sourceScaled: Boolean = true, // apply the user's source-aware sensitivity preset
     private val debugName: String? = null,   // if set, log levels to "BeatDetector"
 ) {
     private var prevBass = 0f
@@ -56,8 +57,11 @@ class BeatDetector(
         lastNs = now
         fluxAvg += (flux - fluxAvg) * (dt / fluxTauSec).coerceIn(0f, 1f)
 
-        // Source-aware user sensitivity preset scales the threshold.
-        val threshold = (fluxAvg * fluxFactor + fluxFloor) * BeatSettings.thresholdScale()
+        // Source-aware user sensitivity preset scales the threshold — unless this
+        // detector opts out (the tempo tracker wants every kick, on any source,
+        // independent of the visual sensitivity preset).
+        val scale = if (sourceScaled) BeatSettings.thresholdScale() else 1f
+        val threshold = (fluxAvg * fluxFactor + fluxFloor) * scale
         val isBeat = bass > bassFloor &&
             flux > threshold &&
             (now - lastBeatNs) > minGapMs * 1_000_000L

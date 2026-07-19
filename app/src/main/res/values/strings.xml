@@ -157,6 +157,11 @@
         If you have any questions about this Privacy Policy, please contact us via our GitHub repository.</string>
     <string name="haptics_on">Haptic Feedback: On</string>
     <string name="haptics_off">Haptic Feedback: Off</string>
+    <string name="beat_detection_on">Beat Detection: On</string>
+    <string name="beat_detection_off">Beat Detection: Off</string>
+    <string name="four_four_on">4/4 Music Mode: On</string>
+    <string name="four_four_off">4/4 Music Mode: Off</string>
+    <string name="four_four_caption">⚠ Experimental. Locks onto a steady four to the floor beat and ignores stray hits between the beats, so the visuals and lights pulse cleanly on the grid. It reads the beat from the audio itself on any source (microphone, system audio or local files), so it needs no Ableton Link or DJ software. Best for house, techno and other steady 4/4 electronic music. Leave it off for live music, breakbeat or anything with a loose or changing rhythm.</string>
     <string name="react_label">Reactivity</string>
     <string name="react_caption">How the lights respond to the music</string>
     <string name="react_smooth">Smooth</string>

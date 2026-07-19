@@ -51,7 +51,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnGlowSubtle: Button
     private lateinit var btnGlowStandard: Button
     private lateinit var btnGlowIntense: Button
+    private lateinit var btnBeatDetection: Button
     private lateinit var btnHaptics: Button
+    private lateinit var btnFourFour: Button
     private lateinit var btnSensLow: Button
     private lateinit var btnSensStandard: Button
     private lateinit var btnSensHigh: Button
@@ -140,7 +142,9 @@ class MainActivity : AppCompatActivity() {
         btnGlowSubtle = findViewById(R.id.btn_glow_subtle)
         btnGlowStandard = findViewById(R.id.btn_glow_standard)
         btnGlowIntense = findViewById(R.id.btn_glow_intense)
+        btnBeatDetection = findViewById(R.id.btn_beat_detection)
         btnHaptics = findViewById(R.id.btn_haptics)
+        btnFourFour = findViewById(R.id.btn_four_four)
         btnSensLow = findViewById(R.id.btn_sens_low)
         btnSensStandard = findViewById(R.id.btn_sens_standard)
         btnSensHigh = findViewById(R.id.btn_sens_high)
@@ -604,6 +608,35 @@ class MainActivity : AppCompatActivity() {
             updateHapticsButton(false)
         }
 
+        // Master Beat Detection switch (persisted, default on). Governs the whole
+        // audio beat-reactive layer; greys out its sub-controls when off and hides
+        // beat-only scenes from the picker. The renderer and picker read
+        // BeatSettings.detectionEnabled directly. Ableton Link is independent.
+        BeatSettings.detectionEnabled = prefs.getBoolean(KEY_BEAT_DETECTION, true)
+        updateBeatDetectionButton(BeatSettings.detectionEnabled)
+        setBeatControlsEnabled(BeatSettings.detectionEnabled)
+        btnBeatDetection.setOnClickListener {
+            val enabled = !BeatSettings.detectionEnabled
+            BeatSettings.detectionEnabled = enabled
+            prefs.edit().putBoolean(KEY_BEAT_DETECTION, enabled).apply()
+            updateBeatDetectionButton(enabled)
+            setBeatControlsEnabled(enabled)
+            // Beat-only scenes (Beat Pulse, Beat Fireworks) appear/disappear with it.
+            if (::scenesController.isInitialized) scenesController.refreshAvailableScenes()
+        }
+
+        // 4/4 Music Mode: grid-lock the beat to a steady four-to-the-floor
+        // signature (persisted, default off). Audio-only alternative to Link; the
+        // renderer falls back to the reactive detector whenever it isn't confident.
+        FourFourSync.enabled = prefs.getBoolean(KEY_FOUR_FOUR, false)
+        updateFourFourButton(FourFourSync.enabled)
+        btnFourFour.setOnClickListener {
+            val enabled = !FourFourSync.enabled
+            FourFourSync.enabled = enabled
+            prefs.edit().putBoolean(KEY_FOUR_FOUR, enabled).apply()
+            updateFourFourButton(enabled)
+        }
+
         // Beat sensitivity presets (persisted). Drives every BeatDetector
         // (fireworks, haptics, starscape flashes), mapped per audio source.
         BeatSettings.preset = BeatSettings.Sensitivity.fromKey(prefs.getString(KEY_BEAT_SENS, null))
@@ -611,6 +644,29 @@ class MainActivity : AppCompatActivity() {
         btnSensLow.setOnClickListener { setBeatSensitivity(BeatSettings.Sensitivity.LOW) }
         btnSensStandard.setOnClickListener { setBeatSensitivity(BeatSettings.Sensitivity.STANDARD) }
         btnSensHigh.setOnClickListener { setBeatSensitivity(BeatSettings.Sensitivity.HIGH) }
+    }
+
+    private fun updateFourFourButton(enabled: Boolean) {
+        btnFourFour.isSelected = enabled
+        btnFourFour.setText(if (enabled) R.string.four_four_on else R.string.four_four_off)
+    }
+
+    private fun updateBeatDetectionButton(enabled: Boolean) {
+        btnBeatDetection.isSelected = enabled
+        btnBeatDetection.setText(if (enabled) R.string.beat_detection_on else R.string.beat_detection_off)
+    }
+
+    /** Grey out the beat sub-controls (sensitivity, haptics, 4/4) when detection
+     *  is off, since they're all downstream of it. Haptics also needs device support. */
+    private fun setBeatControlsEnabled(enabled: Boolean) {
+        val dim = if (enabled) 1f else 0.4f
+        for (b in listOf(btnSensLow, btnSensStandard, btnSensHigh, btnFourFour)) {
+            b.isEnabled = enabled
+            b.alpha = dim
+        }
+        val hapticsOn = enabled && hapticController.isSupported
+        btnHaptics.isEnabled = hapticsOn
+        btnHaptics.alpha = if (hapticsOn) 1f else 0.4f
     }
 
     private fun setBeatSensitivity(s: BeatSettings.Sensitivity) {
@@ -957,6 +1013,8 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_BURNIN = "burn_in_enabled"
         private const val KEY_GLOW = "glow_strength"   // string preset (was a boolean key)
         private const val KEY_HAPTICS = "haptics_enabled"
+        private const val KEY_FOUR_FOUR = "four_four_mode_enabled"
+        private const val KEY_BEAT_DETECTION = "beat_detection_enabled"
         private const val KEY_BEAT_SENS = "beat_sensitivity"
         private const val KEY_THEME = "color_theme"
         private const val KEY_PEAK_LUMINANCE = "peak_luminance_enabled"
