@@ -65,6 +65,7 @@ class FourFourTracker {
     private var confidence = 0f      // smoothed autocorr peak height, 0..1
     private var confidentState = false
     private var lastBpm = 0f
+    private var prefLag = PREF_LAG.toDouble() // Dynamic tempo weight center
     private var scratchPeak = 0f     // peak height from the last bestTempoLag pass
     private val acPeaks = FloatArray(MAX_LAG + 1)   // per-lag autocorr, for sub-bin refinement
     private var lastLogSec = 0.0
@@ -104,6 +105,7 @@ class FourFourTracker {
         periodSec = 0.0; nextBeatSec = 0.0; beatInBar = 0; recalcAtSec = 0.0
         lastEmittedBeatSec = 0.0
         confidence = 0f; confidentState = false; lastBpm = 0f
+        prefLag = PREF_LAG.toDouble()
     }
 
     // ---- Novelty envelope (fixed 10 ms bins) --------------------------------
@@ -139,6 +141,15 @@ class FourFourTracker {
         if (bestLag < 0) return
         updatePeriod(refineLag(bestLag) * BIN_SEC)   // sub-bin peak → precise BPM
         updateConfidence(scratchPeak)
+
+        // Dynamic Tempo Weighting: if locked, slowly shift the preference towards
+        // the current tempo. If unlocked, slowly drift back to 120 BPM.
+        if (confidentState && periodSec > 0.0) {
+            val currentLag = periodSec / BIN_SEC
+            prefLag += PREF_LAG_TRACK * (currentLag - prefLag)
+        } else {
+            prefLag += PREF_LAG_TRACK * (PREF_LAG - prefLag)
+        }
     }
 
     /** Copy the ring into [lin] in chronological order; return its total energy. */
@@ -217,10 +228,10 @@ class FourFourTracker {
         Log.i(TAG, "bpm=%.1f conf=%.2f locked=%b env=%d".format(lastBpm, confidence, confidentState, envCount))
     }
 
-    /** Mild log-Gaussian favouring ~120 BPM, to break half/double-tempo ties
+    /** Mild log-Gaussian favouring the current prefLag, to break half/double-tempo ties
      *  without overriding a clear peak at the edges (e.g. drum & bass). */
     private fun tempoWeight(lag: Int): Float {
-        val z = ln(lag.toDouble() / PREF_LAG) / WEIGHT_SIGMA
+        val z = ln(lag.toDouble() / prefLag) / WEIGHT_SIGMA
         return exp(-0.5 * z * z).toFloat()
     }
 
@@ -270,6 +281,7 @@ class FourFourTracker {
         private const val MAX_LAG = 71           // 0.71 s  ≈  85 BPM
         private const val PREF_LAG = 50          // 0.50 s  = 120 BPM (weight centre)
         private const val WEIGHT_SIGMA = 0.45    // log-space spread of the weighting
+        private const val PREF_LAG_TRACK = 0.05  // how fast prefLag chases the current locked tempo per recalc
 
         private const val RECALC_SEC = 0.20      // re-estimate tempo ~5×/s
         private const val RESEED_FRAC = 0.20     // snap period on a >20% jump
