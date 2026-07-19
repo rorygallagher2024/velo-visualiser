@@ -60,6 +60,7 @@ class FourFourTracker {
     private var nextBeatSec = 0.0
     private var beatInBar = 0
     private var recalcAtSec = 0.0
+    private var lastEmittedBeatSec = 0.0
 
     private var confidence = 0f      // smoothed autocorr peak height, 0..1
     private var confidentState = false
@@ -101,6 +102,7 @@ class FourFourTracker {
     fun reset() {
         envHead = 0; envCount = 0; binAccum = 0f; binEndSec = 0.0
         periodSec = 0.0; nextBeatSec = 0.0; beatInBar = 0; recalcAtSec = 0.0
+        lastEmittedBeatSec = 0.0
         confidence = 0f; confidentState = false; lastBpm = 0f
     }
 
@@ -158,8 +160,17 @@ class FourFourTracker {
         var bestPeak = 0f
         for (lag in MIN_LAG..MAX_LAG) {
             var cross = 0f
-            for (i in lag until envCount) cross += lin[i] * lin[i - lag]
-            val peak = cross / totalE                // 0..1 normalized autocorr
+            var e1 = 0f
+            var e2 = 0f
+            for (i in lag until envCount) {
+                val a = lin[i]
+                val b = lin[i - lag]
+                cross += a * b
+                e1 += a * a
+                e2 += b * b
+            }
+            // True cosine similarity (0..1 bounds, unbiased by lag length)
+            val peak = if (e1 > 0f && e2 > 0f) (cross / Math.sqrt((e1 * e2).toDouble())).toFloat() else 0f
             acPeaks[lag] = peak
             val score = peak * tempoWeight(lag)      // weighting only picks the lag
             if (score > bestScore) { bestScore = score; bestLag = lag; bestPeak = peak }
@@ -233,7 +244,11 @@ class FourFourTracker {
         var beat = false
         var guard = 0
         while (nowSec >= nextBeatSec && guard < MAX_CATCHUP) {
-            beat = true
+            // Prevent PLL stutter: don't emit a beat if we're suspiciously close to the last one
+            if (nextBeatSec - lastEmittedBeatSec > periodSec * 0.5) {
+                beat = true
+                lastEmittedBeatSec = nextBeatSec
+            }
             nextBeatSec += periodSec
             beatInBar = (beatInBar + 1) and 3
             guard++
