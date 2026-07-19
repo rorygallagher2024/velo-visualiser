@@ -8,7 +8,6 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.edit
 import com.lowlatency.visualizer.BeatSettings
-import com.lowlatency.visualizer.LinkSync
 import com.lowlatency.visualizer.R
 import com.lowlatency.visualizer.SecondaryVisualizerActivity
 import com.lowlatency.visualizer.VisualizerSurfaceView
@@ -37,13 +36,11 @@ class ScenesController(
     private val onCloseMenu: () -> Unit = {},
 ) {
     private val allEntries = SceneCatalog.ENTRIES
+    // Beat-only scenes are visual, so they follow "show beats on visuals": pointless
+    // when the visuals don't react, regardless of whether lights still flash.
     private val entries get() = allEntries.filter {
-        (!it.requiresStereoAudio || isStereoAudio()) && (!it.requiresBeat || beatsAvailable())
+        (!it.requiresStereoAudio || isStereoAudio()) && (!it.requiresBeat || BeatSettings.showBeatsOnVisuals)
     }
-
-    // A beat source is live if audio beat detection is on, or Ableton Link is
-    // driving beats. Beat-only scenes are hidden from the picker when neither is.
-    private fun beatsAvailable() = BeatSettings.detectionEnabled || LinkSync.enabled
 
     private lateinit var wheel: SceneWheelView
     private lateinit var counter: TextView

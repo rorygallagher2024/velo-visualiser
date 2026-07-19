@@ -30,11 +30,12 @@ object BeatSettings {
 
     @Volatile var preset: Sensitivity = Sensitivity.STANDARD
 
-    /** Master switch for the whole audio beat-reactive layer (onset punch, beat
-     *  count for lights + haptics, drop surge, 4/4 mode). When false the visuals
-     *  still render but never pulse to the beat. Ableton Link is independent of
-     *  this. Set by the UI, persisted. */
-    @Volatile var detectionEnabled: Boolean = true
+    /** Whether the *visuals* react to the beat (bloom punch, beat-reactive scenes,
+     *  drop surge). Beat detection itself always runs, so the lights and haptics
+     *  keep flashing on the beat regardless — this only governs the on-screen
+     *  reaction, letting a calm visual play while the room still strobes. Set by
+     *  the UI, persisted. Default on. */
+    @Volatile var showBeatsOnVisuals: Boolean = true
 
     /** Set by the UI when the audio source changes. */
     @Volatile var systemAudio: Boolean = false

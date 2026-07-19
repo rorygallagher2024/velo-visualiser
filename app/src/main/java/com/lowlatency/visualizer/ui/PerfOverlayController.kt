@@ -11,7 +11,6 @@ import android.widget.Button
 import android.widget.TextSwitcher
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import com.lowlatency.visualizer.BeatSettings
 import com.lowlatency.visualizer.FourFourSync
 import com.lowlatency.visualizer.LinkSync
 import com.lowlatency.visualizer.NativeBridge
@@ -223,7 +222,7 @@ class PerfOverlayController(
             val bpm = NativeBridge.nativeLinkTempo()
             val peers = NativeBridge.nativeLinkPeers()
             appendRow("Link", "%.0f bpm · %d peer%s".format(bpm, peers, if (peers == 1) "" else "s"))
-        } else if (FourFourSync.enabled && BeatSettings.detectionEnabled) {
+        } else if (FourFourSync.enabled) {
             // 4/4 Music Mode tracker status: locked tempo, or still searching.
             val bpm = FourFourSync.statusBpm
             appendRow("4/4", if (bpm > 0f) "LOCKED · %.0f bpm".format(bpm) else "searching")

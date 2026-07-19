@@ -42,6 +42,20 @@
         <item name="android:layout_marginBottom">16dp</item>
     </style>
 
+    <!-- Subordinate heading nested under a SectionHeader (e.g. Beat Sensitivity,
+         Ableton Link inside Beat Detection): smaller, dimmer, with breathing room. -->
+    <style name="SubHeader">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">@color/text_dim</item>
+        <item name="android:textSize">11sp</item>
+        <item name="android:letterSpacing">0.1</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="android:alpha">0.6</item>
+        <item name="android:layout_marginTop">8dp</item>
+        <item name="android:layout_marginBottom">10dp</item>
+    </style>
+
     <!-- Solid 1dp section rule. Margins are set per-use. -->
     <style name="Divider">
         <item name="android:layout_width">match_parent</item>
