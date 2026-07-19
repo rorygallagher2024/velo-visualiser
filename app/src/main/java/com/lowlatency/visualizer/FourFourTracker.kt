@@ -41,10 +41,11 @@ class FourFourTracker {
         val bpm: Float,
     )
 
-    // Own onset detector, independent of the visual sensitivity preset and the
-    // per-source scaling: tempo tracking wants every kick on every source and can
-    // freely ignore false onsets.
-    private val detector = BeatDetector(sourceScaled = false)
+    // Own multi-band spectral onset detector, independent of the reactive path's
+    // bass-RMS BeatDetector: tempo tracking wants every beat on every source
+    // (kick and clap alike) and can freely ignore false onsets. All the
+    // experimental onset work lives here, behind the 4/4 opt-in.
+    private val detector = SpectralOnsetDetector(sourceScaled = false)
 
     // Onset-novelty envelope in fixed 10 ms bins (a ring), for frame-rate-free
     // autocorrelation. `lin` is the chronological unpacking, rebuilt per estimate.

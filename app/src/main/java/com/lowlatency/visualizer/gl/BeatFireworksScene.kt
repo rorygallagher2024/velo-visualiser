@@ -124,8 +124,8 @@ class BeatFireworksScene : GlScene {
         val dt = if (lastTime < 0f) 0.016f else (timeSec - lastTime).coerceIn(0f, 0.05f)
         lastTime = timeSec
 
-        // Spectral-flux onset detection on the shared spectrum → launch a burst.
-        if (beat.update(SpectrumData.magnitudes)) spawnBurst(0.85f)
+        // Bass-onset beat detection on the raw PCM → launch a burst.
+        if (beat.update(pcm)) spawnBurst(0.85f)
 
         // Integrate + pack alive particles.
         var n = 0

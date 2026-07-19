@@ -1,130 +1,80 @@
 package com.lowlatency.visualizer
 
 import android.util.Log
+import kotlin.math.max
+import kotlin.math.sqrt
 
 /**
- * Multi-band, self-calibrating spectral-flux onset detector.
+ * Bass-onset beat detector.
  *
- * Onsets are a rise in the magnitude spectrum, measured as half-wave-rectified
- * spectral flux (the sum of positive bin-to-bin changes) over the 128-bin
- * spectrum the app already computes. The flux is split into three frequency
- * bands, and each band is calibrated to its **own** statistics:
+ * Detects the *attack* of bass hits (the kick), not the bass *level*. In a full
+ * mix the bass plays continuously, so a level test never spikes above its own
+ * average — which is why level-based detection only fired on isolated taps
+ * against silence. The attack, however, is a sudden RISE in bass energy that
+ * spikes on every hit even within busy music.
  *
- *   - low  = the kick (~50-200 Hz),
- *   - mid  = snares, claps, body,
- *   - high = hats and air.
+ * Each frame: one-pole low-pass the raw PCM to isolate the bass band, take its
+ * RMS, then compute the positive flux (rise vs the previous frame). A beat is a
+ * flux spike above an adaptive baseline, gated by a silence floor and a
+ * refractory period.
  *
- * Two followers per band track that band's noise floor (slow) and onset level
- * (fast), and the per-band detection value is the flux as a fraction of that
- * band's local dynamic range. Because each band self-normalises, a bare
- * four-to-the-floor kick drives the low band, and a kick-less clap break drives
- * the mid band, so the detector follows whichever part of the kit is carrying
- * the beat instead of going blind when the kick drops out. The bands combine
- * with a kick-favouring weight into one onset strength.
- *
- * The fraction-of-local-range design makes the trigger invariant to microphone
- * gain and source: a quiet laptop mic and a hot phone mic both land in the same
- * range, and the tuning constants are unitless. Silence is handled downstream by
- * the shared loudness gate and by requiring a minimum per-band dynamic range.
- *
- * @param sourceScaled apply the user's source-aware sensitivity preset. The 4/4
- *   tempo tracker sets this false: it wants every beat on any source and can
- *   freely ignore false onsets.
+ * Operates purely on the raw waveform — it never touches the native FFT bands
+ * or the full 128-bin spectrum the visuals use, so their tuning is unaffected.
  */
 class BeatDetector(
-    private val minGapMs: Long = 120L,
-    private val sourceScaled: Boolean = true,
-    private val debugName: String? = null,
+    private val lpAlpha: Float = 0.025f,     // one-pole LP coeff (~180 Hz @ 48 kHz)
+    private val fluxTauSec: Float = 0.4f,    // adaptive baseline time constant
+    private val fluxFactor: Float = 1.6f,    // flux must exceed baseline × this
+    private val fluxFloor: Float = 0.0015f,  // + absolute onset floor
+    private val bassFloor: Float = 0.006f,   // ignore near-silence (bass RMS)
+    private val minGapMs: Long = 120L,       // refractory period
+    private val debugName: String? = null,   // if set, log levels to "BeatDetector"
 ) {
-    private var prev: FloatArray? = null
-    private var b1 = 0                        // low/mid boundary bin (set on first frame)
-    private var b2 = 0                        // mid/high boundary bin
-    private val bandFlux = FloatArray(BANDS)
-    private val noiseFloor = FloatArray(BANDS)
-    private val fluxPeak = FloatArray(BANDS)
+    private var prevBass = 0f
+    private var fluxAvg = 0f
+    private var lastNs = 0L
     private var lastBeatNs = 0L
     private var lastLogNs = 0L
 
-    /** Onset strength this frame: kick-favouring combination of the per-band
-     *  normalized fluxes. A continuous, scale-invariant novelty for the tracker. */
-    var lastNovelty = 0f
-        private set
-
-    /** Feed the latest magnitude spectrum every frame; true on a detected onset. */
-    fun update(spectrum: FloatArray): Boolean {
-        val p = prev
-        if (p == null || p.size != spectrum.size) {
-            prev = spectrum.copyOf()   // first frame (or size change): no flux yet
-            b1 = (spectrum.size * BAND1).toInt()
-            b2 = (spectrum.size * BAND2).toInt()
-            return false
+    /** Feed the latest PCM window every frame; returns true on a detected beat. */
+    fun update(pcm: FloatArray): Boolean {
+        // Isolate the bass band with a one-pole low-pass over the window, then RMS.
+        var l = 0f
+        var sumSq = 0f
+        for (s in pcm) {
+            l += lpAlpha * (s - l)
+            sumSq += l * l
         }
+        val bass = sqrt(sumSq / pcm.size)
 
-        computeBandFlux(spectrum, p)
-        val novelty = combineNovelty(spectrum.size)
-        lastNovelty = novelty
+        // Positive flux = the attack (rise in bass energy since last frame).
+        val flux = max(0f, bass - prevBass)
+        prevBass = bass
 
         val now = System.nanoTime()
-        val threshold = COMBINED_THRESHOLD * (if (sourceScaled) BeatSettings.thresholdScale() else 1f)
-        val isBeat = novelty > threshold && (now - lastBeatNs) > minGapMs * 1_000_000L
+        val dt = if (lastNs == 0L) 0.016f else ((now - lastNs) / 1_000_000_000.0).toFloat().coerceIn(0f, 0.1f)
+        lastNs = now
+        fluxAvg += (flux - fluxAvg) * (dt / fluxTauSec).coerceIn(0f, 1f)
+
+        // Source-aware user sensitivity preset scales the threshold.
+        val threshold = (fluxAvg * fluxFactor + fluxFloor) * BeatSettings.thresholdScale()
+        val isBeat = bass > bassFloor &&
+            flux > threshold &&
+            (now - lastBeatNs) > minGapMs * 1_000_000L
         if (isBeat) lastBeatNs = now
 
-        logIfDebug(isBeat, novelty, now)
-        return isBeat
-    }
-
-    /** Half-wave-rectified spectral flux, accumulated per band; advances [prevSpectrum]. */
-    private fun computeBandFlux(spectrum: FloatArray, prevSpectrum: FloatArray) {
-        bandFlux[0] = 0f; bandFlux[1] = 0f; bandFlux[2] = 0f
-        for (i in spectrum.indices) {
-            val d = spectrum[i] - prevSpectrum[i]
-            if (d > 0f) {
-                val band = if (i < b1) 0 else if (i < b2) 1 else 2
-                bandFlux[band] += d
+        if (debugName != null) {
+            if (isBeat) {
+                Log.i(TAG, "[$debugName] BEAT  bass=${f(bass)} flux=${f(flux)} thr=${f(threshold)}")
+            } else if (now - lastLogNs > 300_000_000L) {
+                lastLogNs = now
+                Log.i(TAG, "[$debugName] level bass=${f(bass)} flux=${f(flux)} thr=${f(threshold)}")
             }
-            prevSpectrum[i] = spectrum[i]
         }
-    }
-
-    /** Self-calibrate each band to its own dynamic range, then combine kick-first. */
-    private fun combineNovelty(n: Int): Float {
-        var combined = 0f
-        for (b in 0 until BANDS) {
-            val width = when (b) { 0 -> b1; 1 -> b2 - b1; else -> n - b2 }
-            val f = if (width > 0) bandFlux[b] / width else 0f
-            noiseFloor[b] += (f - noiseFloor[b]) * (if (f > noiseFloor[b]) NOISE_UP else NOISE_DOWN)
-            fluxPeak[b] += (f - fluxPeak[b]) * (if (f > fluxPeak[b]) PEAK_UP else PEAK_DOWN)
-            val dyn = fluxPeak[b] - noiseFloor[b]
-            val norm = if (dyn > MIN_DYNAMIC) ((f - noiseFloor[b]) / dyn).coerceIn(0f, 2f) else 0f
-            combined += BAND_WEIGHT[b] * norm
-        }
-        return combined
-    }
-
-    private fun logIfDebug(isBeat: Boolean, novelty: Float, now: Long) {
-        val name = debugName ?: return
-        if (isBeat) {
-            Log.i(TAG, "[$name] BEAT nov=${f(novelty)}")
-        } else if (now - lastLogNs > 300_000_000L) {
-            lastLogNs = now
-            Log.i(TAG, "[$name] level nov=${f(novelty)}")
-        }
+        return isBeat
     }
 
     private fun f(v: Float) = "%.4f".format(v)
 
-    companion object {
-        private const val TAG = "BeatDetector"
-        private const val BANDS = 3
-        private const val BAND1 = 0.22f   // low/mid split as a fraction of the log-spaced bins
-        private const val BAND2 = 0.55f   // mid/high split
-        private val BAND_WEIGHT = floatArrayOf(1.0f, 0.85f, 0.5f)  // favour the kick, include the rest
-
-        private const val NOISE_UP = 0.010f    // per-band noise floor rises slowly
-        private const val NOISE_DOWN = 0.080f  // and falls moderately into quieter sections
-        private const val PEAK_UP = 0.400f     // onset-level follower snaps up on a transient
-        private const val PEAK_DOWN = 0.020f   // and eases down, holding a stable scale
-        private const val MIN_DYNAMIC = 0.002f // below this per-band flux range ⇒ nothing present
-        private const val COMBINED_THRESHOLD = 0.50f // onset when the combined strength clears this
-    }
+    companion object { private const val TAG = "BeatDetector" }
 }
