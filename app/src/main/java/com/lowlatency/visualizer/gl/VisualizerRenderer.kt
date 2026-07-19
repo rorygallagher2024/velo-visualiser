@@ -479,8 +479,8 @@ class VisualizerRenderer(private val context: Context) : GLSurfaceView.Renderer 
             // owns its own (source-independent) onset detector; hdrBeat is still
             // ticked every frame so its state stays warm for the fallback path.
             if (!wasFourFour) fourFour.reset()
-            val reactiveBeat = hdrBeat.update(pcm)
-            val tick = fourFour.update(System.nanoTime() * 1e-9, pcm, BeatBus.gateOpen)
+            val reactiveBeat = hdrBeat.update(SpectrumData.magnitudes)
+            val tick = fourFour.update(System.nanoTime() * 1e-9, SpectrumData.magnitudes, BeatBus.gateOpen)
             FourFourSync.statusBpm = if (tick.confident) tick.bpm else 0f   // diagnostics overlay
             if (tick.confident) {
                 barPhaseNow = tick.barPhase
@@ -496,7 +496,7 @@ class VisualizerRenderer(private val context: Context) : GLSurfaceView.Renderer 
                 }
             }
         } else {
-            val beat = hdrBeat.update(pcm) && BeatBus.gateOpen
+            val beat = hdrBeat.update(SpectrumData.magnitudes) && BeatBus.gateOpen
             if (beat) {
                 hdrPunch = BeatBus.loudness
                 BeatBus.beatCount++

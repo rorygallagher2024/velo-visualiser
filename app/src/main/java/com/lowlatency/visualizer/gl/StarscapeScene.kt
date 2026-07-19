@@ -169,7 +169,7 @@ class StarscapeScene : GlScene {
         travel = (travel + (BASE_SPEED + bands[0] * BASS_BOOST) * dt) % 1f
 
         // Beat → flash a subset of stars bright + coloured; cycle hue per beat.
-        if (beat.update(pcm)) {
+        if (beat.update(SpectrumData.magnitudes)) {
             flash = 1f
             flashHue = (flashHue + 0.37f) % 1f
         } else {
