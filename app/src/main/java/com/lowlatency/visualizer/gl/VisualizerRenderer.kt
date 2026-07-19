@@ -129,7 +129,10 @@ class VisualizerRenderer(private val context: Context) : GLSurfaceView.Renderer 
             32 -> WaveformWaterfallScene()
             33 -> PhaseScopeScene()
             34 -> NebulaScene()
-            35 -> EventHorizonScene()
+            // 35 retired (Event Horizon removed). Index left as a hole on purpose:
+            // favourites and the last-active-scene are persisted as raw indices, so
+            // renumbering would corrupt saved prefs across an update. `else` below
+            // safely absorbs any lingering reference to 35.
             36 -> ObsidianScene()
             37 -> SlipstreamScene()
             38 -> VeilScene()

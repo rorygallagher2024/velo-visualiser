@@ -60,7 +60,6 @@ object SceneCatalog {
         SceneEntry(13, R.string.vis_mandala, SceneCategory.IMMERSIVE),
         SceneEntry(39, R.string.vis_meridian, SceneCategory.IMMERSIVE),
         SceneEntry(37, R.string.vis_slipstream, SceneCategory.IMMERSIVE),
-        SceneEntry(35, R.string.vis_event_horizon, SceneCategory.IMMERSIVE),
         SceneEntry(2, R.string.vis_fluid, SceneCategory.IMMERSIVE),
         SceneEntry(27, R.string.vis_crystal_swarm, SceneCategory.IMMERSIVE),
         SceneEntry(19, R.string.vis_mandelbox, SceneCategory.IMMERSIVE),
