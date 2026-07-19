@@ -4,6 +4,7 @@ import android.util.Log
 import kotlin.math.abs
 import kotlin.math.exp
 import kotlin.math.ln
+import kotlin.math.sqrt
 
 /**
  * Real-time 4/4 beat-grid tracker: turns the reactive onset stream into a steady
@@ -181,7 +182,7 @@ class FourFourTracker {
                 e2 += b * b
             }
             // True cosine similarity (0..1 bounds, unbiased by lag length)
-            val peak = if (e1 > 0f && e2 > 0f) (cross / Math.sqrt((e1 * e2).toDouble())).toFloat() else 0f
+            val peak = if (e1 > 0f && e2 > 0f) cross / sqrt(e1 * e2) else 0f
             acPeaks[lag] = peak
             val score = peak * tempoWeight(lag)      // weighting only picks the lag
             if (score > bestScore) { bestScore = score; bestLag = lag; bestPeak = peak }
@@ -255,13 +256,17 @@ class FourFourTracker {
         var beat = false
         var guard = 0
         while (nowSec >= nextBeatSec && guard < MAX_CATCHUP) {
-            // Prevent PLL stutter: don't emit a beat if we're suspiciously close to the last one
+            // Prevent PLL stutter: a phase correction can drag the grid backwards,
+            // which would fire a second beat on the heels of the last. Skip those,
+            // and don't count them toward the bar either — advancing beatInBar for a
+            // beat that never fired would walk barPhase out of step with the beats
+            // actually emitted.
             if (nextBeatSec - lastEmittedBeatSec > periodSec * 0.5) {
                 beat = true
                 lastEmittedBeatSec = nextBeatSec
+                beatInBar = (beatInBar + 1) and 3
             }
             nextBeatSec += periodSec
-            beatInBar = (beatInBar + 1) and 3
             guard++
         }
         if (guard >= MAX_CATCHUP) nextBeatSec = nowSec + periodSec   // fell behind: re-seed
