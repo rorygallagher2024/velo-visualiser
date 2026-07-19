@@ -1,5 +1,6 @@
 package com.lowlatency.visualizer
 
+import android.util.Log
 import kotlin.math.abs
 import kotlin.math.exp
 import kotlin.math.ln
@@ -63,6 +64,8 @@ class FourFourTracker {
     private var confidentState = false
     private var lastBpm = 0f
     private var scratchPeak = 0f     // peak height from the last bestTempoLag pass
+    private val acPeaks = FloatArray(MAX_LAG + 1)   // per-lag autocorr, for sub-bin refinement
+    private var lastLogSec = 0.0
 
     /**
      * @param nowSec   monotonic time in seconds (e.g. System.nanoTime * 1e-9).
@@ -77,6 +80,7 @@ class FourFourTracker {
             recalcAtSec = nowSec + RECALC_SEC
             recomputeTempo()
         }
+        maybeLog(nowSec)
 
         if (periodSec <= 0.0) return Tick(false, 0f, 0f, false, 0f)
 
@@ -130,7 +134,7 @@ class FourFourTracker {
         if (totalE < 1e-6f) return
         val bestLag = bestTempoLag(totalE)   // stores the peak height in scratchPeak
         if (bestLag < 0) return
-        updatePeriod(bestLag * BIN_SEC)
+        updatePeriod(refineLag(bestLag) * BIN_SEC)   // sub-bin peak → precise BPM
         updateConfidence(scratchPeak)
     }
 
@@ -155,11 +159,26 @@ class FourFourTracker {
             var cross = 0f
             for (i in lag until envCount) cross += lin[i] * lin[i - lag]
             val peak = cross / totalE                // 0..1 normalized autocorr
+            acPeaks[lag] = peak
             val score = peak * tempoWeight(lag)      // weighting only picks the lag
             if (score > bestScore) { bestScore = score; bestLag = lag; bestPeak = peak }
         }
         scratchPeak = bestPeak
         return bestLag
+    }
+
+    /** Parabolic interpolation of the autocorrelation peak: fit a parabola through
+     *  the winning lag and its two neighbours for the sub-bin peak, so the tempo is
+     *  not quantised to whole 10 ms lags (e.g. 128.0 BPM instead of 127.7 / 130.4). */
+    private fun refineLag(lag: Int): Double {
+        if (lag <= MIN_LAG || lag >= MAX_LAG) return lag.toDouble()
+        val y1 = acPeaks[lag - 1]
+        val y2 = acPeaks[lag]
+        val y3 = acPeaks[lag + 1]
+        val denom = y1 - 2f * y2 + y3
+        if (abs(denom) < 1e-6f) return lag.toDouble()
+        val delta = (0.5f * (y1 - y3) / denom).coerceIn(-0.5f, 0.5f)
+        return lag.toDouble() + delta
     }
 
     private fun updatePeriod(candidate: Double) {
@@ -176,6 +195,14 @@ class FourFourTracker {
         confidence += CONF_TRACK * (peak - confidence)
         if (!confidentState && confidence >= CONF_HI) confidentState = true
         else if (confidentState && confidence < CONF_LO) confidentState = false
+    }
+
+    /** Rate-limited diagnostic line so the detector can be characterised against
+     *  known-tempo tracks via `adb logcat -s FourFour`. */
+    private fun maybeLog(nowSec: Double) {
+        if (!DEBUG_LOG || nowSec - lastLogSec < 1.0) return
+        lastLogSec = nowSec
+        Log.i(TAG, "bpm=%.1f conf=%.2f locked=%b env=%d".format(lastBpm, confidence, confidentState, envCount))
     }
 
     /** Mild log-Gaussian favouring ~120 BPM, to break half/double-tempo ties
@@ -215,6 +242,9 @@ class FourFourTracker {
     }
 
     companion object {
+        private const val TAG = "FourFour"
+        private const val DEBUG_LOG = true       // temporary: BPM/confidence logging for tuning
+
         private const val BIN_SEC = 0.01         // 10 ms envelope bins (100 Hz)
         private const val ENV_LEN = 512          // ~5.1 s of history
         private const val MIN_ENV = 200          // need ~2 s before estimating

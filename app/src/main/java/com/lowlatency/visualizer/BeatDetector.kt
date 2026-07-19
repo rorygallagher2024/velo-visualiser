@@ -1,49 +1,47 @@
 package com.lowlatency.visualizer
 
 import android.util.Log
+import kotlin.math.exp
 
 /**
- * Spectral-flux onset detector.
+ * Self-calibrating spectral-flux onset detector.
  *
- * Detects percussive onsets (kicks, snares, attacks) as a *broadband* rise in
- * the magnitude spectrum: the sum of positive bin-to-bin changes between frames
- * (half-wave-rectified spectral flux). This is the standard onset function, and
- * it is far more robust than the single-band bass RMS this used to use:
+ * Onsets are a broadband rise in the magnitude spectrum: the sum of positive
+ * bin-to-bin changes between frames (half-wave-rectified spectral flux), over
+ * the 128-bin spectrum the app already computes. Flux catches energy arriving in
+ * any band (kicks, snares, attacks), and a sustained tone contributes none once
+ * steady, so a held bassline no longer masks the transients on top of it.
  *
- *   - It reacts to energy arriving in ANY band, so it catches snare/clap-driven
- *     beats and percussive attacks, not just the kick.
- *   - A sustained tone (a held bassline) contributes no flux once steady, so it
- *     no longer masks the transients riding on top of it.
- *   - It reuses the 128-bin spectrum the app already computes every frame, so it
- *     costs one extra pass over 128 floats and no new FFT.
+ * The key robustness trick is that the threshold is **not** an absolute level.
+ * Two followers track the flux's own statistics: a slow low-follower (the noise
+ * floor) and a fast high-follower (the typical onset level). The detection value
+ * is the flux expressed as a *fraction of that local dynamic range*, so it is
+ * invariant to the microphone gain and the source. A quiet laptop mic and a hot
+ * phone mic both land in the same 0..1 range, and the only tuning constant is a
+ * unitless fraction rather than a device-specific level.
  *
- * The spectrum is passed in (rather than read from `gl.SpectrumData`) so this
- * class stays decoupled from the GL layer. A beat is a flux spike above an
- * adaptive baseline, past a refractory gap, with a small presence floor so it
- * stays quiet in silence.
+ * A beat is that normalized value crossing a threshold, past a refractory gap.
+ * Silence is handled downstream by the shared loudness gate and by requiring a
+ * minimum dynamic range here.
  *
- * @param sourceScaled apply the user's source-aware sensitivity preset. The 4/4
- *   tempo tracker sets this false: it wants every kick on any source, regardless
- *   of the visual sensitivity, and can freely ignore the false onsets.
+ * @param sourceScaled apply the user's source-aware sensitivity preset (scales
+ *   the fraction threshold). The 4/4 tempo tracker sets this false: it wants
+ *   every kick on any source and can freely ignore the false onsets.
  */
 class BeatDetector(
-    private val fluxTauSec: Float = 0.35f,    // adaptive baseline time constant
-    private val fluxFactor: Float = 1.5f,     // flux must exceed baseline × this
-    private val fluxFloor: Float = 0.004f,    // + absolute onset floor
-    private val energyFloor: Float = 0.012f,  // mean spectrum below this ⇒ silence, no beat
-    private val minGapMs: Long = 120L,        // refractory period
+    private val minGapMs: Long = 120L,
     private val sourceScaled: Boolean = true,
     private val debugName: String? = null,
 ) {
     private var prev: FloatArray? = null
-    private var fluxAvg = 0f
-    private var lastNs = 0L
+    private var weights: FloatArray? = null   // per-bin frequency weighting (kick emphasis)
+    private var noiseFloor = 0f       // slow low-follower of flux
+    private var fluxPeak = 0f         // fast high-follower of flux
     private var lastBeatNs = 0L
     private var lastLogNs = 0L
-    private var scratchEnergy = 0f   // mean bin energy from the last spectralFlux pass
 
-    /** Onset strength this frame: flux above its adaptive baseline, rectified.
-     *  A continuous novelty signal for the tempo tracker's autocorrelation. */
+    /** Onset strength this frame: flux as a 0..~1 fraction of the local dynamic
+     *  range. A continuous, scale-invariant novelty for the tempo tracker. */
     var lastNovelty = 0f
         private set
 
@@ -51,61 +49,74 @@ class BeatDetector(
     fun update(spectrum: FloatArray): Boolean {
         val p = prev
         if (p == null || p.size != spectrum.size) {
-            prev = spectrum.copyOf()   // first frame (or a size change): no flux yet
+            prev = spectrum.copyOf()   // first frame (or size change): no flux yet
             return false
         }
 
-        val flux = spectralFlux(spectrum, p)   // also updates scratchEnergy + advances prev
-        val energy = scratchEnergy
+        val flux = spectralFlux(spectrum, p)
+
+        // Self-calibrating envelopes and the normalized detection function.
+        noiseFloor += (flux - noiseFloor) * (if (flux > noiseFloor) NOISE_UP else NOISE_DOWN)
+        fluxPeak += (flux - fluxPeak) * (if (flux > fluxPeak) PEAK_UP else PEAK_DOWN)
+        val dynamic = fluxPeak - noiseFloor
+        val norm = if (dynamic > MIN_DYNAMIC) ((flux - noiseFloor) / dynamic).coerceIn(0f, 2f) else 0f
+        lastNovelty = norm
 
         val now = System.nanoTime()
-        val dt = if (lastNs == 0L) 0.016f else ((now - lastNs) / 1_000_000_000.0).toFloat().coerceIn(0f, 0.1f)
-        lastNs = now
-        fluxAvg += (flux - fluxAvg) * (dt / fluxTauSec).coerceIn(0f, 1f)
-
-        lastNovelty = if (energy > energyFloor && flux > fluxAvg) flux - fluxAvg else 0f
-
-        // Source-aware user sensitivity preset scales the threshold, unless this
-        // detector opts out (the tempo tracker).
-        val scale = if (sourceScaled) BeatSettings.thresholdScale() else 1f
-        val threshold = (fluxAvg * fluxFactor + fluxFloor) * scale
-        val isBeat = energy > energyFloor &&
-            flux > threshold &&
+        val threshold = NORM_THRESHOLD * (if (sourceScaled) BeatSettings.thresholdScale() else 1f)
+        val isBeat = norm > threshold &&
+            dynamic > MIN_DYNAMIC &&
             (now - lastBeatNs) > minGapMs * 1_000_000L
         if (isBeat) lastBeatNs = now
 
-        logIfDebug(isBeat, flux, threshold, energy, now)
+        logIfDebug(isBeat, flux, norm, now)
         return isBeat
     }
 
-    /** Half-wave-rectified spectral flux (mean positive bin rise). Also stores the
-     *  mean bin energy in [scratchEnergy] and advances the previous-spectrum store. */
+    /** Half-wave-rectified spectral flux (mean positive bin rise), weighted toward
+     *  the low bins where the kick lives; advances [prevSpectrum]. */
     private fun spectralFlux(spectrum: FloatArray, prevSpectrum: FloatArray): Float {
+        val w = weights ?: buildWeights(spectrum.size).also { weights = it }
         var flux = 0f
-        var energy = 0f
         for (i in spectrum.indices) {
-            val v = spectrum[i]
-            val d = v - prevSpectrum[i]
-            if (d > 0f) flux += d
-            energy += v
-            prevSpectrum[i] = v
+            val d = spectrum[i] - prevSpectrum[i]
+            if (d > 0f) flux += w[i] * d
+            prevSpectrum[i] = spectrum[i]
         }
-        val n = spectrum.size
-        scratchEnergy = energy / n
-        return flux / n
+        return flux / spectrum.size
     }
 
-    private fun logIfDebug(isBeat: Boolean, flux: Float, threshold: Float, energy: Float, now: Long) {
+    /** Frequency weighting that emphasises the low bins where the kick sits. The
+     *  128-bin spectrum is log-spaced, so a ~50-150 Hz kick occupies only the
+     *  lowest bins; without this its few bins are swamped by the count of mid/high
+     *  bins, and a bare four-to-the-floor kick barely registers. */
+    private fun buildWeights(n: Int): FloatArray {
+        val w = FloatArray(n)
+        for (i in 0 until n) w[i] = 1f + LOW_GAIN * exp(-i.toFloat() / LOW_DECAY)
+        return w
+    }
+
+    private fun logIfDebug(isBeat: Boolean, flux: Float, norm: Float, now: Long) {
         val name = debugName ?: return
         if (isBeat) {
-            Log.i(TAG, "[$name] BEAT  flux=${f(flux)} thr=${f(threshold)} e=${f(energy)}")
+            Log.i(TAG, "[$name] BEAT  norm=${f(norm)} flux=${f(flux)} floor=${f(noiseFloor)} peak=${f(fluxPeak)}")
         } else if (now - lastLogNs > 300_000_000L) {
             lastLogNs = now
-            Log.i(TAG, "[$name] level flux=${f(flux)} thr=${f(threshold)} e=${f(energy)}")
+            Log.i(TAG, "[$name] level norm=${f(norm)} flux=${f(flux)} floor=${f(noiseFloor)} peak=${f(fluxPeak)}")
         }
     }
 
     private fun f(v: Float) = "%.4f".format(v)
 
-    companion object { private const val TAG = "BeatDetector" }
+    companion object {
+        private const val TAG = "BeatDetector"
+        private const val NOISE_UP = 0.010f    // noise floor rises slowly (onsets don't inflate it)
+        private const val NOISE_DOWN = 0.080f  // and falls moderately into quieter sections
+        private const val PEAK_UP = 0.400f     // onset-level follower snaps up on a transient
+        private const val PEAK_DOWN = 0.020f   // and eases down, holding a stable scale
+        private const val MIN_DYNAMIC = 0.002f // below this flux range ⇒ no real transients present
+        private const val NORM_THRESHOLD = 0.40f // onset when flux reaches 40% of the local range
+        private const val LOW_GAIN = 3.0f      // extra weight on the lowest bins (kick band)
+        private const val LOW_DECAY = 25.0f    // bins over which that low emphasis tapers to 1×
+    }
 }
