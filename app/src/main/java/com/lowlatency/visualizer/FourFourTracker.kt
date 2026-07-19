@@ -137,9 +137,13 @@ class FourFourTracker {
     private fun recomputeTempo() {
         if (envCount < MIN_ENV) return
         val totalE = unpackEnvelope()
-        if (totalE < 1e-6f) return
+        // No usable signal (silence, or no peak at all): decay the lock instead of
+        // freezing it. Returning early here used to leave `confidence` untouched, so
+        // the tracker kept reporting "locked" at a stale BPM straight through a
+        // silence and into the next track.
+        if (totalE < 1e-6f) { updateConfidence(0f); return }
         val bestLag = bestTempoLag(totalE)   // stores the peak height in scratchPeak
-        if (bestLag < 0) return
+        if (bestLag < 0) { updateConfidence(0f); return }
         updatePeriod(refineLag(bestLag) * BIN_SEC)   // sub-bin peak → precise BPM
         updateConfidence(scratchPeak)
 
