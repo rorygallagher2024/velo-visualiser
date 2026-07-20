@@ -65,8 +65,8 @@ class LedMatrixScene : GlScene {
             const float COLS_F = float(${COLS});
             const float ROWS_F = float(${ROWS});
             const float DOT_R   = 0.36;       // dot radius, fraction of the smaller cell side
-            const float HALO_R  = 0.75;       // glow radius, in the same units
-            const float GLOW    = 0.55;       // halo brightness vs the core
+            const float HALO_R  = 0.62;       // glow radius, in the same units
+            const float GLOW    = 0.32;       // halo brightness vs the core
             const float ROW0 = 0.5 / 3.0, ROW1 = 1.5 / 3.0, ROW2 = 2.5 / 3.0;
 
             // Classic LED VU colours by height: green low, amber mid, red hot. The
@@ -109,7 +109,7 @@ class LedMatrixScene : GlScene {
                     // The peak has "fallen" by how far it now sits below its slower
                     // trail. Fresh / held peaks read bright; falling ones dim away.
                     float falling  = smoothstep(0.02, 0.22, trail - peak);
-                    float pkBright = mix(2.2, 0.85, falling);
+                    float pkBright = mix(2.4, 0.7, falling);
 
                     for (int dy = -1; dy <= 1; dy++) {
                         float cy = base.y + float(dy);
@@ -127,22 +127,24 @@ class LedMatrixScene : GlScene {
                         float band = step(peak * ROWS_F, cy + 0.5) * step(cy + 0.5, trail * ROWS_F);
                         band *= clamp(1.0 - (cy + 0.5 - peak * ROWS_F) / max(trail * ROWS_F - peak * ROWS_F, 1.0), 0.0, 1.0);
 
-                        // Core (the dot itself), with a faint resting glow, HDR toward
-                        // the crest. The peak cap dims as it falls; the trail is fainter still.
-                        float core = 0.035 + lit * (0.85 + rowFrac * 1.4);
-                        core = max(core, pk * pkBright);
-                        core = max(core, band * 0.18);
-                        // Halo bleed, only from lit things (a falling peak bleeds less).
-                        float glow = max(lit, pk * min(pkBright, 1.0)) + band * 0.4;
-
                         // dist is in pixels, so a fixed ~1.5 px edge anti-aliases the
                         // dot. (fwidth is wrong here: dist is measured from floor(f),
                         // which jumps a whole cell at each boundary, spiking the
                         // derivative into hard lines around every dot.)
-                        float dot   = smoothstep(rDot + 1.5, rDot - 1.5, dist);
-                        float halo  = exp(-(dist * dist) / (rHalo * rHalo));
+                        float dot  = smoothstep(rDot + 1.5, rDot - 1.5, dist);
+                        float halo = exp(-(dist * dist) / (rHalo * rHalo));
 
+                        // Bar + afterglow in the column's zone colour: faint resting
+                        // glow, HDR toward the crest so it blooms.
+                        float core = 0.035 + lit * (0.85 + rowFrac * 1.4);
+                        core = max(core, band * 0.18);
+                        float glow = lit + band * 0.4;
                         col += inb * zone * (dot * core + halo * glow * GLOW);
+
+                        // Peak-hold: a distinct WHITE dot floating above the coloured
+                        // bar so it reads as a marker, dimming as it falls away.
+                        vec3 peakCol = vec3(1.0, 0.97, 0.90);
+                        col += inb * peakCol * pk * (dot * pkBright + halo * min(pkBright, 1.0) * GLOW);
                     }
                 }
 
