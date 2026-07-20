@@ -42,7 +42,7 @@ class LedMatrixScene : GlScene {
         private const val RELEASE_TAU = 0.14f      // bar snaps up instantly, eases down this fast
         private const val PEAK_HOLD_SEC = 0.7f     // peak cell hovers, then falls
         private const val PEAK_GRAVITY = 1.1f      // dial-fractions per second²
-        private const val TRAIL_TAU = 0.40f        // afterglow lag behind the falling peak
+        private const val TRAIL_TAU = 0.90f        // afterglow lag behind the falling peak
         private const val IDLE_SILENCE = 0.02f     // level that counts as silence
         private const val IDLE_AFTER_SEC = 3f
         private const val IDLE_GLOW = 0.4f          // resting brightness while idle
@@ -106,6 +106,10 @@ class LedMatrixScene : GlScene {
                     float peak  = texture(u_spectrum, vec2(u, ROW1)).r;
                     float trail = texture(u_spectrum, vec2(u, ROW2)).r;
                     float peakRow = floor(peak * ROWS_F - 0.001);
+                    // The peak has "fallen" by how far it now sits below its slower
+                    // trail. Fresh / held peaks read bright; falling ones dim away.
+                    float falling  = smoothstep(0.02, 0.22, trail - peak);
+                    float pkBright = mix(2.2, 0.85, falling);
 
                     for (int dy = -1; dy <= 1; dy++) {
                         float cy = base.y + float(dy);
@@ -118,16 +122,18 @@ class LedMatrixScene : GlScene {
 
                         float lit  = clamp(bar * ROWS_F - cy, 0.0, 1.0);    // fractional bar fill
                         float pk   = step(0.02, peak) * step(abs(cy - peakRow), 0.5);
-                        // afterglow: cells above the fallen peak, up to its slower trail
+                        // Afterglow band the falling peak left behind: brightest just
+                        // above the peak, fading up toward the older trail top.
                         float band = step(peak * ROWS_F, cy + 0.5) * step(cy + 0.5, trail * ROWS_F);
+                        band *= clamp(1.0 - (cy + 0.5 - peak * ROWS_F) / max(trail * ROWS_F - peak * ROWS_F, 1.0), 0.0, 1.0);
 
                         // Core (the dot itself), with a faint resting glow, HDR toward
-                        // the crest and on the peak cap so they bloom.
+                        // the crest. The peak cap dims as it falls; the trail is fainter still.
                         float core = 0.035 + lit * (0.85 + rowFrac * 1.4);
-                        core = max(core, pk * 2.4);
-                        core = max(core, band * 0.13);
-                        // Halo bleed, only from things that are actually lit.
-                        float glow = max(lit, pk) + band * 0.35;
+                        core = max(core, pk * pkBright);
+                        core = max(core, band * 0.18);
+                        // Halo bleed, only from lit things (a falling peak bleeds less).
+                        float glow = max(lit, pk * min(pkBright, 1.0)) + band * 0.4;
 
                         // dist is in pixels, so a fixed ~1.5 px edge anti-aliases the
                         // dot. (fwidth is wrong here: dist is measured from floor(f),
