@@ -7,6 +7,8 @@ import android.util.Log
 import com.lowlatency.visualizer.BeatBus
 import com.lowlatency.visualizer.BeatDetector
 import com.lowlatency.visualizer.BeatPulse
+import com.lowlatency.visualizer.FourFourSync
+import com.lowlatency.visualizer.FourFourTracker
 import com.lowlatency.visualizer.BeatSettings
 import com.lowlatency.visualizer.GlowSettings
 import com.lowlatency.visualizer.LinkSync
@@ -218,6 +220,12 @@ class VisualizerRenderer(private val context: Context) : GLSurfaceView.Renderer 
     private var hdrPunch = 0f
     private var lastFrameSec = 0f
 
+    // 4/4 Music Mode: grid-locks the onset stream to a steady signature (an
+    // audio-only alternative to Link). Reset on each fresh enable so a stale
+    // grid from a previous session/source doesn't leak in.
+    private val fourFour = FourFourTracker()
+    private var wasFourFour = false
+
     // Shared beat-bus producer state (GL thread only). Measures audio presence
     // from the raw PCM so the gate is identical across visuals, lights, haptics.
     private var bassLp = 0f             // one-pole low-pass state (bass/treble split)
@@ -423,7 +431,10 @@ class VisualizerRenderer(private val context: Context) : GLSurfaceView.Renderer 
         val tau = if (levelDb < slowDb) DROP_FALL_TAU else DROP_RISE_TAU
         slowDb += (levelDb - slowDb) * (dt / tau).coerceIn(0f, 1f)
         dropCooldown = (dropCooldown - dt).coerceAtLeast(0f)
-        if (levelDb - slowDb > DROP_DB_JUMP && levelDb > DROP_DB_MIN && dropCooldown <= 0f) {
+        // The drop surge is a purely visual bloom effect, so it follows the
+        // "show beats on visuals" switch. Beat detection itself always runs.
+        val dropJump = levelDb - slowDb > DROP_DB_JUMP && levelDb > DROP_DB_MIN && dropCooldown <= 0f
+        if (BeatSettings.showBeatsOnVisuals && dropJump) {
             dropSurge = 1f
             dropCooldown = DROP_COOLDOWN
             slowDb = levelDb            // consume the jump so the loud section can't re-fire
@@ -463,6 +474,27 @@ class VisualizerRenderer(private val context: Context) : GLSurfaceView.Renderer 
                 onLinkBeat?.invoke()                       // ungated: diagnostic dot + Hue timing
                 if (BeatBus.gateOpen) BeatBus.beatCount++  // gated: visuals + haptics
             }
+        } else if (FourFourSync.enabled) {
+            // 4/4 Music Mode: grid-lock the beat to a steady signature. The tracker
+            // owns its own (source-independent) onset detector; hdrBeat is still
+            // ticked every frame so its state stays warm for the fallback path.
+            if (!wasFourFour) fourFour.reset()
+            val reactiveBeat = hdrBeat.update(pcm)   // reactive fallback: proven bass-RMS
+            val tick = fourFour.update(System.nanoTime() * 1e-9, SpectrumData.magnitudes, BeatBus.gateOpen)
+            FourFourSync.statusBpm = if (tick.confident) tick.bpm else 0f   // diagnostics overlay
+            if (tick.confident) {
+                barPhaseNow = tick.barPhase
+                hdrPunch = tick.envelope * BeatBus.loudness   // phase-locked to the grid
+                if (tick.beat && BeatBus.gateOpen) BeatBus.beatCount++
+            } else {
+                // Not locked (breakdown, track change, non-4/4): raw reactive path.
+                if (reactiveBeat && BeatBus.gateOpen) {
+                    hdrPunch = BeatBus.loudness
+                    BeatBus.beatCount++
+                } else {
+                    hdrPunch = (hdrPunch - dt * PUNCH_FALL).coerceAtLeast(0f)
+                }
+            }
         } else {
             val beat = hdrBeat.update(pcm) && BeatBus.gateOpen
             if (beat) {
@@ -472,10 +504,18 @@ class VisualizerRenderer(private val context: Context) : GLSurfaceView.Renderer 
                 hdrPunch = (hdrPunch - dt * PUNCH_FALL).coerceAtLeast(0f)
             }
         }
+        wasFourFour = FourFourSync.enabled && !LinkSync.enabled
 
-        // Publish the beat for beat-reactive scenes (e.g. Beat Pulse).
+        // "Show beats on visuals" gates only the on-screen reaction. BeatBus.beatCount
+        // (lights + haptics) was already advanced above and is untouched here, so the
+        // room keeps flashing even while the visuals stay calm. When off we zero the
+        // punch and freeze the scene-facing beat count / bar phase.
+        if (!BeatSettings.showBeatsOnVisuals) {
+            hdrPunch = 0f
+            barPhaseNow = 0f
+        }
         BeatPulse.envelope = hdrPunch
-        BeatPulse.beatCount = BeatBus.beatCount
+        if (BeatSettings.showBeatsOnVisuals) BeatPulse.beatCount = BeatBus.beatCount
         BeatPulse.linkActive = LinkSync.enabled
         BeatPulse.barPhase = barPhaseNow
 

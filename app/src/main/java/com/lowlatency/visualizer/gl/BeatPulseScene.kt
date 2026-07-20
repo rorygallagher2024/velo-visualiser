@@ -36,8 +36,8 @@ class BeatPulseScene : GlScene {
             uniform float u_beats[${MAX_RINGS}];   // beat birth times (s), <0 = empty
             out vec4 fragColor;
 
-            const float RING_LIFE  = 1.3;   // seconds a ring stays alive
-            const float RING_SPEED = 1.15;  // outward expansion rate
+            const float RING_LIFE  = 0.6;   // short life so the ring snaps out, not sweeps
+            const float RING_SPEED = 2.4;   // fast expansion: reads as an instant pop on the beat
 
             void main() {
                 vec2 uv = gl_FragCoord.xy / u_resolution;
@@ -47,17 +47,20 @@ class BeatPulseScene : GlScene {
 
                 vec3 col = vec3(0.0);
 
-                // Whole-screen flash on the beat (subtle lift out of black).
-                col += vec3(0.05, 0.025, 0.01) * u_env;
+                // Whole-screen flash on the beat: a strong on-time cue that lifts the
+                // entire frame the instant the beat lands, so the eye reads the beat
+                // moment itself rather than the travelling ring.
+                col += vec3(0.09, 0.05, 0.02) * u_env;
 
                 // Central core: slams open on the beat, with a soft halo. HDR > 1
-                // so it blooms to peak luminance on the punch.
+                // so it blooms to peak luminance on the punch. Punchier than before
+                // so the on-beat instant dominates the expanding rings below.
                 float coreR = 0.10 + u_env * 0.22 + u_low * 0.05;
                 float core  = smoothstep(coreR, coreR - 0.05, r);
                 float halo  = exp(-pow(r / (coreR + 0.18), 2.0) * 3.0);
                 vec3  warm  = mix(vec3(1.0, 0.45, 0.12), vec3(1.0, 0.9, 0.7), u_env);
-                col += warm * core * (1.6 + u_env * 5.0);
-                col += warm * halo * (0.25 + u_env * 1.2);
+                col += warm * core * (1.6 + u_env * 8.0);
+                col += warm * halo * (0.25 + u_env * 2.2);
 
                 // Expanding shockwave rings — one per recent beat.
                 for (int i = 0; i < ${MAX_RINGS}; i++) {

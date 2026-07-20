@@ -9,8 +9,16 @@ enum class SceneCategory(val label: String) {
     IMMERSIVE("Immersive"),
 }
 
-/** One scene: its renderer [index], display-name resource, and category. */
-data class SceneEntry(val index: Int, val nameRes: Int, val category: SceneCategory, val requiresStereoAudio: Boolean = false)
+/** One scene: its renderer [index], display-name resource, and category.
+ *  [requiresBeat] scenes are purely beat-driven (pointless with no beat), so the
+ *  picker hides them when Beat Detection is off and no beat source is active. */
+data class SceneEntry(
+    val index: Int,
+    val nameRes: Int,
+    val category: SceneCategory,
+    val requiresStereoAudio: Boolean = false,
+    val requiresBeat: Boolean = false,
+)
 
 /**
  * The fixed catalogue of scenes — the single source of truth for the Visuals
@@ -52,8 +60,8 @@ object SceneCatalog {
         SceneEntry(22, R.string.vis_strange_attractor, SceneCategory.REACTIVE),
         SceneEntry(32, R.string.vis_waveform_waterfall, SceneCategory.REACTIVE),
         SceneEntry(21, R.string.vis_cymatics, SceneCategory.REACTIVE),
-        SceneEntry(18, R.string.vis_beat_pulse, SceneCategory.REACTIVE),
-        SceneEntry(10, R.string.vis_fireworks, SceneCategory.REACTIVE),
+        SceneEntry(18, R.string.vis_beat_pulse, SceneCategory.REACTIVE, requiresBeat = true),
+        SceneEntry(10, R.string.vis_fireworks, SceneCategory.REACTIVE, requiresBeat = true),
         SceneEntry(42, R.string.vis_chromatic_dots, SceneCategory.REACTIVE),
         // ----- Immersive (rich generative, heavier GPU) -----
         SceneEntry(6, R.string.vis_bloom, SceneCategory.IMMERSIVE),

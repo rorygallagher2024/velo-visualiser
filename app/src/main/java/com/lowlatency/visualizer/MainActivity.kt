@@ -51,7 +51,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnGlowSubtle: Button
     private lateinit var btnGlowStandard: Button
     private lateinit var btnGlowIntense: Button
+    private lateinit var btnShowBeats: Button
     private lateinit var btnHaptics: Button
+    private lateinit var btnFourFour: Button
+    private lateinit var fourFourCaption: TextView
     private lateinit var btnSensLow: Button
     private lateinit var btnSensStandard: Button
     private lateinit var btnSensHigh: Button
@@ -140,7 +143,10 @@ class MainActivity : AppCompatActivity() {
         btnGlowSubtle = findViewById(R.id.btn_glow_subtle)
         btnGlowStandard = findViewById(R.id.btn_glow_standard)
         btnGlowIntense = findViewById(R.id.btn_glow_intense)
+        btnShowBeats = findViewById(R.id.btn_show_beats)
         btnHaptics = findViewById(R.id.btn_haptics)
+        btnFourFour = findViewById(R.id.btn_four_four)
+        fourFourCaption = findViewById(R.id.four_four_caption)
         btnSensLow = findViewById(R.id.btn_sens_low)
         btnSensStandard = findViewById(R.id.btn_sens_standard)
         btnSensHigh = findViewById(R.id.btn_sens_high)
@@ -291,6 +297,7 @@ class MainActivity : AppCompatActivity() {
             prefs = prefs,
             onLinkEnabledChanged = {
                 if (::lightingController.isInitialized) lightingController.refreshAdvancedVisibility()
+                updateFourFourEnabledForLink()   // Link owns the grid, so 4/4 greys out
             },
         )
         linkSyncController.bind()
@@ -355,6 +362,9 @@ class MainActivity : AppCompatActivity() {
                 if (::menuDiscoveryController.isInitialized) menuDiscoveryController.onMenuOpened()
                 if (::scenesController.isInitialized) scenesController.onMenuOpened()
             },
+            onStateChanged = { isOpen ->
+                if (::perfOverlayController.isInitialized) perfOverlayController.setMenuOpen(isOpen)
+            }
         )
         menuSheetController.bind()
 
@@ -604,6 +614,33 @@ class MainActivity : AppCompatActivity() {
             updateHapticsButton(false)
         }
 
+        // Show Beats on Visuals (persisted, default on). Beat detection always runs,
+        // so lights and haptics keep flashing; this only governs the on-screen
+        // reaction and hides the beat-only scenes from the picker when off.
+        BeatSettings.showBeatsOnVisuals = prefs.getBoolean(KEY_SHOW_BEATS, true)
+        updateShowBeatsButton(BeatSettings.showBeatsOnVisuals)
+        btnShowBeats.setOnClickListener {
+            val on = !BeatSettings.showBeatsOnVisuals
+            BeatSettings.showBeatsOnVisuals = on
+            prefs.edit().putBoolean(KEY_SHOW_BEATS, on).apply()
+            updateShowBeatsButton(on)
+            // Beat-only scenes (Beat Pulse, Beat Fireworks) appear/disappear with it.
+            if (::scenesController.isInitialized) scenesController.refreshAvailableScenes()
+        }
+
+        // 4/4 Music Mode: grid-lock the beat to a steady four-to-the-floor
+        // signature (persisted, default off). Audio-only alternative to Link; the
+        // renderer falls back to the reactive detector whenever it isn't confident.
+        FourFourSync.enabled = prefs.getBoolean(KEY_FOUR_FOUR, false)
+        updateFourFourButton(FourFourSync.enabled)
+        updateFourFourEnabledForLink()
+        btnFourFour.setOnClickListener {
+            val enabled = !FourFourSync.enabled
+            FourFourSync.enabled = enabled
+            prefs.edit().putBoolean(KEY_FOUR_FOUR, enabled).apply()
+            updateFourFourButton(enabled)
+        }
+
         // Beat sensitivity presets (persisted). Drives every BeatDetector
         // (fireworks, haptics, starscape flashes), mapped per audio source.
         BeatSettings.preset = BeatSettings.Sensitivity.fromKey(prefs.getString(KEY_BEAT_SENS, null))
@@ -611,6 +648,27 @@ class MainActivity : AppCompatActivity() {
         btnSensLow.setOnClickListener { setBeatSensitivity(BeatSettings.Sensitivity.LOW) }
         btnSensStandard.setOnClickListener { setBeatSensitivity(BeatSettings.Sensitivity.STANDARD) }
         btnSensHigh.setOnClickListener { setBeatSensitivity(BeatSettings.Sensitivity.HIGH) }
+    }
+
+    private fun updateFourFourButton(enabled: Boolean) {
+        btnFourFour.isSelected = enabled
+        btnFourFour.setText(if (enabled) R.string.four_four_on else R.string.four_four_off)
+        // The long explainer only clutters the sheet when the mode is off; show it
+        // when the user actually engages the feature.
+        fourFourCaption.visibility = if (enabled) View.VISIBLE else View.GONE
+    }
+
+    private fun updateShowBeatsButton(enabled: Boolean) {
+        btnShowBeats.isSelected = enabled
+        btnShowBeats.setText(if (enabled) R.string.show_beats_on else R.string.show_beats_off)
+    }
+
+    /** Grey out 4/4 Music Mode while Ableton Link is on: Link owns the beat grid
+     *  (it takes priority in the renderer), so 4/4 would have no effect. */
+    private fun updateFourFourEnabledForLink() {
+        val linkOn = LinkSync.enabled
+        btnFourFour.isEnabled = !linkOn
+        btnFourFour.alpha = if (linkOn) 0.4f else 1f
     }
 
     private fun setBeatSensitivity(s: BeatSettings.Sensitivity) {
@@ -957,6 +1015,8 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_BURNIN = "burn_in_enabled"
         private const val KEY_GLOW = "glow_strength"   // string preset (was a boolean key)
         private const val KEY_HAPTICS = "haptics_enabled"
+        private const val KEY_FOUR_FOUR = "four_four_mode_enabled"
+        private const val KEY_SHOW_BEATS = "show_beats_on_visuals"
         private const val KEY_BEAT_SENS = "beat_sensitivity"
         private const val KEY_THEME = "color_theme"
         private const val KEY_PEAK_LUMINANCE = "peak_luminance_enabled"

@@ -7,6 +7,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.edit
+import com.lowlatency.visualizer.BeatSettings
 import com.lowlatency.visualizer.R
 import com.lowlatency.visualizer.SecondaryVisualizerActivity
 import com.lowlatency.visualizer.VisualizerSurfaceView
@@ -35,7 +36,11 @@ class ScenesController(
     private val onCloseMenu: () -> Unit = {},
 ) {
     private val allEntries = SceneCatalog.ENTRIES
-    private val entries get() = allEntries.filter { !it.requiresStereoAudio || isStereoAudio() }
+    // Beat-only scenes are visual, so they follow "show beats on visuals": pointless
+    // when the visuals don't react, regardless of whether lights still flash.
+    private val entries get() = allEntries.filter {
+        (!it.requiresStereoAudio || isStereoAudio()) && (!it.requiresBeat || BeatSettings.showBeatsOnVisuals)
+    }
 
     private lateinit var wheel: SceneWheelView
     private lateinit var counter: TextView
@@ -108,13 +113,18 @@ class ScenesController(
         return items
     }
 
-    fun onAudioSourceChanged() {
+    fun onAudioSourceChanged() = refreshAvailableScenes()
+
+    /**
+     * Rebuild the wheel and swipe order for the current availability (stereo +
+     * beat), falling back to the default scene if the active one is no longer
+     * offered (e.g. a stereo-only scene on a mono source, or a beat-only scene
+     * with Beat Detection off). Call whenever availability changes.
+     */
+    fun refreshAvailableScenes() {
         glView.sceneOrder = entries.map { it.index }
         updateFavouritesOrder()
         rebuildWheel()
-        
-        // If the current scene is now unavailable (e.g. requires system audio but we switched to mic),
-        // fallback to the default scene.
         if (entries.none { it.index == glView.sceneIndex }) {
             glView.selectScene(VisualizerRenderer.DEFAULT_SCENE)
         }

@@ -470,29 +470,22 @@
             android:lineSpacingMultiplier="1.2"
             android:visibility="gone" />
 
-        <!-- Beat sensitivity -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/beat_sens_label"
-            android:textColor="@color/text_dim"
-            android:textSize="12sp"
-            android:layout_marginBottom="2dp" />
+        <!-- ───── divider: Audio / Beat Detection ───── -->
+        <View style="@style/Divider" android:layout_marginTop="16dp" android:layout_marginBottom="20dp" />
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/beat_sens_caption"
-            android:textColor="@color/text_dim"
-            android:textSize="11sp"
-            android:alpha="0.7"
-            android:layout_marginBottom="10dp" />
+        <!-- ===== Group: Beat Detection ===== -->
+        <TextView style="@style/SectionHeader" android:text="@string/section_beat_detection" />
+
+        <!-- Beat Sensitivity: sub-heading, then the control, then the explainer
+             below it — the same order as the toggle rows, so captions sit
+             consistently under whatever they describe. -->
+        <TextView style="@style/SubHeader" android:text="@string/beat_sens_label" />
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginBottom="20dp">
+            android:layout_marginBottom="8dp">
 
             <Button
                 android:id="@+id/btn_sens_low"
@@ -514,6 +507,38 @@
                 android:text="@string/beat_sens_high" />
         </LinearLayout>
 
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/beat_sens_caption"
+            android:textColor="@color/text_dim"
+            android:textSize="11sp"
+            android:lineSpacingMultiplier="1.2"
+            android:layout_marginBottom="20dp" />
+
+        <!-- Show Beats on Visuals toggle + explainer -->
+        <Button
+            android:id="@+id/btn_show_beats"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/pill_button_bg"
+            android:text="@string/show_beats_on"
+            android:textColor="@color/btn_text"
+            android:textAllCaps="false"
+            android:textSize="14sp"
+            android:stateListAnimator="@null" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/show_beats_caption"
+            android:textColor="@color/text_dim"
+            android:textSize="11sp"
+            android:alpha="1.0"
+            android:lineSpacingMultiplier="1.2"
+            android:layout_marginBottom="16dp" />
+
         <!-- Vibrate-on-beat haptics toggle -->
         <Button
             android:id="@+id/btn_haptics"
@@ -527,23 +552,34 @@
             android:textSize="14sp"
             android:stateListAnimator="@null" />
 
-        <!-- ───── divider: Audio / Ableton Link ───── -->
-        <View style="@style/Divider" android:layout_marginTop="16dp" android:layout_marginBottom="20dp" />
+        <!-- 4/4 Music Mode toggle + explainer -->
+        <Button
+            android:id="@+id/btn_four_four"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/pill_button_bg"
+            android:text="@string/four_four_off"
+            android:textColor="@color/btn_text"
+            android:textAllCaps="false"
+            android:textSize="14sp"
+            android:stateListAnimator="@null" />
 
-        <!-- ===== Group: Ableton Link ===== -->
-        <TextView style="@style/SectionHeader" android:text="@string/link_label" android:layout_marginBottom="6dp" />
-
-        <!-- Always-visible primer: the full link_help only shows once Link is on,
-             but you need to know what it is *before* deciding to enable it. -->
         <TextView
+            android:id="@+id/four_four_caption"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/link_caption"
+            android:text="@string/four_four_caption"
             android:textColor="@color/text_dim"
             android:textSize="11sp"
-            android:alpha="0.7"
+            android:alpha="1.0"
             android:lineSpacingMultiplier="1.2"
-            android:layout_marginBottom="16dp" />
+            android:visibility="gone" />
+
+        <!-- Ableton Link (sub-heading under Beat Detection) -->
+        <TextView style="@style/SubHeader" android:text="@string/link_label"
+            android:layout_marginTop="16dp" android:layout_marginBottom="6dp" />
 
         <Button
             android:id="@+id/btn_link_sync"
@@ -556,6 +592,18 @@
             android:textAllCaps="false"
             android:textSize="14sp"
             android:stateListAnimator="@null" />
+
+        <!-- Explainer sits under the toggle, matching the other rows. Still shown
+             when Link is off so you know what it is before enabling; the fuller
+             link_help appears in the settings group once Link is on. -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/link_caption"
+            android:textColor="@color/text_dim"
+            android:textSize="11sp"
+            android:lineSpacingMultiplier="1.2"
+            android:layout_marginBottom="16dp" />
 
         <LinearLayout
             android:id="@+id/link_settings_group"
@@ -1247,7 +1295,7 @@
                 android:text="@string/react_caption"
                 android:textColor="@color/text_dim"
                 android:textSize="11sp"
-                android:alpha="0.7"
+                android:alpha="1.0"
                 android:layout_marginBottom="12dp" />
 
             <LinearLayout
@@ -1773,7 +1821,7 @@
             android:text="@string/tone_disclaimer"
             android:textColor="@color/text_dim"
             android:textSize="11sp"
-            android:alpha="0.7"
+            android:alpha="1.0"
             android:lineSpacingMultiplier="1.2" />
     </LinearLayout>
 

@@ -33,6 +33,7 @@ class MenuSheetController(
     private val activity: AppCompatActivity,
     private val glView: VisualizerSurfaceView,
     private val onBeforeOpen: () -> Unit,
+    private val onStateChanged: (isOpen: Boolean) -> Unit = {},
 ) {
     private lateinit var scrim: View
     private lateinit var optionsSheet: View
@@ -253,6 +254,7 @@ class MenuSheetController(
     private fun settle(open: Boolean, speedPxPerS: Float) {
         isOpen = open
         glView.isMenuOpen = open
+        onStateChanged(open)
         if (!open) lastClosedMs = SystemClock.elapsedRealtime()
         if (open) {
             optionsSheet.visibility = View.VISIBLE

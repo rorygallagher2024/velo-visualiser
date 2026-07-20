@@ -32,6 +32,14 @@ class HapticController(context: Context) {
     }
     private val hasAmplitudeControl = vibrator?.hasAmplitudeControl() == true
 
+    // Crisp, hardware-tuned click primitives (API 30+) land on the transient with
+    // far less spin-up than a generic one-shot buzz, so the beat feels on time
+    // rather than trailing it. Falls back to a short one-shot where unsupported.
+    private val supportsClick: Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
+        runCatching {
+            vibrator?.areAllPrimitivesSupported(VibrationEffect.Composition.PRIMITIVE_CLICK) == true
+        }.getOrDefault(false)
+
     // Route as MEDIA so the OS is less likely to filter it as "touch feedback"
     // (which is suppressed when that system setting / ring-vibration is off).
     private val mediaAttrs = AudioAttributes.Builder()
@@ -49,7 +57,7 @@ class HapticController(context: Context) {
     /** Fire one strong, long pulse immediately to confirm vibration works at all. */
     fun previewPulse() {
         val v = vibrator ?: run { Log.w(TAG, "previewPulse: no vibrator"); return }
-        emit(v, 220L, 255)
+        emit(v, VibrationEffect.createOneShot(220L, 255))
         Log.i(TAG, "previewPulse fired (220ms, max amplitude)")
     }
 
@@ -88,17 +96,23 @@ class HapticController(context: Context) {
     }
 
     private fun pulse(v: Vibrator, energy: Float) {
-        val durationMs = (MIN_MS + energy * (MAX_MS - MIN_MS)).toLong().coerceIn(MIN_MS, MAX_MS)
-        val amp = (energy * 255f).toInt().coerceIn(110, 255)
-        emit(v, durationMs, amp)
+        emit(v, beatEffect(energy))
     }
 
-    private fun emit(v: Vibrator, durationMs: Long, amplitude: Int) {
-        val effect = if (hasAmplitudeControl) {
-            VibrationEffect.createOneShot(durationMs, amplitude.coerceIn(1, 255))
-        } else {
-            VibrationEffect.createOneShot(durationMs, VibrationEffect.DEFAULT_AMPLITUDE)
+    /** The tightest on-beat pulse the device can do: a scaled click primitive when
+     *  supported, otherwise a short one-shot (kept brief so it stays punchy). */
+    private fun beatEffect(energy: Float): VibrationEffect {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && supportsClick) {
+            return VibrationEffect.startComposition()
+                .addPrimitive(VibrationEffect.Composition.PRIMITIVE_CLICK, energy.coerceIn(0.5f, 1f))
+                .compose()
         }
+        val durationMs = (MIN_MS + energy * (MAX_MS - MIN_MS)).toLong().coerceIn(MIN_MS, MAX_MS)
+        val amp = if (hasAmplitudeControl) (energy * 255f).toInt().coerceIn(110, 255) else VibrationEffect.DEFAULT_AMPLITUDE
+        return VibrationEffect.createOneShot(durationMs, amp)
+    }
+
+    private fun emit(v: Vibrator, effect: VibrationEffect) {
         try {
             @Suppress("DEPRECATION")
             v.vibrate(effect, mediaAttrs)
@@ -113,7 +127,7 @@ class HapticController(context: Context) {
 
     companion object {
         private const val TAG = "HapticController"
-        private const val MIN_MS = 20L
-        private const val MAX_MS = 70L
+        private const val MIN_MS = 12L
+        private const val MAX_MS = 35L
     }
 }
