@@ -70,6 +70,7 @@ class LedMatrixScene : GlScene {
             const vec3 GREEN = vec3(0.15, 1.0, 0.30);
             const vec3 AMBER = vec3(1.0, 0.72, 0.10);
             const vec3 RED   = vec3(1.0, 0.18, 0.13);
+            const vec3 PEAK_TINT = vec3(1.0, 0.95, 0.85);   // warm near-white the peak cap leans toward
 
             float sdRoundBox(vec2 p, vec2 b, float r) {
                 vec2 d = abs(p) - b + r;
@@ -121,7 +122,10 @@ class LedMatrixScene : GlScene {
 
                 vec3 col = zone * 0.035;                      // faint resting glow, keeps the zone tint
                 col = mix(col, litCol, fill);
-                col = mix(col, zone * 2.4, isPeak);           // peak cap: bright zone colour
+                // Peak cap: gently distinct — a paler, slightly hotter shade of the
+                // bar's own colour. Kept modest so the channels don't all clamp past
+                // 1.0 and wash the cap out to flat white.
+                col = mix(col, mix(zone, PEAK_TINT, 0.25) * 1.7, isPeak);
 
                 fragColor = vec4(col * shape * u_dim, 1.0);
             }
