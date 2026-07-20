@@ -13,20 +13,22 @@ import kotlin.math.min
  * "Pocket LED" — a dot-matrix spectrum panel with the Mechanical Meter's polish.
  *
  * Borrows the meter's *craft* rather than its palette: honest instrument physics,
- * an idle standby and the shared OLED burn-in orbit, expressed as a grid of LED
- * segments. The colour is the iconic hardware-meter ladder — green low, amber
- * mid, red hot up each column — and the app's global theme grade (Neon / Warm /
- * Cool / Mono) re-tints the whole panel in the composite.
+ * an idle standby and the shared OLED burn-in orbit, expressed as a grid of glowing
+ * LED dots. The colour is the iconic hardware-meter ladder — green low, amber mid,
+ * red hot up each column — and the app's global theme grade (Neon / Warm / Cool /
+ * Mono) re-tints the whole panel in the composite.
  *
- * Each column is a bottom-anchored bar with **VU-style ballistics** (fast attack,
- * smooth release) and a single peak-hold cell that hovers, holds, then falls back
- * under gravity like a hi-fi peak pointer. Unlit cells glow faintly so the whole
- * matrix reads as a physical panel; the crest and the peak cap run HDR > 1 so
- * they bloom. After a few seconds of silence the panel dims to a resting glow and
- * snaps awake on the first signal.
+ * The dots actually emit: each is a round core with a soft halo that bleeds into
+ * the gaps and onto its neighbours, so the panel reads as real light rather than
+ * drawn boxes (the fragment shader sums a 3x3 neighbourhood per pixel). Each column
+ * is a bottom-anchored bar with **instant attack / smooth release**, a single
+ * peak-hold cell that hovers then **falls under gravity**, and a slower "trail"
+ * that lags the falling peak to leave a fading phosphor afterglow above it, echoing
+ * the meter's wake. After a few seconds of silence the panel dims to a resting glow
+ * and snaps awake on the first signal.
  *
  * One full-screen fragment pass in normalized [0,1] space; the ballistics ride a
- * COLS x 2 float texture (row0 = bar level, row1 = gravity peak).
+ * COLS x 3 float texture (row0 = bar level, row1 = gravity peak, row2 = trail).
  */
 class LedMatrixScene : GlScene {
 
@@ -40,6 +42,7 @@ class LedMatrixScene : GlScene {
         private const val RELEASE_TAU = 0.14f      // bar snaps up instantly, eases down this fast
         private const val PEAK_HOLD_SEC = 0.7f     // peak cell hovers, then falls
         private const val PEAK_GRAVITY = 1.1f      // dial-fractions per second²
+        private const val TRAIL_TAU = 0.40f        // afterglow lag behind the falling peak
         private const val IDLE_SILENCE = 0.02f     // level that counts as silence
         private const val IDLE_AFTER_SEC = 3f
         private const val IDLE_GLOW = 0.4f          // resting brightness while idle
@@ -56,28 +59,22 @@ class LedMatrixScene : GlScene {
             uniform vec2  u_resolution;
             uniform float u_time;
             uniform float u_dim;
-            uniform sampler2D u_spectrum;     // COLS x 2 : row0 bar, row1 peak
+            uniform sampler2D u_spectrum;     // COLS x 3 : row0 bar, row1 peak, row2 trail
             out vec4 fragColor;
 
             const float COLS_F = float(${COLS});
             const float ROWS_F = float(${ROWS});
-            const float MARGIN = 0.16;        // gap between LED segments
-            const float CORNER = 0.12;        // segment corner radius (cell units)
+            const float DOT_R   = 0.36;       // dot radius, fraction of the smaller cell side
+            const float HALO_R  = 0.75;       // glow radius, in the same units
+            const float GLOW    = 0.55;       // halo brightness vs the core
+            const float ROW0 = 0.5 / 3.0, ROW1 = 1.5 / 3.0, ROW2 = 2.5 / 3.0;
 
             // Classic LED VU colours by height: green low, amber mid, red hot. The
-            // global theme grade (Neon/Warm/Cool/Mono) re-tints the lot downstream in
-            // the composite, so this is just the default, ungraded ladder.
+            // global theme grade re-tints the lot downstream in the composite.
             const vec3 GREEN = vec3(0.15, 1.0, 0.30);
             const vec3 AMBER = vec3(1.0, 0.72, 0.10);
             const vec3 RED   = vec3(1.0, 0.18, 0.13);
 
-            float sdRoundBox(vec2 p, vec2 b, float r) {
-                vec2 d = abs(p) - b + r;
-                return min(max(d.x, d.y), 0.0) + length(max(d, 0.0)) - r;
-            }
-
-            // Fixed colour zones up the column, with a hair of blend so the
-            // boundaries anti-alias instead of banding hard.
             vec3 ledColor(float rowFrac) {
                 vec3 c = mix(GREEN, AMBER, smoothstep(0.56, 0.60, rowFrac));
                 return mix(c, RED, smoothstep(0.80, 0.84, rowFrac));
@@ -90,46 +87,66 @@ class LedMatrixScene : GlScene {
                 uv += vec2(sin(u_time * 0.31) + 0.5 * sin(u_time * 0.13 + 1.7),
                            cos(u_time * 0.27) + 0.5 * cos(u_time * 0.19 + 0.9)) * 0.0012;
 
-                vec2 grid = vec2(COLS_F, ROWS_F);
-                vec2 f = uv * grid;
-                vec2 ci = floor(f);
-                if (any(lessThan(ci, vec2(0.0))) || any(greaterThanEqual(ci, grid))) {
-                    fragColor = vec4(0.0, 0.0, 0.0, 1.0); return;
+                vec2 grid   = vec2(COLS_F, ROWS_F);
+                vec2 f      = uv * grid;
+                vec2 cellPx = u_resolution / grid;          // pixels per cell
+                float cmin  = min(cellPx.x, cellPx.y);
+                float rDot  = DOT_R * cmin;                 // round in screen space
+                float rHalo = HALO_R * cmin;
+                vec2 base   = floor(f);
+
+                vec3 col = vec3(0.0);
+                // Sum a 3x3 neighbourhood so each lit dot's halo bleeds into the gaps
+                // and onto its neighbours. Column data is fetched once per column.
+                for (int dx = -1; dx <= 1; dx++) {
+                    float cx = base.x + float(dx);
+                    float inbx = step(0.0, cx) * step(cx, COLS_F - 1.0);
+                    float u = (cx + 0.5) / COLS_F;
+                    float bar   = texture(u_spectrum, vec2(u, ROW0)).r;
+                    float peak  = texture(u_spectrum, vec2(u, ROW1)).r;
+                    float trail = texture(u_spectrum, vec2(u, ROW2)).r;
+                    float peakRow = floor(peak * ROWS_F - 0.001);
+
+                    for (int dy = -1; dy <= 1; dy++) {
+                        float cy = base.y + float(dy);
+                        float inb = inbx * step(0.0, cy) * step(cy, ROWS_F - 1.0);
+                        vec2 dpx = (f - (vec2(cx, cy) + 0.5)) * cellPx;
+                        float dist = length(dpx);
+
+                        float rowFrac = (cy + 0.5) / ROWS_F;
+                        vec3 zone = ledColor(rowFrac);
+
+                        float lit  = clamp(bar * ROWS_F - cy, 0.0, 1.0);    // fractional bar fill
+                        float pk   = step(0.02, peak) * step(abs(cy - peakRow), 0.5);
+                        // afterglow: cells above the fallen peak, up to its slower trail
+                        float band = step(peak * ROWS_F, cy + 0.5) * step(cy + 0.5, trail * ROWS_F);
+
+                        // Core (the dot itself), with a faint resting glow, HDR toward
+                        // the crest and on the peak cap so they bloom.
+                        float core = 0.035 + lit * (0.85 + rowFrac * 1.4);
+                        core = max(core, pk * 2.4);
+                        core = max(core, band * 0.13);
+                        // Halo bleed, only from things that are actually lit.
+                        float glow = max(lit, pk) + band * 0.35;
+
+                        // dist is in pixels, so a fixed ~1.5 px edge anti-aliases the
+                        // dot. (fwidth is wrong here: dist is measured from floor(f),
+                        // which jumps a whole cell at each boundary, spiking the
+                        // derivative into hard lines around every dot.)
+                        float dot   = smoothstep(rDot + 1.5, rDot - 1.5, dist);
+                        float halo  = exp(-(dist * dist) / (rHalo * rHalo));
+
+                        col += inb * zone * (dot * core + halo * glow * GLOW);
+                    }
                 }
 
-                // Rounded, anti-aliased LED segment inside the cell.
-                vec2 cell = fract(f) - 0.5;
-                float d = sdRoundBox(cell, vec2(0.5 - MARGIN), CORNER);
-                float aa = fwidth(d) + 1e-4;
-                float shape = smoothstep(aa, -aa, d);
-                if (shape < 0.001) { fragColor = vec4(0.0, 0.0, 0.0, 1.0); return; }
-
-                float u    = (ci.x + 0.5) / COLS_F;
-                float bar  = texture(u_spectrum, vec2(u, 0.25)).r;
-                float peak = texture(u_spectrum, vec2(u, 0.75)).r;
-
-                float rowFrac = (ci.y + 0.5) / ROWS_F;
-                // Fractional fill: whole cells below the crest are full, the tip cell
-                // fades by the remainder, so the bar top is smooth, not steppy.
-                float fill = clamp(bar * ROWS_F - ci.y, 0.0, 1.0);
-                float peakRow = floor(peak * ROWS_F - 0.001);
-                float isPeak  = step(abs(ci.y - peakRow), 0.001) * step(0.02, peak);
-
-                // Green/amber/red ladder, brightening toward the crest (HDR > 1 blooms).
-                vec3 zone = ledColor(rowFrac);
-                vec3 litCol = zone * (0.85 + rowFrac * 1.4);
-
-                vec3 col = zone * 0.035;                      // faint resting glow, keeps the zone tint
-                col = mix(col, litCol, fill);
-                col = mix(col, zone * 2.4, isPeak);           // peak cap: bright zone colour
-
-                fragColor = vec4(col * shape * u_dim, 1.0);
+                fragColor = vec4(col * u_dim, 1.0);
             }
         """
     }
 
     private val upload: FloatBuffer = ByteBuffer
-        .allocateDirect(COLS * 2 * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
+        .allocateDirect(COLS * 3 * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
 
     private val quad: FloatBuffer = ByteBuffer
         .allocateDirect(8 * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
@@ -140,6 +157,7 @@ class LedMatrixScene : GlScene {
     private val peakLevel = FloatArray(COLS)
     private val peakHold = FloatArray(COLS)
     private val peakVel = FloatArray(COLS)
+    private val trail = FloatArray(COLS)
     private var idleGlow = 1f
     private var silentSec = 0f
     private var lastTime = -1f
@@ -173,7 +191,7 @@ class LedMatrixScene : GlScene {
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_NEAREST)
         GLES20.glTexImage2D(
             GLES20.GL_TEXTURE_2D, 0, GLES30.GL_R32F,
-            COLS, 2, 0, GLES30.GL_RED, GLES20.GL_FLOAT, null
+            COLS, 3, 0, GLES30.GL_RED, GLES20.GL_FLOAT, null
         )
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0)
     }
@@ -196,7 +214,7 @@ class LedMatrixScene : GlScene {
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, specTex)
         GLES20.glTexSubImage2D(
-            GLES20.GL_TEXTURE_2D, 0, 0, 0, COLS, 2,
+            GLES20.GL_TEXTURE_2D, 0, 0, 0, COLS, 3,
             GLES30.GL_RED, GLES20.GL_FLOAT, upload
         )
         GLES20.glUniform1i(uSpectrum, 0)
@@ -210,11 +228,12 @@ class LedMatrixScene : GlScene {
         GLES20.glDisableVertexAttribArray(aPos)
     }
 
-    /** Advance each column's bar (fast attack, smooth release) and its gravity peak;
-     *  returns the loudest raw column, for the idle detector. */
+    /** Advance each column's bar (instant attack, smooth release), its gravity peak
+     *  and the lagging afterglow trail; returns the loudest raw column for the idle. */
     private fun updateBallistics(dt: Float): Float {
         val mags = SpectrumData.magnitudes
         val fallRate = 1f - exp(-dt / RELEASE_TAU)
+        val trailRate = 1f - exp(-dt / TRAIL_TAU)
         var loudest = 0f
         for (i in 0 until COLS) {
             val lo = i * 128 / COLS
@@ -226,6 +245,10 @@ class LedMatrixScene : GlScene {
             // Instant attack (LEDs snap straight up to the signal), smooth release.
             barLevel[i] = if (raw >= barLevel[i]) raw else barLevel[i] + (raw - barLevel[i]) * fallRate
             advancePeak(i, dt)
+            // Trail follows the peak up instantly, relaxes down slowly → the gap
+            // between them is the phosphor afterglow of the falling peak.
+            trail[i] = if (peakLevel[i] >= trail[i]) peakLevel[i]
+                       else trail[i] + (peakLevel[i] - trail[i]) * trailRate
         }
         return loudest
     }
@@ -254,6 +277,7 @@ class LedMatrixScene : GlScene {
         upload.clear()
         for (i in 0 until COLS) upload.put(barLevel[i])
         for (i in 0 until COLS) upload.put(peakLevel[i])
+        for (i in 0 until COLS) upload.put(trail[i])
         upload.position(0)
     }
 }
