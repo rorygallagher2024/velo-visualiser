@@ -131,24 +131,34 @@ class Waveform3dScene : StereoScene {
             // hid "now" off-screen for seconds.
             const float EDGE_MARGIN = 0.05;
 
-            int wrapTx(int si) {
-                int tx = si % 4096;
-                return tx < 0 ? tx + 4096 : tx;
+            int wrapTx(int s) {
+                return (s < 0) ? (4096 + (s % 4096)) % 4096 : (s % 4096);
             }
 
-            // Piecewise-linear band envelopes + beat mark at a continuous slice
-            // coordinate — the flat Waveform's anti-glimmer sampling, reused.
             void envAt(float s, out vec3 bands, out float beat) {
                 float fl = floor(s);
                 float f = s - fl;
-                int a = wrapTx(int(fl));
-                int b = wrapTx(int(fl) + 1);
-                vec4 a0 = texelFetch(u_hist, ivec2(a, 0), 0);
-                vec4 b0 = texelFetch(u_hist, ivec2(b, 0), 0);
-                vec4 a1 = texelFetch(u_hist, ivec2(a, 1), 0);
-                vec4 b1 = texelFetch(u_hist, ivec2(b, 1), 0);
-                bands = mix(a0.rgb, b0.rgb, f);
-                beat = max(a1.g, b1.g);
+                
+                // 4-tap B-Spline weights for perfectly smooth, non-overshooting curves
+                float f2 = f * f;
+                float f3 = f2 * f;
+                float w0 = (1.0 - 3.0*f + 3.0*f2 - f3) / 6.0;
+                float w1 = (4.0 - 6.0*f2 + 3.0*f3) / 6.0;
+                float w2 = (1.0 + 3.0*f + 3.0*f2 - 3.0*f3) / 6.0;
+                float w3 = f3 / 6.0;
+
+                int i = int(fl);
+                vec4 p0 = texelFetch(u_hist, ivec2(wrapTx(i - 1), 0), 0);
+                vec4 p1 = texelFetch(u_hist, ivec2(wrapTx(i), 0), 0);
+                vec4 p2 = texelFetch(u_hist, ivec2(wrapTx(i + 1), 0), 0);
+                vec4 p3 = texelFetch(u_hist, ivec2(wrapTx(i + 2), 0), 0);
+                
+                bands = p0.rgb * w0 + p1.rgb * w1 + p2.rgb * w2 + p3.rgb * w3;
+                
+                // The beat marks can remain linearly interpolated or max-pooled
+                vec4 b1 = texelFetch(u_hist, ivec2(wrapTx(i), 1), 0);
+                vec4 b2 = texelFetch(u_hist, ivec2(wrapTx(i + 1), 1), 0);
+                beat = max(b1.g, b2.g);
             }
 
             void main() {

@@ -156,15 +156,30 @@ class WaveformRollScene : StereoScene {
             void envAt(float s, out vec3 bands, out float up, out float dn) {
                 float fl = floor(s);
                 float f = s - fl;
-                int a = wrapTx(int(fl));
-                int b = wrapTx(int(fl) + 1);
-                vec4 a0 = texelFetch(u_hist, ivec2(a, 0), 0);
-                vec4 a1 = texelFetch(u_hist, ivec2(a, 1), 0);
-                vec4 b0 = texelFetch(u_hist, ivec2(b, 0), 0);
-                vec4 b1 = texelFetch(u_hist, ivec2(b, 1), 0);
-                bands = mix(a0.rgb, b0.rgb, f);
-                up = mix(a0.a, b0.a, f);
-                dn = mix(a1.a, b1.a, f);
+                
+                // 4-tap B-Spline weights for perfectly smooth, non-overshooting curves
+                float f2 = f * f;
+                float f3 = f2 * f;
+                float w0 = (1.0 - 3.0*f + 3.0*f2 - f3) / 6.0;
+                float w1 = (4.0 - 6.0*f2 + 3.0*f3) / 6.0;
+                float w2 = (1.0 + 3.0*f + 3.0*f2 - 3.0*f3) / 6.0;
+                float w3 = f3 / 6.0;
+
+                int i = int(fl);
+                vec4 p0 = texelFetch(u_hist, ivec2(wrapTx(i - 1), 0), 0);
+                vec4 p1 = texelFetch(u_hist, ivec2(wrapTx(i), 0), 0);
+                vec4 p2 = texelFetch(u_hist, ivec2(wrapTx(i + 1), 0), 0);
+                vec4 p3 = texelFetch(u_hist, ivec2(wrapTx(i + 2), 0), 0);
+                
+                bands = p0.rgb * w0 + p1.rgb * w1 + p2.rgb * w2 + p3.rgb * w3;
+                up = p0.a * w0 + p1.a * w1 + p2.a * w2 + p3.a * w3;
+                
+                vec4 b0 = texelFetch(u_hist, ivec2(wrapTx(i - 1), 1), 0);
+                vec4 b1 = texelFetch(u_hist, ivec2(wrapTx(i), 1), 0);
+                vec4 b2 = texelFetch(u_hist, ivec2(wrapTx(i + 1), 1), 0);
+                vec4 b3 = texelFetch(u_hist, ivec2(wrapTx(i + 2), 1), 0);
+                
+                dn = b0.a * w0 + b1.a * w1 + b2.a * w2 + b3.a * w3;
             }
 
             void main() {
