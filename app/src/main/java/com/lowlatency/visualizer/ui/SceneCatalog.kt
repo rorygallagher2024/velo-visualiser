@@ -40,6 +40,7 @@ object SceneCatalog {
         SceneEntry(16, R.string.vis_led_matrix, SceneCategory.INSTRUMENTS),
         SceneEntry(28, R.string.vis_led_matrix_3d, SceneCategory.INSTRUMENTS),
         SceneEntry(17, R.string.vis_mechanical_meter, SceneCategory.INSTRUMENTS),
+        SceneEntry(45, R.string.vis_level_meter, SceneCategory.INSTRUMENTS),
         SceneEntry(33, R.string.vis_phase_scope, SceneCategory.INSTRUMENTS),
         SceneEntry(41, R.string.vis_lissajous_scope, SceneCategory.INSTRUMENTS, requiresStereoAudio = true),
         SceneEntry(43, R.string.vis_crt_scope, SceneCategory.INSTRUMENTS, requiresStereoAudio = true),
