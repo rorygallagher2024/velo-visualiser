@@ -123,6 +123,15 @@ class  MeterCalibration {
             return false
         }
 
+        /**
+         * Detector window, shared so the instruments measure the same thing. The
+         * ring holds ~170 ms at 48 kHz; averaging all of it buries transients and
+         * costs responsiveness no ballistic choice can win back. Ballistics belong
+         * in the movement (the VU spring, the PPM release), never in the detector —
+         * doing both integrates twice and the reading collapses on anything sharp.
+         */
+        const val RECENT_FRAMES = 2048      // ~43 ms at 48 kHz
+
         const val CEIL_DB = 0f              // digital full scale
         const val FLOOR_DB = -60f           // standard programme-meter range
         private const val REST_MARGIN_DB = 4f

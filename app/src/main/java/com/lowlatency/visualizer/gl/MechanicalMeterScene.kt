@@ -107,17 +107,19 @@ class MechanicalMeterScene : StereoScene {
         val dt = if (lastTime < 0f) 0.016f else (timeSec - lastTime).coerceIn(0f, 0.1f)
         lastTime = timeSec
 
-        // Mono sum of the full-scale stereo ring, matching the engine's convention.
+        // Mono sum of the full-scale stereo ring, matching the engine's convention,
+        // over the recent window only. The 300 ms VU character is the spring's job;
+        // averaging the whole ring as well integrates twice and flattens transients.
+        val total = pcmStereo.size / 2
+        val take = min(total, MeterCalibration.RECENT_FRAMES)
         var sumSq = 0f
-        var frames = 0
-        var i = 0
+        var i = (total - take) * 2
         while (i + 1 < pcmStereo.size) {
             val m = (pcmStereo[i] + pcmStereo[i + 1]) * 0.5f
             sumSq += m * m
-            frames++
             i += 2
         }
-        val rms = sqrt(sumSq / frames.coerceAtLeast(1))
+        val rms = sqrt(sumSq / take.coerceAtLeast(1))
 
         val db = 20f * log10(max(rms, 1e-5f))
         calibration.update(db, dt)

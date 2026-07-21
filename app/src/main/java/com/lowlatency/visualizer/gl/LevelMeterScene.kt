@@ -141,7 +141,7 @@ class LevelMeterScene : StereoScene {
 
     /**
      * Per-channel RMS plus the largest L/R difference (the stereo tell), measured
-     * over the most recent [RECENT_FRAMES] only.
+     * over the most recent [MeterCalibration.RECENT_FRAMES] only.
      *
      * The ring carries ~170 ms at 48 kHz, and averaging all of it costs more
      * responsiveness than any ballistic choice can win back: a transient has to
@@ -150,7 +150,7 @@ class LevelMeterScene : StereoScene {
      */
     private fun measure(pcmStereo: FloatArray) {
         val total = pcmStereo.size / 2
-        val take = min(total, RECENT_FRAMES)
+        val take = min(total, MeterCalibration.RECENT_FRAMES)
         var sumL = 0f
         var sumR = 0f
         var diff = 0f
@@ -210,7 +210,6 @@ class LevelMeterScene : StereoScene {
     }
 
     companion object {
-        private const val RECENT_FRAMES = 2048        // ~43 ms at 48 kHz
         private const val ATTACK_RATE = 60f           // ~17 ms to arrive: effectively instant
         private const val RELEASE_RATE = 4f           // ~250 ms glide back down
         private const val PEAK_HOLD_SEC = 0.6f
