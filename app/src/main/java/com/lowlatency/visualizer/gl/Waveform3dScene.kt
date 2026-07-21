@@ -136,39 +136,19 @@ class Waveform3dScene : StereoScene {
                 return tx < 0 ? tx + 4096 : tx;
             }
 
-            vec3 cubic(vec3 p0, vec3 p1, vec3 p2, vec3 p3, float t) {
-                float t2 = t * t;
-                float t3 = t2 * t;
-                return 0.5 * (
-                    (2.0 * p1) +
-                    (-p0 + p2) * t +
-                    (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * t2 +
-                    (-p0 + 3.0 * p1 - 3.0 * p2 + p3) * t3
-                );
-            }
-
-            // High-fidelity cubic Hermite spline interpolation for smooth curves.
+            // Piecewise-linear band envelopes + beat mark at a continuous slice
+            // coordinate — the flat Waveform's anti-glimmer sampling, reused.
             void envAt(float s, out vec3 bands, out float beat) {
                 float fl = floor(s);
                 float f = s - fl;
-                
-                int i0 = wrapTx(int(fl) - 1);
-                int i1 = wrapTx(int(fl));
-                int i2 = wrapTx(int(fl) + 1);
-                int i3 = wrapTx(int(fl) + 2);
-                
-                vec4 v0 = texelFetch(u_hist, ivec2(i0, 0), 0);
-                vec4 v1 = texelFetch(u_hist, ivec2(i1, 0), 0);
-                vec4 v2 = texelFetch(u_hist, ivec2(i2, 0), 0);
-                vec4 v3 = texelFetch(u_hist, ivec2(i3, 0), 0);
-                
-                // Keep the values clamped to avoid overshoot below 0
-                bands = max(cubic(v0.rgb, v1.rgb, v2.rgb, v3.rgb, f), vec3(0.0));
-                
-                // Beat is just max over the interval, since it's a discrete binary marker
-                vec4 b1 = texelFetch(u_hist, ivec2(i1, 1), 0);
-                vec4 b2 = texelFetch(u_hist, ivec2(i2, 1), 0);
-                beat = max(b1.g, b2.g);
+                int a = wrapTx(int(fl));
+                int b = wrapTx(int(fl) + 1);
+                vec4 a0 = texelFetch(u_hist, ivec2(a, 0), 0);
+                vec4 b0 = texelFetch(u_hist, ivec2(b, 0), 0);
+                vec4 a1 = texelFetch(u_hist, ivec2(a, 1), 0);
+                vec4 b1 = texelFetch(u_hist, ivec2(b, 1), 0);
+                bands = mix(a0.rgb, b0.rgb, f);
+                beat = max(a1.g, b1.g);
             }
 
             void main() {
