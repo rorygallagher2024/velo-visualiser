@@ -106,9 +106,16 @@ class  MeterCalibration {
          * an interleaved buffer would need both channels to clip on the same frame.
          */
         fun hasOverload(pcm: FloatArray, stride: Int): Boolean {
+            // Scan only the shared recent window. The ring holds ~170 ms, and
+            // re-testing all of it every frame re-arms the latch for as long as an
+            // old event stays in the ring — stretching the 180 ms flash to ~350 ms
+            // and fusing separate overloads into one solid light, the opposite of
+            // what an indicator is for.
+            val totalFrames = pcm.size / stride
+            val start = (totalFrames - min(totalFrames, RECENT_FRAMES)) * stride
             for (ch in 0 until stride) {
                 var run = 0
-                var i = ch
+                var i = start + ch
                 while (i < pcm.size) {
                     val s = pcm[i]
                     if (s >= FULL_SCALE || s <= -FULL_SCALE) {
