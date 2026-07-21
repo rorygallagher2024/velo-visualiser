@@ -242,10 +242,9 @@ class Waveform3dScene : StereoScene {
                            * exp(-max(uv.x + LOOK_X, 0.0) * 1.4);
                 col += vec3(0.10, 0.04, 0.22) * glow * 0.5;
 
-                // 1-LSB dither: the haze and glow gradients band on the direct
-                // 8-bit path (bloom off).
-                float dith = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
-                col += (dith - 0.5) * (1.5 / 255.0);
+                // Dithering has been completely removed to prevent OLED noise.
+                // Modern devices (10-bit displays) often handle gradients smoothly 
+                // without manual 1-LSB injection.
 
                 fragColor = vec4(col * u_dim, 1.0);
             }
