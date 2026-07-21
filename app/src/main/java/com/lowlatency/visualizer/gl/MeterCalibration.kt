@@ -1,5 +1,6 @@
 package com.lowlatency.visualizer.gl
 
+import kotlin.math.max
 import kotlin.math.min
 
 /**
@@ -37,6 +38,16 @@ class  MeterCalibration {
     var floorDb = FLOOR_MIN
         private set
 
+    /**
+     * Overload lamp brightness, 0..1 — the *only* thing either instrument is
+     * allowed to turn red. Red has to mean one thing across the app, and a
+     * position on a scale is not it: a mark at some fraction of travel says
+     * "loud", which every mastered track is, on purpose.
+     */
+    var overLit = 0f
+        private set
+
+    private var overHold = 0f
     private var noiseDb = Float.NaN
 
     /** Advance the adaptive floor. [db] is the current level in dBFS. */
@@ -53,10 +64,24 @@ class  MeterCalibration {
     /** Map a dBFS level onto the 0..1 scale. 1.0 means 0 dBFS: genuinely maxed. */
     fun position(db: Float): Float = ((db - floorDb) / (CEIL_DB - floorDb)).coerceIn(0f, 1f)
 
+    /**
+     * Advance the overload lamp from the raw window. Latches only briefly: a real
+     * run of overs recurs, and a long latch fuses separate events into one solid
+     * light, which is the opposite of what an indicator is for.
+     */
+    fun updateOverload(pcm: FloatArray, stride: Int, dt: Float) {
+        overHold = if (hasOverload(pcm, stride)) OVER_HOLD_SEC else max(0f, overHold - dt)
+        val target = if (overHold > 0f) 1f else 0f
+        val rate = if (target > overLit) OVER_ATTACK_RATE else OVER_FADE_RATE
+        overLit += (target - overLit) * min(rate * dt, 1f)
+    }
+
     /** Forget the tracked floor — call when the audio source changes. */
     fun reset() {
         noiseDb = Float.NaN
         floorDb = FLOOR_MIN
+        overHold = 0f
+        overLit = 0f
     }
 
     companion object {
@@ -97,5 +122,8 @@ class  MeterCalibration {
 
         private const val FULL_SCALE = 0.999f
         private const val OVER_RUN = 3      // consecutive samples, per channel
+        private const val OVER_HOLD_SEC = 0.18f    // short, so repeats read as flashes
+        private const val OVER_ATTACK_RATE = 40f   // lights instantly
+        private const val OVER_FADE_RATE = 9f      // and lets go quickly
     }
 }

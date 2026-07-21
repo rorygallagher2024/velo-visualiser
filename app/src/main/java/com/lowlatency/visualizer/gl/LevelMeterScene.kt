@@ -68,8 +68,6 @@ class LevelMeterScene : StereoScene {
     private var idleGlow = 1f
     private var silentSec = 0f
     private var lastTime = -1f
-    private var clipHold = 0f           // seconds the lamp stays lit after an overload
-    private var clipLit = 0f            // eased lamp brightness
 
     // Scratch from the last measure() pass (avoids per-frame allocation).
     private var rmsL = 0f
@@ -123,7 +121,7 @@ class LevelMeterScene : StereoScene {
         updateChannel(0, targetL, dt)
         updateChannel(1, targetR, dt)
         updateIdle(max(targetL, targetR), dt)
-        updateClip(MeterCalibration.hasOverload(pcmStereo, 2), dt)
+        calibration.updateOverload(pcmStereo, 2, dt)
 
         GLES20.glUseProgram(program)
         GLES20.glUniform2f(uRes, width, height)
@@ -134,7 +132,7 @@ class LevelMeterScene : StereoScene {
         GLES20.glUniform1f(uPeakL, peak[0])
         GLES20.glUniform1f(uPeakR, peak[1])
         GLES20.glUniform1f(uSep, STEREO_SEP * stereoMix)
-        GLES20.glUniform1f(uClip, clipLit)
+        GLES20.glUniform1f(uClip, calibration.overLit)
 
         GLES20.glEnableVertexAttribArray(aPos)
         GLES20.glVertexAttribPointer(aPos, 2, GLES20.GL_FLOAT, false, 0, quad)
@@ -171,18 +169,6 @@ class LevelMeterScene : StereoScene {
         rmsL = sqrt(sumL / n)
         rmsR = sqrt(sumR / n)
         chDiff = diff
-    }
-
-    /**
-     * The overload lamp. Latches only briefly: a genuine run of overs recurs, and a
-     * long latch turns a series of separate events into one solid light, which is
-     * the opposite of what an indicator is for.
-     */
-    private fun updateClip(over: Boolean, dt: Float) {
-        clipHold = if (over) CLIP_HOLD_SEC else max(0f, clipHold - dt)
-        val target = if (clipHold > 0f) 1f else 0f
-        val rate = if (target > clipLit) CLIP_ATTACK_RATE else CLIP_FADE_RATE
-        clipLit += (target - clipLit) * min(rate * dt, 1f)
     }
 
     /**
@@ -239,9 +225,6 @@ class LevelMeterScene : StereoScene {
         private const val IDLE_FALL_RATE = 1.2f
         private const val IDLE_WAKE_RATE = 9f
 
-        private const val CLIP_HOLD_SEC = 0.18f       // short, so repeats read as flashes
-        private const val CLIP_ATTACK_RATE = 40f      // lights instantly
-        private const val CLIP_FADE_RATE = 9f         // and lets go quickly
 
         private const val VS = """#version 300 es
             layout(location = 0) in vec2 aPos;

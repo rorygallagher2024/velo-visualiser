@@ -20,16 +20,19 @@ import kotlin.math.sqrt
  * signal). Its motion paints a phosphor wake that relaxes away — the only
  * "art" is the history of the movement. A ghost peak needle is kicked to the
  * maximum, holds, then falls back under gravity like a hi-fi peak pointer.
- * One fixed mark exists on the face: a short signal-red tick near the top of the
- * dial; the needle blushes red only when it crosses.
+ * One red element exists on the face, and it is the overload lamp sitting just past
+ * full deflection. The needle itself stays white at every angle. Red reports an
+ * *event* here and in the Level Meter both, never a position: earlier revisions put
+ * a red tick at 0 VU and blushed the needle as it passed, but 0 VU is where music
+ * lives, so a raised voice or a full-scale tone reddened a meter that was nowhere
+ * near clipping. Both instruments now read [MeterCalibration.overLit], so they
+ * cannot disagree about what warrants red.
  *
- * That tick is an *absolute* claim, so the scale underneath it has to be absolute
- * too, and [MeterCalibration] is what makes it so: the dial floor auto-ranges to
- * the room (sensitivity, so a quiet mic still sweeps the needle) while the dial
- * top stays pinned at 0 dBFS (headroom). An earlier revision moved the top of the
- * dial with the signal as well, which meant the needle reached the red tick on any
- * source loud enough for its own recent average — a raised voice would redden a
- * meter sitting 40 dB below clipping. Red now costs a genuinely hot signal.
+ * The dial is absolute for the same reason, via [MeterCalibration]: the floor
+ * auto-ranges to the room (sensitivity, so a quiet mic still sweeps the needle)
+ * while the top stays pinned at 0 dBFS (headroom). An earlier revision moved the
+ * top with the signal too, which made full deflection mean nothing more than
+ * "louder than lately".
  *
  * It reads the **stereo** ring rather than the mono analysis ring, because dBFS
  * has to mean dBFS: digital sources enter the mono ring scaled by
@@ -50,6 +53,7 @@ class MechanicalMeterScene : StereoScene {
     private var uWakeHi = 0
     private var uWakeEnergy = 0
     private var uSheen = 0
+    private var uOver = 0
 
     private var width = 1f
     private var height = 1f
@@ -83,6 +87,7 @@ class MechanicalMeterScene : StereoScene {
         uWakeHi = GLES20.glGetUniformLocation(program, "u_wakeHi")
         uWakeEnergy = GLES20.glGetUniformLocation(program, "u_wakeEnergy")
         uSheen = GLES20.glGetUniformLocation(program, "u_sheen")
+        uOver = GLES20.glGetUniformLocation(program, "u_over")
     }
 
     override fun onResize(width: Int, height: Int, aspect: Float) {
@@ -115,6 +120,7 @@ class MechanicalMeterScene : StereoScene {
 
         val db = 20f * log10(max(rms, 1e-5f))
         calibration.update(db, dt)
+        calibration.updateOverload(pcmStereo, 2, dt)
         val target = calibration.position(db)
 
         updateMechanics(target, dt, timeSec)
@@ -129,6 +135,7 @@ class MechanicalMeterScene : StereoScene {
         GLES20.glUniform1f(uWakeHi, wakeHi)
         GLES20.glUniform1f(uWakeEnergy, wakeEnergy)
         GLES20.glUniform1f(uSheen, min(abs(velocity) * 0.35f, 0.5f))
+        GLES20.glUniform1f(uOver, calibration.overLit)
 
         GLES20.glEnableVertexAttribArray(aPos)
         GLES20.glVertexAttribPointer(aPos, 2, GLES20.GL_FLOAT, false, 0, quad)
@@ -215,13 +222,13 @@ class MechanicalMeterScene : StereoScene {
         private const val FS = """#version 300 es
             precision highp float;
             uniform vec2  u_res;
-            uniform float u_time, u_dim, u_needle, u_peak, u_wakeLo, u_wakeHi;
+            uniform float u_time, u_dim, u_needle, u_peak, u_wakeLo, u_wakeHi, u_over;
             uniform float u_wakeEnergy, u_sheen;
             out vec4 fragColor;
 
             const float PIVOT_DEPTH = 0.45;   // pivot this far below the bottom edge
             const float TIP_Y       = 0.86;   // tip height at centre, in screen heights
-            const float RED_START   = 0.8696; // 0 VU as a 0..1 dial fraction
+            const float LAMP_AT     = 1.04;   // just past full deflection, never covered
             const vec3  RED         = vec3(1.0, 0.27, 0.16);
 
             float aaFill(float w, float d) {
@@ -262,7 +269,6 @@ class MechanicalMeterScene : StereoScene {
                 float th = atan(pc.x, pc.y);                // 0 = straight up
                 float lvl = (th / sweep + 1.0) * 0.5;       // dial fraction at pixel
 
-                float redMix = smoothstep(RED_START - 0.012, RED_START + 0.012, u_needle);
                 vec3 col = vec3(0.0);
 
                 // ----- phosphor wake: the motion paints its own fading fan ------
@@ -279,10 +285,13 @@ class MechanicalMeterScene : StereoScene {
                     col += vec3(0.03 + 0.10 * u_wakeEnergy) * t * t * radial;
                 }
 
-                // ----- the one fixed mark: a signal-red tick at 0 VU ------------
-                vec2 d0 = dialDir(RED_START, sweep);
+                // ----- the one red element: the overload lamp -------------------
+                // Sited past the end of travel rather than at some fraction of it,
+                // because it reports an event, not a position. Dormant it is barely
+                // an ember; on a genuine overload it latches bright.
+                vec2 d0 = dialDir(LAMP_AT, sweep);
                 float dTick = sdSeg(pc, d0 * (L * 0.94), d0 * L);
-                col += RED * aaFill(0.0015, dTick) * (0.55 + 0.65 * redMix);
+                col += RED * aaFill(0.0015, dTick) * (0.06 + 1.25 * u_over);
 
                 // ----- peak pointer: ghost hairline, gravity-dropped ------------
                 float dPeak = sdSeg(pc, dialDir(u_peak, sweep) * 0.02,
@@ -294,7 +303,9 @@ class MechanicalMeterScene : StereoScene {
                 float dNeedle = sdSeg(pc, nd * 0.02, nd * L);
                 float wTaper = mix(0.0021, 0.0011, clamp(r / L, 0.0, 1.0));
                 float blade = aaFill(wTaper, dNeedle);
-                vec3 bladeCol = mix(vec3(1.0), RED, redMix);
+                // White at every deflection, like the Level Meter's columns: the
+                // needle reports level, and level is never by itself a fault.
+                vec3 bladeCol = vec3(1.0);
                 col += bladeCol * blade * (1.35 + u_sheen);
 
                 // a tiny luminous tip, so the reading has a focal point
