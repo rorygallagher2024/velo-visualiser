@@ -20,7 +20,7 @@ import kotlin.math.pow
  * What makes it read like a real DAW waveform rather than a blob:
  *
  *  - Slices are built from the actual SAMPLE STREAM (the newest dt worth of
- *    the stereo window each frame), storing signed min and max per ~4.7 ms
+ *    the stereo window each frame), storing signed min and max per ~2.3 ms
  *    column — so the wave is asymmetric and finely striated, and a slice can
  *    never commit empty (columns only complete ON sample boundaries).
  *  - STEREO SPLIT: when the source carries real stereo (detected from the
@@ -309,18 +309,25 @@ class WaveformRollScene : StereoScene {
     }
 
     companion object {
-        private const val SLICES = 2048
-        private const val VISIBLE_SLICES = 1920f
+        // Density is sized to the widest screen, not a typical one: 1920 visible
+        // columns under-resolved any display wider than that (the Fold's inner
+        // panel, every phone in landscape), stretching each slice across >1 px —
+        // which read as a low-resolution wave. 3840 keeps at least ~1.6 columns
+        // per pixel on a 2400 px landscape and supersamples ~3.6x in portrait.
+        // NOTE: several constants below are PER-SLICE; halving the slice length
+        // halves their time base, so they are derived from real seconds here.
+        private const val SLICES = 4096
+        private const val VISIBLE_SLICES = 3840f
         private const val SECONDS_PER_SCREEN = 9f
-        private const val SLICE_SEC = SECONDS_PER_SCREEN / VISIBLE_SLICES  // ~4.7 ms
+        private const val SLICE_SEC = SECONDS_PER_SCREEN / VISIBLE_SLICES  // ~2.3 ms
 
         private const val AMP_TARGET = 0.85f        // typical loud rides ~85% height
         private const val AMP_KNEE = 0.85f          // soft knee for quiet detail
         private const val AGC_RISE = 0.20f          // per-slice attack toward new peaks
-        private const val AGC_FALL_PER_SLICE = 0.99987f  // ~25 s half-life
+        private const val AGC_FALL_PER_SLICE = 0.999935f // ~25 s half-life at 2.3 ms/slice
         private const val AGC_FLOOR = 0.02f         // never amplify the noise floor
-        private const val COLOR_SMOOTH = 0.06f      // per-slice hue easing (~80 ms)
-        private const val STEREO_EASE = 0.02f       // mono-to-stereo mode blend (~1 s)
+        private const val COLOR_SMOOTH = 0.03f      // per-slice hue easing (~80 ms)
+        private const val STEREO_EASE = 0.01f       // mono-to-stereo mode blend (~1 s)
 
         private const val VS = """#version 300 es
             layout(location = 0) in vec2 aPos;
@@ -334,8 +341,37 @@ class WaveformRollScene : StereoScene {
             uniform sampler2D u_hist;
             out vec4 fragColor;
 
-            const float SLICES  = 2048.0;
-            const float VISIBLE = 1920.0;
+            const float SLICES  = 4096.0;
+            const float VISIBLE = 3840.0;
+
+            // Max/average over the exact texels whose centres fall in one pixel
+            // column's span. texelFetch bypasses filtering deliberately: an
+            // interpolated read of a narrow peak varies with sub-texel phase,
+            // which made peaks breathe as they scrolled.
+            void fetchSpan(float slice, float spp,
+                           out float up, out float dn, out float rms,
+                           out float beat, out vec3 fr) {
+                int iLo = int(floor(slice - 0.5 * spp + 0.5));
+                int iHi = int(floor(slice + 0.5 * spp + 0.5));
+                up = 0.0; dn = 0.0; rms = 0.0; beat = 0.0;
+                fr = vec3(0.0);
+                float count = 0.0;
+                for (int k = 0; k < 8; k++) {
+                    int si = iLo + k;
+                    if (si > iHi) { break; }
+                    int tx = si % 4096;
+                    if (tx < 0) { tx += 4096; }
+                    vec4 a = texelFetch(u_hist, ivec2(tx, 0), 0);
+                    vec4 b = texelFetch(u_hist, ivec2(tx, 1), 0);
+                    up = max(up, a.a);
+                    dn = max(dn, b.a);
+                    rms = max(rms, b.r);
+                    beat = max(beat, b.g);
+                    fr += a.rgb;
+                    count += 1.0;
+                }
+                fr /= max(count, 1.0);
+            }
 
             void main() {
                 // Family burn-in orbit: the whole instrument drifts a few px.
@@ -347,38 +383,15 @@ class WaveformRollScene : StereoScene {
 
                 float x01 = frag.x / u_res.x;                 // 0 left … 1 right
                 float slice = u_head - 1.0 - (1.0 - x01) * VISIBLE;
-
-                // A pixel takes the MAX over the exact texels whose centres
-                // fall in its span (texelFetch bypasses filtering — the way
-                // DAWs rasterize waveforms). Max of FILTERED taps is not the
-                // same thing: an interpolated read of a narrow peak varies
-                // with sub-texel phase, which made peaks breathe as they
-                // scrolled. Exact fetches make every column's height a
-                // constant of its committed data.
                 float spp = max(VISIBLE / u_res.x, 1.0);      // slices per pixel
-                int iLo = int(floor(slice - 0.5 * spp + 0.5));
-                int iHi = int(floor(slice + 0.5 * spp + 0.5));
-                float upExt = 0.0;
-                float dnExt = 0.0;
-                float rmsRaw = 0.0;
-                float beatMark = 0.0;
-                vec3 rgbAcc = vec3(0.0);
-                float count = 0.0;
-                for (int k = 0; k < 6; k++) {
-                    int si = iLo + k;
-                    if (si > iHi) { break; }
-                    int tx = si % 2048;
-                    if (tx < 0) { tx += 2048; }
-                    vec4 a = texelFetch(u_hist, ivec2(tx, 0), 0);
-                    vec4 b = texelFetch(u_hist, ivec2(tx, 1), 0);
-                    upExt = max(upExt, a.a);
-                    dnExt = max(dnExt, b.a);
-                    rmsRaw = max(rmsRaw, b.r);
-                    beatMark = max(beatMark, b.g);
-                    rgbAcc += a.rgb;
-                    count += 1.0;
-                }
-                vec3 fr = rgbAcc / max(count, 1.0);           // band fractions (lo, mid, hi)
+
+                float upExt; float dnExt; float rmsRaw; float beatMark; vec3 fr;
+                fetchSpan(slice, spp, upExt, dnExt, rmsRaw, beatMark, fr);
+                // NOTE: do not derive an edge feather from neighbouring pixel
+                // columns' extents (slope-adaptive AA). The covered-slice sets
+                // shift as the wave scrolls sub-pixel, so the slope — and with it
+                // the edge WIDTH — flickers frame to frame, which reads as a
+                // pronounced glimmer along the whole contour. Tried, reverted.
 
                 // The wave lives in a centred band (55% of the height) — an
                 // instrument in a space, not wall-to-wall.
@@ -446,6 +459,11 @@ class WaveformRollScene : StereoScene {
                 float axisPx = d * halfBand;
                 float ends = smoothstep(0.0, 0.12, x01) * smoothstep(1.0, 0.88, x01);
                 col += vec3(0.10) * smoothstep(1.6, 0.4, axisPx) * ends;
+
+                // 1-LSB dither: the dim halo and axis gradients band visibly on
+                // the direct 8-bit path (bloom off), which reads as compression.
+                float dith = fract(sin(dot(frag.xy, vec2(12.9898, 78.233))) * 43758.5453);
+                col += (dith - 0.5) * (1.5 / 255.0);
 
                 fragColor = vec4(col * u_dim, 1.0);
             }
