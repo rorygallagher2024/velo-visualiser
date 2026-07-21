@@ -37,7 +37,6 @@ object SceneCatalog {
         SceneEntry(17, R.string.vis_mechanical_meter, SceneCategory.INSTRUMENTS),
         SceneEntry(45, R.string.vis_level_meter, SceneCategory.INSTRUMENTS),
         SceneEntry(5, R.string.vis_bars, SceneCategory.INSTRUMENTS),
-        SceneEntry(36, R.string.vis_obsidian, SceneCategory.INSTRUMENTS),
         SceneEntry(4, R.string.vis_circular, SceneCategory.INSTRUMENTS),
         SceneEntry(9, R.string.vis_spectrogram, SceneCategory.INSTRUMENTS),
         SceneEntry(44, R.string.vis_waveform, SceneCategory.INSTRUMENTS),

@@ -25,18 +25,13 @@ import kotlin.math.min
  * the caps are the memory here and a slow bar would only blur the pattern. A bar
  * has no mass to overshoot with, so nothing springs.
  *
- * The columns and caps are monochrome, and stay that way: there is no per-band
- * equivalent of clipping, so a loud band is just a loud band. Overload is a
- * whole-signal, time-domain event on the summed waveform, which is why it gets its
- * own lamp above the scale — shared with the other two instruments via
- * [MeterCalibration.overLit] — rather than recolouring thirty-one markers that
- * measure something else.
- *
- * It takes the **stereo** ring purely to see that raw signal: the mono analysis
- * ring is scaled and AGC'd for digital sources, so full scale there is not full
- * scale. The samples are otherwise unused; bands come from the shared FFT.
+ * Entirely monochrome, with no overload indication of any kind. There is no
+ * per-band equivalent of clipping — a loud band is just a loud band — and overload
+ * is a whole-signal event that belongs on the instruments that measure the whole
+ * signal. The Meter and the Level Meter each carry a lamp for it; this one stays
+ * out of that conversation and shows only where the energy is.
  */
-class SpectrumAnalyserScene : StereoScene {
+class SpectrumAnalyserScene : GlScene {
 
     // Instrument readout — honest representation of the signal, no beat punch.
     override val respondsToBeat get() = false
@@ -48,7 +43,6 @@ class SpectrumAnalyserScene : StereoScene {
     private var uDim = 0
     private var uLevel = 0
     private var uPeak = 0
-    private var uOver = 0
 
     private var width = 1f
     private var height = 1f
@@ -58,7 +52,6 @@ class SpectrumAnalyserScene : StereoScene {
     private val peakVel = FloatArray(BANDS)
     private val peakHold = FloatArray(BANDS)
 
-    private val calibration = MeterCalibration()
     private var idleGlow = 1f
     private var silentSec = 0f
     private var lastTime = -1f
@@ -75,7 +68,6 @@ class SpectrumAnalyserScene : StereoScene {
         uDim = GLES20.glGetUniformLocation(program, "u_dim")
         uLevel = GLES20.glGetUniformLocation(program, "u_level")
         uPeak = GLES20.glGetUniformLocation(program, "u_peak")
-        uOver = GLES20.glGetUniformLocation(program, "u_over")
     }
 
     override fun onResize(width: Int, height: Int, aspect: Float) {
@@ -83,20 +75,12 @@ class SpectrumAnalyserScene : StereoScene {
         this.height = height.toFloat()
     }
 
-    /** Never called: the renderer dispatches [drawStereo] for a [StereoScene]. */
-    override fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) = Unit
-
-    override fun onAudioSourceChanged() {
-        calibration.reset()
-    }
-
-    override fun drawStereo(pcmStereo: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
+    override fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
         val dt = if (lastTime < 0f) 0.016f else (timeSec - lastTime).coerceIn(0f, 0.1f)
         lastTime = timeSec
 
         val loudest = advanceBands(dt)
         updateIdle(loudest, dt)
-        calibration.updateOverload(pcmStereo, 2, dt)
 
         GLES20.glUseProgram(program)
         GLES20.glUniform2f(uRes, width, height)
@@ -104,7 +88,6 @@ class SpectrumAnalyserScene : StereoScene {
         GLES20.glUniform1f(uDim, dim * idleGlow)
         GLES20.glUniform1fv(uLevel, BANDS, level, 0)
         GLES20.glUniform1fv(uPeak, BANDS, peak, 0)
-        GLES20.glUniform1f(uOver, calibration.overLit)
 
         GLES20.glEnableVertexAttribArray(aPos)
         GLES20.glVertexAttribPointer(aPos, 2, GLES20.GL_FLOAT, false, 0, quad)
@@ -189,12 +172,10 @@ class SpectrumAnalyserScene : StereoScene {
         private const val FS = """#version 300 es
             precision highp float;
             uniform vec2  u_res;
-            uniform float u_time, u_dim, u_over;
+            uniform float u_time, u_dim;
             uniform float u_level[$BANDS];
             uniform float u_peak[$BANDS];
             out vec4 fragColor;
-
-            const vec3 RED = vec3(1.0, 0.27, 0.16);
 
             const int   BANDS     = $BANDS;
             const float BASE_FRAC = 0.10;    // baseline height, fraction of screen
@@ -244,19 +225,11 @@ class SpectrumAnalyserScene : StereoScene {
                                             vec2(halfW, hh), min(halfW * 0.6, hh));
                     col += vec3(1.0) * smoothstep(AA, -AA, dBar) * 1.2;
 
-                    // The cap: dimmer than the column so it reads as memory, not
-                    // level. Stays white whatever happens — no band is ever the
-                    // thing that clipped.
+                    // The cap: dimmer than the column so it reads as memory, not level.
                     float dPk = sdRoundBox(p - vec2(cx, baseY + u_peak[bi] * span),
                                            vec2(halfW, 1.1), 0.9);
                     col += vec3(0.34) * smoothstep(AA, -AA, dPk);
                 }
-
-                // The one red element: overload on the input as a whole, in the same
-                // lamp the meter and the level meter use.
-                float dLamp = sdRoundBox(p - vec2(u_res.x * 0.5, u_res.y * 0.945),
-                                         u_res.y * vec2(0.020, 0.0055), u_res.y * 0.0045);
-                col += RED * smoothstep(AA, -AA, dLamp) * (0.06 + 1.25 * u_over);
 
                 fragColor = vec4(col * u_dim, 1.0);
             }
