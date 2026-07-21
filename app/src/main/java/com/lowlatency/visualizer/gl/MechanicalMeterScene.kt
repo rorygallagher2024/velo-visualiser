@@ -1,7 +1,6 @@
 package com.lowlatency.visualizer.gl
 
 import android.opengl.GLES20
-import com.lowlatency.visualizer.BeatSettings
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
@@ -21,21 +20,24 @@ import kotlin.math.sqrt
  * signal). Its motion paints a phosphor wake that relaxes away — the only
  * "art" is the history of the movement. A ghost peak needle is kicked to the
  * maximum, holds, then falls back under gravity like a hi-fi peak pointer.
- * One fixed mark exists on the face: a short signal-red tick at 0 VU; the
- * needle blushes red only when it crosses.
+ * One fixed mark exists on the face: a short signal-red tick near the top of the
+ * dial; the needle blushes red only when it crosses.
  *
- * Calibration is per source, because the two source families have opposite
- * problems. Digital sources (system / local / tone) arrive at a consistent,
- * loudness-compressed level, so a fixed -20…+3 VU window fits and only needs
- * to self-raise a touch to tame a hot master. The mic / line input has a
- * wide, low, room- and distance-dependent dynamic range that no fixed window
- * fits — too sensitive and a loud voice pins it, too insensitive and a quiet
- * one floors it — so it auto-ranges: the dial centre follows the recent level
- * (fast up, slower down) and the dial floor rides a tracked noise floor, so
- * quiet still sweeps the needle, loud rides near (never past) the red tick,
- * and whatever this room and mic idle at reads as rest.
+ * That tick is an *absolute* claim, so the scale underneath it has to be absolute
+ * too, and [MeterCalibration] is what makes it so: the dial floor auto-ranges to
+ * the room (sensitivity, so a quiet mic still sweeps the needle) while the dial
+ * top stays pinned at 0 dBFS (headroom). An earlier revision moved the top of the
+ * dial with the signal as well, which meant the needle reached the red tick on any
+ * source loud enough for its own recent average — a raised voice would redden a
+ * meter sitting 40 dB below clipping. Red now costs a genuinely hot signal.
+ *
+ * It reads the **stereo** ring rather than the mono analysis ring, because dBFS
+ * has to mean dBFS: digital sources enter the mono ring scaled by
+ * `kDigitalMonoGain` and a time-varying AGC, so the needle would drift with the
+ * gain rather than the music. The stereo ring is kept full scale, and mono sources
+ * upmix into it, so it is the honest feed on every source.
  */
-class MechanicalMeterScene : GlScene {
+class MechanicalMeterScene : StereoScene {
 
     private var program = 0
     private var aPos = 0
@@ -53,9 +55,7 @@ class MechanicalMeterScene : GlScene {
     private var height = 1f
 
     private var needleLevel = 0f
-    private var refDb = Float.NaN      // digital-source 0 VU reference
-    private var micRefDb = Float.NaN   // mic auto-range centre
-    private var micNoiseDb = Float.NaN // mic noise-floor estimate (min follower)
+    private val calibration = MeterCalibration()
     private var velocity = 0f
     private var peakLevel = 0f
     private var peakVelocity = 0f
@@ -90,26 +90,32 @@ class MechanicalMeterScene : GlScene {
         this.height = height.toFloat()
     }
 
-    override fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
+    /** Never called: the renderer dispatches [drawStereo] for a [StereoScene]. */
+    override fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) = Unit
+
+    override fun onAudioSourceChanged() {
+        calibration.reset()
+    }
+
+    override fun drawStereo(pcmStereo: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
         val dt = if (lastTime < 0f) 0.016f else (timeSec - lastTime).coerceIn(0f, 0.1f)
         lastTime = timeSec
 
+        // Mono sum of the full-scale stereo ring, matching the engine's convention.
         var sumSq = 0f
-        for (s in pcm) sumSq += s * s
-        val rms = sqrt(sumSq / pcm.size)
+        var frames = 0
+        var i = 0
+        while (i + 1 < pcmStereo.size) {
+            val m = (pcmStereo[i] + pcmStereo[i + 1]) * 0.5f
+            sumSq += m * m
+            frames++
+            i += 2
+        }
+        val rms = sqrt(sumSq / frames.coerceAtLeast(1))
 
         val db = 20f * log10(max(rms, 1e-5f))
-        val target = if (BeatSettings.systemAudio) {
-            // Digital sources (system / local / tone) arrive at a consistent,
-            // loudness-compressed level, so a fixed -20…+3 VU window fits — it
-            // just self-raises to tame a hot master. (Unchanged: these work.)
-            val vu = db - adaptDigitalReference(db, dt)
-            ((vu + VU_FLOOR_ABS) / (VU_FLOOR_ABS + VU_CEIL)).coerceIn(0f, 1f)
-        } else {
-            // Mic / line input has a wide, low, room-dependent dynamic range no
-            // fixed window fits — hence auto-ranging.
-            micTarget(db, dt)
-        }
+        calibration.update(db, dt)
+        val target = calibration.position(db)
 
         updateMechanics(target, dt, timeSec)
 
@@ -128,51 +134,6 @@ class MechanicalMeterScene : GlScene {
         GLES20.glVertexAttribPointer(aPos, 2, GLES20.GL_FLOAT, false, 0, quad)
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
         GLES20.glDisableVertexAttribArray(aPos)
-    }
-
-    /**
-     * Digital-source 0 VU: fixed calibration that chases sustained loud level
-     * up (so a hot master settles back onto the red tick within a couple of
-     * seconds) and relaxes down slowly. Clamped to [base, base + range] so it
-     * only ever gets *less* sensitive — digital sources never run quiet.
-     */
-    private fun adaptDigitalReference(db: Float, dt: Float): Float {
-        if (refDb.isNaN()) refDb = DIGITAL_REF_DB
-        val tau = if (db > refDb) REF_ATTACK_SEC else REF_RELEASE_SEC
-        refDb += (db - refDb) * min(dt / tau, 1f)
-        refDb = refDb.coerceIn(DIGITAL_REF_DB, DIGITAL_REF_DB + REF_ADAPT_RANGE_DB)
-        return refDb
-    }
-
-    /**
-     * Mic / line-input dial position by auto-ranging. The reference follows the
-     * recent level — up fast to catch loud, down slower to re-centre — so a
-     * quiet room becomes sensitive and a loud one gains headroom; neither the
-     * old fixed window's floor (quiet pinned to minimum) nor its ceiling (loud
-     * pinned to max) can trap the needle. A relative span sets most of the
-     * scale, but the dial floor never rises above an absolute silence level, so
-     * genuine quiet still rests the needle instead of floating mid-dial.
-     */
-    private fun micTarget(db: Float, dt: Float): Float {
-        if (micRefDb.isNaN()) micRefDb = db.coerceIn(MIC_REF_MIN, MIC_REF_MAX)
-        if (micNoiseDb.isNaN()) micNoiseDb = db
-        val tau = if (db > micRefDb) MIC_ATTACK_SEC else MIC_RELEASE_SEC
-        micRefDb += (db - micRefDb) * min(dt / tau, 1f)
-        micRefDb = micRefDb.coerceIn(MIC_REF_MIN, MIC_REF_MAX)
-
-        // Noise-floor minimum follower: latches onto quiet gaps quickly, creeps
-        // up only under sustained level. The dial floor rides just above it, so
-        // ambient rests the needle (and the idle dim engages) on ANY device —
-        // a fixed dB floor either hovers the needle on a hot mic's room tone or
-        // deadens a quiet one. Capped at the reference so floor < ceiling even
-        // when the reference is pinned at its clamp under prolonged loud input.
-        val nTau = if (db < micNoiseDb) NOISE_FALL_SEC else NOISE_RISE_SEC
-        micNoiseDb += (db - micNoiseDb) * min(dt / nTau, 1f)
-        micNoiseDb = micNoiseDb.coerceAtMost(micRefDb)
-
-        val floorDb = max(micRefDb - MIC_SPAN_BELOW, micNoiseDb + NOISE_MARGIN_DB)
-        val ceilDb = micRefDb + MIC_SPAN_ABOVE
-        return ((db - floorDb) / (ceilDb - floorDb)).coerceIn(0f, 1f)
     }
 
     /** All the physics: VU-ballistic spring, tremble, phosphor wake, peak fall. */
@@ -241,26 +202,8 @@ class MechanicalMeterScene : GlScene {
         private const val IDLE_GLOW = 0.4f            // resting brightness while idle
         private const val IDLE_FALL_RATE = 1.2f       // ease into idle (~1.5 s)
         private const val IDLE_WAKE_RATE = 9f         // snap awake (~0.15 s)
-        private const val VU_FLOOR_ABS = 20f          // digital scale spans -20…+3 VU
-        private const val VU_CEIL = 3f
-        private const val DIGITAL_REF_DB = -19f       // 0.30-scaled mastered music
-        private const val REF_ATTACK_SEC = 2f         // chase loud level up (~2 s)
-        private const val REF_RELEASE_SEC = 20f       // relax back down (slow)
-        private const val REF_ADAPT_RANGE_DB = 30f    // headroom above the base ref
-
-        // Mic / line-input auto-range. The reference (dial centre) tracks the
-        // recent level between these bounds; a quiet room drives it toward
-        // MIC_REF_MIN (sensitive), a loud one toward MIC_REF_MAX (headroom).
-        // Tune MIC_REF_MIN / NOISE_MARGIN_DB if a given mic reads hot or floors.
-        private const val MIC_REF_MIN = -50f          // most sensitive (quiet room)
-        private const val MIC_REF_MAX = -18f          // least sensitive (loud room)
-        private const val MIC_ATTACK_SEC = 0.8f       // rise toward loud
-        private const val MIC_RELEASE_SEC = 4f        // fall back / re-centre
-        private const val MIC_SPAN_BELOW = 22f        // dB below ref → dial bottom
-        private const val MIC_SPAN_ABOVE = 12f        // dB above ref → dial top
-        private const val NOISE_FALL_SEC = 0.6f       // noise floor: latch onto quiet gaps
-        private const val NOISE_RISE_SEC = 25f        // noise floor: creep up when loud persists
-        private const val NOISE_MARGIN_DB = 3f        // dial floor sits this far above it
+        // Dial scale and overload live in MeterCalibration, shared with the Level
+        // Meter so the two instruments read the same signal the same way.
 
         private const val MAX_STEP_SEC = 0.016f       // spring integrator sub-step
 
