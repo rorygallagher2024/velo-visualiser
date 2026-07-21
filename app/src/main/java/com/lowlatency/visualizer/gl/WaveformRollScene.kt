@@ -104,8 +104,16 @@ class WaveformRollScene : StereoScene {
     private var prevBeatPhase = 0.0
     private var prevBarPhase = 0.0
 
-    private val texelStaging: FloatBuffer = ByteBuffer
-        .allocateDirect(2 * 4 * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
+    // Batched column uploads. One glTexSubImage2D per committed column was
+    // ~4 driver round-trips per frame (and ~100 after a hitch); consecutive
+    // columns are contiguous in the texture, so each frame's commits upload as
+    // a single span instead. Flushed on wrap so the span never splits.
+    private val batchRow0 = FloatArray(MAX_BATCH * 4)
+    private val batchRow1 = FloatArray(MAX_BATCH * 4)
+    private var batchStart = -1
+    private var batchCount = 0
+    private val batchStaging: FloatBuffer = ByteBuffer
+        .allocateDirect(MAX_BATCH * 2 * 4 * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
 
     private val quad: FloatBuffer = ByteBuffer
         .allocateDirect(8 * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
@@ -231,7 +239,23 @@ class WaveformRollScene : StereoScene {
             }
             i++
         }
+        flushColumns()
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0)
+    }
+
+    /** Upload every column committed since the last flush as one span. */
+    private fun flushColumns() {
+        if (batchCount <= 0) return
+        batchStaging.clear()
+        batchStaging.put(batchRow0, 0, batchCount * 4)
+        batchStaging.put(batchRow1, 0, batchCount * 4)
+        batchStaging.position(0)
+        GLES20.glTexSubImage2D(
+            GLES20.GL_TEXTURE_2D, 0, batchStart, 0, batchCount, 2,
+            GLES20.GL_RGBA, GLES20.GL_FLOAT, batchStaging,
+        )
+        batchStart = -1
+        batchCount = 0
     }
 
     /**
@@ -333,16 +357,21 @@ class WaveformRollScene : StereoScene {
         val dispMid = (sliceMid * norm * AMP_TARGET).coerceAtMost(1f).pow(AMP_KNEE)
         val dispHi = (sliceHi * norm * AMP_TARGET).coerceAtMost(1f).pow(AMP_KNEE)
 
-        texelStaging.clear()
-        texelStaging.put(dispLo).put(dispMid).put(dispHi).put(dispUp)
-        texelStaging.put(dispRms).put(linkEtchMark()).put(0f).put(dispDown)
-        texelStaging.position(0)
-        // One column, both rows.
-        GLES20.glTexSubImage2D(
-            GLES20.GL_TEXTURE_2D, 0, head, 0, 1, 2,
-            GLES20.GL_RGBA, GLES20.GL_FLOAT, texelStaging,
-        )
+        if (batchStart < 0) batchStart = head
+        val o = batchCount * 4
+        batchRow0[o] = dispLo
+        batchRow0[o + 1] = dispMid
+        batchRow0[o + 2] = dispHi
+        batchRow0[o + 3] = dispUp
+        batchRow1[o] = dispRms
+        batchRow1[o + 1] = linkEtchMark()
+        batchRow1[o + 2] = 0f
+        batchRow1[o + 3] = dispDown
+        batchCount++
         head = (head + 1) % SLICES
+        // A wrap or a full batch flushes immediately; the per-frame flush in
+        // consumeFrames handles the common case.
+        if (batchCount >= MAX_BATCH || head == 0) flushColumns()
     }
 
     companion object {
@@ -367,6 +396,8 @@ class WaveformRollScene : StereoScene {
         private const val XOVER_LO_HZ = 200f        // bass | mid crossover
         private const val XOVER_HI_HZ = 2000f       // mid | high crossover
         private const val TWO_PI_F = (2.0 * Math.PI).toFloat()
+        // Covers the worst backlog (0.25 s dt clamp ≈ 107 columns) in one span.
+        private const val MAX_BATCH = 128
 
         private const val VS = """#version 300 es
             layout(location = 0) in vec2 aPos;
@@ -383,9 +414,11 @@ class WaveformRollScene : StereoScene {
             const float SLICES  = 4096.0;
             const float VISIBLE = 3840.0;
 
-            // Band layer palette: deck-familiar (warm bass, green mid, ice high).
-            // Layers composite painter-style (occlusion, not addition), so these
-            // read as themselves at any loudness instead of summing to white.
+            // Band layer palette. NOTE: in painter compositing the HIGH colour
+            // owns the whole core of the wave (it is the front, shortest
+            // layer), so it must be a saturated COLOUR — a "pale ice" high of
+            // (0.72, 0.90, 1.0) painted the entire centre near-white with
+            // bloom off. Tried, reverted.
             const vec3 BASS_COL = vec3(1.00, 0.32, 0.10);
             const vec3 MID_COL  = vec3(0.22, 0.88, 0.36);
             const vec3 HI_COL   = vec3(0.42, 0.72, 1.00);
@@ -504,8 +537,11 @@ class WaveformRollScene : StereoScene {
                            * (1.0 - shell);
                 col += waveCol * halo * 0.10;
 
-                // Loud columns carry HDR headroom so bloom picks out transients.
-                col *= 1.0 + 0.4 * upExt * upExt;
+                // Loud columns carry a LITTLE HDR headroom so bloom picks out
+                // genuine transients. Kept modest: this stacks with the live-edge
+                // boost below, and at 0.4 the pair pushed the right third of the
+                // wave to ~2x, washing out under standard bloom.
+                col *= 1.0 + 0.18 * upExt * upExt;
 
                 // Link bar ruler: beats etched as small axis ticks, downbeats
                 // taller — the history reads as bars. Added before the live-edge
@@ -522,7 +558,7 @@ class WaveformRollScene : StereoScene {
                 // visibly lands, then settles as it becomes history. Lighting
                 // only: the stored waveform stays an honest record.
                 float age = max(u_head - 1.0 - slice, 0.0);
-                col *= 1.0 + 0.45 * exp(-age / 256.0);
+                col *= 1.0 + 0.28 * exp(-age / 256.0);
 
                 // Zero axis: a dim whisper, feathered to nothing at the ends —
                 // it rides the orbit and stays far below burn-in territory.
