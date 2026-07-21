@@ -344,33 +344,26 @@ class WaveformRollScene : StereoScene {
             const float SLICES  = 4096.0;
             const float VISIBLE = 3840.0;
 
-            // Max/average over the exact texels whose centres fall in one pixel
-            // column's span. texelFetch bypasses filtering deliberately: an
-            // interpolated read of a narrow peak varies with sub-texel phase,
-            // which made peaks breathe as they scrolled.
-            void fetchSpan(float slice, float spp,
-                           out float up, out float dn, out float rms,
-                           out float beat, out vec3 fr) {
-                int iLo = int(floor(slice - 0.5 * spp + 0.5));
-                int iHi = int(floor(slice + 0.5 * spp + 0.5));
-                up = 0.0; dn = 0.0; rms = 0.0; beat = 0.0;
-                fr = vec3(0.0);
-                float count = 0.0;
-                for (int k = 0; k < 8; k++) {
-                    int si = iLo + k;
-                    if (si > iHi) { break; }
-                    int tx = si % 4096;
-                    if (tx < 0) { tx += 4096; }
-                    vec4 a = texelFetch(u_hist, ivec2(tx, 0), 0);
-                    vec4 b = texelFetch(u_hist, ivec2(tx, 1), 0);
-                    up = max(up, a.a);
-                    dn = max(dn, b.a);
-                    rms = max(rms, b.r);
-                    beat = max(beat, b.g);
-                    fr += a.rgb;
-                    count += 1.0;
-                }
-                fr /= max(count, 1.0);
+            int wrapTx(int si) {
+                int tx = si % 4096;
+                return tx < 0 ? tx + 4096 : tx;
+            }
+
+            // The envelope as a CONTINUOUS piecewise-linear function of slice
+            // position: (up, dn, rms) interpolated between adjacent committed
+            // columns. Everything below is evaluated in SLICE space, never from
+            // the pixel grid — screen-space estimates change with sub-pixel
+            // scroll phase and glimmer.
+            vec3 envAt(float s) {
+                float fl = floor(s);
+                float f = s - fl;
+                int a = wrapTx(int(fl));
+                int b = wrapTx(int(fl) + 1);
+                vec4 a0 = texelFetch(u_hist, ivec2(a, 0), 0);
+                vec4 a1 = texelFetch(u_hist, ivec2(a, 1), 0);
+                vec4 b0 = texelFetch(u_hist, ivec2(b, 0), 0);
+                vec4 b1 = texelFetch(u_hist, ivec2(b, 1), 0);
+                return mix(vec3(a0.a, a1.a, a1.r), vec3(b0.a, b1.a, b1.r), f);
             }
 
             void main() {
@@ -385,13 +378,42 @@ class WaveformRollScene : StereoScene {
                 float slice = u_head - 1.0 - (1.0 - x01) * VISIBLE;
                 float spp = max(VISIBLE / u_res.x, 1.0);      // slices per pixel
 
-                float upExt; float dnExt; float rmsRaw; float beatMark; vec3 fr;
-                fetchSpan(slice, spp, upExt, dnExt, rmsRaw, beatMark, fr);
-                // NOTE: do not derive an edge feather from neighbouring pixel
-                // columns' extents (slope-adaptive AA). The covered-slice sets
-                // shift as the wave scrolls sub-pixel, so the slope — and with it
-                // the edge WIDTH — flickers frame to frame, which reads as a
-                // pronounced glimmer along the whole contour. Tried, reverted.
+                // Exact rasterization of the envelope over this pixel's span:
+                //  - ENDPOINTS: the piecewise-linear envelope at the span edges.
+                //    Continuous in scroll position, so a column drifting out of
+                //    the span hands its influence over smoothly — nothing pops
+                //    frame to frame (the glimmer of every screen-space scheme).
+                //  - INTERIOR: exact committed column heights, so a narrow
+                //    peak's apex is always reached — interpolation-only reads
+                //    made peaks breathe as they scrolled.
+                // Adjacent columns therefore connect with true diagonals (the
+                // DAW contour), and every height is a constant of the data.
+                float sL = slice - 0.5 * spp;
+                float sR = min(slice + 0.5 * spp, u_head - 1.0);  // never past the pen
+                vec3 env = max(envAt(sL), envAt(sR));
+                float beatMark = 0.0;
+                vec3 fr = vec3(0.0);
+                float cnt = 0.0;
+                int iA = int(ceil(sL));
+                for (int k = 0; k < 8; k++) {
+                    int si = iA + k;
+                    if (float(si) > sR) { break; }
+                    int tx = wrapTx(si);
+                    vec4 a = texelFetch(u_hist, ivec2(tx, 0), 0);
+                    vec4 b = texelFetch(u_hist, ivec2(tx, 1), 0);
+                    env = max(env, vec3(a.a, b.a, b.r));
+                    beatMark = max(beatMark, b.g);
+                    fr += a.rgb;
+                    cnt += 1.0;
+                }
+                if (cnt > 0.0) {
+                    fr /= cnt;
+                } else {
+                    fr = texelFetch(u_hist, ivec2(wrapTx(int(floor(slice + 0.5))), 0), 0).rgb;
+                }
+                float upExt = env.x;
+                float dnExt = env.y;
+                float rmsRaw = env.z;
 
                 // The wave lives in a centred band (55% of the height) — an
                 // instrument in a space, not wall-to-wall.
