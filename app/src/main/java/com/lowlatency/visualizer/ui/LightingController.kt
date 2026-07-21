@@ -98,6 +98,8 @@ class LightingController(
     private lateinit var imgLifxState: android.widget.ImageView
     private lateinit var tvLifxHint: TextView
     private lateinit var btnNanoleafSync: Button
+    private lateinit var btnNanoleafScan: Button
+    private lateinit var nanoleafDeviceList: LinearLayout
     private lateinit var lightControlSection: LinearLayout
     private lateinit var sceneGrid: LinearLayout
     private lateinit var brightnessSlider: SeekBar
@@ -467,7 +469,8 @@ class LightingController(
         }
 
         // Nanoleaf UI
-        val btnNanoleafScan = activity.findViewById<Button>(R.id.btn_nanoleaf_scan)
+        btnNanoleafScan = activity.findViewById(R.id.btn_nanoleaf_scan)
+        nanoleafDeviceList = activity.findViewById(R.id.nanoleaf_device_list)
         btnNanoleafSync = activity.findViewById(R.id.btn_nanoleaf_sync)
         val statusNanoleaf = activity.findViewById<View>(R.id.status_nanoleaf)
         val tvNanoleafState = statusNanoleaf.findViewById<TextView>(R.id.tv_state)
@@ -497,8 +500,8 @@ class LightingController(
 
         btnNanoleafForget.setOnClickListener {
             android.app.AlertDialog.Builder(activity)
-                .setTitle("Forget Controller")
-                .setMessage("Are you sure you want to disconnect and forget this Nanoleaf controller?")
+                .setTitle("Forget All Devices")
+                .setMessage("Are you sure you want to disconnect and forget all Nanoleaf devices?")
                 .setPositiveButton("Forget") { _, _ ->
                     nanoleafController.forget()
                     btnNanoleafSync.text = activity.getString(R.string.hue_sync_off)
@@ -527,7 +530,7 @@ class LightingController(
                         imgNanoleafState.imageTintList = android.content.res.ColorStateList.valueOf(activity.getColor(R.color.hue_pending))
                     }
                     NanoleafController.State.FOUND_UNPAIRED -> {
-                        tvNanoleafState.text = "Found. Hold power button for 5-7s until lights flash."
+                        tvNanoleafState.text = "Found. Hold its power button for 5-7s until the lights flash."
                         tvNanoleafState.setTextColor(activity.getColor(R.color.text_primary))
                         imgNanoleafState.imageTintList = android.content.res.ColorStateList.valueOf(activity.getColor(R.color.hue_pending))
                         btnNanoleafScan.visibility = View.GONE
@@ -539,7 +542,8 @@ class LightingController(
                         tvNanoleafState.text = "Ready"
                         tvNanoleafState.setTextColor(activity.getColor(R.color.hue_connected))
                         imgNanoleafState.imageTintList = android.content.res.ColorStateList.valueOf(activity.getColor(R.color.hue_connected))
-                        btnNanoleafScan.visibility = View.GONE
+                        // Stays visible: scanning again is how a second device joins.
+                        btnNanoleafScan.visibility = View.VISIBLE
                         btnNanoleafSync.text = activity.getString(R.string.hue_sync_off)
                         btnNanoleafSync.isSelected = false
                         btnNanoleafSync.isEnabled = true
@@ -562,7 +566,7 @@ class LightingController(
                         tvNanoleafState.text = "Paired · not reachable"
                         tvNanoleafState.setTextColor(activity.getColor(R.color.hue_pending))
                         imgNanoleafState.imageTintList = android.content.res.ColorStateList.valueOf(activity.getColor(R.color.hue_pending))
-                        btnNanoleafScan.visibility = View.GONE
+                        btnNanoleafScan.visibility = View.VISIBLE
                         btnNanoleafSync.text = activity.getString(R.string.hue_sync_off)
                         btnNanoleafSync.isSelected = false
                         btnNanoleafSync.isEnabled = false
@@ -570,6 +574,7 @@ class LightingController(
                     }
                 }
 
+                refreshNanoleafDeviceList()
                 tvNanoleafHint.visibility = if (state == NanoleafController.State.PAIRED || state == NanoleafController.State.STREAMING) View.GONE else View.VISIBLE
                 nanoleafLightControlSection.visibility = if (state == NanoleafController.State.PAIRED) View.VISIBLE else View.GONE
                 updateAdvancedVisibility()
@@ -1061,6 +1066,61 @@ class LightingController(
             val bri = nanoleafBrightnessSlider.progress / 100f
             nanoleafController.setStaticState(on = true, bri = bri, hue = scene.hue, sat = scene.sat)
         }
+    }
+
+    /** One row per paired Nanoleaf device: name · state · forget. */
+    private fun refreshNanoleafDeviceList() {
+        val devices = nanoleafController.devices()
+        nanoleafDeviceList.removeAllViews()
+        nanoleafDeviceList.visibility = if (devices.isEmpty()) View.GONE else View.VISIBLE
+        btnNanoleafScan.text = if (devices.isEmpty()) "Scan for Nanoleaf" else "Add Another Device"
+        devices.forEach { nanoleafDeviceList.addView(nanoleafDeviceRow(it)) }
+    }
+
+    private fun nanoleafDeviceRow(d: NanoleafController.DeviceInfo): View {
+        val pad = (activity.resources.displayMetrics.density * 6).toInt()
+        val row = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            setPadding(0, pad, 0, pad)
+        }
+        row.addView(TextView(activity).apply {
+            text = d.label
+            setTextColor(activity.getColor(R.color.text_primary))
+            textSize = 13f
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        })
+        row.addView(TextView(activity).apply {
+            text = when {
+                d.streaming -> "Streaming"
+                d.reachable -> "Ready"
+                else -> "Offline"
+            }
+            setTextColor(
+                activity.getColor(if (d.reachable || d.streaming) R.color.hue_connected else R.color.hue_pending)
+            )
+            textSize = 12f
+        })
+        row.addView(TextView(activity).apply {
+            text = "✕"
+            setTextColor(activity.getColor(R.color.text_dim))
+            textSize = 16f
+            setPadding(pad * 3, pad, pad, pad)
+            setOnClickListener { confirmForgetNanoleafDevice(d) }
+        })
+        return row
+    }
+
+    private fun confirmForgetNanoleafDevice(d: NanoleafController.DeviceInfo) {
+        android.app.AlertDialog.Builder(activity)
+            .setTitle("Forget Device")
+            .setMessage("Forget \"${d.label}\"?")
+            .setPositiveButton("Forget") { _, _ ->
+                nanoleafController.forgetDevice(d.key)
+                refreshNanoleafDeviceList()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     private fun setViewGroupEnabled(viewGroup: ViewGroup, enabled: Boolean) {
