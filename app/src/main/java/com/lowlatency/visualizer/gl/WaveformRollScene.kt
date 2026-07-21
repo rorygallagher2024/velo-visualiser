@@ -37,8 +37,8 @@ import kotlin.math.pow
  *    height, in any orientation, while drops still tower over breakdowns.
  *  - THREE TRUE BAND ENVELOPES, the pro-deck look: the sample stream is split
  *    by cheap crossovers (~200 Hz / ~2 kHz, cascaded one-poles) and each
- *    band's own per-slice peak is stored — so the bass is a tall warm body,
- *    mids layer over it, and highs ride in front as short bright needles. A
+ *    band's own per-slice peak is stored — so the bass is the tall back
+ *    layer, mids over it, and highs ride in front as short bright needles. A
  *    kick and a hat in one slice are two different SHAPES, not a blended
  *    hue. Layers composite painter-style (front occludes back, slightly
  *    translucent) — additive stacking summed the centre to permanent white
@@ -414,14 +414,19 @@ class WaveformRollScene : StereoScene {
             const float SLICES  = 4096.0;
             const float VISIBLE = 3840.0;
 
-            // Band layer palette. NOTE: in painter compositing the HIGH colour
-            // owns the whole core of the wave (it is the front, shortest
-            // layer), so it must be a saturated COLOUR — a "pale ice" high of
-            // (0.72, 0.90, 1.0) painted the entire centre near-white with
-            // bloom off. Tried, reverted.
-            const vec3 BASS_COL = vec3(1.00, 0.32, 0.10);
-            const vec3 MID_COL  = vec3(0.22, 0.88, 0.36);
-            const vec3 HI_COL   = vec3(0.42, 0.72, 1.00);
+            // Band layer palette: ULTRAVIOLET — one hue family, three rungs.
+            // Indigo bass (dark) -> violet mid -> lilac high (bright). Bands are
+            // told apart by a LUMINANCE ladder as much as hue, deliberately: the
+            // theme grade downstream rotates/tints this base (Warm embers it,
+            // Cool ices it, Mono strips it to greyscale), and the ladder keeps
+            // the layers legible under every one of those, including Mono.
+            // NOTE: in painter compositing the HIGH colour owns the whole core
+            // of the wave (front, shortest layer), so it must stay a saturated
+            // COLOUR — a "pale ice" high of (0.72, 0.90, 1.0) painted the entire
+            // centre near-white with bloom off. Tried, reverted.
+            const vec3 BASS_COL = vec3(0.36, 0.10, 0.92);
+            const vec3 MID_COL  = vec3(0.66, 0.22, 1.00);
+            const vec3 HI_COL   = vec3(0.80, 0.56, 1.00);
 
             int wrapTx(int si) {
                 int tx = si % 4096;
@@ -517,8 +522,8 @@ class WaveformRollScene : StereoScene {
                 // stacking made the centre the SUM of all layers — permanently
                 // white on any real music, and with bloom on that white blew
                 // out. Convex over-compositing can never exceed a layer's own
-                // colour, so the core reads ice-blue over green over a warm
-                // bass body, saturated at any loudness. The slight layer
+                // colour, so the core reads bright lilac over violet over a
+                // deep indigo body, saturated at any loudness. The slight layer
                 // translucency lets a hint of the band beneath glow through.
                 // Clamped inside the side's envelope so stereo asymmetry holds.
                 vec3 be = min(bandExt, vec3(ext));
