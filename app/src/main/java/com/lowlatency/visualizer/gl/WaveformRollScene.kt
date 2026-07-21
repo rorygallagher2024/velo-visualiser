@@ -14,7 +14,7 @@ import java.nio.FloatBuffer
  *
  * What makes it read like a real DAW waveform rather than a blob:
  *
- *  - Slices are built from the actual SAMPLE STREAM (the newest dt worth of
+ *  - Slices are built from the actual SAMPLE STREAM (the exact new tail of
  *    the stereo window each frame), storing signed min and max per ~2.3 ms
  *    column — so the wave is asymmetric and finely striated, and a slice can
  *    never commit empty (columns only complete ON sample boundaries).
@@ -59,7 +59,6 @@ class WaveformRollScene : StereoScene {
 
     private var width = 1f
     private var height = 1f
-    private var lastTime = -1f
 
     private val history = BandWaveHistory()
 
@@ -76,7 +75,6 @@ class WaveformRollScene : StereoScene {
         uHead = GLES20.glGetUniformLocation(program, "u_head")
         uTex = GLES20.glGetUniformLocation(program, "u_hist")
         history.createTexture()
-        lastTime = -1f
     }
 
     override fun onResize(width: Int, height: Int, aspect: Float) {
@@ -92,11 +90,8 @@ class WaveformRollScene : StereoScene {
     }
 
     override fun drawStereo(pcmStereo: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
-        val dt = if (lastTime < 0f) 0.016f else (timeSec - lastTime).coerceIn(0f, 0.25f)
-        lastTime = timeSec
-
         val sampleRate = NativeBridge.nativeGetSampleRate().coerceAtLeast(8000)
-        history.consume(pcmStereo, dt, sampleRate)
+        history.consume(pcmStereo, sampleRate)
 
         GLES20.glDisable(GLES20.GL_BLEND)
         GLES20.glUseProgram(program)

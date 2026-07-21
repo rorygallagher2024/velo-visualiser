@@ -79,6 +79,8 @@ public:
     // Fills `outInterleaved` with the latest `numSamples` *pairs* of stereo
     // samples. If the source is mono, L and R are identical.
     void copyLatestStereo(float *outInterleaved, size_t numSamples) const noexcept;
+    /** Splice-free copy: returns total FRAMES ever written, paired with the copy. */
+    uint64_t copyLatestStereoCounted(float *outInterleaved, size_t numFrames) const noexcept;
 
     // Single-FFT pipeline over the latest window: 3 band energies + 128-bin
     // spectrum (magnitudes + falling peaks), all in [0, 1]. GL thread only.

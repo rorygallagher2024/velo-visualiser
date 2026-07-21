@@ -91,6 +91,25 @@ Java_com_lowlatency_visualizer_NativeBridge_fillLatestStereoAudioBuffer(JNIEnv *
     return len;
 }
 
+// Splice-free variant: the copy and the returned total-frames-written count are
+// derived from the same atomic, so the caller knows exactly which tail of the
+// buffer is new since its previous call. Estimating that from frame dt instead
+// mis-splices the stream every frame; per-sample filter banks (the waveform
+// band split) turn each splice into a broadband phantom transient.
+JNIEXPORT jlong JNICALL
+Java_com_lowlatency_visualizer_NativeBridge_fillLatestStereoCounted(JNIEnv *env, jobject,
+                                                                    jfloatArray outInterleaved) {
+    if (outInterleaved == nullptr) return 0;
+    const jsize len = env->GetArrayLength(outInterleaved);
+
+    jfloat *dst = env->GetFloatArrayElements(outInterleaved, nullptr);
+    if (dst == nullptr) return 0;
+    const uint64_t totalFrames =
+        AudioEngine::instance().copyLatestStereoCounted(dst, static_cast<size_t>(len / 2));
+    env->ReleaseFloatArrayElements(outInterleaved, dst, 0);
+    return static_cast<jlong>(totalFrames);
+}
+
 // ---------------------------------------------------------------------------
 // Single-FFT render-loop path: bands + full spectrum from one transform,
 // filling caller-owned arrays in place (no per-frame GC pressure).

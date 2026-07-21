@@ -403,6 +403,11 @@ void AudioEngine::copyLatestStereo(float *outInterleaved, size_t numSamples) con
     mStereoBuffer->readLatest(outInterleaved, numSamples * 2);
 }
 
+uint64_t AudioEngine::copyLatestStereoCounted(float *outInterleaved, size_t numFrames) const noexcept {
+    // Total is in interleaved samples; frames are what consumers reason in.
+    return mStereoBuffer->readLatestCounted(outInterleaved, numFrames * 2) / 2;
+}
+
 void AudioEngine::computeAll(float *outBands, float *outMagnitudes, float *outPeaks, float dt) noexcept {
     mBuffer->readLatest(mFftScratch.data(), FftProcessor::kFftSize);
     mFft->processAll(mFftScratch.data(), sampleRate(), outBands, outMagnitudes, outPeaks, dt);

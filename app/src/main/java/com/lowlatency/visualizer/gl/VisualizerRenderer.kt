@@ -579,7 +579,7 @@ class VisualizerRenderer(private val context: Context) : GLSurfaceView.Renderer 
         if (scene is StereoScene) {
             // Fetched only here: no other scene reads stereo, so the copy is
             // paid exclusively by the scope family.
-            NativeBridge.fillLatestStereoAudioBuffer(pcmStereo)
+            StereoRingClock.totalFrames = NativeBridge.fillLatestStereoCounted(pcmStereo)
             scene.drawStereo(pcmStereo, bands, t, dim)
         } else {
             scene.draw(pcm, bands, t, dim)

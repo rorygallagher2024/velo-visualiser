@@ -35,6 +35,7 @@ public:
 
     /** Producer side. Real-time safe: no malloc, no lock. */
     void write(const float *data, size_t numSamples) noexcept {
+        const size_t produced = numSamples;
         // If a single callback delivers more than the whole buffer, only the
         // tail is relevant for visualization.
         if (numSamples >= mCapacity) {
@@ -49,6 +50,12 @@ public:
         std::memcpy(&mBuffer[0], data + firstChunk,
                     (numSamples - firstChunk) * sizeof(float));
 
+        // Single producer per buffer: plain add + release store is enough, and
+        // the release pairs with readLatestCounted()'s acquire so the samples
+        // behind the counted position are always published with the count.
+        mTotalWritten.store(
+            mTotalWritten.load(std::memory_order_relaxed) + produced,
+            std::memory_order_release);
         mWriteIndex.store((w + numSamples) % mCapacity, std::memory_order_release);
     }
 
@@ -70,6 +77,30 @@ public:
     }
 
     /**
+     * Consumer side, splice-free variant: copies the most recent `numSamples`
+     * with the window END derived from the same atomic total that is returned,
+     * so the caller knows EXACTLY how many of the copied samples are new since
+     * its last call. Consumers that instead estimate freshness from wall-clock
+     * dt mis-splice the stream every frame — a phase jump (an audible-style
+     * click) that per-sample filter banks turn into broadband phantom spikes.
+     *
+     * @return total samples ever written, as of this copy.
+     */
+    uint64_t readLatestCounted(float *out, size_t numSamples) const noexcept {
+        if (numSamples > mCapacity) numSamples = mCapacity;
+
+        const uint64_t total = mTotalWritten.load(std::memory_order_acquire);
+        const size_t w = static_cast<size_t>(total % mCapacity);
+        const size_t start = (w + mCapacity - numSamples) % mCapacity;
+        const size_t firstChunk = std::min(numSamples, mCapacity - start);
+
+        std::memcpy(out, &mBuffer[start], firstChunk * sizeof(float));
+        std::memcpy(out + firstChunk, &mBuffer[0],
+                    (numSamples - firstChunk) * sizeof(float));
+        return total;
+    }
+
+    /**
      * Producer side: zero the contents so consumers see silence (used when
      * playback pauses/ends, letting visuals decay instead of freezing on the
      * last window). Same benign torn-read tolerance as write().
@@ -84,6 +115,7 @@ private:
     const size_t mCapacity;
     std::vector<float> mBuffer;
     std::atomic<size_t> mWriteIndex;
+    std::atomic<uint64_t> mTotalWritten{0};
 };
 
 #endif // LLV_CIRCULAR_BUFFER_H
