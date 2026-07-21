@@ -22,8 +22,14 @@ data class NanoleafCredentials(
      * successful token check.
      */
     val deviceId: String = "",
-    /** Human-readable mDNS service name, e.g. "Nanoleaf Light Panels 53:3B:F0". */
-    val name: String = ""
+    /**
+     * Friendly name. The user-assigned name from the device's REST API ("Living
+     * Room Shapes") once a probe has seen it; the mDNS service name fills in
+     * until then.
+     */
+    val name: String = "",
+    /** Whether this device takes part in audio sync. Excluded devices stay paired. */
+    val syncOn: Boolean = true
 ) {
     /** Store key: the identity when known, the address as a stand-in for legacy entries. */
     val key: String get() = deviceId.ifEmpty { "addr:$ip:$port" }
@@ -94,6 +100,7 @@ class NanoleafCredentialStore(context: Context) {
             port = o.optInt("port", DEFAULT_PORT),
             deviceId = o.optString("id"),
             name = o.optString("name"),
+            syncOn = o.optBoolean("sync", true),
         )
     }
 
@@ -103,6 +110,7 @@ class NanoleafCredentialStore(context: Context) {
         put("port", d.port)
         put("id", d.deviceId)
         put("name", d.name)
+        put("sync", d.syncOn)
     }
 
     /** Fold the old single-device flat keys into the list, once. */

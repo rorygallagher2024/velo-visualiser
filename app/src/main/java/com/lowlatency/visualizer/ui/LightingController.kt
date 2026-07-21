@@ -475,8 +475,10 @@ class LightingController(
         val statusNanoleaf = activity.findViewById<View>(R.id.status_nanoleaf)
         val tvNanoleafState = statusNanoleaf.findViewById<TextView>(R.id.tv_state)
         val imgNanoleafState = statusNanoleaf.findViewById<android.widget.ImageView>(R.id.img_state)
-        val btnNanoleafForget = statusNanoleaf.findViewById<Button>(R.id.btn_forget)
         val tvNanoleafHint = activity.findViewById<TextView>(R.id.tv_nanoleaf_hint)
+        // No aggregate forget button here: each device row carries its own UNPAIR,
+        // which covers "forget everything" as a special case. The include's
+        // btn_forget stays at its default (gone).
 
         btnNanoleafScan.setOnClickListener {
             if (!isWifiConnected()) {
@@ -498,17 +500,13 @@ class LightingController(
             }
         }
 
-        btnNanoleafForget.setOnClickListener {
-            android.app.AlertDialog.Builder(activity)
-                .setTitle("Forget All Devices")
-                .setMessage("Are you sure you want to disconnect and forget all Nanoleaf devices?")
-                .setPositiveButton("Forget") { _, _ ->
-                    nanoleafController.forget()
-                    btnNanoleafSync.text = activity.getString(R.string.hue_sync_off)
-                    btnNanoleafSync.isSelected = false
-                }
-                .setNegativeButton("Cancel", null)
-                .show()
+        nanoleafController.onNoNewDevices = {
+            val msg = if (nanoleafController.devices().isEmpty()) {
+                "No Nanoleaf devices found on network."
+            } else {
+                "No additional Nanoleaf devices found."
+            }
+            android.widget.Toast.makeText(activity, msg, android.widget.Toast.LENGTH_SHORT).show()
         }
 
         nanoleafController.stateListener = { state ->
@@ -522,7 +520,6 @@ class LightingController(
                         btnNanoleafSync.text = activity.getString(R.string.hue_sync_off)
                         btnNanoleafSync.isSelected = false
                         btnNanoleafSync.isEnabled = false
-                        btnNanoleafForget.visibility = View.GONE
                     }
                     NanoleafController.State.SEARCHING -> {
                         tvNanoleafState.text = "Searching network..."
@@ -547,7 +544,6 @@ class LightingController(
                         btnNanoleafSync.text = activity.getString(R.string.hue_sync_off)
                         btnNanoleafSync.isSelected = false
                         btnNanoleafSync.isEnabled = true
-                        btnNanoleafForget.visibility = View.VISIBLE
                     }
                     NanoleafController.State.STREAMING -> {
                         tvNanoleafState.text = "Streaming Active"
@@ -570,7 +566,6 @@ class LightingController(
                         btnNanoleafSync.text = activity.getString(R.string.hue_sync_off)
                         btnNanoleafSync.isSelected = false
                         btnNanoleafSync.isEnabled = false
-                        btnNanoleafForget.visibility = View.VISIBLE
                     }
                 }
 
@@ -1068,7 +1063,10 @@ class LightingController(
         }
     }
 
-    /** One row per paired Nanoleaf device: name · state · forget. */
+    /**
+     * One row per paired Nanoleaf device: a selectable pill (tap to include or
+     * exclude it from the sync, LIFX-style) plus a forget control.
+     */
     private fun refreshNanoleafDeviceList() {
         val devices = nanoleafController.devices()
         nanoleafDeviceList.removeAllViews()
@@ -1078,44 +1076,82 @@ class LightingController(
     }
 
     private fun nanoleafDeviceRow(d: NanoleafController.DeviceInfo): View {
-        val pad = (activity.resources.displayMetrics.density * 6).toInt()
+        val density = activity.resources.displayMetrics.density
         val row = LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = android.view.Gravity.CENTER_VERTICAL
-            setPadding(0, pad, 0, pad)
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = (density * 6).toInt() }
         }
+        row.addView(nanoleafDevicePill(d, density))
         row.addView(TextView(activity).apply {
-            text = d.label
-            setTextColor(activity.getColor(R.color.text_primary))
-            textSize = 13f
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-        })
-        row.addView(TextView(activity).apply {
-            text = when {
-                d.streaming -> "Streaming"
-                d.reachable -> "Ready"
-                else -> "Offline"
-            }
-            setTextColor(
-                activity.getColor(if (d.reachable || d.streaming) R.color.hue_connected else R.color.hue_pending)
-            )
-            textSize = 12f
-        })
-        row.addView(TextView(activity).apply {
-            text = "✕"
+            text = activity.getString(R.string.hue_forget)
+            isAllCaps = true
             setTextColor(activity.getColor(R.color.text_dim))
-            textSize = 16f
-            setPadding(pad * 3, pad, pad, pad)
+            textSize = 11f
+            val pad = (density * 12).toInt()
+            setPadding(pad, pad, (density * 4).toInt(), pad)
             setOnClickListener { confirmForgetNanoleafDevice(d) }
         })
         return row
     }
 
+    private fun nanoleafDevicePill(d: NanoleafController.DeviceInfo, density: Float): View {
+        val pill = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            background = activity.getDrawable(R.drawable.pill_button_bg)
+            layoutParams = LinearLayout.LayoutParams(0, (density * 40).toInt(), 1f)
+            setPadding((density * 16).toInt(), 0, (density * 12).toInt(), 0)
+            setOnClickListener { toggleNanoleafDevice(d, this) }
+        }
+        pill.addView(TextView(activity).apply {
+            text = d.label
+            setTextColor(activity.getColorStateList(R.color.btn_text))
+            textSize = 12f
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        })
+        pill.addView(TextView(activity).apply {
+            text = when {
+                d.streaming -> "Streaming"
+                d.reachable -> "Ready"
+                else -> "Offline"
+            }
+            // Same inverting selector as the name: legible on the filled selected
+            // pill and the dark idle one. Colour semantics stay on the status row.
+            setTextColor(activity.getColorStateList(R.color.btn_text))
+            alpha = 0.6f
+            textSize = 11f
+        })
+        // After the children exist: selection only propagates to children present
+        // at dispatch time, so setting this earlier leaves the labels' selectors
+        // in their unselected (light-on-light) state.
+        pill.isSelected = d.syncOn
+        if (!d.reachable) pill.alpha = 0.55f
+        return pill
+    }
+
+    private fun toggleNanoleafDevice(d: NanoleafController.DeviceInfo, pill: View) {
+        val enable = !pill.isSelected
+        pill.isSelected = enable
+        val wasStreaming = nanoleafController.currentState == NanoleafController.State.STREAMING
+        nanoleafController.setDeviceSync(d.key, enable)
+        if (wasStreaming && nanoleafController.devices().none { it.syncOn }) {
+            android.widget.Toast.makeText(
+                activity, "Nanoleaf sync stopped (no devices selected)", android.widget.Toast.LENGTH_SHORT
+            ).show()
+        }
+        refreshNanoleafDeviceList()
+    }
+
     private fun confirmForgetNanoleafDevice(d: NanoleafController.DeviceInfo) {
         android.app.AlertDialog.Builder(activity)
-            .setTitle("Forget Device")
-            .setMessage("Forget \"${d.label}\"?")
-            .setPositiveButton("Forget") { _, _ ->
+            .setTitle("Unpair Device")
+            .setMessage("Unpair \"${d.label}\"? You'll need to hold its power button to pair again.")
+            .setPositiveButton(R.string.hue_forget) { _, _ ->
                 nanoleafController.forgetDevice(d.key)
                 refreshNanoleafDeviceList()
             }

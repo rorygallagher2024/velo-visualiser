@@ -34,6 +34,13 @@ class NanoleafController(context: Context) {
             value?.invoke(currentState)
         }
 
+    /**
+     * Fired (main thread) when a user-initiated scan finishes without finding any
+     * unpaired device. Without it the scan ends by silently returning to the
+     * paired state, which reads as the button doing nothing.
+     */
+    var onNoNewDevices: (() -> Unit)? = null
+
     var currentState = State.DISCONNECTED
         private set(value) {
             field = value
@@ -65,6 +72,7 @@ class NanoleafController(context: Context) {
         val label: String,
         val reachable: Boolean,
         val streaming: Boolean,
+        val syncOn: Boolean,
     )
 
     // Keyed by NanoleafCredentials.key. Mutated on the main thread except for
@@ -95,8 +103,23 @@ class NanoleafController(context: Context) {
                 label = it.creds.name.ifEmpty { it.creds.ip },
                 reachable = it.reachable,
                 streaming = running && streamTargets.contains(it),
+                syncOn = it.creds.syncOn,
             )
         }
+
+    /** Include or exclude one device from the sync; a running stream restarts to apply. */
+    fun setDeviceSync(key: String, on: Boolean) {
+        val creds = store.loadAll().firstOrNull { it.key == key } ?: return
+        if (creds.syncOn == on) return
+        store.upsert(creds.copy(syncOn = on))
+        reloadSessions()
+        if (running) {
+            stopSync()
+            startSync()
+        } else {
+            recomputeState()
+        }
+    }
 
     fun onBands(low: Float, mid: Float, high: Float) = colours.setBands(low, mid, high)
 
@@ -152,11 +175,21 @@ class NanoleafController(context: Context) {
         }
         thread {
             var anyDown = false
+            val renames = mutableListOf<Pair<Session, String>>()
             for (s in all) {
-                s.reachable = NanoleafApi.tokenValid(s.creds.ip, s.creds.port, s.creds.authToken)
-                if (!s.reachable) anyDown = true
+                // The probe body carries the user-assigned device name for free —
+                // friendlier than the mDNS service name, so adopt it when it changes.
+                val name = NanoleafApi.fetchName(s.creds.ip, s.creds.port, s.creds.authToken)
+                s.reachable = name != null
+                if (name == null) anyDown = true
+                else if (name.isNotBlank() && name != s.creds.name) renames += s to name
             }
             mainHandler.post {
+                for ((s, name) in renames) {
+                    val updated = s.creds.copy(name = name)
+                    store.upsert(updated)
+                    s.creds = updated
+                }
                 recomputeState()
                 // A missing device may have moved address; mDNS knows.
                 if (anyDown) search(silent = true)
@@ -207,6 +240,7 @@ class NanoleafController(context: Context) {
             mainHandler.postDelayed(settle, SETTLE_MS)
         } catch (e: Exception) {
             isSearching = false
+            recomputeState()
         }
     }
 
@@ -229,7 +263,12 @@ class NanoleafController(context: Context) {
             }
             override fun onServiceLost(service: NsdServiceInfo) {}
             override fun onDiscoveryStopped(serviceType: String) { isSearching = false }
-            override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) { isSearching = false }
+            override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) {
+                // Without a recompute the UI would sit on "Searching…" forever:
+                // the settle timer's finishSearch() no-ops once isSearching drops.
+                isSearching = false
+                mainHandler.post { recomputeState() }
+            }
             override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) { isSearching = false }
         }
 
@@ -295,7 +334,8 @@ class NanoleafController(context: Context) {
             val d = unmatched.remove(id) ?: continue
             s.reachable = true
             val c = s.creds
-            val updated = c.copy(ip = d.host, port = d.port, name = d.name.ifEmpty { c.name })
+            // mDNS name only fills a blank; the REST probe's user-assigned name wins.
+            val updated = c.copy(ip = d.host, port = d.port, name = c.name.ifEmpty { d.name })
             if (updated != c) {
                 store.upsert(updated)
                 s.creds = updated
@@ -314,7 +354,7 @@ class NanoleafController(context: Context) {
         val taken = mutableSetOf<String>()
         for (creds in legacy) {
             val match = candidates.firstOrNull {
-                it.id !in taken && NanoleafApi.tokenValid(it.host, it.port, creds.authToken)
+                it.id !in taken && NanoleafApi.fetchName(it.host, it.port, creds.authToken) != null
             } ?: continue
             taken += match.id
             val claimed = NanoleafCredentials(
@@ -336,6 +376,7 @@ class NanoleafController(context: Context) {
             openPairingWindow(strangers)
         } else {
             recomputeState()
+            if (!lastSearchSilent) onNoNewDevices?.invoke()
         }
     }
 
@@ -388,11 +429,18 @@ class NanoleafController(context: Context) {
     // ---------------------------------------------------------------- streaming
 
     fun startSync() {
-        if (running || sessions.isEmpty()) return
+        if (running) return
+        val enabled = sessions.values.filter { it.creds.syncOn }
+        if (enabled.isEmpty()) {
+            // Nothing selected: recompute (and re-emit) so the UI settles back to
+            // its paired state instead of an optimistic "Sync On".
+            recomputeState()
+            return
+        }
         running = true
 
         thread {
-            val ready = sessions.values.mapNotNull { prepareStream(it) }
+            val ready = enabled.mapNotNull { prepareStream(it) }
             if (ready.isEmpty()) {
                 currentState = State.ERROR
                 running = false
