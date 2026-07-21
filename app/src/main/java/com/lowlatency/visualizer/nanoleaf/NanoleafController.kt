@@ -20,6 +20,7 @@ import java.net.DatagramSocket
 import java.net.HttpURLConnection
 import java.net.InetAddress
 import java.net.URL
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.concurrent.thread
 
 class NanoleafController(context: Context) {
@@ -113,10 +114,20 @@ class NanoleafController(context: Context) {
     private var isSearching = false
     private var discoveryListener: NsdManager.DiscoveryListener? = null
 
+    /** One panel seen on the network during the current search. */
+    private data class Discovered(val id: String, val host: String, val port: Int)
+
+    // Written from the NSD resolve callback, read when the search settles on the
+    // main thread — and an in-flight resolve can still land after discovery stops,
+    // so iteration here has to tolerate a concurrent put.
+    private val found = ConcurrentHashMap<String, Discovered>()
+    private val settle = Runnable { finishSearch() }
+
     fun search(silent: Boolean = false) {
         if (isSearching) return
         if (!silent) currentState = State.SEARCHING
         isSearching = true
+        found.clear()
 
         val nsdManager = appContext.getSystemService(Context.NSD_SERVICE) as NsdManager
         discoveryListener?.let {
@@ -128,9 +139,25 @@ class NanoleafController(context: Context) {
                 NsdManager.PROTOCOL_DNS_SD,
                 newDiscoveryListener(nsdManager).also { discoveryListener = it }
             )
+            // Hear out the whole network before deciding. Acting on the first panel
+            // to answer made the choice an mDNS race, so a second device could win
+            // and the app would try to re-pair away from the one you set up.
+            mainHandler.removeCallbacks(settle)
+            mainHandler.postDelayed(settle, SETTLE_MS)
         } catch (e: Exception) {
             isSearching = false
         }
+    }
+
+    private fun stopDiscovery() {
+        mainHandler.removeCallbacks(settle)
+        if (!isSearching) return
+        isSearching = false
+        val nsdManager = appContext.getSystemService(Context.NSD_SERVICE) as NsdManager
+        discoveryListener?.let {
+            try { nsdManager.stopServiceDiscovery(it) } catch (_: Exception) {}
+        }
+        discoveryListener = null
     }
 
     private fun newDiscoveryListener(nsdManager: NsdManager) =
@@ -149,52 +176,112 @@ class NanoleafController(context: Context) {
         object : NsdManager.ResolveListener {
             override fun onResolveFailed(srv: NsdServiceInfo, errorCode: Int) {}
             override fun onServiceResolved(srv: NsdServiceInfo) {
-                val host = srv.host.hostAddress ?: return
-                discoveredIp = host
-                discoveredPort = srv.port
-                nsdManager.stopServiceDiscovery(this@NanoleafController.discoveryListener)
-                onPanelResolved(host, srv.port)
+                val host = srv.host?.hostAddress ?: return
+                val id = deviceIdOf(srv)
+                found[id] = Discovered(id, host, srv.port)
+                // Our own panel answering settles it; no reason to wait out the window.
+                val creds = store.loadCredentials()
+                if (creds != null && creds.deviceId.isNotEmpty() && creds.deviceId == id) {
+                    mainHandler.post { finishSearch() }
+                }
             }
         }
 
-    /** A panel answered mDNS — reconcile it with any stored credentials. */
-    private fun onPanelResolved(host: String, port: Int) {
-        val creds = store.loadCredentials()
-        when {
-            creds == null -> {
-                currentState = State.FOUND_UNPAIRED
-                startAutoPairing()
-            }
-            creds.ip == host && creds.port == port -> currentState = State.PAIRED
-            else -> thread { validateStoredToken(host, port, creds) }
+    /**
+     * A panel's stable identity. Nanoleaf advertises an `id` TXT record; the mDNS
+     * service name is the fallback. Either survives a DHCP lease change, which the
+     * IP address does not.
+     */
+    private fun deviceIdOf(srv: NsdServiceInfo): String {
+        val txt = try {
+            srv.attributes["id"]?.toString(Charsets.UTF_8)
+        } catch (_: Exception) {
+            null
         }
+        return txt?.takeIf { it.isNotBlank() } ?: srv.serviceName.orEmpty()
     }
 
-    /** Off-thread: probe the panel with the stored token; re-home or re-pair. */
-    private fun validateStoredToken(host: String, port: Int, creds: NanoleafCredentials) {
-        try {
-            val url = URL("http://$host:$port/api/v1/${creds.authToken}/")
-            val conn = url.openConnection() as HttpURLConnection
-            conn.connectTimeout = 2000
-            conn.readTimeout = 2000
-            when (conn.responseCode) {
-                200 -> {
-                    store.saveCredentials(NanoleafCredentials(host, creds.authToken, port))
-                    currentState = State.PAIRED
-                }
-                401, 403 -> {
-                    currentState = State.FOUND_UNPAIRED
-                    startAutoPairing()
-                }
-                else -> currentState = State.UNREACHABLE
+    private fun finishSearch() {
+        stopDiscovery()
+        reconcile()
+    }
+
+    /** Decide, once, against everything the network offered. */
+    private fun reconcile() {
+        val creds = store.loadCredentials()
+        if (creds == null) {
+            // Nothing paired yet. Lowest id wins purely so repeat searches agree with
+            // each other; picking between several is the multi-device UI's job.
+            found.values.minByOrNull { it.id }?.let { pairWith(it) }
+            return
+        }
+        if (creds.deviceId.isNotEmpty()) {
+            val mine = found[creds.deviceId]
+            // Any other panel on the network is somebody else's business. Never
+            // re-pair over an existing pairing just because a stranger answered.
+            if (mine != null) adopt(creds, mine) else if (found.isNotEmpty()) {
+                currentState = State.UNREACHABLE
             }
-            conn.disconnect()
-        } catch (_: Exception) {
+            return
+        }
+        val candidates = found.values.toList()
+        if (candidates.isNotEmpty()) thread { claimLegacyPairing(creds, candidates) }
+    }
+
+    /** Re-home a known panel: same token, whatever address it turned up on. */
+    private fun adopt(creds: NanoleafCredentials, d: Discovered) {
+        discoveredIp = d.host
+        discoveredPort = d.port
+        if (creds.ip != d.host || creds.port != d.port || creds.deviceId != d.id) {
+            store.saveCredentials(NanoleafCredentials(d.host, creds.authToken, d.port, d.id))
+        }
+        currentState = State.PAIRED
+    }
+
+    /**
+     * Off-thread: a pairing predating device ids. The token itself says which panel
+     * it belongs to, so try it against each until one accepts, then record the id
+     * so this never has to be guessed again.
+     */
+    private fun claimLegacyPairing(creds: NanoleafCredentials, candidates: List<Discovered>) {
+        for (d in candidates) {
+            if (tokenAccepted(d, creds.authToken)) {
+                mainHandler.post { adopt(creds, d) }
+                return
+            }
+        }
+        // No panel accepted it. Re-pair only when there is exactly one candidate and
+        // so no ambiguity about what "re-pair" means; guessing among several is the
+        // behaviour that let the app wander onto the wrong device.
+        if (candidates.size == 1) {
+            mainHandler.post { pairWith(candidates[0]) }
+        } else {
             currentState = State.UNREACHABLE
         }
     }
 
+    private fun tokenAccepted(d: Discovered, token: String): Boolean = try {
+        val conn = URL("http://${d.host}:${d.port}/api/v1/$token/")
+            .openConnection() as HttpURLConnection
+        conn.connectTimeout = 2000
+        conn.readTimeout = 2000
+        val ok = conn.responseCode == 200
+        conn.disconnect()
+        ok
+    } catch (_: Exception) {
+        false
+    }
+
+    private fun pairWith(d: Discovered) {
+        discoveredIp = d.host
+        discoveredPort = d.port
+        pairingDeviceId = d.id
+        currentState = State.FOUND_UNPAIRED
+        startAutoPairing()
+    }
+
     private var autoPairing = false
+    private var pairingDeviceId = ""
 
     private fun startAutoPairing() {
         if (autoPairing) return
@@ -218,7 +305,9 @@ class NanoleafController(context: Context) {
                         val json = JSONObject(response)
                         val token = json.getString("auth_token")
 
-                        store.saveCredentials(NanoleafCredentials(ip, token, discoveredPort))
+                        store.saveCredentials(
+                            NanoleafCredentials(ip, token, discoveredPort, pairingDeviceId)
+                        )
                         currentState = State.PAIRED
                         autoPairing = false
                     }
@@ -430,6 +519,7 @@ class NanoleafController(context: Context) {
         stopSync()
         store.clear()
         discoveredIp = null
+        pairingDeviceId = ""
         currentState = State.DISCONNECTED
     }
 
@@ -541,5 +631,10 @@ class NanoleafController(context: Context) {
 
             Thread.sleep(25) // ~40 FPS
         }
+    }
+
+    companion object {
+        /** How long to keep listening before deciding which panel is ours. */
+        private const val SETTLE_MS = 2500L
     }
 }
