@@ -242,9 +242,21 @@ class Waveform3dScene : StereoScene {
                            * exp(-max(uv.x + LOOK_X, 0.0) * 1.4);
                 col += vec3(0.10, 0.04, 0.22) * glow * 0.5;
 
-                // Dithering has been completely removed to prevent OLED noise.
-                // Modern devices (10-bit displays) often handle gradients smoothly 
-                // without manual 1-LSB injection.
+                // Dithering is strictly required because the translucent curtains fading 
+                // into the distance (haze) will quantize into massive angled bars on an 8-bit screen.
+                // We use a 4x4 Bayer Ordered Dither matrix instead of random noise.
+                // Ordered dither creates a static geometric crosshatch pattern which the brain
+                // ignores as a texture, completely eliminating banding without creating "twinkling dots" or OLED noise.
+                const int bayer[16] = int[16](
+                    0, 8, 2, 10,
+                    12, 4, 14, 6,
+                    3, 11, 1, 9,
+                    15, 7, 13, 5
+                );
+                int bx = int(gl_FragCoord.x) % 4;
+                int by = int(gl_FragCoord.y) % 4;
+                float bVal = float(bayer[by * 4 + bx]) / 16.0;
+                col += (bVal - 0.5) * (1.5 / 255.0);
 
                 fragColor = vec4(col * u_dim, 1.0);
             }
