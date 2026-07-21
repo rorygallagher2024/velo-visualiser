@@ -38,13 +38,13 @@ import kotlin.math.pow
  *  - THREE TRUE BAND ENVELOPES, the pro-deck look: the sample stream is split
  *    by cheap crossovers (~200 Hz / ~2 kHz, cascaded one-poles) and each
  *    band's own per-slice peak is stored — so the bass is a tall warm body,
- *    mids layer over it, and highs ride on top as short bright needles. A
+ *    mids layer over it, and highs ride in front as short bright needles. A
  *    kick and a hat in one slice are two different SHAPES, not a blended
- *    hue. The layers add: bass+mid golden, everything at once blooms toward
- *    white — which is the truth about the signal, not decoration. This is
- *    also more honest than the FFT-fraction tint it replaced: the global
- *    spectrum at commit time smeared; band envelopes are the filtered audio
- *    at that instant.
+ *    hue. Layers composite painter-style (front occludes back, slightly
+ *    translucent) — additive stacking summed the centre to permanent white
+ *    and blew out under bloom. This is also more honest than the
+ *    FFT-fraction tint it replaced: the global spectrum at commit time
+ *    smeared; band envelopes are the filtered audio at that instant.
  *  - With Ableton Link connected, every beat is etched into the history as a
  *    small axis tick (downbeats taller), so the last nine seconds read as a
  *    bar ruler. Link only: an etched mark is a PERMANENT record, and onset
@@ -383,9 +383,9 @@ class WaveformRollScene : StereoScene {
             const float SLICES  = 4096.0;
             const float VISIBLE = 3840.0;
 
-            // Band layer palette: deck-familiar (warm bass, green mid, ice high)
-            // but temperature-disciplined so overlaps mix musically — bass+mid
-            // golden, mid+high cyan, all three toward white.
+            // Band layer palette: deck-familiar (warm bass, green mid, ice high).
+            // Layers composite painter-style (occlusion, not addition), so these
+            // read as themselves at any loudness instead of summing to white.
             const vec3 BASS_COL = vec3(1.00, 0.32, 0.10);
             const vec3 MID_COL  = vec3(0.22, 0.88, 0.36);
             const vec3 HI_COL   = vec3(0.42, 0.72, 1.00);
@@ -478,18 +478,25 @@ class WaveformRollScene : StereoScene {
                 float shell = smoothstep(ext + aaPx * 2.0, ext - aaPx, d);
                 vec3 col = waveCol * shell * 0.16;
 
-                // THREE BAND ENVELOPES, additively layered — the pro-deck look.
-                // Each band's own waveform in its own colour: bass a tall warm
-                // body, mids over it, highs as short bright needles. Overlaps
-                // mix honestly (bass+mid golden, everything at once whitens).
+                // THREE BAND ENVELOPES, painter-composited — the deck look.
+                // Bass painted first, mids over it, highs in front: each layer
+                // OCCLUDES what's beneath rather than adding to it. Additive
+                // stacking made the centre the SUM of all layers — permanently
+                // white on any real music, and with bloom on that white blew
+                // out. Convex over-compositing can never exceed a layer's own
+                // colour, so the core reads ice-blue over green over a warm
+                // bass body, saturated at any loudness. The slight layer
+                // translucency lets a hint of the band beneath glow through.
                 // Clamped inside the side's envelope so stereo asymmetry holds.
                 vec3 be = min(bandExt, vec3(ext));
                 float fillLo = smoothstep(be.x + aaPx * 2.0, be.x - aaPx, d);
                 float fillMid = smoothstep(be.y + aaPx * 2.0, be.y - aaPx, d);
                 float fillHi = smoothstep(be.z + aaPx * 2.0, be.z - aaPx, d);
-                col += BASS_COL * fillLo * 0.60
-                     + MID_COL * fillMid * 0.52
-                     + HI_COL * fillHi * 0.80;
+                vec3 body = vec3(0.0);
+                body = mix(body, BASS_COL, fillLo * 0.95);
+                body = mix(body, MID_COL, fillMid * 0.85);
+                body = mix(body, HI_COL, fillHi * 0.85);
+                col += body * 1.05;
 
                 // A faint halo just past the peak edge keeps tips soft even
                 // with bloom off.
