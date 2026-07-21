@@ -35,7 +35,7 @@
     <string name="vis_fluid">Fluid Dynamics</string>
     <string name="vis_laser">Volumetric Laser Array</string>
     <string name="vis_circular">Circular Spectrum</string>
-    <string name="vis_bars">Spectrum Bars</string>
+    <string name="vis_bars">Spectrum Bars Retro</string>
     <string name="vis_bloom">Spectral Bloom</string>
     <string name="vis_starscape">Starscape</string>
     <string name="vis_rawscope">Raw Oscilloscope</string>
