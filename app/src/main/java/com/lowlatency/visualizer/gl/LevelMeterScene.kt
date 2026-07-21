@@ -22,12 +22,11 @@ import kotlin.math.sqrt
  *  - The **lamp** is overload, and nothing else lights it.
  *
  * Scale and overload both come from [MeterCalibration], so this and the Mechanical
- * Meter can never disagree about what "hot" means: the floor auto-ranges (that is
- * sensitivity, and it is what lets a quiet mic sweep the scale) while the ceiling
- * stays pinned at 0 dBFS (that is headroom, and moving it makes every absolute mark
- * on the face a lie). Expect the column to top out around 80-85% on the loudest
- * masters: 0 dBFS RMS is a full-scale square wave, so the very top is unreachable
- * by design, and full deflection genuinely means maxed.
+ * Meter can never disagree about what "hot" means. The scale is fixed at -60…0 dBFS
+ * with no auto-gain, so a given height always means the same signal level, and a
+ * quiet mic is *shown* to be quiet rather than normalised up to look loud. Expect
+ * the column to stop short of the top: 0 dBFS RMS is a full-scale square wave, so
+ * the last stretch is unreachable by design and stays reserved for peaks.
  *
  * **Mono shows one bar, stereo shows two.** Rather than switching modes (which
  * would pop), it always draws two channels and slides them apart from the centre
@@ -120,7 +119,7 @@ class LevelMeterScene : StereoScene {
         val targetR = calibration.position(dbR)
         updateChannel(0, targetL, dt)
         updateChannel(1, targetR, dt)
-        updateIdle(max(targetL, targetR), dt)
+        updateIdle(calibration.atRest(max(dbL, dbR)), dt)
         calibration.updateOverload(pcmStereo, 2, dt)
 
         GLES20.glUseProgram(program)
@@ -203,8 +202,8 @@ class LevelMeterScene : StereoScene {
     }
 
     /** A few seconds of silence dims the instrument to a resting glow. */
-    private fun updateIdle(target: Float, dt: Float) {
-        silentSec = if (target < IDLE_SILENCE_LEVEL) silentSec + dt else 0f
+    private fun updateIdle(atRest: Boolean, dt: Float) {
+        silentSec = if (atRest) silentSec + dt else 0f
         val glowTarget = if (silentSec > IDLE_AFTER_SEC) IDLE_GLOW else 1f
         val glowRate = if (glowTarget > idleGlow) IDLE_WAKE_RATE else IDLE_FALL_RATE
         idleGlow += (glowTarget - idleGlow) * min(glowRate * dt, 1f)
@@ -219,7 +218,6 @@ class LevelMeterScene : StereoScene {
         private const val STEREO_EASE = 0.02f         // mono↔stereo slide (~1 s)
         private const val STEREO_SEP = 0.082f         // half-separation, in screen heights
 
-        private const val IDLE_SILENCE_LEVEL = 0.02f
         private const val IDLE_AFTER_SEC = 3f
         private const val IDLE_GLOW = 0.4f
         private const val IDLE_FALL_RATE = 1.2f

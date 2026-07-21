@@ -28,11 +28,11 @@ import kotlin.math.sqrt
  * near clipping. Both instruments now read [MeterCalibration.overLit], so they
  * cannot disagree about what warrants red.
  *
- * The dial is absolute for the same reason, via [MeterCalibration]: the floor
- * auto-ranges to the room (sensitivity, so a quiet mic still sweeps the needle)
- * while the top stays pinned at 0 dBFS (headroom). An earlier revision moved the
- * top with the signal too, which made full deflection mean nothing more than
- * "louder than lately".
+ * The dial is absolute for the same reason, via [MeterCalibration]: a fixed
+ * -60…0 dBFS scale, no auto-gain at either end. Earlier revisions moved the top,
+ * then the whole scale, to keep a quiet mic sweeping — which made a given angle
+ * mean nothing more than "louder than lately". The needle now reads the same for
+ * the same level whatever it is listening to.
  *
  * It reads the **stereo** ring rather than the mono analysis ring, because dBFS
  * has to mean dBFS: digital sources enter the mono ring scaled by
@@ -68,6 +68,7 @@ class MechanicalMeterScene : StereoScene {
     private var wakeHi = 0f
     private var wakeEnergy = 0f
     private var silentSec = 0f
+    private var atRest = false
     private var idleGlow = 1f
     private var lastTime = -1f
 
@@ -121,6 +122,7 @@ class MechanicalMeterScene : StereoScene {
         val db = 20f * log10(max(rms, 1e-5f))
         calibration.update(db, dt)
         calibration.updateOverload(pcmStereo, 2, dt)
+        atRest = calibration.atRest(db)
         val target = calibration.position(db)
 
         updateMechanics(target, dt, timeSec)
@@ -189,7 +191,7 @@ class MechanicalMeterScene : StereoScene {
 
         // Idle: a few seconds of true silence and the instrument dims to a
         // resting glow, snapping awake on the first signal.
-        silentSec = if (target < IDLE_SILENCE_LEVEL) silentSec + dt else 0f
+        silentSec = if (atRest) silentSec + dt else 0f
         val glowTarget = if (silentSec > IDLE_AFTER_SEC) IDLE_GLOW else 1f
         val glowRate = if (glowTarget > idleGlow) IDLE_WAKE_RATE else IDLE_FALL_RATE
         idleGlow += (glowTarget - idleGlow) * min(glowRate * dt, 1f)
@@ -204,7 +206,6 @@ class MechanicalMeterScene : StereoScene {
         private const val WAKE_ENERGY_DECAY = 1.2f    // sweep-brightness fade, per second
         private const val PEAK_HOLD_SEC = 0.6f
         private const val PEAK_GRAVITY = 1.6f         // dial-units per second²
-        private const val IDLE_SILENCE_LEVEL = 0.02f  // dial fraction that counts as silence
         private const val IDLE_AFTER_SEC = 3f
         private const val IDLE_GLOW = 0.4f            // resting brightness while idle
         private const val IDLE_FALL_RATE = 1.2f       // ease into idle (~1.5 s)

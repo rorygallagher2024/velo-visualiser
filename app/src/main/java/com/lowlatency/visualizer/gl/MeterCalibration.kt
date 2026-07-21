@@ -1,6 +1,5 @@
 package com.lowlatency.visualizer.gl
 
-import com.lowlatency.visualizer.BeatSettings
 import kotlin.math.max
 import kotlin.math.min
 
@@ -8,30 +7,30 @@ import kotlin.math.min
  * Shared scale + overload detection for the metering scenes (Mechanical Meter,
  * Level Meter), so the two instruments can never disagree about what "hot" means.
  *
- * **The rule that keeps a meter honest: never let the scale drive the red.**
+ * **The scale is fixed: -60 to 0 dBFS, every source, no auto-gain anywhere.**
  *
- * Position and overload answer different questions, and the failures all came from
- * conflating them. An early revision drew a red zone at a fraction of travel, so
- * any source loud enough for its own recent average went red — a raised voice
- * reddened a needle sitting 40 dB below clipping. [overLit] is now an event
- * detector on raw samples, entirely independent of where the scale happens to sit,
- * which is what lets the scale itself adapt freely where it needs to.
+ * A given deflection always means the same signal level. That is the entire value
+ * of a meter, and every version that adapted the scale gave it away: a source
+ * 20 dB below another rendered at the same height, so the reading answered "how
+ * does this compare with itself lately" instead of "how loud is this".
  *
- * And it does need to, per source, because the two families differ in whether an
- * absolute reference exists at all:
- *  - **Digital** (system / local / tone) has one. The ceiling is 0 dBFS, so full
- *    deflection means genuinely maxed. Expect RMS to top out ~80-85% on the
- *    loudest masters: 0 dBFS RMS is a full-scale square wave, so the very top is
- *    unreachable by design and stays reserved.
- *  - **Mic** has none. Its dBFS depends on the preamp, the distance and the room,
- *    and it runs 20-40 dB below full scale in every realistic case — a ceiling
- *    pinned at 0 dBFS confines loud music to the bottom third of the dial and the
- *    instrument looks dead. So the whole scale rides a tracked reference, and full
- *    deflection reads as "loud for this room", the only claim a mic can support.
+ * The mic is not an exception, though two revisions treated it as one. Its
+ * converter has a defined full scale, so its dBFS is every bit as absolute as a
+ * file's; it simply runs lower, and a meter's job is to show that rather than hide
+ * it. The mic reading looking dead was never the fixed ceiling's fault either — it
+ * was an *adaptive floor* that crept up under sustained level until the scale had
+ * shrunk to 30 dB. Against a fixed -60 dB floor, loud room music lands near 2/3
+ * and a mastered file near 5/6, which is both lively and true.
  *
- * The floor is *sensitivity* in both modes: tracking the noise floor lets a quiet
- * room use most of the scale, and keeps room tone resting at zero rather than
- * floating the needle.
+ * Expect RMS to stop short of the top: 0 dBFS RMS is a full-scale square wave, so
+ * the last stretch is unreachable by design and stays reserved for peaks.
+ *
+ * The room level is still tracked, but only to decide when the instrument is at
+ * rest ([atRest]) — never to move the scale. Idle is genuinely a relative question
+ * ("is anything above the room floor"); level is not.
+ *
+ * [overLit] stays independent of all of it: an event detector on raw samples, so
+ * nothing about where the scale sits can ever turn something red.
  *
  * Feed this the **raw** signal. The engine's mono analysis ring is scaled by
  * `kDigitalMonoGain` and a time-varying AGC, so dBFS measured there is not
@@ -39,12 +38,8 @@ import kotlin.math.min
  */
 class  MeterCalibration {
 
-    /** Bottom of the scale in dBFS, tracked from the noise floor. */
-    var floorDb = FLOOR_MIN
-        private set
-
-    /** Top of the scale in dBFS: absolute for digital, tracked for the mic. */
-    var ceilDb = CEIL_DB
+    /** Tracked room / noise level in dBFS. Drives [atRest] only, never the scale. */
+    var roomDb = FLOOR_DB
         private set
 
     /**
@@ -57,48 +52,28 @@ class  MeterCalibration {
         private set
 
     private var overHold = 0f
-    private var noiseDb = Float.NaN
-    private var micRefDb = Float.NaN
 
-    /** Advance the adaptive scale. [db] is the current level in dBFS. */
+    /** Track the room level. [db] is the current level in dBFS. */
     fun update(db: Float, dt: Float) {
         // Minimum-follower: drops onto quiet gaps quickly, creeps up only under
-        // sustained level, so the floor finds the room (or the record's quiet
-        // passages) rather than the music sitting on top of it.
-        if (noiseDb.isNaN()) noiseDb = db
-        val tau = if (db < noiseDb) NOISE_FALL_SEC else NOISE_RISE_SEC
-        noiseDb += (db - noiseDb) * min(dt / tau, 1f)
-
-        if (BeatSettings.systemAudio) {
-            floorDb = (noiseDb + NOISE_MARGIN_DB).coerceIn(FLOOR_MIN, FLOOR_MAX)
-            ceilDb = CEIL_DB
-            return
-        }
-        updateMicScale(db, dt)
+        // sustained level, so it finds the room (or the record's quiet passages)
+        // rather than the music sitting on top of it.
+        if (roomDb.isNaN()) roomDb = db
+        val tau = if (db < roomDb) NOISE_FALL_SEC else NOISE_RISE_SEC
+        roomDb += (db - roomDb) * min(dt / tau, 1f)
     }
+
+    /** Map a dBFS level onto the fixed 0..1 scale. 1.0 means 0 dBFS: genuinely maxed. */
+    fun position(db: Float): Float =
+        ((db - FLOOR_DB) / (CEIL_DB - FLOOR_DB)).coerceIn(0f, 1f)
 
     /**
-     * Mic scale: the reference chases the recent level (fast up to catch a loud
-     * passage, slower down to re-centre) and the scale hangs off it, with far more
-     * range below than above so a steady loud source rides ~3/4 and only a surge
-     * reaches the top. Clamped at both ends so the extremes still read as extremes
-     * instead of everything normalising to the same height.
+     * True when nothing is playing above the room itself, so an instrument can dim
+     * to standby. Deliberately relative: a noisy room and a silent one both idle
+     * when their own ambience is all that is left, which a fixed dB threshold on an
+     * absolute scale cannot express.
      */
-    private fun updateMicScale(db: Float, dt: Float) {
-        if (micRefDb.isNaN()) micRefDb = db.coerceIn(MIC_REF_MIN, MIC_REF_MAX)
-        val tau = if (db > micRefDb) MIC_ATTACK_SEC else MIC_RELEASE_SEC
-        micRefDb += (db - micRefDb) * min(dt / tau, 1f)
-        micRefDb = micRefDb.coerceIn(MIC_REF_MIN, MIC_REF_MAX)
-        ceilDb = micRefDb + MIC_SPAN_ABOVE
-        // Never below the room itself, or ambience floats the needle off its rest.
-        floorDb = max(micRefDb - MIC_SPAN_BELOW, noiseDb + NOISE_MARGIN_DB)
-    }
-
-    /** Map a dBFS level onto the 0..1 scale. */
-    fun position(db: Float): Float {
-        val span = (ceilDb - floorDb).coerceAtLeast(1e-3f)
-        return ((db - floorDb) / span).coerceIn(0f, 1f)
-    }
+    fun atRest(db: Float): Boolean = db <= roomDb + REST_MARGIN_DB
 
     /**
      * Advance the overload lamp from the raw window. Latches only briefly: a real
@@ -114,10 +89,7 @@ class  MeterCalibration {
 
     /** Forget the tracked floor — call when the audio source changes. */
     fun reset() {
-        noiseDb = Float.NaN
-        micRefDb = Float.NaN
-        floorDb = FLOOR_MIN
-        ceilDb = CEIL_DB
+        roomDb = Float.NaN
         overHold = 0f
         overLit = 0f
     }
@@ -152,20 +124,10 @@ class  MeterCalibration {
         }
 
         const val CEIL_DB = 0f              // digital full scale
-        private const val FLOOR_MIN = -66f  // widest the digital scale ever opens
-        private const val FLOOR_MAX = -30f  // narrowest, for a genuinely loud source
-        private const val NOISE_MARGIN_DB = 4f
+        const val FLOOR_DB = -60f           // standard programme-meter range
+        private const val REST_MARGIN_DB = 4f
         private const val NOISE_FALL_SEC = 0.6f
         private const val NOISE_RISE_SEC = 25f
-
-        // Mic auto-range. SPAN_BELOW:SPAN_ABOVE is 3:1, so a steady source settles
-        // at 3/4 of the scale with a quarter left for anything louder.
-        private const val MIC_REF_MIN = -50f        // most sensitive (quiet room)
-        private const val MIC_REF_MAX = -15f        // least sensitive (loud room)
-        private const val MIC_ATTACK_SEC = 0.8f     // rise toward loud
-        private const val MIC_RELEASE_SEC = 4f      // fall back / re-centre
-        private const val MIC_SPAN_BELOW = 24f
-        private const val MIC_SPAN_ABOVE = 8f
 
         private const val FULL_SCALE = 0.999f
         private const val OVER_RUN = 3      // consecutive samples, per channel
