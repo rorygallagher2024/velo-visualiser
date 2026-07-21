@@ -35,7 +35,10 @@ import kotlin.math.pow
  *    height, in any orientation, while drops still tower over breakdowns.
  *  - Colour uses power-sharpened band dominance — real music holds all three
  *    bands in similar ranges, so a linear blend is permanently green; cubing
- *    the normalized weights lets the winner take the hue.
+ *    the normalized weights lets the winner take the hue. The fractions are
+ *    stored raw and graded VERTICALLY in the shader: the axis leans low/mid
+ *    (solid kick body), the tips lean high (hats read as bright needles above
+ *    the body) — a kick and a hat in one slice stay two visible things.
  *  - With Ableton Link connected, every beat is etched into the history as a
  *    small axis tick (downbeats taller), so the last nine seconds read as a
  *    bar ruler. Link only: an etched mark is a PERMANENT record, and onset
@@ -69,10 +72,10 @@ class WaveformRollScene : StereoScene {
     private var samplesInSlice = 0
     // 0 = mono min/max wave, 1 = L-up / R-down split; eased, data-detected.
     private var stereoMix = 0f
-    // Temporally smoothed colour so hues flow instead of flickering per slice.
-    private var smR = 0.3f
-    private var smG = 0.6f
-    private var smB = 0.4f
+    // Temporally smoothed band fractions so hues flow instead of flickering.
+    private var smLo = 0.33f
+    private var smMid = 0.34f
+    private var smHi = 0.33f
     private var head = 0
     private var lastTime = -1f
 
@@ -118,8 +121,9 @@ class WaveformRollScene : StereoScene {
             GLES20.GL_TEXTURE_2D, 0, GLES30.GL_RGBA16F, SLICES, 2, 0,
             GLES20.GL_RGBA, GLES20.GL_FLOAT, zeros,
         )
-        // LINEAR across slices: contours flow (the DAW look) and the scroll
-        // interpolates sub-slice instead of snapping — the shimmer's root.
+        // Filter mode is moot for the shader's texelFetch reads (which bypass
+        // filtering deliberately — see the rasterization comment there), but is
+        // set anyway so any debug sampling behaves.
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_REPEAT)
@@ -162,6 +166,12 @@ class WaveformRollScene : StereoScene {
     }
 
     override fun onAudioSourceChanged() {
+        // The engine zeroes both visual rings on source teardown
+        // (AudioEngine::clearVisualRings), so no stale audio from the previous
+        // source can reach the accumulators — resetting the reference is the
+        // whole fix. Do NOT add a discard window here: the ring holds genuine
+        // new-source audio by the time this fires, and skipping it just punches
+        // a gap into the history.
         agcRef = AGC_FLOOR
     }
 
@@ -265,7 +275,11 @@ class WaveformRollScene : StereoScene {
         val dispDown = (down * norm * AMP_TARGET).coerceAtMost(1f).pow(AMP_KNEE)
         val dispRms = (rms * norm * AMP_TARGET).coerceAtMost(1f).pow(AMP_KNEE)
 
-        // Power-sharpened dominance: the winning band takes the hue.
+        // Power-sharpened dominance, stored as normalized band FRACTIONS — the
+        // shader turns them into colour, which lets it grade each column
+        // vertically (bass body at the axis, treble sparkle at the tips) the way
+        // a real deck waveform reads. A single premixed hue can't do that: a
+        // kick and a hat in the same 4.7 ms slice just averaged into one colour.
         val m = max(bands[0], max(bands[1], bands[2])).coerceAtLeast(1e-3f)
         val wl = (bands[0] / m).pow(3)
         val wm = (bands[1] / m).pow(3)
@@ -274,26 +288,16 @@ class WaveformRollScene : StereoScene {
         // zero bands, and dividing by a zero weight sum mints NaN — which the
         // GPU paints WHITE and which poisons the colour smoother forever.
         val ws = (wl + wm + wh).coerceAtLeast(1e-4f)
-        var r = (wl * 1.00f + wm * 0.16f + wh * 0.25f) / ws
-        var g = (wl * 0.20f + wm * 0.95f + wh * 0.55f) / ws
-        var b = (wl * 0.08f + wm * 0.22f + wh * 1.00f) / ws
-        // Dominant highs whiten so hats sparkle instead of going navy.
-        val whiten = (wh / ws - 0.5f).coerceAtLeast(0f) * 1.5f
-        r += (1f - r) * whiten
-        g += (1f - g) * whiten
-        b += (1f - b) * whiten
-        // ~80 ms colour smoothing: hues sweep like a deck, never flicker.
-        if (!smR.isFinite() || !smG.isFinite() || !smB.isFinite()) {
-            smR = 0.3f; smG = 0.6f; smB = 0.4f
+        // ~80 ms smoothing: hues sweep like a deck, never flicker.
+        if (!smLo.isFinite() || !smMid.isFinite() || !smHi.isFinite()) {
+            smLo = 0.33f; smMid = 0.34f; smHi = 0.33f
         }
-        smR += (r - smR) * COLOR_SMOOTH
-        smG += (g - smG) * COLOR_SMOOTH
-        smB += (b - smB) * COLOR_SMOOTH
-        // Loud columns carry HDR headroom so bloom picks out transients.
-        val lift = 1f + 0.4f * dispUp * dispUp
+        smLo += (wl / ws - smLo) * COLOR_SMOOTH
+        smMid += (wm / ws - smMid) * COLOR_SMOOTH
+        smHi += (wh / ws - smHi) * COLOR_SMOOTH
 
         texelStaging.clear()
-        texelStaging.put(smR * lift).put(smG * lift).put(smB * lift).put(dispUp)
+        texelStaging.put(smLo).put(smMid).put(smHi).put(dispUp)
         texelStaging.put(dispRms).put(linkEtchMark()).put(0f).put(dispDown)
         texelStaging.position(0)
         // One column, both rows.
@@ -374,31 +378,51 @@ class WaveformRollScene : StereoScene {
                     rgbAcc += a.rgb;
                     count += 1.0;
                 }
-                vec4 hUp = vec4(rgbAcc / max(count, 1.0), upExt);
-                vec4 hDn = vec4(rmsRaw, 0.0, 0.0, dnExt);
+                vec3 fr = rgbAcc / max(count, 1.0);           // band fractions (lo, mid, hi)
 
                 // The wave lives in a centred band (55% of the height) — an
                 // instrument in a space, not wall-to-wall.
                 float halfBand = 0.5 * u_res.y * 0.55;
                 float yc = (frag.y - 0.5 * u_res.y) / halfBand;
-                float ext = yc >= 0.0 ? hUp.a : hDn.a;        // signed peak extents
-                float rmsExt = hDn.r;                          // RMS body extent
+                float ext = yc >= 0.0 ? upExt : dnExt;        // signed peak extents
+                float rmsExt = rmsRaw;                         // RMS body extent
                 float d = abs(yc);
                 float aaPx = 1.25 / halfBand;
+
+                // Vertical band grading — how a deck waveform actually reads.
+                // The mix is re-weighted along the column's height: the axis
+                // leans into the low/mid mix (solid kick body), the tips lean
+                // into the highs (hats become bright needles above the body)
+                // — so a kick and a hat in one slice stay two visible things
+                // instead of averaging into a single hue.
+                float t = smoothstep(0.10, 0.95, d / max(ext, 1e-3));
+                vec3 grade = mix(vec3(1.5, 0.9, 0.35), vec3(0.35, 0.8, 1.7), t);
+                vec3 w = fr * grade;
+                w /= max(w.x + w.y + w.z, 1e-4);
+                vec3 hue = vec3(
+                    w.x * 1.00 + w.y * 0.16 + w.z * 0.25,
+                    w.x * 0.20 + w.y * 0.95 + w.z * 0.55,
+                    w.x * 0.08 + w.y * 0.22 + w.z * 1.00
+                );
+                // Dominant highs whiten so hats sparkle instead of going navy.
+                float whiten = max(w.z - 0.5, 0.0) * 1.5;
+                hue += (vec3(1.0) - hue) * whiten;
+                // Loud columns carry HDR headroom so bloom picks out transients.
+                hue *= 1.0 + 0.4 * upExt * upExt;
 
                 // Two-layer body, the DAW look: a translucent peak envelope
                 // with a brighter, whiter RMS core inside it.
                 float peakFill = smoothstep(ext + aaPx * 2.0, ext - aaPx, d);
                 float bodyFill = smoothstep(rmsExt + aaPx * 2.0, rmsExt - aaPx, d);
-                vec3 bodyCol = mix(hUp.rgb, vec3(1.0), 0.22) * 1.18;
-                vec3 col = hUp.rgb * peakFill * 0.52
+                vec3 bodyCol = mix(hue, vec3(1.0), 0.22) * 1.18;
+                vec3 col = hue * peakFill * 0.52
                          + bodyCol * bodyFill * 0.75;
 
                 // A faint halo just past the peak edge keeps tips soft even
                 // with bloom off.
                 float halo = smoothstep(ext + 14.0 * aaPx, ext, d)
                            * (1.0 - peakFill);
-                col += hUp.rgb * halo * 0.10;
+                col += hue * halo * 0.10;
 
                 // Link bar ruler: beats etched as small axis ticks, downbeats
                 // taller — the history reads as bars. Added before the live-edge
