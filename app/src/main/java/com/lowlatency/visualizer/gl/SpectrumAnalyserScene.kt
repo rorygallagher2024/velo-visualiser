@@ -21,8 +21,9 @@ import kotlin.math.min
  * you can actually read, because the shape of a mix stays legible for a moment
  * after the transient that made it has gone.
  *
- * Ballistics are peak-programme, matching the Level Meter: snap up, glide down. A
- * bar has no mass to overshoot with, so nothing here springs.
+ * Ballistics snap up and fall away quickly — quicker than the Level Meter, because
+ * the caps are the memory here and a slow bar would only blur the pattern. A bar
+ * has no mass to overshoot with, so nothing springs.
  *
  * The columns and caps are monochrome, and stay that way: there is no per-band
  * equivalent of clipping, so a loud band is just a loud band. Overload is a
@@ -166,7 +167,11 @@ class SpectrumAnalyserScene : StereoScene {
         private const val BANDS = 31                  // third-octave, 20 Hz … 20 kHz
 
         private const val ATTACK_RATE = 60f           // ~17 ms: effectively instant
-        private const val RELEASE_RATE = 4f           // ~250 ms glide back down
+        // ~83 ms fall, far quicker than the Level Meter's. A programme meter wants a
+        // slow release because the bar's height is the reading; here the reading is
+        // the shape across all 31 bands, and the caps already hold the memory, so a
+        // lingering bar is a second memory that only smears the transient detail.
+        private const val RELEASE_RATE = 12f
         private const val PEAK_HOLD_SEC = 0.6f
         private const val PEAK_GRAVITY = 1.6f         // scale-units per second²
 
