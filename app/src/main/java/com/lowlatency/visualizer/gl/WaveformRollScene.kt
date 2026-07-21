@@ -1,23 +1,16 @@
 package com.lowlatency.visualizer.gl
 
 import android.opengl.GLES20
-import android.opengl.GLES30
-import com.lowlatency.visualizer.BeatPulse
 import com.lowlatency.visualizer.NativeBridge
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
-import kotlin.math.abs
-import kotlin.math.exp
-import kotlin.math.max
-import kotlin.math.min
-import kotlin.math.pow
 
 /**
  * "Waveform" — a rolling, zoomed-out oscilloscope: ~9 seconds of true
- * min/max waveform history scrolling right to left, coloured by frequency
- * the way DJ software paints its decks (bass reds, mid greens, treble blues,
- * whitening when the highs dominate).
+ * min/max waveform history scrolling right to left, in the ultraviolet
+ * band-layer look. The data model (band envelopes, AGC, stereo detection,
+ * Link etching) lives in [BandWaveHistory], shared with "Waveform 3D".
  *
  * What makes it read like a real DAW waveform rather than a blob:
  *
@@ -63,57 +56,12 @@ class WaveformRollScene : StereoScene {
     private var uDim = 0
     private var uHead = 0
     private var uTex = 0
-    private var historyTex = 0
 
     private var width = 1f
     private var height = 1f
-
-    // Sample-accurate slice accumulators (mid = (L+R)/2 for the mono shape).
-    private var sliceMax = -1f
-    private var sliceMin = 1f
-    private var sliceSumSq = 0f
-    private var sliceL = 0f
-    private var sliceR = 0f
-    private var sliceDiff = 0f
-    private var sliceLo = 0f
-    private var sliceMid = 0f
-    private var sliceHi = 0f
-    private var samplesInSlice = 0
-    // 0 = mono min/max wave, 1 = L-up / R-down split; eased, data-detected.
-    private var stereoMix = 0f
-    private var head = 0
     private var lastTime = -1f
 
-    // Crossover state (two cascaded one-poles per corner: ~12 dB/oct) and the
-    // per-sample band outputs they produce. Coefficients follow the sample rate.
-    private var lpA1 = 0f
-    private var lpA2 = 0f
-    private var lpB1 = 0f
-    private var lpB2 = 0f
-    private var bandLo = 0f
-    private var bandMid = 0f
-    private var bandHi = 0f
-    private var alphaLo = 0.026f
-    private var alphaHi = 0.23f
-    private var filterRate = 0
-
-    // Rolling loudness reference for display auto-gain.
-    private var agcRef = AGC_FLOOR
-
-    // Link phase trackers: a wrap between commits means this slice holds a beat.
-    private var prevBeatPhase = 0.0
-    private var prevBarPhase = 0.0
-
-    // Batched column uploads. One glTexSubImage2D per committed column was
-    // ~4 driver round-trips per frame (and ~100 after a hitch); consecutive
-    // columns are contiguous in the texture, so each frame's commits upload as
-    // a single span instead. Flushed on wrap so the span never splits.
-    private val batchRow0 = FloatArray(MAX_BATCH * 4)
-    private val batchRow1 = FloatArray(MAX_BATCH * 4)
-    private var batchStart = -1
-    private var batchCount = 0
-    private val batchStaging: FloatBuffer = ByteBuffer
-        .allocateDirect(MAX_BATCH * 2 * 4 * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
+    private val history = BandWaveHistory()
 
     private val quad: FloatBuffer = ByteBuffer
         .allocateDirect(8 * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
@@ -127,34 +75,8 @@ class WaveformRollScene : StereoScene {
         uDim = GLES20.glGetUniformLocation(program, "u_dim")
         uHead = GLES20.glGetUniformLocation(program, "u_head")
         uTex = GLES20.glGetUniformLocation(program, "u_hist")
-        createHistoryTexture()
-        head = 0
-        samplesInSlice = 0
-        sliceMax = -1f
-        sliceMin = 1f
+        history.createTexture()
         lastTime = -1f
-    }
-
-    private fun createHistoryTexture() {
-        val ids = IntArray(1)
-        GLES20.glGenTextures(1, ids, 0)
-        historyTex = ids[0]
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, historyTex)
-        // Two rows per slice: row 0 = colour + upper extent, row 1 = lower.
-        val zeros = ByteBuffer.allocateDirect(SLICES * 2 * 4 * 4)
-            .order(ByteOrder.nativeOrder()).asFloatBuffer()
-        GLES20.glTexImage2D(
-            GLES20.GL_TEXTURE_2D, 0, GLES30.GL_RGBA16F, SLICES, 2, 0,
-            GLES20.GL_RGBA, GLES20.GL_FLOAT, zeros,
-        )
-        // Filter mode is moot for the shader's texelFetch reads (which bypass
-        // filtering deliberately — see the rasterization comment there), but is
-        // set anyway so any debug sampling behaves.
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_REPEAT)
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE)
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0)
     }
 
     override fun onResize(width: Int, height: Int, aspect: Float) {
@@ -165,25 +87,27 @@ class WaveformRollScene : StereoScene {
     // Unused: the renderer dispatches StereoScenes through drawStereo.
     override fun draw(pcm: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) = Unit
 
+    override fun onAudioSourceChanged() {
+        history.reset()
+    }
+
     override fun drawStereo(pcmStereo: FloatArray, bands: FloatArray, timeSec: Float, dim: Float) {
         val dt = if (lastTime < 0f) 0.016f else (timeSec - lastTime).coerceIn(0f, 0.25f)
         lastTime = timeSec
 
         val sampleRate = NativeBridge.nativeGetSampleRate().coerceAtLeast(8000)
-        val framesPerSlice = (SLICE_SEC * sampleRate).toInt().coerceAtLeast(8)
-        ensureBandFilters(sampleRate)
-        consumeFrames(pcmStereo, dt, sampleRate, framesPerSlice)
+        history.consume(pcmStereo, dt, sampleRate)
 
         GLES20.glDisable(GLES20.GL_BLEND)
         GLES20.glUseProgram(program)
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, historyTex)
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, history.textureId)
         GLES20.glUniform1i(uTex, 0)
         GLES20.glUniform2f(uRes, width, height)
         GLES20.glUniform1f(uTime, timeSec)
         GLES20.glUniform1f(uDim, dim)
         // Fractional head keeps the scroll continuous between slice commits.
-        GLES20.glUniform1f(uHead, head + samplesInSlice.toFloat() / framesPerSlice)
+        GLES20.glUniform1f(uHead, history.headF)
 
         GLES20.glEnableVertexAttribArray(aPos)
         GLES20.glVertexAttribPointer(aPos, 2, GLES20.GL_FLOAT, false, 0, quad)
@@ -192,213 +116,7 @@ class WaveformRollScene : StereoScene {
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0)
     }
 
-    override fun onAudioSourceChanged() {
-        // The engine zeroes both visual rings on source teardown
-        // (AudioEngine::clearVisualRings), so no stale audio from the previous
-        // source can reach the accumulators — resetting the reference is the
-        // whole fix. Do NOT add a discard window here: the ring holds genuine
-        // new-source audio by the time this fires, and skipping it just punches
-        // a gap into the history.
-        agcRef = AGC_FLOOR
-        lpA1 = 0f
-        lpA2 = 0f
-        lpB1 = 0f
-        lpB2 = 0f
-    }
-
-    /** Recompute the crossover coefficients when the sample rate changes. */
-    private fun ensureBandFilters(sampleRate: Int) {
-        if (sampleRate == filterRate) return
-        filterRate = sampleRate
-        alphaLo = 1f - exp(-TWO_PI_F * XOVER_LO_HZ / sampleRate)
-        alphaHi = 1f - exp(-TWO_PI_F * XOVER_HI_HZ / sampleRate)
-    }
-
-    /**
-     * Feeds the newest [dt]-worth of the stereo window through the slice
-     * accumulators, committing a column exactly when it fills — a slice can
-     * therefore never be written from empty accumulators (the old glimmer).
-     */
-    private fun consumeFrames(
-        pcmStereo: FloatArray,
-        dt: Float,
-        sampleRate: Int,
-        framesPerSlice: Int,
-    ) {
-        val total = pcmStereo.size / 2
-        val fresh = min(total, (dt * sampleRate).toInt() + 1)
-        if (fresh <= 0) return
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, historyTex)
-        var i = total - fresh
-        while (i < total) {
-            accumulateFrame(pcmStereo[i * 2], pcmStereo[i * 2 + 1])
-            samplesInSlice++
-            if (samplesInSlice >= framesPerSlice) {
-                commitSlice(samplesInSlice)
-                resetSliceAccumulators()
-            }
-            i++
-        }
-        flushColumns()
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0)
-    }
-
-    /** Upload every column committed since the last flush as one span. */
-    private fun flushColumns() {
-        if (batchCount <= 0) return
-        batchStaging.clear()
-        batchStaging.put(batchRow0, 0, batchCount * 4)
-        batchStaging.put(batchRow1, 0, batchCount * 4)
-        batchStaging.position(0)
-        GLES20.glTexSubImage2D(
-            GLES20.GL_TEXTURE_2D, 0, batchStart, 0, batchCount, 2,
-            GLES20.GL_RGBA, GLES20.GL_FLOAT, batchStaging,
-        )
-        batchStart = -1
-        batchCount = 0
-    }
-
-    /**
-     * 0 = no mark, 0.6 = Link beat, 1.0 = Link downbeat — detected as a phase
-     * wrap between slice commits. Etching is Link-ONLY by design: marks are a
-     * permanent record, and onset detection would write lies into it.
-     */
-    private fun linkEtchMark(): Float {
-        if (!BeatPulse.linkActive) {
-            prevBeatPhase = 0.0
-            prevBarPhase = 0.0
-            return 0f
-        }
-        val beatPhase = NativeBridge.nativeLinkBeatPhase()
-        val barPhase = NativeBridge.nativeLinkBarPhase()
-        var mark = 0f
-        if (beatPhase < prevBeatPhase) mark = 0.6f
-        if (barPhase < prevBarPhase) mark = 1f
-        prevBeatPhase = beatPhase
-        prevBarPhase = barPhase
-        return mark
-    }
-
-    private fun accumulateFrame(l: Float, r: Float) {
-        val mid = (l + r) * 0.5f
-        if (mid > sliceMax) sliceMax = mid
-        if (mid < sliceMin) sliceMin = mid
-        sliceSumSq += mid * mid
-        val la = if (l < 0f) -l else l
-        val ra = if (r < 0f) -r else r
-        if (la > sliceL) sliceL = la
-        if (ra > sliceR) sliceR = ra
-        val diff = if (l - r < 0f) r - l else l - r
-        if (diff > sliceDiff) sliceDiff = diff
-
-        splitBands(mid)
-        val lo = abs(bandLo)
-        val md = abs(bandMid)
-        val hi = abs(bandHi)
-        if (lo > sliceLo) sliceLo = lo
-        if (md > sliceMid) sliceMid = md
-        if (hi > sliceHi) sliceHi = hi
-    }
-
-    /** Three-way crossover on the mono mid signal into [bandLo]/[bandMid]/[bandHi]. */
-    private fun splitBands(mid: Float) {
-        lpA1 += (mid - lpA1) * alphaLo
-        lpA2 += (lpA1 - lpA2) * alphaLo
-        lpB1 += (mid - lpB1) * alphaHi
-        lpB2 += (lpB1 - lpB2) * alphaHi
-        bandLo = lpA2
-        bandMid = lpB2 - lpA2
-        bandHi = mid - lpB2
-    }
-
-    private fun resetSliceAccumulators() {
-        samplesInSlice = 0
-        sliceMax = -1f
-        sliceMin = 1f
-        sliceSumSq = 0f
-        sliceL = 0f
-        sliceR = 0f
-        sliceDiff = 0f
-        sliceLo = 0f
-        sliceMid = 0f
-        sliceHi = 0f
-    }
-
-    /** Writes one finished column: auto-gained extents, RMS body, band envelopes. */
-    private fun commitSlice(sampleCount: Int) {
-        // Real stereo shows a genuine L/R difference; upmixed rings are
-        // bit-identical, so silence and mono sources stay in min/max mode.
-        val stereoTarget = if (sliceDiff > 1e-4f) 1f else 0f
-        stereoMix += (stereoTarget - stereoMix) * STEREO_EASE
-
-        val monoUp = max(sliceMax, 0f)
-        val monoDown = max(-sliceMin, 0f)
-        val up = monoUp + (sliceL - monoUp) * stereoMix
-        val down = monoDown + (sliceR - monoDown) * stereoMix
-        val peak = max(up, down)
-        val rms = kotlin.math.sqrt(sliceSumSq / sampleCount.coerceAtLeast(1))
-
-        // Auto-gain: rise fast so loud material settles inside the frame,
-        // fall slowly so breakdowns stay visibly smaller than drops.
-        agcRef = if (peak > agcRef) {
-            agcRef + (peak - agcRef) * AGC_RISE
-        } else {
-            max(agcRef * AGC_FALL_PER_SLICE, max(peak, AGC_FLOOR))
-        }
-        val norm = 1f / max(agcRef, AGC_FLOOR)
-        // Soft knee fattens quiet detail without letting peaks clip the frame.
-        val dispUp = (up * norm * AMP_TARGET).coerceAtMost(1f).pow(AMP_KNEE)
-        val dispDown = (down * norm * AMP_TARGET).coerceAtMost(1f).pow(AMP_KNEE)
-        val dispRms = (rms * norm * AMP_TARGET).coerceAtMost(1f).pow(AMP_KNEE)
-
-        // The band envelopes share the master AGC normalization, so their
-        // heights stay honestly proportional to each other and to the outline.
-        val dispLo = (sliceLo * norm * AMP_TARGET).coerceAtMost(1f).pow(AMP_KNEE)
-        val dispMid = (sliceMid * norm * AMP_TARGET).coerceAtMost(1f).pow(AMP_KNEE)
-        val dispHi = (sliceHi * norm * AMP_TARGET).coerceAtMost(1f).pow(AMP_KNEE)
-
-        if (batchStart < 0) batchStart = head
-        val o = batchCount * 4
-        batchRow0[o] = dispLo
-        batchRow0[o + 1] = dispMid
-        batchRow0[o + 2] = dispHi
-        batchRow0[o + 3] = dispUp
-        batchRow1[o] = dispRms
-        batchRow1[o + 1] = linkEtchMark()
-        batchRow1[o + 2] = 0f
-        batchRow1[o + 3] = dispDown
-        batchCount++
-        head = (head + 1) % SLICES
-        // A wrap or a full batch flushes immediately; the per-frame flush in
-        // consumeFrames handles the common case.
-        if (batchCount >= MAX_BATCH || head == 0) flushColumns()
-    }
-
     companion object {
-        // Density is sized to the widest screen, not a typical one: 1920 visible
-        // columns under-resolved any display wider than that (the Fold's inner
-        // panel, every phone in landscape), stretching each slice across >1 px —
-        // which read as a low-resolution wave. 3840 keeps at least ~1.6 columns
-        // per pixel on a 2400 px landscape and supersamples ~3.6x in portrait.
-        // NOTE: several constants below are PER-SLICE; halving the slice length
-        // halves their time base, so they are derived from real seconds here.
-        private const val SLICES = 4096
-        private const val VISIBLE_SLICES = 3840f
-        private const val SECONDS_PER_SCREEN = 9f
-        private const val SLICE_SEC = SECONDS_PER_SCREEN / VISIBLE_SLICES  // ~2.3 ms
-
-        private const val AMP_TARGET = 0.85f        // typical loud rides ~85% height
-        private const val AMP_KNEE = 0.85f          // soft knee for quiet detail
-        private const val AGC_RISE = 0.20f          // per-slice attack toward new peaks
-        private const val AGC_FALL_PER_SLICE = 0.999935f // ~25 s half-life at 2.3 ms/slice
-        private const val AGC_FLOOR = 0.02f         // never amplify the noise floor
-        private const val STEREO_EASE = 0.01f       // mono-to-stereo mode blend (~1 s)
-        private const val XOVER_LO_HZ = 200f        // bass | mid crossover
-        private const val XOVER_HI_HZ = 2000f       // mid | high crossover
-        private const val TWO_PI_F = (2.0 * Math.PI).toFloat()
-        // Covers the worst backlog (0.25 s dt clamp ≈ 107 columns) in one span.
-        private const val MAX_BATCH = 128
-
         private const val VS = """#version 300 es
             layout(location = 0) in vec2 aPos;
             void main() { gl_Position = vec4(aPos, 0.0, 1.0); }
@@ -424,6 +142,7 @@ class WaveformRollScene : StereoScene {
             // of the wave (front, shortest layer), so it must stay a saturated
             // COLOUR — a "pale ice" high of (0.72, 0.90, 1.0) painted the entire
             // centre near-white with bloom off. Tried, reverted.
+            // (Keep in sync with Waveform3dScene's copy of this palette.)
             const vec3 BASS_COL = vec3(0.36, 0.10, 0.92);
             const vec3 MID_COL  = vec3(0.66, 0.22, 1.00);
             const vec3 HI_COL   = vec3(0.80, 0.56, 1.00);

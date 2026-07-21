@@ -41,6 +41,7 @@
     <string name="vis_rawscope">Raw Oscilloscope</string>
     <string name="vis_spectrogram">Spectrogram</string>
     <string name="vis_waveform">Waveform</string>
+    <string name="vis_waveform_3d">Waveform 3D</string>
     <string name="vis_fireworks">Beat Fireworks</string>
     <string name="vis_phyllotaxis">Phyllotaxis Bloom</string>
     <string name="vis_electric_iris">Electric Iris</string>

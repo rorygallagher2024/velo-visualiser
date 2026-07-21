@@ -45,6 +45,7 @@ object SceneCatalog {
         SceneEntry(41, R.string.vis_lissajous_scope, SceneCategory.INSTRUMENTS, requiresStereoAudio = true),
         SceneEntry(43, R.string.vis_crt_scope, SceneCategory.INSTRUMENTS, requiresStereoAudio = true),
         // ----- Reactive (beat / energy driven) -----
+        SceneEntry(47, R.string.vis_waveform_3d, SceneCategory.REACTIVE),
         SceneEntry(28, R.string.vis_led_matrix_3d, SceneCategory.REACTIVE),
         SceneEntry(38, R.string.vis_veil, SceneCategory.REACTIVE),
         SceneEntry(40, R.string.vis_veil_topdown, SceneCategory.REACTIVE),
