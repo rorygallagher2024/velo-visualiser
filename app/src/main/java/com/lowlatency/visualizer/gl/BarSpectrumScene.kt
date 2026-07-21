@@ -7,7 +7,7 @@ import java.nio.ByteOrder
 import java.nio.FloatBuffer
 
 /**
- * Visual 7 — "Spectrum Bars".
+ * Visual 7 — "Spectrum Bars Retro".
  *
  * A clean, classic bottom-anchored bar spectrum: 48 log-spaced FFT bins drawn
  * as vertical bars with a gravity peak-cap on each. Deliberately simple and

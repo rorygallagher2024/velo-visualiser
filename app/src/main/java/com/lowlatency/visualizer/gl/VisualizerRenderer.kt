@@ -90,7 +90,7 @@ class VisualizerRenderer(private val context: Context) : GLSurfaceView.Renderer 
         .order(java.nio.ByteOrder.nativeOrder())
     val sharedAudioFloatBuffer: java.nio.FloatBuffer = sharedAudioBuffer.asFloatBuffer()
 
-    private val scenes = arrayOfNulls<GlScene>(45)
+    private val scenes = arrayOfNulls<GlScene>(47)
     private val scenesToLoad = mutableListOf<Int>()
     private var loadFrameCounter = 0
 
@@ -135,7 +135,10 @@ class VisualizerRenderer(private val context: Context) : GLSurfaceView.Renderer 
             // favourites and the last-active-scene are persisted as raw indices, so
             // renumbering would corrupt saved prefs across an update. `else` below
             // safely absorbs any lingering reference to 35.
-            36 -> ObsidianScene()
+            // 36 was Obsidian, retired: a third spectrum scene earned nobody's slot.
+            // Left as a hole rather than renumbered — favourites and the last-active
+            // scene persist raw renderer indices, so shifting them would silently
+            // repoint someone's saved scene at a different visual.
             37 -> SlipstreamScene()
             38 -> VeilScene()
             39 -> MeridianScene()
@@ -144,6 +147,8 @@ class VisualizerRenderer(private val context: Context) : GLSurfaceView.Renderer 
             42 -> ChromaticDotsScene()
             43 -> CrtScopeScene()
             44 -> WaveformRollScene()
+            45 -> LevelMeterScene()
+            46 -> SpectrumAnalyserScene()
             else -> RawScopeScene()
         }
     }
