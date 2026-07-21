@@ -23,6 +23,15 @@
                 android:id="@+id/status_nanoleaf"
                 layout="@layout/layout_connection_status" />
 
+            <!-- One row per paired device (name · state · forget), built in code. -->
+            <LinearLayout
+                android:id="@+id/nanoleaf_device_list"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginBottom="8dp"
+                android:visibility="gone" />
+
             <TextView
                 android:id="@+id/tv_nanoleaf_hint"
                 android:layout_width="match_parent"
