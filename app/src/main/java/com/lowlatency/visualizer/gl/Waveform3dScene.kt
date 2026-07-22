@@ -1,6 +1,7 @@
 package com.lowlatency.visualizer.gl
 
 import android.opengl.GLES20
+import com.lowlatency.visualizer.BeatPulse
 import com.lowlatency.visualizer.BeatSettings
 import com.lowlatency.visualizer.NativeBridge
 import java.nio.ByteBuffer
@@ -38,6 +39,7 @@ class Waveform3dScene : StereoScene {
     private var uHead = 0
     private var uTex = 0
     private var uShowBeats = 0
+    private var uEnv = 0
 
     private var width = 1f
     private var height = 1f
@@ -57,6 +59,7 @@ class Waveform3dScene : StereoScene {
         uHead = GLES20.glGetUniformLocation(program, "u_head")
         uTex = GLES20.glGetUniformLocation(program, "u_hist")
         uShowBeats = GLES20.glGetUniformLocation(program, "u_showBeats")
+        uEnv = GLES20.glGetUniformLocation(program, "u_env")
         history.createTexture()
     }
 
@@ -86,6 +89,7 @@ class Waveform3dScene : StereoScene {
         GLES20.glUniform1f(uDim, dim)
         GLES20.glUniform1f(uHead, history.headF)
         GLES20.glUniform1f(uShowBeats, if (BeatSettings.showBeatsOnVisuals) 1f else 0f)
+        GLES20.glUniform1f(uEnv, BeatPulse.envelope)
 
         GLES20.glEnableVertexAttribArray(aPos)
         GLES20.glVertexAttribPointer(aPos, 2, GLES20.GL_FLOAT, false, 0, quad)
@@ -105,6 +109,7 @@ class Waveform3dScene : StereoScene {
             uniform vec2  u_res;
             uniform float u_time, u_dim, u_head;
             uniform float u_showBeats;
+            uniform float u_env;
             uniform sampler2D u_hist;
             out vec4 fragColor;
 
@@ -294,13 +299,10 @@ class Waveform3dScene : StereoScene {
 
                 // Deep-violet ambience toward the vanishing region, so the
                 // curtains dissolve into atmosphere rather than black paper.
-                // Bass-reactive: the atmosphere "breathes" with the low end.
-                vec3 nowBands; float nowBeat;
-                envAt(u_head - 1.0, nowBands, nowBeat);
-                
-                // bands[0] is the true Bass band (R channel).
-                // Gate the reactive atmosphere by the "show beats" setting.
-                float bassEnergy = smoothstep(0.0, 0.8, nowBands[0]) * u_showBeats;
+                // Beat-reactive: the atmosphere "breathes" with the global beat envelope.
+                // This correctly fades to zero when audio stops, doesn't strobe at 40Hz,
+                // and already respects the "show beats" setting from the CPU.
+                float bassEnergy = u_env;
                 
                 float glow = exp(-abs(uv.y + LOOK_Y) * 6.0)
                            * exp(-max(uv.x + LOOK_X, 0.0) * 1.4);
