@@ -1,6 +1,7 @@
 package com.lowlatency.visualizer.gl
 
 import android.opengl.GLES20
+import com.lowlatency.visualizer.BeatSettings
 import com.lowlatency.visualizer.NativeBridge
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -36,6 +37,7 @@ class Waveform3dScene : StereoScene {
     private var uDim = 0
     private var uHead = 0
     private var uTex = 0
+    private var uShowBeats = 0
 
     private var width = 1f
     private var height = 1f
@@ -54,6 +56,7 @@ class Waveform3dScene : StereoScene {
         uDim = GLES20.glGetUniformLocation(program, "u_dim")
         uHead = GLES20.glGetUniformLocation(program, "u_head")
         uTex = GLES20.glGetUniformLocation(program, "u_hist")
+        uShowBeats = GLES20.glGetUniformLocation(program, "u_showBeats")
         history.createTexture()
     }
 
@@ -82,6 +85,7 @@ class Waveform3dScene : StereoScene {
         GLES20.glUniform1f(uTime, timeSec)
         GLES20.glUniform1f(uDim, dim)
         GLES20.glUniform1f(uHead, history.headF)
+        GLES20.glUniform1f(uShowBeats, if (BeatSettings.showBeatsOnVisuals) 1f else 0f)
 
         GLES20.glEnableVertexAttribArray(aPos)
         GLES20.glVertexAttribPointer(aPos, 2, GLES20.GL_FLOAT, false, 0, quad)
@@ -100,6 +104,7 @@ class Waveform3dScene : StereoScene {
             precision highp float;
             uniform vec2  u_res;
             uniform float u_time, u_dim, u_head;
+            uniform float u_showBeats;
             uniform sampler2D u_hist;
             out vec4 fragColor;
 
@@ -247,7 +252,7 @@ class Waveform3dScene : StereoScene {
                         a = fill * 0.85 * topBright;
                         
                         // Link beats strike through the curtain as hot strokes.
-                        a += fill * beat * 0.55;
+                        a += fill * beat * 0.55 * u_showBeats;
                     } else {
                         // Polished-floor reflection: same envelope, mirrored,
                         // fading fast with depth below the ground line.
@@ -294,8 +299,8 @@ class Waveform3dScene : StereoScene {
                 envAt(u_head - 1.0, nowBands, nowBeat);
                 
                 // bands[0] is the true Bass band (R channel).
-                // bands[2] was Highs, which is often zero, explaining the missing glow!
-                float bassEnergy = smoothstep(0.0, 0.8, nowBands[0]);
+                // Gate the reactive atmosphere by the "show beats" setting.
+                float bassEnergy = smoothstep(0.0, 0.8, nowBands[0]) * u_showBeats;
                 
                 float glow = exp(-abs(uv.y + LOOK_Y) * 6.0)
                            * exp(-max(uv.x + LOOK_X, 0.0) * 1.4);
