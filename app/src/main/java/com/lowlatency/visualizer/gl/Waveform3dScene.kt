@@ -229,11 +229,15 @@ class Waveform3dScene : StereoScene {
                         // ground, with a bright crest line along its top edge.
                         float fill = smoothstep(h + aaW, h - aaW, y);
                         float grad = 1.0 - 0.45 * clamp(y / max(h, 1e-3), 0.0, 1.0);
-                        float crest = smoothstep(aaW * 2.6, 0.0, abs(y - h));
-                        a = fill * 0.34 * grad + crest * 0.85;
+                        // Crest: a bright line along the top edge.
+                        // aaW can be sub-pixel near the camera, so clamp the
+                        // crest width to at least 4 px to prevent dot aliasing.
+                        float crestW = max(aaW * 4.0, 4.0 / u_res.y);
+                        float crest = smoothstep(crestW, 0.0, abs(y - h));
+                        a = fill * 0.34 * grad + crest * 0.65;
                         // Link beats strike through the curtain as hot strokes.
                         a += fill * beat * 0.55;
-                        c += vec3(0.20) * crest;              // crest runs hotter
+                        c *= 1.0 + 0.35 * crest;              // crest brightens the lane colour
                     } else {
                         // Polished-floor reflection: same envelope, mirrored,
                         // fading fast with depth below the ground line.
