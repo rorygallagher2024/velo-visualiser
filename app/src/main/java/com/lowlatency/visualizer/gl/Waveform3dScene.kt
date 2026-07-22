@@ -136,19 +136,29 @@ class Waveform3dScene : StereoScene {
                 return tx < 0 ? tx + 4096 : tx;
             }
 
-            // Piecewise-linear band envelopes + beat mark at a continuous slice
-            // coordinate — the flat Waveform's anti-glimmer sampling, reused.
+            // Gaussian-weighted envelope: smooth over ±4 slices (~±9ms)
+            // to eliminate per-cycle noise and bass comb artifacts.
+            // Beat marks use max-pooling so they never get diluted.
             void envAt(float s, out vec3 bands, out float beat) {
-                float fl = floor(s);
-                float f = s - fl;
-                int a = wrapTx(int(fl));
-                int b = wrapTx(int(fl) + 1);
-                vec4 a0 = texelFetch(u_hist, ivec2(a, 0), 0);
-                vec4 b0 = texelFetch(u_hist, ivec2(b, 0), 0);
-                vec4 a1 = texelFetch(u_hist, ivec2(a, 1), 0);
-                vec4 b1 = texelFetch(u_hist, ivec2(b, 1), 0);
-                bands = mix(a0.rgb, b0.rgb, f);
-                beat = max(a1.g, b1.g);
+                const float W[5] = float[5](0.2270, 0.1945, 0.1216, 0.0541, 0.0162);
+                
+                int c = int(floor(s));
+                
+                vec3 sum = texelFetch(u_hist, ivec2(wrapTx(c), 0), 0).rgb * W[0];
+                float bMax = texelFetch(u_hist, ivec2(wrapTx(c), 1), 0).g;
+                
+                for (int j = 1; j < 5; j++) {
+                    int lo = wrapTx(c - j);
+                    int hi = wrapTx(c + j);
+                    sum += (texelFetch(u_hist, ivec2(lo, 0), 0).rgb
+                          + texelFetch(u_hist, ivec2(hi, 0), 0).rgb) * W[j];
+                    bMax = max(bMax, max(
+                        texelFetch(u_hist, ivec2(lo, 1), 0).g,
+                        texelFetch(u_hist, ivec2(hi, 1), 0).g));
+                }
+                
+                bands = sum;
+                beat = bMax;
             }
 
             void main() {
