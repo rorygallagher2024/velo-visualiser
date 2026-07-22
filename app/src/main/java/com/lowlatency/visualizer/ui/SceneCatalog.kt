@@ -45,7 +45,6 @@ object SceneCatalog {
         SceneEntry(41, R.string.vis_lissajous_scope, SceneCategory.INSTRUMENTS, requiresStereoAudio = true),
         SceneEntry(43, R.string.vis_crt_scope, SceneCategory.INSTRUMENTS, requiresStereoAudio = true),
         // ----- Reactive (beat / energy driven) -----
-        SceneEntry(47, R.string.vis_waveform_3d, SceneCategory.REACTIVE),
         SceneEntry(28, R.string.vis_led_matrix_3d, SceneCategory.REACTIVE),
         SceneEntry(38, R.string.vis_veil, SceneCategory.REACTIVE),
         SceneEntry(40, R.string.vis_veil_topdown, SceneCategory.REACTIVE),
@@ -67,6 +66,7 @@ object SceneCatalog {
         SceneEntry(10, R.string.vis_fireworks, SceneCategory.REACTIVE, requiresBeat = true),
         SceneEntry(42, R.string.vis_chromatic_dots, SceneCategory.REACTIVE),
         // ----- Immersive (rich generative, heavier GPU) -----
+        SceneEntry(47, R.string.vis_waveform_3d, SceneCategory.IMMERSIVE),
         SceneEntry(6, R.string.vis_bloom, SceneCategory.IMMERSIVE),
         SceneEntry(13, R.string.vis_mandala, SceneCategory.IMMERSIVE),
         SceneEntry(39, R.string.vis_meridian, SceneCategory.IMMERSIVE),
