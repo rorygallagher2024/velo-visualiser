@@ -136,18 +136,22 @@ class Waveform3dScene : StereoScene {
                 return tx < 0 ? tx + 4096 : tx;
             }
 
-            // Gaussian-weighted envelope: smooth over ±4 slices (~±9ms)
+            // Gaussian-weighted envelope: smooth over ±8 slices (~±18ms)
             // to eliminate per-cycle noise and bass comb artifacts.
             // Beat marks use max-pooling so they never get diluted.
             void envAt(float s, out vec3 bands, out float beat) {
-                const float W[5] = float[5](0.2270, 0.1945, 0.1216, 0.0541, 0.0162);
+                // 17-tap Gaussian, σ ≈ 4 slices
+                const float W[9] = float[9](
+                    0.1592, 0.1477, 0.1183, 0.0818, 0.0488,
+                    0.0251, 0.0111, 0.0043, 0.0014
+                );
                 
                 int c = int(floor(s));
                 
                 vec3 sum = texelFetch(u_hist, ivec2(wrapTx(c), 0), 0).rgb * W[0];
                 float bMax = texelFetch(u_hist, ivec2(wrapTx(c), 1), 0).g;
                 
-                for (int j = 1; j < 5; j++) {
+                for (int j = 1; j < 9; j++) {
                     int lo = wrapTx(c - j);
                     int hi = wrapTx(c + j);
                     sum += (texelFetch(u_hist, ivec2(lo, 0), 0).rgb
