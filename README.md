@@ -41,14 +41,6 @@ Velo Visualiser listens to the **actual sound** in the room and moves with it in
 
 *(And as experimental extras: Bar-synced glow and drop-triggered surges - for when you want the visuals to follow the arrangement, not just the beat.)*
 
-## 4/4 Music Mode (experimental)
-
-Not running Ableton Link but still want the visuals and lights pulsing on a steady grid? **4/4 Music Mode** listens to the music and locks onto its beat, so instead of reacting to every stray hit the visuals and lights ride a clean four-to-the-floor pulse. It works from the sound alone, no DJ software required, and it's genuinely satisfying on steady house, techno and similar electronic music.
-
-It's marked experimental for a reason, though. Reading tempo from sound alone is one of the genuinely hard problems in audio: a phone listening to a room has to *guess* where the beat is, and on busy, breakbeat, live or loosely-timed music it will sometimes lock onto the wrong tempo or drift until the beat settles again. That isn't something we can fully polish away; it's the nature of estimating a beat from audio, which is why the feature is off by default.
-
-This is exactly why **Ableton Link** exists, and it's the option to reach for when you need the grid to be bang-on. Link doesn't guess: your DJ software shares its real clock over the network, so the beat is exact every time. Think of 4/4 Music Mode as a fun, no-setup approximation for when you don't have Link, and Link as the precise tool for when you do.
-
 ## Core Features
 * **High-FPS, HDR-Capable 3D Visuals:** Targets 120+ fps for fluid, tear-free rendering (device and preset dependent).
 * **Phase-Locked Local Playback:** Play audio files through the app's own MediaCodec → C++ Oboe pipeline. The exact PCM written to the audio device is mirrored straight into the visualiser, so the visuals track playback sample-accurately: no capture round-trip, no drift. Includes seek, loop and full stereo delivery to the scope visuals. Plays everything Android decodes (MP3, AAC, FLAC, WAV, OGG…) plus native AIFF support for oscilloscope-music releases.
@@ -65,6 +57,7 @@ This is exactly why **Ableton Link** exists, and it's the option to reach for wh
 - **Real-time Room Lighting Control with Philips Hue, LIFX & Nanoleaf Integration**: Direct local UDP streaming over the Hue Entertainment API, LIFX LAN Protocol, and Nanoleaf ExtControl. Also works in co-ordination with Ableton Link to drive a synchronised beat to the bulbs. Includes advanced controls for calibration and the ability to send Ableton Link beats early for perfect synchronisation.
 - **Five audio sources**: Raw low-latency microphone capture; external USB or wired inputs (audio interfaces, USB mics, line-in) with true stereo capture where the device supports it (pick the input under the Microphone source); local file playback through the app's internal decode pipeline (visuals phase-locked to the audio device); internal/system audio via screen-share (DRM-protected video can't be captured); and a built-in tone generator, a clean sine (log-scale frequency + level, with an X/Y stereo mode for Lissajous figures) that drives the visuals and lights, handy for demos and testing speakers.
 - **Global colour themes**: Re-tint visuals to your desired colour scheme (Neon, Warm, Cool, Mono…).
+- **Beat Detection**: Detects beats in music for additional visual depth. Also includes an experimental '4-4 music mode' which helps keeps the beats locked to a 4-4 time signature. 
 - **Vibrate-on-beat haptics**: Bass-onset detection triggers physical pulses.
 - **Supports External Displays**: Plug an external display into your android device to display visuals on a large display.
 - **Ambient Mode**: A burn-in-safe standby screen featuring a clock, live BPM, and an audio-presence meter over the dimmed visuals so you can turn a propped-up phone into a desk/shelf piece. Swipe to browse visuals without leaving.
@@ -153,6 +146,14 @@ Velo Visualiser drives Nanoleaf panels using the **ExtControl V2 Protocol** over
 1. **Discovery:** Open the Nanoleaf tab and click *Scan*. The app uses mDNS (`_nanoleafapi._tcp`) to detect your controller.
 2. **Pairing:** Hold the power button on your Nanoleaf physical controller for 5-7 seconds until the lights flash, then tap *Pair* in the app to establish an API token.
 3. **Control:** Once paired, tapping *Light Sync* enables high-speed streaming directly to your panels. No cloud account is required.
+
+## 4/4 Music Mode (experimental feature)
+
+Not running Ableton Link but still want the visuals and lights pulsing on a steady grid? **4/4 Music Mode** listens to the music and locks onto its beat, so instead of reacting to every stray hit the visuals and lights ride a clean four-to-the-floor pulse. It works from the sound alone, no DJ software required, and it's genuinely satisfying on steady house, techno and similar electronic music.
+
+It's marked experimental for a reason, though. Reading tempo from sound alone is one of the genuinely hard problems in audio: a phone listening to a room has to *guess* where the beat is, and on busy, breakbeat, live or loosely-timed music it will sometimes lock onto the wrong tempo or drift until the beat settles again. That isn't something we can fully polish away; it's the nature of estimating a beat from audio, which is why the feature is off by default.
+
+This is exactly why **Ableton Link** exists, and it's the option to reach for when you need the grid to be bang-on. Link doesn't guess: your DJ software shares its real clock over the network, so the beat is exact every time. Think of 4/4 Music Mode as a fun, no-setup approximation for when you don't have Link, and Link as the precise tool for when you do.
 
 ## Building from Source
 
