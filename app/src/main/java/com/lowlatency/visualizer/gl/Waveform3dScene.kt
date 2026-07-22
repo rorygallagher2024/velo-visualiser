@@ -136,13 +136,13 @@ class Waveform3dScene : StereoScene {
                 return tx < 0 ? tx + 4096 : tx;
             }
 
-            // Gaussian-weighted envelope: smooth over ±6 slices
+            // Gaussian-weighted envelope: smooth over ±4 slices
             // Now features sub-slice linear interpolation to completely
             // eliminate Z-axis "stairstepping" artifacts.
             void envAt(float s, out vec3 bands, out float beat) {
-                // 13-tap Gaussian, σ ≈ 4 slices, sum = 1.0
-                const float W[7] = float[7](
-                    0.1553, 0.1441, 0.1154, 0.0798, 0.0476, 0.0245, 0.0108
+                // 9-tap Gaussian, σ ≈ 2.5 slices, sum = 1.0
+                const float W[5] = float[5](
+                    0.2235, 0.1924, 0.1211, 0.0559, 0.0189
                 );
                 
                 int c = int(floor(s));
@@ -150,10 +150,10 @@ class Waveform3dScene : StereoScene {
                 vec3 sum = vec3(0.0);
                 
                 // Slide the kernel by `f` to smoothly blend Gaussian(c) and Gaussian(c+1).
-                // Requires 14 fetches (-6 to +7) for a continuous interpolated blur.
-                for (int k = -6; k <= 7; k++) {
-                    float w0 = (abs(k) <= 6) ? W[abs(k)] : 0.0;
-                    float w1 = (abs(k - 1) <= 6) ? W[abs(k - 1)] : 0.0;
+                // Requires 10 fetches (-4 to +5) for a continuous interpolated blur.
+                for (int k = -4; k <= 5; k++) {
+                    float w0 = (abs(k) <= 4) ? W[abs(k)] : 0.0;
+                    float w1 = (abs(k - 1) <= 4) ? W[abs(k - 1)] : 0.0;
                     float wk = w0 * (1.0 - f) + w1 * f;
                     sum += texelFetch(u_hist, ivec2(wrapTx(c + k), 0), 0).rgb * wk;
                 }
@@ -197,6 +197,12 @@ class Waveform3dScene : StereoScene {
                     float t = laneX[k] / rd.x;
                     float z = t * rd.z;
                     float y = CAM_Y + t * rd.y;
+                    
+                    // Frustum culling: if the ray hits this plane far above the maximum
+                    // curtain height (0.95) or far below the reflection, it's invisible.
+                    // Skip the expensive Gaussian texture fetches entirely.
+                    if (abs(y) > 1.1) { continue; }
+                    
                     // Birth depth: where this lane's now-line projects just past
                     // the right frame edge. Every on-screen pixel is deeper, so
                     // age > 0 everywhere visible and ~0 at the edge itself.
