@@ -136,31 +136,34 @@ class Waveform3dScene : StereoScene {
                 return tx < 0 ? tx + 4096 : tx;
             }
 
-            // Gaussian-weighted envelope: smooth over ±8 slices (~±18ms)
-            // to eliminate per-cycle noise and bass comb artifacts.
+            // Gaussian-weighted envelope: smooth over ±6 slices
+            // Now features sub-slice linear interpolation to completely
+            // eliminate Z-axis "stairstepping" artifacts.
             void envAt(float s, out vec3 bands, out float beat) {
-                // 17-tap Gaussian, σ ≈ 4 slices
-                const float W[9] = float[9](
-                    0.1592, 0.1477, 0.1183, 0.0818, 0.0488,
-                    0.0251, 0.0111, 0.0043, 0.0014
+                // 13-tap Gaussian, σ ≈ 4 slices, sum = 1.0
+                const float W[7] = float[7](
+                    0.1553, 0.1441, 0.1154, 0.0798, 0.0476, 0.0245, 0.0108
                 );
                 
                 int c = int(floor(s));
+                float f = fract(s);
+                vec3 sum = vec3(0.0);
                 
-                vec3 sum = texelFetch(u_hist, ivec2(wrapTx(c), 0), 0).rgb * W[0];
-                
-                for (int j = 1; j < 7; j++) {
-                    int lo = wrapTx(c - j);
-                    int hi = wrapTx(c + j);
-                    sum += (texelFetch(u_hist, ivec2(lo, 0), 0).rgb
-                          + texelFetch(u_hist, ivec2(hi, 0), 0).rgb) * W[j];
+                // Slide the kernel by `f` to smoothly blend Gaussian(c) and Gaussian(c+1).
+                // Requires 14 fetches (-6 to +7) for a continuous interpolated blur.
+                for (int k = -6; k <= 7; k++) {
+                    float w0 = (abs(k) <= 6) ? W[abs(k)] : 0.0;
+                    float w1 = (abs(k - 1) <= 6) ? W[abs(k - 1)] : 0.0;
+                    float wk = w0 * (1.0 - f) + w1 * f;
+                    sum += texelFetch(u_hist, ivec2(wrapTx(c + k), 0), 0).rgb * wk;
                 }
                 
                 bands = sum;
-                // Beat marks are sparse single-slice events — one sample is
-                // enough to detect them. No need to sweep the full ±8 radius.
-                beat = max(texelFetch(u_hist, ivec2(wrapTx(c), 1), 0).g,
-                           texelFetch(u_hist, ivec2(wrapTx(c + 1), 1), 0).g);
+                
+                // Beat marks are also smoothly interpolated
+                float b0 = texelFetch(u_hist, ivec2(wrapTx(c), 1), 0).g;
+                float b1 = texelFetch(u_hist, ivec2(wrapTx(c + 1), 1), 0).g;
+                beat = mix(b0, b1, f);
             }
 
             void main() {
