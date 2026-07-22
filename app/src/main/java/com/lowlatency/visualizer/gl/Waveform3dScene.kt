@@ -232,8 +232,11 @@ class Waveform3dScene : StereoScene {
                         // No separate crest point-sample — that aliased into
                         // scattered bright dots because h jumps between pixels.
                         float fill = smoothstep(h + aaW, h - aaW, y);
-                        float topBright = 1.0 - 0.55 * clamp(y / max(h, 1e-3), 0.0, 1.0);
-                        a = fill * 0.55 * topBright;
+                        
+                        // Fix: Gradient goes from 0.2 (dim) at ground to 1.0 (bright) at crest
+                        float topBright = 0.2 + 0.8 * clamp(y / max(h, 1e-3), 0.0, 1.0);
+                        a = fill * 0.85 * topBright;
+                        
                         // Link beats strike through the curtain as hot strokes.
                         a += fill * beat * 0.55;
                     } else {
@@ -246,7 +249,8 @@ class Waveform3dScene : StereoScene {
                     a *= haze * hGate;
                     // Born hot, like the flat Waveform's pen: the newest audio
                     // glows and cools as it recedes into history.
-                    c *= 1.0 + 0.40 * exp(-age / 240.0);
+                    // Max HDR: pushed base multiplier from 1.0 -> 2.5 so the waves bloom heavily.
+                    c *= 2.5 + 2.0 * exp(-age / 240.0);
 
                     col += (1.0 - acc) * a * c;
                     acc += (1.0 - acc) * a;
