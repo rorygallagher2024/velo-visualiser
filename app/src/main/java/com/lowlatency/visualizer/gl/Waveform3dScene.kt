@@ -149,7 +149,7 @@ class Waveform3dScene : StereoScene {
                 
                 vec3 sum = texelFetch(u_hist, ivec2(wrapTx(c), 0), 0).rgb * W[0];
                 
-                for (int j = 1; j < 9; j++) {
+                for (int j = 1; j < 7; j++) {
                     int lo = wrapTx(c - j);
                     int hi = wrapTx(c + j);
                     sum += (texelFetch(u_hist, ivec2(lo, 0), 0).rgb
@@ -221,7 +221,9 @@ class Waveform3dScene : StereoScene {
                     float hGate = smoothstep(0.006, 0.028, h);
 
                     float a = 0.0;
-                    vec3 c = laneCol[k];
+                    // Depth colour shift: warm/bright near camera, cool/deep in distance.
+                    float depthT = smoothstep(0.0, 2400.0, age);
+                    vec3 c = mix(laneCol[k], laneCol[k] * vec3(0.6, 0.5, 1.3), depthT);
                     if (y >= 0.0) {
                         // The curtain: translucent fill, brightest at the top
                         // edge which traces a smooth continuous line.
@@ -246,6 +248,28 @@ class Waveform3dScene : StereoScene {
 
                     col += (1.0 - acc) * a * c;
                     acc += (1.0 - acc) * a;
+                }
+
+                // Perspective grid floor: faint lines on the ground plane
+                // that scroll with the audio history, anchoring the 3D space.
+                if (rd.y < -0.001) {
+                    float tFloor = -CAM_Y / rd.y;
+                    float gz = tFloor * rd.z;
+                    float gx = tFloor * rd.x;
+                    float floorHaze = exp(-gz * HAZE) * (1.0 - acc);
+                    
+                    // Z lines scroll in sync with audio head
+                    float zCoord = gz * SLICES_PER_Z + u_head;
+                    float zd = fract(zCoord / 120.0);
+                    zd = min(zd, 1.0 - zd);  // distance to nearest grid line
+                    float zLine = smoothstep(0.02, 0.0, zd);
+                    // X lines (static, marking the lane positions)
+                    float xd = fract(gx / 0.42);
+                    xd = min(xd, 1.0 - xd);
+                    float xLine = smoothstep(0.015, 0.0, xd);
+                    
+                    float grid = max(zLine, xLine) * 0.25 * floorHaze;
+                    col += grid * vec3(0.35, 0.15, 0.75);
                 }
 
                 // Deep-violet ambience toward the vanishing region, so the
