@@ -205,7 +205,9 @@ class Waveform3dScene : StereoScene {
 
                     vec3 bands; float beat;
                     envAt(slice, bands, beat);
-                    float h = bands[k] * CURTAIN_H;
+                    // Fix band mapping: bands[0] is Bass, bands[2] is Highs.
+                    // To put Highs in front (lane 0), we must invert the index.
+                    float h = bands[2 - k] * CURTAIN_H;
 
                     // Pixel footprint in world units at this distance, for AA.
                     float aaW = t * 1.8 / u_res.y;
@@ -274,9 +276,20 @@ class Waveform3dScene : StereoScene {
 
                 // Deep-violet ambience toward the vanishing region, so the
                 // curtains dissolve into atmosphere rather than black paper.
+                // Bass-reactive: the atmosphere "breathes" with the low end.
+                vec3 nowBands; float nowBeat;
+                envAt(u_head - 1.0, nowBands, nowBeat);
+                
+                // bands[0] is the true Bass band (R channel).
+                // bands[2] was Highs, which is often zero, explaining the missing glow!
+                float bassEnergy = smoothstep(0.0, 0.8, nowBands[0]);
+                
                 float glow = exp(-abs(uv.y + LOOK_Y) * 6.0)
                            * exp(-max(uv.x + LOOK_X, 0.0) * 1.4);
-                col += vec3(0.10, 0.04, 0.22) * glow * 0.5;
+                           
+                // Massively boosted glow: pushes into HDR bloom territory when bass hits
+                float glowIntensity = 0.4 + 2.5 * bassEnergy; 
+                col += vec3(0.25, 0.08, 0.55) * glow * glowIntensity;
 
                 // Dithering is strictly required because the translucent curtains fading 
                 // into the distance (haze) will quantize into massive angled bars on an 8-bit screen.
