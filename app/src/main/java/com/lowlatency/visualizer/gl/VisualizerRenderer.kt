@@ -90,7 +90,7 @@ class VisualizerRenderer(private val context: Context) : GLSurfaceView.Renderer 
         .order(java.nio.ByteOrder.nativeOrder())
     val sharedAudioFloatBuffer: java.nio.FloatBuffer = sharedAudioBuffer.asFloatBuffer()
 
-    private val scenes = arrayOfNulls<GlScene>(47)
+    private val scenes = arrayOfNulls<GlScene>(48)
     private val scenesToLoad = mutableListOf<Int>()
     private var loadFrameCounter = 0
 
@@ -149,6 +149,7 @@ class VisualizerRenderer(private val context: Context) : GLSurfaceView.Renderer 
             44 -> WaveformRollScene()
             45 -> LevelMeterScene()
             46 -> SpectrumAnalyserScene()
+            47 -> Waveform3dScene()
             else -> RawScopeScene()
         }
     }
@@ -578,7 +579,7 @@ class VisualizerRenderer(private val context: Context) : GLSurfaceView.Renderer 
         if (scene is StereoScene) {
             // Fetched only here: no other scene reads stereo, so the copy is
             // paid exclusively by the scope family.
-            NativeBridge.fillLatestStereoAudioBuffer(pcmStereo)
+            StereoRingClock.totalFrames = NativeBridge.fillLatestStereoCounted(pcmStereo)
             scene.drawStereo(pcmStereo, bands, t, dim)
         } else {
             scene.draw(pcm, bands, t, dim)

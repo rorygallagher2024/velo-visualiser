@@ -66,6 +66,7 @@ object SceneCatalog {
         SceneEntry(10, R.string.vis_fireworks, SceneCategory.REACTIVE, requiresBeat = true),
         SceneEntry(42, R.string.vis_chromatic_dots, SceneCategory.REACTIVE),
         // ----- Immersive (rich generative, heavier GPU) -----
+        SceneEntry(47, R.string.vis_waveform_3d, SceneCategory.IMMERSIVE),
         SceneEntry(6, R.string.vis_bloom, SceneCategory.IMMERSIVE),
         SceneEntry(13, R.string.vis_mandala, SceneCategory.IMMERSIVE),
         SceneEntry(39, R.string.vis_meridian, SceneCategory.IMMERSIVE),

@@ -68,6 +68,13 @@ object NativeBridge {
     external fun fillLatestStereoAudioBuffer(outInterleaved: FloatArray): Int
 
     /**
+     * Splice-free stereo fill: copy and returned total-frames-written come from
+     * the same atomic, so callers can consume exactly the samples that are new
+     * since their last read instead of estimating from frame dt.
+     */
+    external fun fillLatestStereoCounted(outInterleaved: FloatArray): Long
+
+    /**
      * One-time initialization of the shared DirectByteBuffer. Call this
      * at startup so the native layer can store the address.
      */
