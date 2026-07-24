@@ -141,9 +141,20 @@ class Waveform3dScene : StereoScene {
             // hid "now" off-screen for seconds.
             const float EDGE_MARGIN = 0.05;
 
+            // Curtain thickness for the volumetric term (see the slab comment
+            // in main). Larger = denser, more fog-like; smaller = sheer.
+            const float SLAB_W = 0.75;
+            // Floor contact glow: falloff tightness and strength.
+            const float SPILL_TIGHT = 14.0;
+            const float SPILL_AMT = 0.35;
+            const float GRID_PX = 1.2;         // grid half-width, in pixels
+
+            // Bitwise wrap, not %: GLSL leaves the sign of % undefined for
+            // negative operands, and slice indices go negative constantly
+            // (u_head - age). 4096 is a power of two, so the mask is both
+            // well-defined on two's complement and cheaper.
             int wrapTx(int si) {
-                int tx = si % 4096;
-                return tx < 0 ? tx + 4096 : tx;
+                return si & 4095;
             }
 
             // Gaussian-weighted envelope: smooth over ±4 slices
@@ -184,8 +195,15 @@ class Waveform3dScene : StereoScene {
                 ) * 0.0015 * u_res.y;
                 vec2 uv = (gl_FragCoord.xy - orbit - 0.5 * u_res) / u_res.y;
 
-                // A slow, gentle drift of the gaze — parallax sells the depth.
-                float sway = 0.02 * sin(u_time * 0.11);
+                // Camera drift. Motion parallax is the strongest depth cue in
+                // vision, and a near-static camera wastes it: with the lanes at
+                // different depths, a slow pan SHEARS them against each other,
+                // which reads as space immediately instead of having to be
+                // inferred from perspective alone. Two incommensurate periods
+                // (~76 s and ~170 s) so it never resolves into an obvious loop,
+                // and the height dolly adds vertical parallax against the floor.
+                float sway = 0.07 * sin(u_time * 0.083) + 0.025 * sin(u_time * 0.037 + 2.1);
+                float camY = CAM_Y + 0.06 * sin(u_time * 0.061 + 1.3);
                 vec3 rd = normalize(vec3(uv.x + LOOK_X + sway, uv.y + LOOK_Y, 1.0));
 
                 float laneX[3];
@@ -206,7 +224,7 @@ class Waveform3dScene : StereoScene {
                     if (acc > 0.985 || rd.x < 0.02) { break; }
                     float t = laneX[k] / rd.x;
                     float z = t * rd.z;
-                    float y = CAM_Y + t * rd.y;
+                    float y = camY + t * rd.y;
                     
                     // Frustum culling: if the ray hits this plane far above the maximum
                     // curtain height (0.95) or far below the reflection, it's invisible.
@@ -241,31 +259,46 @@ class Waveform3dScene : StereoScene {
                     // down every empty lane (visible on a pure test tone).
                     float hGate = smoothstep(0.006, 0.028, h);
 
-                    float a = 0.0;
                     // Depth colour shift: warm/bright near camera, cool/deep in distance.
                     float depthT = smoothstep(0.0, 2400.0, age);
                     vec3 c = mix(laneCol[k], laneCol[k] * vec3(0.6, 0.5, 1.3), depthT);
+
+                    // MEDIUM DENSITY, not coverage. Each branch below says how
+                    // thick the glowing medium is at this point; the slab
+                    // integral afterwards turns that into an alpha.
+                    float medium = 0.0;
                     if (y >= 0.0) {
                         // The curtain: translucent fill, brightest at the top
                         // edge which traces a smooth continuous line.
                         // No separate crest point-sample — that aliased into
                         // scattered bright dots because h jumps between pixels.
                         float fill = smoothstep(h + aaW, h - aaW, y);
-                        
-                        // Fix: Gradient goes from 0.2 (dim) at ground to 1.0 (bright) at crest
+
+                        // Gradient goes from 0.2 (dim) at ground to 1.0 (bright) at crest
                         float topBright = 0.2 + 0.8 * clamp(y / max(h, 1e-3), 0.0, 1.0);
-                        a = fill * 0.85 * topBright;
-                        
+                        medium = fill * topBright;
+
                         // Link beats strike through the curtain as hot strokes.
-                        a += fill * beat * 0.55 * u_showBeats;
+                        medium += fill * beat * 0.55 * u_showBeats;
                     } else {
                         // Polished-floor reflection: same envelope, mirrored,
                         // fading fast with depth below the ground line.
                         float ry = -y;
                         float fill = smoothstep(h + aaW, h - aaW, ry);
-                        a = fill * 0.13 * exp(-ry * 2.6);
+                        medium = fill * 0.13 * exp(-ry * 2.6);
                     }
-                    a *= haze * hGate;
+
+                    // VOLUMETRIC SLAB, not a decal. Optical depth is the medium
+                    // density times the path length through it, and the path
+                    // through a plane-parallel slab is thickness / rd.x — so a
+                    // curtain crossed at a grazing angle really is denser than
+                    // one met face-on. Beer-Lambert converts that to alpha.
+                    // Infinitely thin planes were why the curtains read as
+                    // glowing sheets; this is what makes them read as volumes.
+                    // Free bonus: the shallow-angle side of the frame is also
+                    // the distant side, so the thickening reinforces perspective.
+                    float pathLen = SLAB_W / max(rd.x, 0.06);
+                    float a = (1.0 - exp(-medium * hGate * pathLen)) * haze;
                     // Born hot, like the flat Waveform's pen: the newest audio
                     // glows and cools as it recedes into history.
                     // Max HDR: pushed base multiplier from 1.0 -> 2.5 so the waves bloom heavily.
@@ -277,24 +310,58 @@ class Waveform3dScene : StereoScene {
 
                 // Perspective grid floor: faint lines on the ground plane
                 // that scroll with the audio history, anchoring the 3D space.
+                //
+                // The floor coordinates and their screen-space footprints are
+                // computed for EVERY pixel and only used below the horizon:
+                // fwidth() in non-uniform control flow is undefined, and the
+                // horizon is exactly where neighbouring pixels disagree about
+                // whether they are in the branch.
+                float tFloor = -camY / min(rd.y, -0.001);
+                float gz = tFloor * rd.z;
+                float gx = tFloor * rd.x;
+                float zu = (gz * SLICES_PER_Z + u_head) / 120.0;
+                float xu = gx / 0.42;
+                float zw = max(fwidth(zu), 1e-5);
+                float xw = max(fwidth(xu), 1e-5);
+
                 if (rd.y < -0.001) {
-                    float tFloor = -CAM_Y / rd.y;
-                    float gz = tFloor * rd.z;
-                    float gx = tFloor * rd.x;
                     float floorHaze = exp(-gz * HAZE) * (1.0 - acc);
-                    
-                    // Z lines scroll in sync with audio head
-                    float zCoord = gz * SLICES_PER_Z + u_head;
-                    float zd = fract(zCoord / 120.0);
-                    zd = min(zd, 1.0 - zd);  // distance to nearest grid line
-                    float zLine = smoothstep(0.02, 0.0, zd);
-                    // X lines (static, marking the lane positions)
-                    float xd = fract(gx / 0.42);
-                    xd = min(xd, 1.0 - xd);
-                    float xLine = smoothstep(0.015, 0.0, xd);
-                    
+
+                    // Screen-space line width. A fixed width in grid units
+                    // made distant lines thinner and thinner in pixels until
+                    // they fell below the sample grid and crawled as they
+                    // scrolled; scaling by the derivative keeps every line the
+                    // same PIXEL width however far away it is. Past Nyquist
+                    // (lines packing tighter than pixels) they fade out rather
+                    // than aliasing into a bright band at the horizon.
+                    float zd = min(fract(zu), 1.0 - fract(zu));
+                    float zLine = smoothstep(zw * GRID_PX, 0.0, zd)
+                                * (1.0 - smoothstep(0.18, 0.45, zw));
+                    float xd = min(fract(xu), 1.0 - fract(xu));
+                    float xLine = smoothstep(xw * GRID_PX, 0.0, xd)
+                                * (1.0 - smoothstep(0.18, 0.45, xw));
+
                     float grid = max(zLine, xLine) * 0.25 * floorHaze;
                     col += grid * vec3(0.35, 0.15, 0.75);
+
+                    // CONTACT GLOW: each curtain spills its own light onto the
+                    // floor around its base, brightest where its envelope is
+                    // tall. One cheap tap per lane — a soft glow needs no
+                    // Gaussian. Without this the curtains and the grid are lit
+                    // by separate worlds and the wave hovers over a backdrop
+                    // instead of standing in a room; contact is what puts an
+                    // object IN a space.
+                    for (int k = 0; k < 3; k++) {
+                        float z0 = laneX[k] / (uvEdge + LOOK_X + sway);
+                        float fAge = (gz - z0) * SLICES_PER_Z;
+                        if (fAge < 0.0 || fAge > 3800.0) { continue; }
+                        vec3 hf = texelFetch(
+                            u_hist, ivec2(wrapTx(int(u_head - 1.0 - fAge)), 0), 0
+                        ).rgb;
+                        float dx = gx - laneX[k];
+                        float spill = exp(-dx * dx * SPILL_TIGHT) * hf[2 - k];
+                        col += laneCol[k] * spill * SPILL_AMT * floorHaze;
+                    }
                 }
 
                 // Deep-violet ambience toward the vanishing region, so the
