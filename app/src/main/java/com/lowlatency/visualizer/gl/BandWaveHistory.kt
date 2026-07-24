@@ -37,6 +37,20 @@ class BandWaveHistory {
     var headF = 0f
         private set
 
+    /**
+     * Passage dynamics, 0..1: how loud we are RIGHT NOW relative to the recent
+     * loud reference. ~0.85 through a drop, ~0.2 in a breakdown, 0 in silence.
+     *
+     * It costs nothing because [agcRef] already answers exactly this question:
+     * the display normalises every slice against a reference that rises fast
+     * and falls over ~25 s, so the normalised height IS "loud vs quiet for this
+     * track". Smoothed over ~0.7 s here so scenes can stage against the
+     * passage rather than flinching at individual transients. RMS rather than
+     * peak, because peak is spiky and this drives slow, whole-scene motion.
+     */
+    var dynamics = 0f
+        private set
+
     private var head = 0
 
     // Sample-accurate slice accumulators (mid = (L+R)/2 for the mono shape).
@@ -292,6 +306,11 @@ class BandWaveHistory {
         val dispMid = displayGate((sliceMid * norm * AMP_TARGET).coerceAtMost(1f).pow(AMP_KNEE))
         val dispHi = displayGate((sliceHi * norm * AMP_TARGET).coerceAtMost(1f).pow(AMP_KNEE))
 
+        // Asymmetric: opens with the music, closes gently, so a drop lands and
+        // a breakdown eases rather than snapping shut between two quiet slices.
+        val dynRate = if (dispRms > dynamics) DYN_RISE else DYN_FALL
+        dynamics += (dispRms - dynamics) * dynRate
+
         if (batchStart < 0) batchStart = head
         val o = batchCount * 4
         batchRow0[o] = dispLo
@@ -348,6 +367,9 @@ class BandWaveHistory {
         // to ~0.058 — so the gate must be fully closed there. A 0.02-0.06 gate
         // passed it at ~95% and the phantom curtain survived. Real band content
         // (kicks ~0.5+, hats ~0.15+) sits above the fade band.
+        // Per-slice easing for [dynamics] at ~2.3 ms/slice: ~0.35 s up, ~1.4 s down.
+        private const val DYN_RISE = 0.006f
+        private const val DYN_FALL = 0.0016f
         private const val GATE_LO = 0.05f           // fully closed below this
         private const val GATE_HI = 0.12f           // fully open above this
         // Covers the worst backlog (0.25 s dt clamp ≈ 107 columns) in one span.

@@ -40,6 +40,10 @@ class Waveform3dScene : StereoScene {
     private var uTex = 0
     private var uShowBeats = 0
     private var uEnv = 0
+    private var uDyn = 0
+    private var uBeatPeriod = 0
+    private var uBeatPhase = 0
+    private var uBarPhase = 0
 
     private var width = 1f
     private var height = 1f
@@ -60,6 +64,10 @@ class Waveform3dScene : StereoScene {
         uTex = GLES20.glGetUniformLocation(program, "u_hist")
         uShowBeats = GLES20.glGetUniformLocation(program, "u_showBeats")
         uEnv = GLES20.glGetUniformLocation(program, "u_env")
+        uDyn = GLES20.glGetUniformLocation(program, "u_dyn")
+        uBeatPeriod = GLES20.glGetUniformLocation(program, "u_beatPeriod")
+        uBeatPhase = GLES20.glGetUniformLocation(program, "u_beatPhase")
+        uBarPhase = GLES20.glGetUniformLocation(program, "u_barPhase")
         history.createTexture()
     }
 
@@ -90,12 +98,33 @@ class Waveform3dScene : StereoScene {
         GLES20.glUniform1f(uHead, history.headF)
         GLES20.glUniform1f(uShowBeats, if (BeatSettings.showBeatsOnVisuals) 1f else 0f)
         GLES20.glUniform1f(uEnv, BeatPulse.envelope)
+        GLES20.glUniform1f(uDyn, history.dynamics)
+        uploadBeatRuler()
 
         GLES20.glEnableVertexAttribArray(aPos)
         GLES20.glVertexAttribPointer(aPos, 2, GLES20.GL_FLOAT, false, 0, quad)
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
         GLES20.glDisableVertexAttribArray(aPos)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0)
+    }
+
+    /**
+     * The floor's beat ruler. A zero period tells the shader there is no Link
+     * clock, and it draws a plain distance grid instead: the sleepers are
+     * derived from the session tempo and phase, never from detected onsets, so
+     * the floor can't assert a beat that isn't really there.
+     */
+    private fun uploadBeatRuler() {
+        val linkOn = BeatPulse.linkActive && BeatSettings.showBeatsOnVisuals
+        val tempo = if (linkOn) NativeBridge.nativeLinkTempo() else 0.0
+        val period = if (tempo > 1.0) {
+            ((60.0 / tempo) / BandWaveHistory.SLICE_SEC).toFloat()
+        } else {
+            0f
+        }
+        GLES20.glUniform1f(uBeatPeriod, period)
+        GLES20.glUniform1f(uBeatPhase, if (linkOn) NativeBridge.nativeLinkBeatPhase().toFloat() else 0f)
+        GLES20.glUniform1f(uBarPhase, if (linkOn) NativeBridge.nativeLinkBarPhase().toFloat() else 0f)
     }
 
     companion object {
@@ -110,6 +139,9 @@ class Waveform3dScene : StereoScene {
             uniform float u_time, u_dim, u_head;
             uniform float u_showBeats;
             uniform float u_env;
+            uniform float u_dyn;                 // 0..1 passage dynamics
+            uniform float u_beatPeriod;          // slices per beat, 0 = no Link
+            uniform float u_beatPhase, u_barPhase;
             uniform sampler2D u_hist;
             out vec4 fragColor;
 
@@ -129,7 +161,26 @@ class Waveform3dScene : StereoScene {
             const float LOOK_Y = -0.14;
             const float CURTAIN_H = 0.95;      // world height of a full-scale wave
             const float SLICES_PER_Z = 480.0;  // depth -> history mapping
-            const float HAZE = 0.26;           // distance fade
+
+            // THE CORRIDOR BREATHES. All three of these ride one dynamics
+            // value so a drop reads as a single gesture (the room opening)
+            // rather than three effects twitching independently.
+            const float HAZE_QUIET = 0.55;     // thick: ~4 s of history visible
+            const float HAZE_LOUD  = 0.16;     // clear: the whole corridor
+            const float CAM_DYN = 0.25;        // quiet rides high, loud sinks
+            const float FLARE = 0.18;          // lanes spread/draw in with depth
+            // Aerial perspective mixes toward the FOG's colour, not toward
+            // black: distance should read as air, not as dimmed lights.
+            const vec3  FOG_COL = vec3(0.30, 0.14, 0.62);
+            const float AERIAL = 0.80;
+            // Depth of field, FAR SIDE ONLY. Distance softening reads as
+            // atmosphere; softening the near side would just read as the
+            // scene being out of focus (or worse, as low resolution).
+            const float DOF = 0.35;
+            const float FOCAL_Z = 1.8;
+            // Background ambience: resting level, and how much the beat adds.
+            const float GLOW_BASE = 0.80;
+            const float GLOW_BEAT = 0.35;
             // Margin past the right frame edge where each lane's "now" line
             // sits. A hit on plane x=X at depth z projects at uv.x = X/z - look
             // (exactly), so the birth depth is derived per frame from the REAL
@@ -214,7 +265,25 @@ class Waveform3dScene : StereoScene {
                 // (~76 s and ~170 s) so it never resolves into an obvious loop,
                 // and the height dolly adds vertical parallax against the floor.
                 float sway = 0.07 * sin(u_time * 0.083) + 0.025 * sin(u_time * 0.037 + 2.1);
-                float camY = CAM_Y + 0.06 * sin(u_time * 0.061 + 1.3);
+
+                // One dynamics value stages the whole room. It is loudness
+                // RELATIVE to the track's own recent reference (the history's
+                // AGC), so it says "breakdown" or "drop" rather than "how far
+                // is the volume slider up", and it costs nothing extra.
+                float dyn = clamp(u_dyn, 0.0, 1.0);
+                // Quiet rides high and detached; loud sinks toward the floor
+                // so the curtains tower.
+                float camY = CAM_Y + 0.06 * sin(u_time * 0.061 + 1.3)
+                           + CAM_DYN * (0.45 - dyn);
+                // Lanes spread apart with depth when loud (the room opens
+                // out) and draw into a narrow throat when quiet. Modelling it
+                // as x = laneX * (1 + flare*z) keeps the hit analytic:
+                // t = laneX / (rd.x - laneX*flare*rd.z).
+                float flare = FLARE * (dyn - 0.45);
+                // Fog thick and intimate when quiet, clearing on a drop until
+                // the whole corridor of history stands revealed.
+                float haze0 = mix(HAZE_QUIET, HAZE_LOUD, dyn);
+
                 vec3 rd = normalize(vec3(uv.x + LOOK_X + sway, uv.y + LOOK_Y, 1.0));
 
                 float laneX[3];
@@ -232,20 +301,27 @@ class Waveform3dScene : StereoScene {
                 float uvEdge = 0.5 * u_res.x / u_res.y + EDGE_MARGIN;
 
                 for (int k = 0; k < 3; k++) {
-                    if (acc > 0.985 || rd.x < 0.02) { break; }
-                    float t = laneX[k] / rd.x;
+                    if (acc > 0.985) { break; }
+                    // Sheared plane: the flare tilts it, so the denominator
+                    // carries the tilt. Non-positive means the ray never meets
+                    // this lane in front of the camera.
+                    float den = rd.x - laneX[k] * flare * rd.z;
+                    if (den < 0.03) { continue; }
+                    float t = laneX[k] / den;
                     float z = t * rd.z;
                     float y = camY + t * rd.y;
-                    
+
                     // Frustum culling: if the ray hits this plane far above the maximum
                     // curtain height (0.95) or far below the reflection, it's invisible.
                     // Skip the expensive Gaussian texture fetches entirely.
                     if (abs(y) > 1.1) { continue; }
-                    
+
                     // Birth depth: where this lane's now-line projects just past
                     // the right frame edge. Every on-screen pixel is deeper, so
                     // age > 0 everywhere visible and ~0 at the edge itself.
-                    float z0 = laneX[k] / (uvEdge + LOOK_X + sway);
+                    // The flare shifts where that is, so it belongs here too,
+                    // or the wave would slide sideways as the room breathes.
+                    float z0 = laneX[k] / (uvEdge + LOOK_X + sway - laneX[k] * flare);
                     float age = max((z - z0) * SLICES_PER_Z, 0.0);
                     float slice = u_head - 1.0 - age;
                     // Beyond the stored history: nothing to draw there.
@@ -257,10 +333,14 @@ class Waveform3dScene : StereoScene {
                     // To put Highs in front (lane 0), we must invert the index.
                     float h = bands[2 - k] * CURTAIN_H;
 
-                    // Pixel footprint in world units at this distance, for AA.
-                    float aaW = t * 1.8 / u_res.y;
+                    // Pixel footprint in world units at this distance, for AA,
+                    // widened beyond the focal plane for a far-side depth of
+                    // field. Capped so a short curtain can still reach full
+                    // opacity instead of dissolving into its own blur.
+                    float aaW = min(t * 1.8 / u_res.y
+                                  * (1.0 + DOF * max(z - FOCAL_Z, 0.0)), 0.05);
 
-                    float haze = exp(-z * HAZE);
+                    float haze = exp(-z * haze0);
                     // History-edge fade so the far end dissolves, never truncates.
                     haze *= 1.0 - smoothstep(3300.0, 3800.0, age);
 
@@ -270,9 +350,12 @@ class Waveform3dScene : StereoScene {
                     // down every empty lane (visible on a pure test tone).
                     float hGate = smoothstep(0.006, 0.028, h);
 
-                    // Depth colour shift: warm/bright near camera, cool/deep in distance.
+                    // Aerial perspective: distance mixes an object toward the
+                    // colour of the air between, it does not merely darken it.
+                    // Mixing toward the violet ambience is what makes the far
+                    // end read as atmosphere rather than as the lights dimming.
                     float depthT = smoothstep(0.0, 2400.0, age);
-                    vec3 c = mix(laneCol[k], laneCol[k] * vec3(0.6, 0.5, 1.3), depthT);
+                    vec3 c = mix(laneCol[k], FOG_COL, depthT * AERIAL);
 
                     // MEDIUM DENSITY, not coverage. Each branch below says how
                     // thick the glowing medium is at this point; the slab
@@ -330,13 +413,28 @@ class Waveform3dScene : StereoScene {
                 float tFloor = -camY / min(rd.y, -0.001);
                 float gz = tFloor * rd.z;
                 float gx = tFloor * rd.x;
-                float zu = (gz * SLICES_PER_Z + u_head) / 120.0;
+                // BEAT SLEEPERS. With Link connected the floor's transverse
+                // lines land on the TRUE beats — period from the session
+                // tempo, phase from the network clock — so the ground becomes
+                // a bar ruler running away under the curtains, every beat
+                // receding as it ages. Without Link they fall back to a plain
+                // distance grid. Same anti-aliasing either way, and it stays
+                // honest: nothing is ever drawn from a guessed onset.
+                // Referenced to the nearest lane's time base, the one whose
+                // crest the eye actually reads.
+                float z0Ref = laneX[0] / (uvEdge + LOOK_X + sway - laneX[0] * flare);
+                float sAge = (gz - z0Ref) * SLICES_PER_Z;
+                bool onBeat = u_beatPeriod > 1.0;
+                float zu = onBeat ? (sAge / u_beatPeriod - u_beatPhase)
+                                  : (gz * SLICES_PER_Z + u_head) / 120.0;
+                float bu = onBeat ? (sAge / (u_beatPeriod * 4.0) - u_barPhase) : 0.0;
                 float xu = gx / 0.42;
                 float zw = max(fwidth(zu), 1e-5);
+                float bw = max(fwidth(bu), 1e-5);
                 float xw = max(fwidth(xu), 1e-5);
 
                 if (rd.y < -0.001) {
-                    float floorHaze = exp(-gz * HAZE) * (1.0 - acc);
+                    float floorHaze = exp(-gz * haze0) * (1.0 - acc);
 
                     // Screen-space line width. A fixed width in grid units
                     // made distant lines thinner and thinner in pixels until
@@ -355,6 +453,16 @@ class Waveform3dScene : StereoScene {
                     float grid = max(zLine, xLine) * 0.25 * floorHaze;
                     col += grid * vec3(0.35, 0.15, 0.75);
 
+                    // Downbeats: a wider, brighter sleeper every bar, so the
+                    // phrase structure reads at a glance rather than as an
+                    // undifferentiated ladder.
+                    if (onBeat) {
+                        float bd = min(fract(bu), 1.0 - fract(bu));
+                        float barLine = smoothstep(bw * GRID_PX * 1.8, 0.0, bd)
+                                      * (1.0 - smoothstep(0.18, 0.45, bw));
+                        col += barLine * 0.32 * floorHaze * vec3(0.55, 0.30, 0.95);
+                    }
+
                     // CONTACT GLOW: each curtain spills its own light onto the
                     // floor around its base, brightest where its envelope is
                     // tall. One cheap tap per lane — a soft glow needs no
@@ -363,13 +471,17 @@ class Waveform3dScene : StereoScene {
                     // instead of standing in a room; contact is what puts an
                     // object IN a space.
                     for (int k = 0; k < 3; k++) {
-                        float z0 = laneX[k] / (uvEdge + LOOK_X + sway);
+                        float z0 = laneX[k] / (uvEdge + LOOK_X + sway - laneX[k] * flare);
                         float fAge = (gz - z0) * SLICES_PER_Z;
                         if (fAge < 0.0 || fAge > 3800.0) { continue; }
                         vec3 hf = texelFetch(
                             u_hist, ivec2(wrapTx(int(u_head - 1.0 - fAge)), 0), 0
                         ).rgb;
-                        float dx = gx - laneX[k];
+                        // The lane's x at THIS depth, so the pool of light
+                        // tracks its sheared curtain instead of sliding out
+                        // from under it as the room breathes.
+                        float lx = laneX[k] * (1.0 + flare * gz);
+                        float dx = gx - lx;
                         float spill = exp(-dx * dx * SPILL_TIGHT) * hf[2 - k];
                         col += laneCol[k] * spill * SPILL_AMT * floorHaze;
                     }
@@ -380,13 +492,18 @@ class Waveform3dScene : StereoScene {
                 // Beat-reactive: the atmosphere "breathes" with the global beat envelope.
                 // This correctly fades to zero when audio stops, doesn't strobe at 40Hz,
                 // and already respects the "show beats" setting from the CPU.
-                float bassEnergy = u_env;
-                
                 float glow = exp(-abs(uv.y + LOOK_Y) * 6.0)
                            * exp(-max(uv.x + LOOK_X, 0.0) * 1.4);
-                           
-                // Massively boosted glow: pushes into HDR bloom territory when bass hits
-                float glowIntensity = 0.4 + 2.5 * bassEnergy; 
+
+                // Ambient breath, deliberately gentle. This is ATMOSPHERE, not
+                // a reading: a hard flash here competes with the curtains for
+                // attention, strobes at the beat rate, and swamps the slow
+                // dynamics staging the room is built around. A 0.4 + 2.5*env
+                // swing (0.4 to 2.9, i.e. 7x) did all three. Keeping the base
+                // near the old AVERAGE and shrinking the swing to ~1.4x leaves
+                // the background at much the same overall brightness while the
+                // beat only just registers in it.
+                float glowIntensity = GLOW_BASE + GLOW_BEAT * u_env;
                 col += vec3(0.25, 0.08, 0.55) * glow * glowIntensity;
 
                 // Dithering is strictly required because the translucent curtains fading 
