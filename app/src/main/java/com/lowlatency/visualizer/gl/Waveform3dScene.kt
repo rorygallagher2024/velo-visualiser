@@ -136,10 +136,21 @@ class Waveform3dScene : StereoScene {
             // aspect ratio: the seam is always just off-screen, every visible
             // pixel has age > 0 (no rough on-screen edge), and the age at the
             // frame edge is ~0 — new audio slides in from the right like the
-            // flat Waveform, with no visible latency. A fixed birth depth
-            // either parked the seam mid-frame (ugly) or, at the camera plane,
-            // hid "now" off-screen for seconds.
-            const float EDGE_MARGIN = 0.05;
+            // flat Waveform. A fixed birth depth either parked the seam
+            // mid-frame (ugly) or, at the camera plane, hid "now" off-screen
+            // for seconds.
+            //
+            // Keep this SMALL. Because the birth line is off-screen, audio at
+            // the visible edge has already aged by
+            //     laneX * SLICES_PER_Z * MARGIN / (D * (D - MARGIN))
+            // with D = uvEdge + LOOK_X + sway. That is proportional to the
+            // margin, worse on the deeper lanes, and — via the 1/D^2 — it
+            // BREATHES with the camera pan, so a generous margin turns the pan
+            // into a visible wobble in how late the wave arrives. At 0.05 the
+            // near lane sat ~55 ms behind and the bass ridge ~208 ms, swinging
+            // ±20 ms with the sway. At 0.01 that is ~10 ms / ~39 ms with a
+            // ±4 ms swing, while the seam still clears the edge by ~10-24 px.
+            const float EDGE_MARGIN = 0.01;
 
             // Curtain thickness for the volumetric term (see the slab comment
             // in main). Larger = denser, more fog-like; smaller = sheer.
