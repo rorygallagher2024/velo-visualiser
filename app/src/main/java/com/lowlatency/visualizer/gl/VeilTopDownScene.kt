@@ -49,10 +49,8 @@ class VeilTopDownScene : GlScene {
         private const val DT_SIM = 1f / 240f    // fixed physics substep (CFL-stable)
         private const val MAX_SUBSTEPS = 4
 
-        // Auto-gain for the PCM edge drive.
+        // Auto-gain target for the PCM edge drive; follower lives in [WaveformAgc].
         private const val AGC_TARGET = 2.2f
-        private const val AGC_FLOOR = 0.03f
-        private const val AGC_SMOOTH = 0.08f
 
         // Edge-drive conditioning: without these the raw per-frame PCM reads as
         // broadband fuzz at the hem instead of coherent wavefronts, and the AGC
@@ -94,7 +92,7 @@ class VeilTopDownScene : GlScene {
     private var projX = 0.8f; private var projY = 0.8f
     private var lastT = -1f
     private var simAccum = 0f
-    private var agc = 8f
+    private val agc = WaveformAgc(target = AGC_TARGET)
     private val edgeDrive = FloatArray(PCM_PTS)
     private var gate = 0f
 
@@ -252,16 +250,14 @@ class VeilTopDownScene : GlScene {
      * jitter).
      */
     private fun uploadEdgeDrive(pcm: FloatArray) {
-        var peak = 0f
-        for (s in pcm) { val a = abs(s); if (a > peak) peak = a }
-        agc += ((AGC_TARGET / maxOf(peak, AGC_FLOOR)).coerceIn(3f, 150f) - agc) * AGC_SMOOTH
+        val gain = agc.update(pcm)
         // Fast attack, slow release so the first hit lands but silence fades out.
-        val open = if (peak > GATE_OPEN) 1f else 0f
+        val open = if (agc.peak > GATE_OPEN) 1f else 0f
         gate += (open - gate) * (if (open > gate) 0.35f else 0.05f)
 
         val stride = (pcm.size / PCM_PTS).coerceAtLeast(1)
         for (i in 0 until PCM_PTS) {
-            val g = pcm[(i * stride).coerceAtMost(pcm.size - 1)] * agc
+            val g = pcm[(i * stride).coerceAtMost(pcm.size - 1)] * gain
             val soft = g / (1f + abs(g)) * gate
             edgeDrive[i] += (soft - edgeDrive[i]) * EDGE_SMOOTH
         }

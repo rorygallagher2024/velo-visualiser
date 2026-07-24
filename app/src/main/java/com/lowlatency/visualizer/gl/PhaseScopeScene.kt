@@ -29,13 +29,10 @@ class PhaseScopeScene : GlScene {
         private const val TAU = 48           // phase-space delay in samples (loop size)
         private const val VCOUNT = POINTS - 2 * TAU   // beam vertices
 
-        // Auto-gain: normalise each frame to the window's peak so the curve fills the
-        // cube at any input level (a quiet mic would otherwise collapse it to a dot).
-        private const val AGC_TARGET = 5.5f  // post-gain peak feeding the soft-clip
-        private const val AGC_FLOOR = 0.03f  // treat anything quieter as silence
-        private const val AGC_SMOOTH = 0.08f // per-frame gain easing (avoids pumping)
-        private const val AGC_MIN = 3f
-        private const val AGC_MAX = 150f
+        // Auto-gain target: post-gain peak feeding the soft-clip, so the curve
+        // fills the cube at any input level (a quiet mic would otherwise collapse
+        // it to a dot). Follower/clamp behaviour lives in [WaveformAgc].
+        private const val AGC_TARGET = 5.5f
 
         private const val SCOPE_VS = """#version 300 es
             layout(location = 0) in vec3 aPos;   // phase-space point, each axis ~[-1,1]
@@ -108,7 +105,7 @@ class PhaseScopeScene : GlScene {
     private var uEnv = 0
     private var vbo = 0
     private var aspect = 1f
-    private var agc = 8f      // smoothed auto-gain (see AGC_* constants)
+    private val agc = WaveformAgc(target = AGC_TARGET)
 
     override fun onCreated() {
         program = ShaderUtil.buildProgram(SCOPE_VS, SCOPE_FS)
@@ -133,7 +130,7 @@ class PhaseScopeScene : GlScene {
 
     /** Auto-gained soft-clip: spreads the curve to fill the cube, loud peaks saturate. */
     private fun softClip(s: Float): Float {
-        val g = s * agc
+        val g = s * agc.gain
         return g / (1f + abs(g))
     }
 
@@ -141,13 +138,8 @@ class PhaseScopeScene : GlScene {
         val limit = minOf(VCOUNT, pcm.size - 2 * TAU)
         if (limit <= 1) return
 
-        // Track the window peak and ease the auto-gain toward a fill-the-cube target.
-        var peak = 0f
-        for (i in 0 until limit + 2 * TAU) {
-            val a = abs(pcm[i]); if (a > peak) peak = a
-        }
-        val desired = (AGC_TARGET / maxOf(peak, AGC_FLOOR)).coerceIn(AGC_MIN, AGC_MAX)
-        agc += (desired - agc) * AGC_SMOOTH
+        // Ease the auto-gain toward a fill-the-cube target for this window.
+        agc.update(pcm)
 
         var vi = 0
         for (i in 0 until limit) {
