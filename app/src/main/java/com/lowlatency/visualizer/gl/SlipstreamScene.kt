@@ -47,10 +47,8 @@ class SlipstreamScene : GlScene {
         private const val RIBBON_PTS = 256
         private const val ZONE_SEC = 24f                // seconds per colour zone
 
-        // Auto-gain for the PCM ribbon stamp.
+        // Auto-gain target for the PCM ribbon stamp; follower lives in [WaveformAgc].
         private const val AGC_TARGET = 2.5f
-        private const val AGC_FLOOR = 0.03f
-        private const val AGC_SMOOTH = 0.08f
 
         // Five zones, three stops each (Tetris-Effect bold, not rainbow mush).
         private val ZONES = arrayOf(
@@ -96,7 +94,7 @@ class SlipstreamScene : GlScene {
     private var lastT = -1f
     private var burstAt = -99f
     private var lastEnv = 0f
-    private var agc = 8f
+    private val agc = WaveformAgc(target = AGC_TARGET)
 
     override fun onCreated() {
         simProg = ShaderUtil.buildProgram(SlipstreamShaders.QUAD_VS, SlipstreamShaders.SIM_FS)
@@ -305,13 +303,11 @@ class SlipstreamScene : GlScene {
     }
 
     private fun stampRibbon(pcm: FloatArray, timeSec: Float) {
-        var peak = 0f
-        for (s in pcm) { val a = abs(s); if (a > peak) peak = a }
-        agc += ((AGC_TARGET / maxOf(peak, AGC_FLOOR)).coerceIn(3f, 150f) - agc) * AGC_SMOOTH
+        val gain = agc.update(pcm)
         val stride = (pcm.size / RIBBON_PTS).coerceAtLeast(1)
         ribbonBuf.clear()
         for (i in 0 until RIBBON_PTS) {
-            val g = pcm[(i * stride).coerceAtMost(pcm.size - 1)] * agc
+            val g = pcm[(i * stride).coerceAtMost(pcm.size - 1)] * gain
             ribbonBuf.put(g / (1f + abs(g)))
         }
         ribbonBuf.position(0)

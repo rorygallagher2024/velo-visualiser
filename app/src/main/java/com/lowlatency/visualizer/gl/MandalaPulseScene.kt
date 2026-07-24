@@ -49,7 +49,7 @@ class MandalaPulseScene : GlScene {
     // Live-waveform texture (raw PCM traced into the ring) + its auto-gain.
     private var pcmTex = 0
     private var uPcm = 0
-    private var agc = 8f
+    private val agc = WaveformAgc(target = AGC_TARGET)
     private val wfBuf: FloatBuffer = ByteBuffer
         .allocateDirect(WF_PTS * 4 * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
 
@@ -156,13 +156,11 @@ class MandalaPulseScene : GlScene {
 
     /** Auto-gain the PCM and upload it as the by-angle waveform texture. */
     private fun uploadWaveform(pcm: FloatArray) {
-        var peak = 0f
-        for (s in pcm) { val a = if (s < 0f) -s else s; if (a > peak) peak = a }
-        agc += ((AGC_TARGET / max(peak, AGC_FLOOR)).coerceIn(3f, 150f) - agc) * 0.08f
+        val gain = agc.update(pcm)
         val stride = (pcm.size / WF_PTS).coerceAtLeast(1)
         wfBuf.clear()
         for (i in 0 until WF_PTS) {
-            val g = pcm[(i * stride).coerceAtMost(pcm.size - 1)] * agc
+            val g = pcm[(i * stride).coerceAtMost(pcm.size - 1)] * gain
             val soft = g / (1f + if (g < 0f) -g else g)
             wfBuf.put(soft); wfBuf.put(0f); wfBuf.put(0f); wfBuf.put(1f)
         }
@@ -254,7 +252,6 @@ class MandalaPulseScene : GlScene {
         private const val NOISE_FLOOR = 0.07f   // band level shaved off as mic noise
         private const val WF_PTS = 256          // waveform texture width
         private const val AGC_TARGET = 2.3f     // auto-gain target (soft-clip peak)
-        private const val AGC_FLOOR = 0.03f
     }
 }
 

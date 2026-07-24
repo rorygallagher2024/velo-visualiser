@@ -46,12 +46,9 @@ class NebulaScene : GlScene {
         private const val RING_PTS = 512      // PCM accretion-ring vertices
         private const val FLOATS_PER_STAR = 7 // aA(vec4) + aB(vec3), interleaved
 
-        // Auto-gain for the PCM ring (mic-level PCM would otherwise flatten it).
+        // Auto-gain target for the PCM ring (mic-level PCM would otherwise flatten
+        // it). Follower/clamp behaviour lives in [WaveformAgc].
         private const val AGC_TARGET = 3.5f
-        private const val AGC_FLOOR = 0.03f
-        private const val AGC_SMOOTH = 0.08f
-        private const val AGC_MIN = 3f
-        private const val AGC_MAX = 150f
 
         private const val GALAXY_VS = """#version 300 es
             layout(location = 0) in vec4 aA;   // angle0, radius, binNorm, histT
@@ -214,7 +211,7 @@ class NebulaScene : GlScene {
     private var kick = 0f
     private var beatAt = -99f
     private var lastEnv = 0f
-    private var agc = 8f
+    private val agc = WaveformAgc(target = AGC_TARGET)
     private var projX = 0.72f
     private var projY = 0.72f
     private var pxScale = 1f
@@ -379,16 +376,13 @@ class NebulaScene : GlScene {
     }
 
     private fun drawRing(pcm: FloatArray, timeSec: Float, dim: Float, env: Float) {
-        // Auto-gain (Phase Scope pattern) so the rim ripples at any input level.
-        var peak = 0f
-        for (s in pcm) { val a = abs(s); if (a > peak) peak = a }
-        val desired = (AGC_TARGET / maxOf(peak, AGC_FLOOR)).coerceIn(AGC_MIN, AGC_MAX)
-        agc += (desired - agc) * AGC_SMOOTH
+        // Auto-gain so the rim ripples at any input level.
+        val gain = agc.update(pcm)
 
         val stride = (pcm.size / RING_PTS).coerceAtLeast(1)
         ringBuf.clear()
         for (i in 0 until RING_PTS) {
-            val g = pcm[(i * stride).coerceAtMost(pcm.size - 1)] * agc
+            val g = pcm[(i * stride).coerceAtMost(pcm.size - 1)] * gain
             ringBuf.put(g / (1f + abs(g)))
         }
         ringBuf.position(0)

@@ -2,6 +2,7 @@ package com.lowlatency.visualizer.gl
 
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.pow
 
 /**
  * Shared scale + overload detection for the metering scenes (Mechanical Meter,
@@ -19,8 +20,14 @@ import kotlin.math.min
  * file's; it simply runs lower, and a meter's job is to show that rather than hide
  * it. The mic reading looking dead was never the fixed ceiling's fault either — it
  * was an *adaptive floor* that crept up under sustained level until the scale had
- * shrunk to 30 dB. Against a fixed -60 dB floor, loud room music lands near 2/3
- * and a mastered file near 5/6, which is both lively and true.
+ * shrunk to 30 dB. Against a fixed -60 dB floor, loud room music lands near 3/4
+ * and a mastered file near 7/8, which is both lively and true.
+ *
+ * What the fixed scale does NOT forbid is choosing where the marks sit on the face.
+ * [position] shapes the dB-linear reading with a fixed exponent so the quiet end
+ * gets a fairer share of the travel — see [DIAL_GAMMA]. Every source is shaped the
+ * same way, so the reading stays absolute; a quiet mic simply stops being pinned
+ * into the bottom sliver of the arc where nothing was legible.
  *
  * Expect RMS to stop short of the top: 0 dBFS RMS is a full-scale square wave, so
  * the last stretch is unreachable by design and stays reserved for peaks.
@@ -63,9 +70,21 @@ class  MeterCalibration {
         roomDb += (db - roomDb) * min(dt / tau, 1f)
     }
 
-    /** Map a dBFS level onto the fixed 0..1 scale. 1.0 means 0 dBFS: genuinely maxed. */
+    /**
+     * Map a dBFS level onto the fixed 0..1 scale. 1.0 means 0 dBFS: genuinely maxed.
+     *
+     * The scale is dB-linear, then shaped by [DIAL_GAMMA] so the quiet end gets more
+     * of the travel. Straight dB-linear crushed it: a phone mic in an ordinary room
+     * sits around -55…-45 dBFS, which landed in the bottom 8-25% of the arc, and
+     * quiet passages read as no movement at all.
+     *
+     * This is a *scale shape*, not auto-gain. It is fixed, monotonic and identical
+     * for every source, so a given dBFS still always maps to the same deflection —
+     * the promise this whole class exists to keep. Only the spacing of the marks
+     * changes, exactly as a printed meter face is free to space its own.
+     */
     fun position(db: Float): Float =
-        ((db - FLOOR_DB) / (CEIL_DB - FLOOR_DB)).coerceIn(0f, 1f)
+        ((db - FLOOR_DB) / (CEIL_DB - FLOOR_DB)).coerceIn(0f, 1f).pow(DIAL_GAMMA)
 
     /**
      * True when nothing is playing above the room itself, so an instrument can dim
@@ -141,6 +160,19 @@ class  MeterCalibration {
 
         const val CEIL_DB = 0f              // digital full scale
         const val FLOOR_DB = -60f           // standard programme-meter range
+
+        /**
+         * Dial-face shaping exponent, applied to the dB-linear position (< 1 lifts
+         * the quiet end). 0.75 roughly doubles the bottom of the range — -55 dBFS
+         * moves from 8% of travel to 16%, -50 dBFS from 17% to 26% — while costing
+         * the loud end little: -20 dBFS 67% → 74%, -10 dBFS 83% → 87%.
+         *
+         * Note this is the opposite curve to an analogue VU face, which is linear in
+         * voltage and so crushes the bottom even harder than dB-linear does. That
+         * shape suits a +3 dB-headroom broadcast meter fed a levelled line signal,
+         * not a phone mic whose useful material lives 40 dB down.
+         */
+        private const val DIAL_GAMMA = 0.75f
         private const val REST_MARGIN_DB = 4f
         private const val NOISE_FALL_SEC = 0.6f
         private const val NOISE_RISE_SEC = 25f

@@ -52,6 +52,9 @@ class MeridianScene : GlScene {
         private const val AGC_TARGET = 1.6f
         private const val AGC_FLOOR = 0.02f
         private const val AGC_SMOOTH = 0.07f
+        private const val AGC_MIN = 2f
+        private const val AGC_MAX = 300f
+        private const val AGC_INITIAL = 20f
     }
 
     private var skyProg = 0
@@ -103,7 +106,14 @@ class MeridianScene : GlScene {
     private var travel = 0f
     private var speedEase = 1f
     private var bassE = 0f; private var midE = 0f; private var trebE = 0f; private var loudE = 0f
-    private var agc = 20f
+    private val agc = WaveformAgc(
+        target = AGC_TARGET,
+        floor = AGC_FLOOR,
+        smooth = AGC_SMOOTH,
+        min = AGC_MIN,
+        max = AGC_MAX,
+        initial = AGC_INITIAL,
+    )
 
     // Journey structure: a slow energy history morphs the world; a drop blasts
     // it open (vista). The camera banks into curves and rides altitude arcs.
@@ -276,14 +286,12 @@ class MeridianScene : GlScene {
         midE += (bands[1] - midE) * (dt * 3f).coerceIn(0f, 1f)
         trebE += (bands[2] - trebE) * (dt * 4f).coerceIn(0f, 1f)
         loudE += (BeatBus.loudness - loudE) * (dt * 4f).coerceIn(0f, 1f)
-        var peak = 0f
-        for (s in pcm) { val a = abs(s); if (a > peak) peak = a }
-        agc += ((AGC_TARGET / maxOf(peak, AGC_FLOOR)).coerceIn(2f, 300f) - agc) * AGC_SMOOTH
+        val gain = agc.update(pcm)
         val n = pcm.size
         pcmBuf.clear()
         for (i in 0 until PCM_PTS) {
             val t01 = i.toFloat() / (PCM_PTS - 1)
-            val g = pcm[((1f - t01) * (n - 1)).toInt()] * agc
+            val g = pcm[((1f - t01) * (n - 1)).toInt()] * gain
             offsets[i] += (g / (1f + abs(g)) - offsets[i]) * 0.45f
             pcmBuf.put(offsets[i])
         }

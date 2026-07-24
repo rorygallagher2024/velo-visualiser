@@ -2,6 +2,6 @@
 plugins {
     // Kotlin support is built into AGP 9 (android.builtInKotlin, on by default),
     // so no separate org.jetbrains.kotlin.android plugin is applied.
-    id 'com.android.application' version '9.3.0' apply false
+    id 'com.android.application' version '9.3.1' apply false
     id 'io.gitlab.arturbosch.detekt' version '1.23.8' apply false
 }
