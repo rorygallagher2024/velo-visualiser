@@ -19,11 +19,11 @@ import kotlin.math.sin
  *  1. **Sky** — moon disc + halo, two layers of drifting moonlit clouds, stars
  *     twinkling with the treble, an aurora breathing with the mids, and the
  *     horizon warming on each beat.
- *  2. **Terrain** — a displaced mesh (painter's order, opaque) whose *fragment*
- *     shader recomputes the height field to derive per-pixel normals: Lambert +
- *     specular moonlight gives silver-lit faces and shadowed sides, with
- *     coloured height-fog folding the ridges into the sky. Bass swells the
- *     ridges slowly, like geology.
+ *  2. **Terrain** — a displaced mesh (painter's order, opaque) rendered as INK
+ *     AND LIGHT: the ground is barely above black so ridges read as silhouettes
+ *     against the sky, ridgelines etch themselves wherever the ground is steep,
+ *     and the only illumination is the river's glow climbing the near banks.
+ *     Bass swells the ridges slowly, like geology.
  *  3. **Water** — a reflective surface filling the valley floor: rippled
  *     normals, Fresnel reflection of the same procedural sky (moon streak,
  *     cloud shimmer), and the **live PCM waveform running through it as the
@@ -99,7 +99,7 @@ class MeridianScene : GlScene {
     private val shardScale = FloatArray(SHARDS)
     private val shardBand = IntArray(SHARDS)
     private val shardSeed = FloatArray(SHARDS)
-    private val shardOrder = Array(SHARDS) { it }
+    private val shardOrder = IntArray(SHARDS) { it }
 
     private var aspect = 1f
     private var lastT = -1f
@@ -419,9 +419,11 @@ class MeridianScene : GlScene {
         GLES20.glEnableVertexAttribArray(1)
         GLES20.glVertexAttribPointer(1, 3, GLES20.GL_FLOAT, false, 24, 12)
         // Painter's: far shards first (they float high, so terrain rarely occludes).
-        shardOrder.sortedByDescending { shardZ[it] - travel }.forEach { i ->
+        sortShardsFarFirst()
+        for (o in 0 until SHARDS) {
+            val i = shardOrder[o]
             val zv = shardZ[i] - travel
-            if (zv > 14f) return@forEach
+            if (zv > 14f) continue
             val bandE = when (shardBand[i]) { 0 -> bassE; 1 -> midE; else -> trebE }
             GLES20.glUniform3f(hPos, shardLat[i], shardAlt[i] + 0.06f * sin(timeSec * 0.7f + shardSeed[i]), zv)
             GLES20.glUniform1f(hRot, timeSec * (0.25f + shardSeed[i] * 0.05f) + shardSeed[i])
@@ -432,6 +434,28 @@ class MeridianScene : GlScene {
         GLES20.glDisableVertexAttribArray(0)
         GLES20.glDisableVertexAttribArray(1)
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
+    }
+
+    /**
+     * Depth-sort the shard indices far-first, in place. `travel` is common to
+     * every shard, so ordering by raw z is identical and cheaper.
+     *
+     * This replaced `sortedByDescending`, which allocated on the GL thread every
+     * single frame: the index array was boxed Integers, and the call built a
+     * fresh list plus an iterator each time. An insertion sort over 16 entries
+     * that are already almost in order is close to free by comparison.
+     */
+    private fun sortShardsFarFirst() {
+        for (i in 1 until SHARDS) {
+            val v = shardOrder[i]
+            val key = shardZ[v]
+            var j = i - 1
+            while (j >= 0 && shardZ[shardOrder[j]] < key) {
+                shardOrder[j + 1] = shardOrder[j]
+                j--
+            }
+            shardOrder[j + 1] = v
+        }
     }
 
     /** Feed one gate's view-space position + glow to the water so it mirrors

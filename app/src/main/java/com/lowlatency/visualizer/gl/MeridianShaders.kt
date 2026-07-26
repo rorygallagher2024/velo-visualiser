@@ -111,6 +111,7 @@ internal object MeridianShaders {
         out vec2  v_world;
         out vec3  v_view;
         out float v_h;
+        out float v_slope;
 
         float hash(vec2 q) { return fract(sin(dot(q, vec2(127.1, 311.7))) * 43758.5453); }
         float vnoise(vec2 q) {
@@ -144,6 +145,16 @@ internal object MeridianShaders {
             float zw = u_travel + zv;
             float lat = (aGrid.x * 2.0 - 1.0) * 4.6;
             float h = height(vec2(zw, lat));
+            // TRUE world-space steepness, passed as a varying so it interpolates
+            // smoothly across each triangle. The fragment shader used to derive
+            // its ridgeline etching from fwidth(v_h), but v_h interpolates
+            // LINEARLY, and the screen-space derivative of a linear function is
+            // constant within a triangle — so the etching was flat-shaded per
+            // face and the mesh's own triangulation showed through the crests.
+            float eps = 0.14;
+            float hx = height(vec2(zw + eps, lat));
+            float hy = height(vec2(zw, lat + eps));
+            v_slope = length(vec2(hx - h, hy - h)) / eps;
             float xv = lat - u_camX;
             float yv = h - u_camY;
             vec2 pr = rollRot(vec2(xv * u_f.x, yv * u_f.y), u_roll);
@@ -155,8 +166,9 @@ internal object MeridianShaders {
     """
 
     /** INK & LIGHT terrain: black-paper silhouettes with contour-etched
-     *  ridgelines (screen-space height derivative — essentially free), lit only
-     *  by the river below. No per-pixel height recompute, no moonlight model. */
+     *  ridgelines, lit only by the river below. Steepness comes from the vertex
+     *  shader as a smooth varying (see the note there); no per-pixel height
+     *  recompute, no moonlight model. */
     const val TERRAIN_FS = """#version 300 es
         precision highp float;
         uniform float u_riverB;
@@ -165,7 +177,11 @@ internal object MeridianShaders {
         in vec2  v_world;
         in vec3  v_view;
         in float v_h;
+        in float v_slope;
         out vec4 fragColor;
+
+        // Etch gain: how steep the ground must be before it draws its own line.
+        const float ETCH = 1.45;
 
         float meander(float z) { return (sin(z * 0.11) * 0.8 + sin(z * 0.043 + 1.7) * 1.3) * 0.55; }
 
@@ -173,9 +189,11 @@ internal object MeridianShaders {
             // Ink body — barely above black, so silhouettes read against the sky.
             vec3 col = vec3(0.010, 0.011, 0.020);
 
-            // Contour etching: where height changes fast across the screen, a cool
-            // graphite line appears — ridgelines and crests draw themselves.
-            float crest = clamp(fwidth(v_h) * 26.0, 0.0, 1.0) * smoothstep(0.05, 0.5, v_h);
+            // Contour etching: where the ground is steep, a cool graphite line
+            // appears — ridgelines and crests draw themselves. Measured as real
+            // world steepness rather than screen-space change, so a crest etches
+            // by its own shape instead of by how far away it happens to be.
+            float crest = clamp(v_slope * ETCH, 0.0, 1.0) * smoothstep(0.05, 0.5, v_h);
             col += vec3(0.30, 0.42, 0.60) * crest * 0.55;
 
             // The river is the world's light: its glow climbs the near banks.
