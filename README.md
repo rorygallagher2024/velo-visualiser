@@ -211,9 +211,9 @@ like to chip in for coffee, it's hugely appreciated:
 
 ## About the Developer
 
-Velo Visualiser was engineered by me, Rory Gallagher. I am a Engineer with over 14 years of experience in enterprise software architecture and currently leading innovation and experimentation teams. My day-to-day focus centers on leading teams to evaluate and build enterprise capabilities using emerging technologies.
+Velo Visualiser was engineered by me, Rory Gallagher. I have been building applications for over 20 years, with 14 years building enterprise software. My current day-to-day focus centers on leading teams to evaluate and build enterprise capabilities using emerging technologies.
 
-Building Velo Visualiser is a culmination of my interests in music technology and audio science, live performance, hardware, software engineering and IoT. The visualiser serves as both a practical tool for live sets and originated from my personal deep-dive in exploring the bare-metal performance limits of native Android audio pipelines and network hardware coordination.
+Building Velo Visualiser is a culmination of my interests in music technology and audio science, live performance, hardware, software engineering and IoT. The visualiser serves as both a practical tool for live sets and originated from my personal deep-dive in exploring the bare-metal performance limits of native Android audio pipelines.
 
 Feel free to connect:
 * **LinkedIn:** [linkedin.com/in/rory-gallagher-51822532](https://www.linkedin.com/in/rory-gallagher-51822532)
