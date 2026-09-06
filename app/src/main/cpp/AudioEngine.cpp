@@ -113,8 +113,10 @@ bool AudioEngine::openInputStream(int32_t deviceId, oboe::ChannelCount channelCo
 }
 
 bool AudioEngine::startPlayback(int sampleRate, int channelCount) {
-    // Decode thread only — mPlaybackStream is single-thread owned (see header).
-    stopPlayback();   // defensive: mid-stream format change reopens the stream
+    // Serialised against every other playback entry point: LocalAudioPlayer and
+    // ToneGenerator drive this from two different worker threads (see header).
+    std::lock_guard<std::mutex> lock(mPlaybackLock);
+    closePlaybackLocked();   // also handles a mid-stream format change
 
     oboe::AudioStreamBuilder builder;
     builder.setDirection(oboe::Direction::Output)
@@ -172,29 +174,38 @@ bool AudioEngine::startPlayback(int sampleRate, int channelCount) {
     return true;
 }
 
+std::shared_ptr<oboe::AudioStream> AudioEngine::playbackStream() noexcept {
+    std::lock_guard<std::mutex> lock(mPlaybackLock);
+    return mPlaybackStream;
+}
+
+void AudioEngine::closePlaybackLocked() {
+    if (!mPlaybackStream) return;
+    mPlaybackStream->stop();
+    mPlaybackStream->close();
+    mPlaybackStream.reset();
+    clearVisualRings();
+}
+
 void AudioEngine::pausePlayback() noexcept {
-    if (mPlaybackStream) mPlaybackStream->requestPause();
+    if (auto stream = playbackStream()) stream->requestPause();
     // Fade the visuals to silence rather than freezing them on the last window.
     clearVisualRings();
 }
 
 void AudioEngine::resumePlayback() noexcept {
-    if (mPlaybackStream) mPlaybackStream->requestStart();
+    if (auto stream = playbackStream()) stream->requestStart();
 }
 
 void AudioEngine::flushPlayback() noexcept {
     // Valid only while paused/stopped — used when a seek lands mid-pause so
     // resume doesn't replay the stale tail still queued in the stream.
-    if (mPlaybackStream) mPlaybackStream->requestFlush();
+    if (auto stream = playbackStream()) stream->requestFlush();
 }
 
 void AudioEngine::stopPlayback() {
-    if (mPlaybackStream) {
-        mPlaybackStream->stop();
-        mPlaybackStream->close();
-        mPlaybackStream.reset();
-        clearVisualRings();
-    }
+    std::lock_guard<std::mutex> lock(mPlaybackLock);
+    closePlaybackLocked();
 }
 
 
@@ -294,8 +305,14 @@ void AudioEngine::pushExternalPcmStereo(const float *interleaved, size_t numSamp
 }
 
 bool AudioEngine::pushPlaybackAudio(const float *interleaved, size_t numFrames) noexcept {
-    if (!mPlaybackStream) return false;
-    const int channels = mPlaybackStream->getChannelCount();
+    // Hold a reference, not the lock: the blocking write below can park for up
+    // to kWriteTimeoutNanos, and stopPlayback() must not queue behind it. The
+    // copy keeps the stream object alive even if another worker resets the
+    // member mid-write, so a concurrent stop degrades to a failed write (which
+    // the caller already handles) instead of a use-after-free.
+    const auto stream = playbackStream();
+    if (!stream) return false;
+    const int channels = stream->getChannelCount();
     // Generous per-chunk timeout — a healthy buffer drains a chunk in ~5 ms,
     // so this only trips when the stream is stalled or disconnected.
     constexpr int64_t kWriteTimeoutNanos = 250LL * 1000 * 1000;
@@ -306,8 +323,8 @@ bool AudioEngine::pushPlaybackAudio(const float *interleaved, size_t numFrames) 
     size_t offset = 0;
     while (offset < numFrames) {
         const size_t chunk = std::min(numFrames - offset, kChunkFrames);
-        auto result = mPlaybackStream->write(interleaved + offset * channels,
-                                             static_cast<int32_t>(chunk), kWriteTimeoutNanos);
+        auto result = stream->write(interleaved + offset * channels,
+                                    static_cast<int32_t>(chunk), kWriteTimeoutNanos);
         if (!result) {
             LOGW("Playback write failed: %s", oboe::convertToText(result.error()));
             return false;   // disconnected / closed — caller stops decoding
@@ -418,8 +435,17 @@ void AudioEngine::onErrorAfterClose(oboe::AudioStream * /*stream*/, oboe::Result
     LOGW("Stream error after close: %s — attempting restart.",
          oboe::convertToText(error));
     mRunning.store(false, std::memory_order_release);
-    mStream.reset();
-    
+    {
+        // Oboe raises this on its own error thread, which can collide with a
+        // stop() from the main thread tearing the same stream down. Two
+        // unsynchronised shared_ptr resets is a use-after-free, and it landed
+        // in production as a SIGSEGV inside libaudioclient's AudioRecord on a
+        // route change. Scoped so the lock is released before the restart —
+        // startMicrophone() takes the same (non-recursive) mutex.
+        std::lock_guard<std::mutex> lock(mLifecycleLock);
+        mStream.reset();
+    }
+
     // Attempt a simple synchronous restart on the same device;
     // startMicrophone() itself falls back to the default route when an
     // explicit device is gone (the Kotlin device callback resets the

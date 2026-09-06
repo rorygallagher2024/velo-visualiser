@@ -37,12 +37,13 @@
  *      writes (the write pacing is the decoder's clock), and mirrored into the
  *      visualizer rings as it is written.
  *
- * Threading contract for the playback stream: mPlaybackStream is owned
- * EXCLUSIVELY by the decode thread. startPlayback / pushPlaybackAudio /
- * pausePlayback / resumePlayback / stopPlayback must all be called from that
- * one thread; no other thread ever touches the stream, so there is nothing to
- * lock and no close-during-write hazard. The Kotlin side stops playback by
- * flagging the decode loop and joining it — never by reaching in here.
+ * Threading contract for the playback stream: there is no single decode
+ * thread. LocalAudioPlayer and ToneGenerator each run their own worker and
+ * both drive this stream, so a start on one can race a stop on the other —
+ * which reached production as a SIGSEGV in startPlayback (two unsynchronised
+ * shared_ptr resets). mPlaybackLock now guards the pointer's lifetime; the
+ * blocking write still happens OUTSIDE the lock, on a local shared_ptr copy
+ * that keeps the stream alive for the duration of the write.
  */
 class AudioEngine : public oboe::AudioStreamDataCallback,
                     public oboe::AudioStreamErrorCallback {
@@ -61,7 +62,7 @@ public:
     void pushExternalPcm(const float *data, size_t numSamples) noexcept;
     void pushExternalPcmStereo(const float *interleaved, size_t numSamples) noexcept;
 
-    // --- local playback (ALL of these: decode thread only — see class docs) ---
+    // --- local playback (any worker thread; guarded — see class docs) ---
     bool startPlayback(int sampleRate, int channelCount);
     /** Blocking write to the DAC + mirror into the visualizer rings.
      *  Returns false when the stream is dead (disconnected / timed out) so the
@@ -108,6 +109,13 @@ private:
     // Opens + starts the input stream on the given device/channel config.
     // Must be called with mLifecycleLock held.
     bool openInputStream(int32_t deviceId, oboe::ChannelCount channelCount);
+
+    // Tears the playback stream down. Must be called with mPlaybackLock held.
+    void closePlaybackLocked();
+    // A reference to the live playback stream, or null. Taking the copy under
+    // the lock keeps the stream alive while the caller uses it, so a
+    // concurrent stopPlayback() cannot free it mid-write.
+    std::shared_ptr<oboe::AudioStream> playbackStream() noexcept;
     // Publishes the interval between audio deliveries on the calling thread
     // (mic callback / system push / playback push) for the perf HUD.
     void noteDeliveryPeriod() noexcept;
@@ -155,7 +163,7 @@ private:
 
     // Capture stream (mic). Guarded by mLifecycleLock for open/close.
     std::shared_ptr<oboe::AudioStream> mStream;
-    // Playback stream. Decode-thread owned; never locked (see class docs).
+    // Playback stream. Guarded by mPlaybackLock for open/close (see class docs).
     std::shared_ptr<oboe::AudioStream> mPlaybackStream;
 
     std::unique_ptr<CircularBuffer> mBuffer;
@@ -166,6 +174,7 @@ private:
     std::vector<float> mFftScratch;
 
     std::mutex mLifecycleLock;        // guards mic open/close only — never the hot path
+    std::mutex mPlaybackLock;         // guards mPlaybackStream open/close; held briefly only
     std::atomic<bool> mRunning{false};
     std::atomic<int> mSampleRate{48000};
     // Input device of the live/last mic session (0 = default route); read by
