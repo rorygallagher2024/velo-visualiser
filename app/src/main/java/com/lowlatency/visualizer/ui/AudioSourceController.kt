@@ -344,6 +344,12 @@ class AudioSourceController(
     fun requestPermissionsNow() = launchMicPermissionWithRationale()
 
     private fun launchMicPermissionWithRationale() {
+        // Callers include a delayed intro fallback (MainActivity posts one on
+        // glView) that can outlive the activity if the user leaves during the
+        // intro. Launching a then-unregistered ActivityResultLauncher throws
+        // IllegalStateException, and showing a dialog on a finishing activity
+        // throws too. Bail: onResume -> ensureMicAndStart asks again anyway.
+        if (!activity.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return
         if (prefs.getBoolean(KEY_MIC_RATIONALE, false)) {
             requestPermissions.launch(buildPermissionList())
             return

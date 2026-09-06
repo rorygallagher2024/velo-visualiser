@@ -1,5 +1,6 @@
 package com.lowlatency.visualizer.ui
 
+import android.content.ActivityNotFoundException
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -161,7 +162,18 @@ class LocalPlaybackController(
     // ----- public surface (host wiring) -------------------------------------
 
     /** The "Local File" segment was tapped. */
-    fun openFilePicker() = filePicker.launch(arrayOf("audio/*"))
+    /**
+     * Some ROMs ship without DocumentsUI, or with it disabled, so
+     * ACTION_OPEN_DOCUMENT resolves to nothing and launch() throws. Surface it
+     * rather than dying: every other audio source still works.
+     */
+    fun openFilePicker() {
+        try {
+            filePicker.launch(arrayOf("audio/*"))
+        } catch (_: ActivityNotFoundException) {
+            Toast.makeText(activity, R.string.file_picker_unavailable, Toast.LENGTH_LONG).show()
+        }
+    }
 
     /** The user switched to mic/system: silence and drop the session UI. */
     fun stopSession() {

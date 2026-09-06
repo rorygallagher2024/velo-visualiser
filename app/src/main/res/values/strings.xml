@@ -28,6 +28,7 @@
     <string name="playback_error_unsupported">This audio format isn\'t supported</string>
     <string name="playback_error_output">Couldn\'t open the audio output</string>
     <string name="playback_error_output_lost">Audio output lost</string>
+    <string name="file_picker_unavailable">No file picker on this device</string>
     <string name="playback_error_generic">Couldn\'t play this file</string>
     <string name="link_disabled_local_playback">Disabled during local playback</string>
     <string name="vis_oscilloscope">Hardware Oscilloscope</string>

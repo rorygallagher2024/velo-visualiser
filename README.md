@@ -40,8 +40,6 @@ Velo Visualiser is available for free on the Google Play Store:
 Looking for a desktop version? Check out our new Mac-based visualiser: 
 [Velo Visualiser for Mac](https://github.com/rorygallagher2024/velo-visualiser-mac)
 
-*(Note: The Mac version is currently in an early stage of development and is less fully featured than the Android app.)*
-
 ## Reacts to the sound. Locks to the set.
 
 Velo Visualiser listens to the **actual sound** in the room and moves with it instantly. The sub-10 ms reaction is what the visuals are built on. Switch on **[Ableton Link](https://www.ableton.com/en/link/)** (Works with Traktor, Ableton Live, Serato and more) and Velo Visualiser also locks onto your set's tempo, layering a tightly-timed **extra punch and bloom** over the top, even *anticipating* each beat a hair before it lands, the way only a shared musical clock can. The faithful "instrument" visuals (oscilloscope, spectrum, meters) stay a pure readout of the sound, while the reactive scenes get that grid-locked accent. Sound drives the picture; Link adds the polish.
