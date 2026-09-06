@@ -30,6 +30,7 @@ import com.lowlatency.visualizer.ui.MenuDiscoveryController
 import com.lowlatency.visualizer.ui.MenuSheetController
 import com.lowlatency.visualizer.ui.OverlayMetrics
 import com.lowlatency.visualizer.ui.PerfOverlayController
+import com.lowlatency.visualizer.ui.RefreshRateController
 import com.lowlatency.visualizer.ui.ScenesController
 import com.lowlatency.visualizer.ui.ShuffleController
 
@@ -103,12 +104,16 @@ class MainActivity : AppCompatActivity() {
     // Local playback lives in its own controller; the *source* state lives in
     // AudioSourceController — single source of truth.
     private lateinit var localPlaybackController: LocalPlaybackController
+    private lateinit var refreshRateController: RefreshRateController
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
         configureHdrWindow()
-        selectHighestRefreshRate()
+        // Re-picks the mode whenever the display changes; a one-shot call here
+        // left a foldable pinned to the panel it had folded away from.
+        refreshRateController = RefreshRateController(this)
+        refreshRateController.bind()
         setContentView(R.layout.activity_main)
 
         bindViews()
@@ -540,7 +545,8 @@ class MainActivity : AppCompatActivity() {
 
         // Performance overlay toggle is owned by perfOverlayController (bound in onCreate).
 
-        // Peak luminance (HDR+) toggle (persisted, default off).
+        // Peak luminance (HDR+) toggle (persisted, default ON — it is what gives
+        // the scenes their pop; users who don't want it turn it off in settings).
         val peak = prefs.getBoolean(KEY_PEAK_LUMINANCE, true)
         updatePeakLuminance(peak)
         btnPeakLuminance.setOnClickListener {
@@ -706,9 +712,17 @@ class MainActivity : AppCompatActivity() {
         window.attributes = lp
 
         if (Build.VERSION.SDK_INT >= 35) {
-            // Android 15+ HDR headroom: 1.0 = no headroom, >1.0 = extra range.
-            // 10.0 is a safe "maximum" request for most OLED panels.
-            window.setDesiredHdrHeadroom(if (enabled) 10.0f else 1.0f)
+            // 0f means "reset to the default, automatically chosen value": the
+            // platform derives headroom from the panel's real capability, bit
+            // depth and ambient conditions. The previous hardcoded 10.0 asked
+            // every display for 10x SDR white whether it could deliver it or
+            // not — and this API exists to request *less* headroom than the
+            // default, not more. 1.0 is the documented "no HDR" floor.
+            //
+            // This never reached the scenes either way: the platform docs are
+            // explicit that it "does not impact SurfaceViews", and they render
+            // into a GLSurfaceView. The pop comes from screenBrightness above.
+            window.setDesiredHdrHeadroom(if (enabled) 0f else 1.0f)
         }
     }
 
@@ -928,26 +942,14 @@ class MainActivity : AppCompatActivity() {
         updatePeakLuminance(prefs.getBoolean(KEY_PEAK_LUMINANCE, true))
     }
 
-    /** Choose the display mode with the highest refresh rate at native resolution. */
-    @Suppress("DEPRECATION")   // windowManager.defaultDisplay is the pre-R fallback only
-    private fun selectHighestRefreshRate() {
-        val display = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) display else windowManager.defaultDisplay
-        val current = display?.mode ?: return
-        val best = display.supportedModes
-            .filter { it.physicalWidth == current.physicalWidth && it.physicalHeight == current.physicalHeight }
-            .maxByOrNull { it.refreshRate } ?: current
-
-        val lp = window.attributes
-        lp.preferredDisplayModeId = best.modeId
-        window.attributes = lp
-        Log.i(TAG, "Requested display mode ${best.modeId} @ ${best.refreshRate} Hz")
-    }
-
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         // Not recreated (configChanges in manifest): audio stream keeps running;
         // the GL surface gets a fresh onSurfaceChanged which resets glViewport.
         Log.i(TAG, "Config changed: ${newConfig.screenWidthDp}x${newConfig.screenHeightDp} dp")
+        // Folding swaps the panel underneath us without a recreate, so the
+        // preferred mode id has to be re-picked for the display we are now on.
+        if (::refreshRateController.isInitialized) refreshRateController.onConfigurationChanged()
         // Ambient Mode re-fits its layout live (landscape sits data beside the clock).
         if (::displayModeController.isInitialized) displayModeController.onOrientationChanged()
         // The settings sheet re-fits its content column (width cap on wide displays).
@@ -990,23 +992,36 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        // Order matters: the decode thread owns the playback stream, so the
+        // local player (last of the source group) must be joined before
+        // nativeStop() tears the engine down under it.
+        destroyVisualControllers()
+        destroySourceControllers()
+        NativeBridge.nativeStop()
+        super.onDestroy()
+    }
+
+    /** Overlay, lighting, display and haptic side. */
+    private fun destroyVisualControllers() {
         if (::perfOverlayController.isInitialized) perfOverlayController.onDestroy()
         if (::lightingController.isInitialized) lightingController.onDestroy()
         if (::displayModeController.isInitialized) displayModeController.onDestroy()
         if (::shuffleController.isInitialized) shuffleController.onDestroy()
         if (::secondaryDisplayController.isInitialized) secondaryDisplayController.onDestroy()
+        if (::refreshRateController.isInitialized) refreshRateController.onDestroy()
         if (::hapticController.isInitialized) hapticController.release()
+    }
+
+    /** Audio sources, tempo sync, and the menu that drives them. */
+    private fun destroySourceControllers() {
         if (::linkSyncController.isInitialized) linkSyncController.onDestroy()
         if (::audioSourceController.isInitialized) audioSourceController.onDestroy()
         if (::inputDeviceController.isInitialized) inputDeviceController.onDestroy()
         if (::toneController.isInitialized) toneController.onDestroy()
         if (::feelTheSpeedController.isInitialized) feelTheSpeedController.onDestroy()
         if (::menuDiscoveryController.isInitialized) menuDiscoveryController.onDestroy()
-        // Join the decode thread before tearing the engine down — the playback
-        // stream is owned by that thread and must not be closed under it.
+        // Joins the decode thread; must precede nativeStop() (see onDestroy).
         if (::localPlaybackController.isInitialized) localPlaybackController.onDestroy()
-        NativeBridge.nativeStop()
-        super.onDestroy()
     }
 
     companion object {
