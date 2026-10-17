@@ -2,6 +2,7 @@ package com.lowlatency.visualizer.gl
 
 import android.opengl.GLSurfaceView
 import android.util.Log
+import com.lowlatency.visualizer.HdrOutputSettings
 import javax.microedition.khronos.egl.EGL10
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.egl.EGLDisplay
@@ -19,17 +20,23 @@ import javax.microedition.khronos.egl.EGLDisplay
  *
  * eglChooseConfig returns configs sorted best-first per the EGL spec, so the
  * first match for each request is the strongest one.
+ *
+ * Tiers 1–2 are skipped where [HdrOutputSettings.wideSurfaceEnabled] is false.
  */
 class HdrEGLConfigChooser : GLSurfaceView.EGLConfigChooser {
 
     override fun chooseConfig(egl: EGL10, display: EGLDisplay): EGLConfig {
-        chooseFirst(egl, display, FP16_ATTRS)?.let {
-            Log.i(TAG, "Selected FP16 (16-bit float) HDR framebuffer.")
-            return it
-        }
-        chooseFirst(egl, display, RGB10_ATTRS)?.let {
-            Log.i(TAG, "Selected RGBA_1010102 (10-bit) framebuffer.")
-            return it
+        if (HdrOutputSettings.wideSurfaceEnabled) {
+            chooseFirst(egl, display, FP16_ATTRS)?.let {
+                Log.i(TAG, "Selected FP16 (16-bit float) HDR framebuffer.")
+                return it
+            }
+            chooseFirst(egl, display, RGB10_ATTRS)?.let {
+                Log.i(TAG, "Selected RGBA_1010102 (10-bit) framebuffer.")
+                return it
+            }
+        } else {
+            Log.i(TAG, "Wide window surface disabled on this SoC; using 8-bit.")
         }
         chooseFirst(egl, display, RGB8_ATTRS)?.let {
             Log.i(TAG, "Selected RGBA8888 (8-bit SDR) framebuffer.")
@@ -48,6 +55,7 @@ class HdrEGLConfigChooser : GLSurfaceView.EGLConfigChooser {
 
     companion object {
         private const val TAG = "HdrEGLConfigChooser"
+
 
         // EGL constants not exposed by EGL10 (from EGL 1.2 / the float extension).
         private const val EGL_RENDERABLE_TYPE = 0x3040
