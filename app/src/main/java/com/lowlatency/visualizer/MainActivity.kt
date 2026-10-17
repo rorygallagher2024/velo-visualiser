@@ -18,6 +18,7 @@ import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.text.HtmlCompat
+import com.lowlatency.visualizer.gl.HdrEGLConfigChooser
 import com.lowlatency.visualizer.ui.AudioSourceController
 import com.lowlatency.visualizer.ui.InputDeviceController
 import com.lowlatency.visualizer.ui.ToneController
@@ -927,7 +928,9 @@ class MainActivity : AppCompatActivity() {
             systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        // HDR mode only pairs with the wide window surface; where that is off
+        // (Exynos flicker, see HdrEGLConfigChooser) stay in the default mode.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && HdrEGLConfigChooser.wideSurfaceSafe) {
             window.colorMode = ActivityInfo.COLOR_MODE_HDR
             Log.i(TAG, "Requested HDR color mode.")
         }

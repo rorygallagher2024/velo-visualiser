@@ -316,6 +316,9 @@ class PostProcessor {
             out vec4 o;
             void main() {
                 vec3 c = texture(u_tex, v_uv).rgb;
+                // One NaN/Inf texel would be smeared screen-wide by the blur
+                // (Adreno tends to flush these; AMD-derived Xclipse does not).
+                if (any(isnan(c)) || any(isinf(c))) c = vec3(0.0);
                 float lum = max(c.r, max(c.g, c.b));
                 float f = clamp((lum - u_threshold) / max(u_threshold, 1e-3), 0.0, 1.0);
                 o = vec4(c * f, 1.0);
@@ -362,9 +365,12 @@ class PostProcessor {
                 return c * cosA + cross(k, c) * sin(a) + k * dot(k, c) * (1.0 - cosA);
             }
 
+            // NaN/Inf -> black, so a bad texel can't reach the screen.
+            vec3 finite(vec3 c) { return (any(isnan(c)) || any(isinf(c))) ? vec3(0.0) : c; }
+
             void main() {
-                vec3 scene = texture(u_scene, v_uv).rgb;
-                vec3 bloom = texture(u_bloom, v_uv).rgb;
+                vec3 scene = finite(texture(u_scene, v_uv).rgb);
+                vec3 bloom = finite(texture(u_bloom, v_uv).rgb);
 
                 // Bloom carries the beat punch; scene exposure lifts only gently.
                 vec3 col = scene * u_exposure + bloom * u_bloomIntensity;

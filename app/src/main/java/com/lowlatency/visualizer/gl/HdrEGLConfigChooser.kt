@@ -1,6 +1,7 @@
 package com.lowlatency.visualizer.gl
 
 import android.opengl.GLSurfaceView
+import android.os.Build
 import android.util.Log
 import javax.microedition.khronos.egl.EGL10
 import javax.microedition.khronos.egl.EGLConfig
@@ -19,17 +20,23 @@ import javax.microedition.khronos.egl.EGLDisplay
  *
  * eglChooseConfig returns configs sorted best-first per the EGL spec, so the
  * first match for each request is the strongest one.
+ *
+ * Tiers 1–2 are skipped where [wideSurfaceSafe] is false (see there).
  */
 class HdrEGLConfigChooser : GLSurfaceView.EGLConfigChooser {
 
     override fun chooseConfig(egl: EGL10, display: EGLDisplay): EGLConfig {
-        chooseFirst(egl, display, FP16_ATTRS)?.let {
-            Log.i(TAG, "Selected FP16 (16-bit float) HDR framebuffer.")
-            return it
-        }
-        chooseFirst(egl, display, RGB10_ATTRS)?.let {
-            Log.i(TAG, "Selected RGBA_1010102 (10-bit) framebuffer.")
-            return it
+        if (wideSurfaceSafe) {
+            chooseFirst(egl, display, FP16_ATTRS)?.let {
+                Log.i(TAG, "Selected FP16 (16-bit float) HDR framebuffer.")
+                return it
+            }
+            chooseFirst(egl, display, RGB10_ATTRS)?.let {
+                Log.i(TAG, "Selected RGBA_1010102 (10-bit) framebuffer.")
+                return it
+            }
+        } else {
+            Log.i(TAG, "Wide window surface disabled on this SoC; using 8-bit.")
         }
         chooseFirst(egl, display, RGB8_ATTRS)?.let {
             Log.i(TAG, "Selected RGBA8888 (8-bit SDR) framebuffer.")
@@ -48,6 +55,29 @@ class HdrEGLConfigChooser : GLSurfaceView.EGLConfigChooser {
 
     companion object {
         private const val TAG = "HdrEGLConfigChooser"
+
+        /**
+         * Whether the float/10-bit *window* surface (and the HDR window colour
+         * mode that goes with it) is trusted on this device.
+         *
+         * Exynos phones (e.g. Galaxy S24 SM-S921B, Xclipse GPU) were reported
+         * flashing the whole screen violently from launch — a photosensitivity
+         * hazard — while Snapdragon Galaxies render fine. The surface is created
+         * without an explicit colour space, which leaves its interpretation to
+         * the driver/compositor. Not reproduced in-house, so this is a
+         * conservative opt-out: only the screen surface drops to 8-bit (losing
+         * >1.0 headroom); the offscreen FP16 bloom pipeline is unaffected.
+         */
+        val wideSurfaceSafe: Boolean by lazy { !isSamsungSoc() }
+
+        private fun isSamsungSoc(): Boolean {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                Build.SOC_MANUFACTURER.equals("Samsung", ignoreCase = true)
+            ) return true
+            // Pre-S there is no SOC_* field; Exynos boards name themselves.
+            val hw = Build.HARDWARE.lowercase()
+            return hw.startsWith("exynos") || hw.startsWith("s5e")
+        }
 
         // EGL constants not exposed by EGL10 (from EGL 1.2 / the float extension).
         private const val EGL_RENDERABLE_TYPE = 0x3040
