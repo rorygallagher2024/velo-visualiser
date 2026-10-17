@@ -74,9 +74,10 @@ class HdrEGLConfigChooser : GLSurfaceView.EGLConfigChooser {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
                 Build.SOC_MANUFACTURER.equals("Samsung", ignoreCase = true)
             ) return true
-            // Pre-S there is no SOC_* field; Exynos boards name themselves.
+            // Pre-S there is no SOC_* field; Exynos boards name themselves
+            // (e.g. "samsungexynos8895", "exynos990", "s5e9925").
             val hw = Build.HARDWARE.lowercase()
-            return hw.startsWith("exynos") || hw.startsWith("s5e")
+            return hw.contains("exynos") || hw.startsWith("s5e")
         }
 
         // EGL constants not exposed by EGL10 (from EGL 1.2 / the float extension).
