@@ -1094,6 +1094,37 @@
 
         </LinearLayout>
 
+        <!-- Exynos-only HDR window-surface opt-in (HdrOutputController); hidden elsewhere -->
+        <LinearLayout
+            android:id="@+id/group_hdr_output"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <Button
+                android:id="@+id/btn_hdr_output"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/pill_button_bg"
+                android:text="@string/hdr_output_off"
+                android:textColor="@color/btn_text"
+                android:textAllCaps="false"
+                android:textSize="14sp"
+                android:stateListAnimator="@null" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/hdr_output_hint"
+                android:textColor="@color/text_dim"
+                android:textSize="12sp"
+                android:lineSpacingMultiplier="1.2"
+                android:layout_marginBottom="12dp" />
+
+        </LinearLayout>
+
         <!-- ───── divider: Display / Customisation ───── -->
         <View style="@style/DividerSubtle" android:layout_marginBottom="16dp" />
 

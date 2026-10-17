@@ -228,6 +228,12 @@
     <string name="max_brightness_on">Full Brightness: On</string>
     <string name="max_brightness_off">Full Brightness: Default</string>
     <string name="max_brightness_hint">Forces the display to 100%% brightness for maximum visibility. May increase battery drain.</string>
+    <string name="hdr_output_on">Experimental HDR Output: On</string>
+    <string name="hdr_output_off">Experimental HDR Output: Off</string>
+    <string name="hdr_output_hint">Uses a high-dynamic-range screen buffer for brighter highlights. Off by default on Exynos devices, where it can cause severe flashing. Takes effect the next time Velo starts.</string>
+    <string name="hdr_output_warning_title">Flashing warning</string>
+    <string name="hdr_output_warning_message">On some Exynos devices this setting causes rapid full-screen flashing, which may trigger seizures in people with photosensitive epilepsy.\n\nIt takes effect the next time Velo starts. If the screen flashes, turn this setting off again in Settings.</string>
+    <string name="hdr_output_warning_confirm">Turn on</string>
     <string name="link_status_searching">Searching for Link peers…</string>
     <string name="link_status_connected">Connected · %1$d peer(s) · %2$.0f BPM</string>
     <string name="status_idle">Oboe Engine: starting…</string>

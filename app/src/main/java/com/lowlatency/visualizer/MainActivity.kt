@@ -18,12 +18,12 @@ import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.text.HtmlCompat
-import com.lowlatency.visualizer.gl.HdrEGLConfigChooser
 import com.lowlatency.visualizer.ui.AudioSourceController
 import com.lowlatency.visualizer.ui.InputDeviceController
 import com.lowlatency.visualizer.ui.ToneController
 import com.lowlatency.visualizer.ui.DisplayModeController
 import com.lowlatency.visualizer.ui.FeelTheSpeedController
+import com.lowlatency.visualizer.ui.HdrOutputController
 import com.lowlatency.visualizer.ui.LightingController
 import com.lowlatency.visualizer.ui.LinkSyncController
 import com.lowlatency.visualizer.ui.LocalPlaybackController
@@ -110,6 +110,8 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
+        // Before the window and GL surface pick their formats.
+        HdrOutputController.restore(getSharedPreferences(PREFS, MODE_PRIVATE))
         configureHdrWindow()
         // Re-picks the mode whenever the display changes; a one-shot call here
         // left a foldable pinned to the panel it had folded away from.
@@ -297,6 +299,8 @@ class MainActivity : AppCompatActivity() {
             backgroundedAtMs = { backgroundedAtMs },
         )
         lightingController.bind()
+
+        HdrOutputController(activity = this, prefs = prefs).bind()
 
         linkSyncController = LinkSyncController(
             activity = this,
@@ -929,8 +933,8 @@ class MainActivity : AppCompatActivity() {
         }
 
         // HDR mode only pairs with the wide window surface; where that is off
-        // (Exynos flicker, see HdrEGLConfigChooser) stay in the default mode.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && HdrEGLConfigChooser.wideSurfaceSafe) {
+        // (Exynos flicker, see HdrOutputSettings) stay in the default mode.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && HdrOutputSettings.wideSurfaceEnabled) {
             window.colorMode = ActivityInfo.COLOR_MODE_HDR
             Log.i(TAG, "Requested HDR color mode.")
         }
